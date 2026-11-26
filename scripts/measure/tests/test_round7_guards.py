@@ -129,7 +129,6 @@ class RuleText(unittest.TestCase):
                        "The suppression check applies to every callee.",
                        "`const alias = module; alias.exports = {..}`",
                        "UNDECIDED `member-path-not-judged`",
-                       "property token BY SYNTAX",
                        "Erased computed keys of accessor signatures",
                        "constructors, whose overloads are the containing class's"):
             self.assertIn(phrase, text)
@@ -143,12 +142,18 @@ class RuleText(unittest.TestCase):
         for path in (README, FORMATS):
             with self.subTest(path=path.name):
                 text = " ".join(path.read_text().split())
-                for phrase in ("0 decided member-path edges", "1,409", "6,651",
+                for phrase in ("0 decided member-path edges", "1,409", "6,651", "`structured-path`",
+                               "already UNDECIDED under other reasons", "A member name is a property token",
+                               "private name", "JSX attribute name", "`new.target`", "enum member",
                                "shorthand keys", "destructuring elements", "computed-key identifiers",
                                "positive receiver rule", "RULE-R.md",
                                "233 of 19,343", "30 kept and 30 discarded", "summary.md",
                                "can miss indirect calls"):
                     self.assertIn(phrase, text)
+
+    def test_formats_requires_the_proved_formal_as_the_slot_neighbour(self):
+        text = " ".join(FORMATS.read_text().split())
+        self.assertIn("only the proved formal itself can serve as the neighbour", text)
 
 
 if __name__ == "__main__":

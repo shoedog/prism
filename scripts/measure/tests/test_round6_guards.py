@@ -63,7 +63,7 @@ class RuleText(unittest.TestCase):
                        "`globalThis.N = {..}`, `var N = {..}` replacing a script namespace",
                        "UNDECIDED `delete-operand`",
                        "different VALUE bindings",
-                       "Private names (`#m`) count as occurrences",
+                       "private name (including a brand check)",
                        "also when the overload and its implementation share a line"):
             self.assertIn(phrase, text)
 

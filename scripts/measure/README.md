@@ -381,22 +381,26 @@ decisions. With the empty production qualification pin, every otherwise
 decidable call-target row is UNDECIDED `target-id-unproved`. Slot and lexical
 verdicts require no producer qualification.
 
-S3 withholds lexical member-path edges as UNDECIDED `member-path-not-judged`.
-Either endpoint triggers the boundary if its `path.fields` is nonempty or its
-identifier is a property token BY SYNTAX. This includes a member-access name,
-the right side of a qualified name, a class or interface member name, and an
-object or explicit pattern key, including nested, array and default assignment
-patterns. Private names (`#m`) count as occurrences. The boundary precedes role
-and declaration checks. Plain-name edges through shorthand keys,
-destructuring elements and computed-key identifiers keep their value roles
-and existing verdicts.
+Both `lexical_binding` and `argument_binding` return UNDECIDED
+`member-path-not-judged` before role or slot checks when either endpoint has
+nonempty `path.fields` or lands on a member name at the claimed bytes. A member
+name is a property token in member access, the right side of a qualified name,
+an explicit object or pattern key, or a class or interface member name,
+including fields, methods, accessors and signatures. The rule also covers any
+private name (including a brand check), a JSX attribute name, the `target` in
+`new.target`, and an enum member's declaration name or a bare identifier that
+resolves to an enum member. Plain-name edges through shorthand keys,
+destructuring elements and computed-key identifiers keep their verdicts.
+Argument binding still grades a call actual's own identifier unless that
+identifier is a member name under this rule.
 
 The receiver study found 0 decided member-path edges on the authored real-use
-set, Express, the Excalidraw slice and whole Excalidraw. The oracle already
-withheld 1,409 such edges on Express and 6,651 on whole Excalidraw. Rounds 7 and
-8 kept finding new receiver and pattern-key cases, so S3 withholds the family
-at no measured cost in decided edges. A later slice would need a positive receiver rule
-and its own enumeration. The starting point is `enum-r8/price-receiver/RULE-R.md`
+set, Express, the Excalidraw slice and whole Excalidraw. The `structured-path`
+reason then covered 1,409 rows on Express and 6,651 on whole Excalidraw. The
+current reason also covers rows that were already UNDECIDED under other reasons.
+Rounds 7 and 8 kept finding new receiver and pattern-key cases. A later slice
+would need a positive receiver rule and its own enumeration. The starting
+point is `enum-r8/price-receiver/RULE-R.md`
 in the external evidence, alongside the measurements in `PRICE.md`.
 
 **Known limits and measured exposure.** The registry
@@ -437,8 +441,7 @@ decided edges (1.2%, all 233 in Express), according to `summary.md` in
 (`summary.md` for the split and `enum-r8/price/HANDREAD.md` for the readings).
 
 Argument binding checks a whole identifier or primitive literal actual against a
-fixed implementation slot. An edge with nonempty fields at either endpoint is
-UNDECIDED `member-path-not-judged`. Parentheses, type assertions, non-null assertions
+fixed implementation slot. Parentheses, type assertions, non-null assertions
 and `satisfies` preserve an entire actual. The checker-selected body needs a
 positive value-origin certificate; anything outside it is UNDECIDED
 `ambiguous-dispatch` (closed world). Only parentheses, `!` and `satisfies`
@@ -636,17 +639,17 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
 - An endpoint that is not at exact identifier bytes is UNDECIDED
   `identifier-unproved`.
 
-The argument slot follows the same rule where the slot is proved: a wrong
-actual spelling, or a formal claimed at other bytes, is WRONG only when the
-claimed name is nowhere else on that line in the needed role (actual: a read;
-formal: the proved formal itself, which must share the claimed line). FORMATS
-section 4 is stricter in two places and those rules are kept: a different name
-at exactly the proved formal's bytes, and a signature formal of an overload
-(oracle-032, oracle-037, also when the overload and its implementation share a
-line and also for constructors, whose overloads are the containing class's
-constructor declarations; `argument-fold7`), are WRONG whatever else the line
-holds. Formal bytes
-that are not an identifier are UNDECIDED `identifier-unproved`. Of the 36 historical Express WRONG
+At a proved slot, a wrong actual spelling is WRONG if its line lacks a serving
+read or primitive literal with the claimed spelling. For a formal claimed at
+other identifier bytes, only the proved formal can serve as a neighbour. It must
+have the claimed spelling and share the wire line or the physical line of the
+claimed token. A different name at exactly the proved formal's bytes and a
+signature formal of an overload are always WRONG (oracle-032, oracle-037).
+This applies also when the overload and its implementation share a line and to
+constructors, whose overloads are the containing class's constructor
+declarations (`argument-fold7`). With no proved contradiction or serving
+neighbour, a formal span without an identifier gives `identifier-unproved`.
+Of the 36 historical Express WRONG
 verdicts sampled, four landed on property keys beside the value reads and now
 have reason `member-path-not-judged`. The other 32 involved alias twins or other
 spelling mismatches. The `lexical-coordinate` self-check pins the shapes beside

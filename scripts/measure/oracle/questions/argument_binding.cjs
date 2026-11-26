@@ -3,16 +3,20 @@
 const { isIdentifier } = require('../bytes.cjs');
 const { bodyFor, unwrap } = require('./callable.cjs');
 const { neighbour, role, roles } = require('./lexical_binding.cjs');
+const { memberEndpoint, memberPathReason } = require('./member_scope.cjs');
 
 const property = 'implementation-slot';
 const result = (verdict, why = property) => ({ verdict, property, why });
 
 function grade(row, context) {
-  const { ts, program, checker, enclosing_call, node_at_bytes, identifier_at_bytes } = context.public;
+  const { ts, program, checker, enclosing_call, node_at_bytes } = context.public;
   const { from, to } = row;
-  if (from.path.fields.length || to.path.fields.length) return result('UNDECIDED', 'member-path-not-judged');
-  const call = enclosing_call(from.file, from.start_byte, from.end_byte);
   const actual = node_at_bytes(program, from.file, from.start_byte, from.end_byte);
+  const destination = node_at_bytes(program, to.file, to.start_byte, to.end_byte);
+  if (memberEndpoint(ts, checker, from, actual) || memberEndpoint(ts, checker, to, destination)) {
+    return result('UNDECIDED', memberPathReason);
+  }
+  const call = enclosing_call(from.file, from.start_byte, from.end_byte);
   if (!call || !actual) return result('UNDECIDED', 'slot-unproved');
   const index = call.arguments?.findIndex(arg => unwrap(ts, arg) === actual) ?? -1;
   if (index < 0 || call.arguments.slice(0, index + 1).some(ts.isSpreadElement)) {
@@ -33,14 +37,10 @@ function grade(row, context) {
   if (!fixedSlot(resolved.selected) || !fixedSlot(resolved.body)) return result('UNDECIDED', 'slot-unproved');
   const formal = resolved.body.parameters.filter(p => p.name?.text !== 'this')[index].name;
   const wire = context.span(formal);
-  // The coordinate rule of the lexical question (lexical_binding.cjs): a spelling or position
-  // at a proved slot is WRONG only when the claimed name is nowhere else on that endpoint's
-  // line in the needed role (from: a read; to: the proved formal itself, which must share
-  // the claimed line); otherwise the producer's line-anchored span may have landed on a
-  // neighbour, UNDECIDED `endpoint-coordinate-off`. A different name at exactly the
-  // formal's bytes, and a signature formal of an overload (also on the implementation's own
-  // line), stay WRONG whatever else the line holds (FORMATS section 4 is stricter there). An endpoint that is not at exact identifier
-  // bytes is UNDECIDED `identifier-unproved`.
+  // A serving neighbour gives `endpoint-coordinate-off`. The actual can have a nearby
+  // read or primitive with the claimed spelling. Only the proved formal can serve at
+  // the destination, on the claimed token's wire or physical line. A different
+  // name at the proved formal's bytes or an overload signature's formal always gives WRONG.
   const status = [];
   const spelled = isIdentifier(ts, actual) ? actual.text : actual.getText();
   if (spelled !== from.path.base) {
@@ -52,7 +52,7 @@ function grade(row, context) {
   if (bytes) {
     if (formal.text !== to.path.base) status.push('wrong');
   } else {
-    const claimed = identifier_at_bytes(to.file, to.start_byte, to.end_byte);
+    const claimed = isIdentifier(ts, destination) ? destination : null;
     // A formal of an overload signature of the called function is the wrong position
     // whatever else its line holds, even on the implementation's own line.
     // A constructor has no name: its overloads are the containing class's constructor declarations.

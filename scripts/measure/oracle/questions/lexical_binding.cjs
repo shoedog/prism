@@ -1,5 +1,8 @@
 'use strict';
 
+const { isIdentifier } = require('../bytes.cjs');
+const { memberEndpoint, memberPathReason } = require('./member_scope.cjs');
+
 const property = 'declaration-and-read';
 const result = (verdict, why = property) => ({ verdict, property, why });
 
@@ -144,19 +147,6 @@ function valueBinding(ts, declaration) {
     || ts.isImportEqualsDeclaration(declaration);
 }
 
-// Property tokens are the names themselves. Shorthand names, destructuring
-// bindings and identifiers inside computed-name expressions have value roles.
-function propertyToken(ts, id) {
-  if (!id) return false;
-  const p = id.parent;
-  return (ts.isQualifiedName(p) && p.right === id)
-    || (ts.isBindingElement(p) && p.propertyName === id)
-    || (p.name === id && (ts.isPropertyAccessExpression(p) || ts.isPropertyAssignment(p)
-      || ts.isPropertyDeclaration(p) || ts.isPropertySignature(p)
-      || ts.isMethodDeclaration(p) || ts.isMethodSignature(p)
-      || ts.isGetAccessorDeclaration(p) || ts.isSetAccessorDeclaration(p)));
-}
-
 function declaration(ts, checker, id) {
   const symbol = ts.isShorthandPropertyAssignment(id.parent) && id.parent.name === id
     ? checker.getShorthandAssignmentValueSymbol(id.parent) : checker.getSymbolAtLocation(id);
@@ -172,13 +162,14 @@ function declaration(ts, checker, id) {
 }
 
 function grade(row, context) {
-  const { ts, checker, identifier_at_bytes } = context.public;
+  const { ts, program, checker, node_at_bytes } = context.public;
   const { from, to } = row;
-  if (from.path.fields.length || to.path.fields.length) return result('UNDECIDED', 'member-path-not-judged');
-  const left = identifier_at_bytes(from.file, from.start_byte, from.end_byte);
-  const right = identifier_at_bytes(to.file, to.start_byte, to.end_byte);
-  if (propertyToken(ts, left) || propertyToken(ts, right)) return result('UNDECIDED', 'member-path-not-judged');
-  if (!left || !right) return result('UNDECIDED', 'identifier-unproved');
+  const left = node_at_bytes(program, from.file, from.start_byte, from.end_byte);
+  const right = node_at_bytes(program, to.file, to.start_byte, to.end_byte);
+  if (memberEndpoint(ts, checker, from, left) || memberEndpoint(ts, checker, to, right)) {
+    return result('UNDECIDED', memberPathReason);
+  }
+  if (!isIdentifier(ts, left) || !isIdentifier(ts, right)) return result('UNDECIDED', 'identifier-unproved');
   if (insideDelete(ts, left) || insideDelete(ts, right)) return result('UNDECIDED', 'delete-operand');
   const a = role(ts, left);
   const b = role(ts, right);

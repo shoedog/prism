@@ -102,8 +102,9 @@ class RuleText(unittest.TestCase):
                        "UNDECIDED `endpoint-coordinate-off`.",
                        "UNDECIDED `endpoint-spelling-mismatch`, never WRONG",
                        "alias twins carry the alias variable's span",
-                       "a different name at exactly the proved formal's bytes, and a signature formal of an overload",
-                                              "`N = {..}` replaces every member",
+                       "only the proved formal can serve as a neighbour",
+                       "signature formal of an overload are always WRONG",
+                       "`N = {..}` replaces every member",
                        "Closed global-scope rule",
                        "no `var` binding of its name that assigns in its own var scope",
                        "a computed-name instance field anywhere in the chain counts"):
