@@ -398,7 +398,7 @@ fn core_wire_rejects_generated_field_corruption() {
         let dir = root.join(row["dir"].as_str().unwrap());
         let listing = successful_query(&dir, None).unwrap();
         let expected = json!({
-            "enabled_adapters": [], "registrations": 0, "proven": 0, "unproven": 0,
+            "enabled_adapters": ["flask"], "registrations": 0, "proven": 0, "unproven": 0,
             "candidates": 0, "mounts": 0, "diagnostics": [], "failed_roots": [],
         });
         for candidate in std::iter::once(None).chain(edits(&listing.summary).into_iter().map(Some))

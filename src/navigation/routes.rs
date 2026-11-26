@@ -225,7 +225,7 @@ mod tests {
         assert_eq!(
             table.summary(),
             &Summary {
-                enabled_adapters: Default::default(),
+                enabled_adapters: [Framework::Flask].into(),
                 registrations: 0,
                 proven: 0,
                 unproven: 0,

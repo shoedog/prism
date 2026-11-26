@@ -2,6 +2,11 @@ use super::{
     flask_facts, index_python, CallbackStatus, FlaskEvent, Language, ParsedFile, Reason, Receiver,
     SetupContext,
 };
+use crate::{
+    call_graph::CallGraph,
+    framework_entries::routes::{routes, MethodSet},
+    manifest_snapshot::ManifestSnapshot,
+};
 use anyhow::Context;
 use serde_json::{json, Value};
 use std::{
@@ -47,15 +52,19 @@ fn receiver_reason(receiver: &Receiver) -> Option<Reason> {
     }
 }
 
+fn load_corpus(root: &Path) -> anyhow::Result<BTreeMap<String, ParsedFile>> {
+    let mut files = BTreeMap::new();
+    parse_directory(root, root, &mut files)?;
+    anyhow::ensure!(!files.is_empty(), "no Python files in {}", root.display());
+    Ok(files)
+}
+
 #[test]
 #[ignore = "requires PRISM_ROUTES_MEASURE_DIR and PRISM_ROUTES_MEASURE_OUT"]
 fn measure_flask_source_facts() -> anyhow::Result<()> {
     let root = env::var_os("PRISM_ROUTES_MEASURE_DIR").context("PRISM_ROUTES_MEASURE_DIR")?;
     let output = env::var_os("PRISM_ROUTES_MEASURE_OUT").context("PRISM_ROUTES_MEASURE_OUT")?;
-    let root = Path::new(&root);
-    let mut files = BTreeMap::new();
-    parse_directory(root, root, &mut files)?;
-    anyhow::ensure!(!files.is_empty(), "no Python files in {}", root.display());
+    let files = load_corpus(Path::new(&root))?;
 
     let bindings = index_python(&files);
     let context = SetupContext::default();
@@ -145,6 +154,62 @@ fn measure_flask_source_facts() -> anyhow::Result<()> {
     println!(
         "{} Python files, {rules} rules, {mounts} mounts",
         files.len()
+    );
+    Ok(())
+}
+
+#[test]
+#[ignore = "requires PRISM_ROUTES_MEASURE_CORPUS, PRISM_ROUTES_MEASURE_DIR and PRISM_ROUTES_MEASURE_OUT"]
+fn measure_flask_listing() -> anyhow::Result<()> {
+    let corpus = env::var("PRISM_ROUTES_MEASURE_CORPUS").context("PRISM_ROUTES_MEASURE_CORPUS")?;
+    let root = env::var_os("PRISM_ROUTES_MEASURE_DIR").context("PRISM_ROUTES_MEASURE_DIR")?;
+    let output = env::var_os("PRISM_ROUTES_MEASURE_OUT").context("PRISM_ROUTES_MEASURE_OUT")?;
+    let files = load_corpus(Path::new(&root))?;
+    let table = routes(
+        &files,
+        &CallGraph::empty(),
+        &ManifestSnapshot::default(),
+        None,
+    )
+    .map_err(|error| anyhow::anyhow!("listing failed: {error:?}"))?;
+    let mut out = BufWriter::new(
+        fs::File::create(&output).with_context(|| Path::new(&output).display().to_string())?,
+    );
+    for row in table.routes() {
+        let declaration = row
+            .declaration
+            .as_ref()
+            .context("missing route declaration")?;
+        let methods = match &declaration.methods {
+            Some(MethodSet::Known { known }) => Some(known),
+            _ => None,
+        };
+        let site = &row.site;
+        let source = &files[&site.file].source;
+        let decorated = source.as_bytes().get(site.start_byte) == Some(&b'@');
+        serde_json::to_writer(
+            &mut out,
+            &json!({
+                "corpus": corpus,
+                "file": site.file,
+                "line": site.line,
+                "receiver": row.receiver,
+                "path": declaration.path,
+                "methods": methods,
+                "callbacks": row.callbacks,
+                "paths_count": row.paths.len(),
+                "decorated": decorated,
+                "listing": row,
+            }),
+        )?;
+        writeln!(out)?;
+    }
+    out.flush()?;
+    println!(
+        "{corpus}: {} Python files, {} listed rules, {} proved receivers",
+        files.len(),
+        table.summary().registrations,
+        table.summary().proven,
     );
     Ok(())
 }
