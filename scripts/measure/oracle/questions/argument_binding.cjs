@@ -55,7 +55,10 @@ function grade(row, context) {
     const claimed = identifier_at_bytes(to.file, to.start_byte, to.end_byte);
     // A formal of an overload signature of the called function is the wrong position
     // whatever else its line holds, even on the implementation's own line.
-    const siblings = (resolved.body.name && checker.getSymbolAtLocation(resolved.body.name)?.declarations) ?? [];
+    // A constructor has no name: its overloads are the containing class's constructor declarations.
+    const siblings = ts.isConstructorDeclaration(resolved.body)
+      ? resolved.body.parent.members.filter(ts.isConstructorDeclaration)
+      : (resolved.body.name && checker.getSymbolAtLocation(resolved.body.name)?.declarations) ?? [];
     const signatureFormal = claimed && ts.isParameter(claimed.parent) && claimed.parent.name === claimed
       && claimed.parent.parent !== resolved.body && siblings.includes(claimed.parent.parent);
     if (!claimed) status.push('unproved');

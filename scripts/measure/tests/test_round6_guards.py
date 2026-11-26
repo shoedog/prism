@@ -24,7 +24,10 @@ class GlobalScope(unittest.TestCase):
         undecided = [r for r in rows_ if r["verdict"] == "UNDECIDED"]
         controls = [r for r in rows_ if r["verdict"] == "CORRECT"]
         self.assertEqual(len(undecided), 11)
-        self.assertTrue(all(r["why"] == "ambiguous-dispatch" for r in undecided))
+        # Fold 7: the belt names the out-of-model reason where it applies (global-object writes and
+        # suppression comments); the rest stay ambiguous-dispatch.
+        self.assertTrue(all(r["why"] in {"ambiguous-dispatch", "out-of-model-module-mutation",
+                                         "out-of-model-suppression"} for r in undecided))
         # One control for the namespace form and one for the function form.
         self.assertEqual(sorted(r["key"]["from"]["file"] for r in controls), ["s1c.ts", "u5.js"])
         used = {r["key"]["from"]["file"] for r in undecided}

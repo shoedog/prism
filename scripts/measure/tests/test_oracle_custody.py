@@ -131,15 +131,20 @@ class Custody(unittest.TestCase):
                          ["certificate-callee-origin", "certificate-class-decorator",
                           "certificate-constructor", "certificate-decorators",
                           "certificate-erroneous", "certificate-fold4",
-                          "certificate-fold6", "certificate-member-writes",
-                          "certificate-receiver-wrappers"])
+                          "certificate-fold6", "certificate-fold7-global",
+                          "certificate-fold7-module", "certificate-fold7-namespace",
+                          "certificate-fold7-pins", "certificate-fold7-suppress",
+                          "certificate-member-writes", "certificate-receiver-wrappers"])
         for case in cases:
             rows = fixtures.read_jsonl(case / "expected.jsonl")
             with self.subTest(case=case.name):
                 self.assertTrue(any(r["verdict"] == "CORRECT" for r in rows))
                 undecided = [r for r in rows if r["verdict"] == "UNDECIDED"]
                 self.assertTrue(undecided)
-                self.assertEqual({r["why"] for r in undecided}, {"ambiguous-dispatch"})
+                # Fold 7: the out-of-model belt names its own reasons before the certificate forms.
+                self.assertLessEqual({r["why"] for r in undecided},
+                                     {"ambiguous-dispatch", "out-of-model-module-mutation",
+                                      "out-of-model-suppression"})
 
     def test_selfcheck_key_names_the_question_entry(self):
         h = self.h

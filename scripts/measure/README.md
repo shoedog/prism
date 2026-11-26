@@ -416,6 +416,47 @@ root.f = .. })(this)` parameter, an alias assigned later, `window.window.f`) is
 covered by the member name it writes. Otherwise UNDECIDED `ambiguous-dispatch`.
 Each reviewer instance is a self-check case (`certificate-fold6`) with its
 UNDECIDED row beside a CORRECT control.
+Out-of-model amendment (accept-list, FORMATS section 4). A callable verdict
+(argument slot and call target, every certificate form, the identifier route
+included) is a STATIC-BINDING grade, as `Exact` is in the repository contract: it
+is decided over statically bound bodies only. Out of model, zero credit either
+way (UNDECIDED with a named reason, never CORRECT, never WRONG): (1)
+replacement or mutation of a module object, namespace object,
+`module.exports`/`exports` or a global, by any spelling including an alias of
+`module`; (2) programs that only compile under diagnostic suppression, and
+duplicate declarations. Detection is a FILE-WIDE BELT BY SPELLING over the
+callee's file F (for a namespace member also every file that contributes to the
+namespace), added to the name-based program-wide rules above, never instead of
+them, and it precedes every certificate form:
+- UNDECIDED `out-of-model-module-mutation` when F holds a write to
+  `module.exports` or `exports` (an assignment, update, `delete`, destructuring
+  or loop-head target rooted at `module` or `exports`, at any alias of them
+  assigned in F such as `const alias = module`, or `Object.assign`,
+  `Object.defineProperty`, `Object.defineProperties`, `Object.setPrototypeOf`
+  or `Reflect.set`/`defineProperty`/`deleteProperty`/`setPrototypeOf` on one of
+  them), or a write to a member of the global object (`globalThis`, `window`,
+  `self`, `global` or an alias, any member name) or `this.<name> = ..` at the
+  top level of a script, or, for a namespace member, a write of the member name
+  by any receiver spelling in any file (`(N as any).f = ..`).
+- UNDECIDED `out-of-model-suppression` when F carries `@ts-nocheck`,
+  `@ts-ignore` or `@ts-expect-error` (by spelling, anywhere in the file), or a
+  duplicate declaration of the callee name (a `let`, `const`, `class`, `enum`,
+  `namespace` or assigning `var` of the name in the same scope, in any block of a
+  merged namespace; a plain `var f;` and a block-scoped namesake of another
+  scope are not duplicates) or of the namespace receiver name (declared again
+  anywhere, nested scopes included).
+Where each component applies: the module-object component to a call that crosses
+a file or reaches a namespace member (a same-file call of a module-local function
+runs that declaration whatever the module object holds); the global-object
+component to a script-global function or a namespace member (a module-local
+function cannot be replaced by a global write); the suppression component to
+every callee. An ordinary CommonJS export (`module.exports = { f }`) is a write
+to `module.exports`, so a call into such a file from another file is UNDECIDED
+(recall cost; calls through `require` were already undecided). Reflective
+writers beyond the list, computed keys and runtime re-acquisition remain out
+of model (above). The exported-symbol write check of the namespace route is
+kept as depth but is shadowed: an assignment to a function is TS2630 (gate) or
+suppressed (belt), so no self-check row reaches it alone.
 A decorated member (method, accessor or field, reached statically, through a
 private name or through `super`) is never proved: a member decorator may
 return a replacement and no decorator is accepted as inert, so every
@@ -462,7 +503,20 @@ head), a global-scope function or namespace member whose name is written by any
 receiver or declared again in a script file (the closed global-scope rule above:
 `globalThis.N = {..}`, `var N = {..}` replacing a script namespace, a UMD `root`
 parameter, `var gt; gt = globalThis; gt.f = ..`, `window.window.f = ..`, `var f`
-in another script file), a computed-name instance field in the chain,
+in another script file), a module object replaced or mutated by any spelling
+(`module.exports = {..}` also through `const alias = module; alias.exports =
+{..}`, `module.exports` beside an ES `export function` reached by a namespace
+or named import, `exports.f = ..` beside a named import, `Object.assign` on
+`module.exports`; `certificate-fold7-module`), a namespace member written on any
+receiver in another file or declared again as an exported `var` in another
+block of the namespace and reached by a BARE call inside the namespace
+(`certificate-fold7-namespace`), a function and a `const` of one name in a
+namespace under `@ts-nocheck`, a suppressed diagnostic anywhere in the callee's
+file, a duplicate declaration of the callee name (`certificate-fold7-suppress`),
+a global-object or top-level `this` write in the callee's file for a script
+function or namespace member (`certificate-fold7-global`), a same-name nested
+`class`, `enum` or `namespace` declaration (by spelling,
+`certificate-fold7-pins`), a computed-name instance field in the chain,
 a program carrying TS2393, TS2425,
 TS2426, TS2855 or TS2630 in the callee's file or class chain, a write to the
 member through
@@ -503,10 +557,23 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
   resolve to different VALUE bindings (variable, parameter, function, class,
   import, binding element by its name) are a proved different binding, WRONG
   `different-declaration`, without a neighbour check (matrix row oracle-007).
-  When either endpoint resolves to a property declaration (a member name, an
-  object or pattern key), it is no binding: a serving neighbour on that line makes
-  it UNDECIDED `endpoint-coordinate-off`, else WRONG. Private names (`#m`) count
-  as occurrences.
+  When either endpoint is a property token BY SYNTAX (the name of a member
+  access or qualified name, an object or pattern key) or resolves to a property
+  declaration, it is no binding whatever it resolves to (`req.app` resolves to a
+  constructor parameter property or a namespace-exported const, still a member
+  name): a serving neighbour on that line makes it UNDECIDED
+  `endpoint-coordinate-off`, else WRONG. Private names (`#m`) count as
+  occurrences.
+- Type-only contexts are erased, so a mention there is the type role, never a read
+  (WRONG `type-position` unless a neighbour serves): `implements X`, `implements
+  ns.T`, an interface `extends X`, and the computed key of a type literal or
+  interface member (`type Shape = { [key]: number }`). A class `extends`, an
+  object or class computed key (`{ [key]: 1 }`) and `extends ns.C` are evaluated
+  reads and stay CORRECT (`lexical-fold7`).
+- Two member accesses that resolve to one member declaration are one slot only
+  on one certain receiver: both receivers are the same identifier binding, or both
+  `this` of one function or class. Anything else (`a.m = 1` to `b.m` for two
+  instances) is UNDECIDED `receiver-identity-unproved`.
 - An endpoint that is not at exact identifier bytes is UNDECIDED
   `identifier-unproved`.
 
@@ -517,7 +584,9 @@ formal: the proved formal itself, which must share the claimed line). FORMATS
 section 4 is stricter in two places and those rules are kept: a different name
 at exactly the proved formal's bytes, and a signature formal of an overload
 (oracle-032, oracle-037, also when the overload and its implementation share a
-line), are WRONG whatever else the line holds. Formal bytes
+line and also for constructors, whose overloads are the containing class's
+constructor declarations; `argument-fold7`), are WRONG whatever else the line
+holds. Formal bytes
 that are not an identifier are UNDECIDED `identifier-unproved`. Of the 36
 Express WRONG verdicts of the real-use read, 4 were coordinate-off (a key span
 next to the value read) and 32 an alias-twin or other spelling mismatch (the

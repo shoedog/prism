@@ -2,6 +2,7 @@
 
 const path = require('node:path');
 const { headerStart } = require('../bytes.cjs');
+const { belt } = require('./belt.cjs');
 
 function wrapper(ts, node) {
   return ts.isParenthesizedExpression(node) || ts.isAsExpression(node)
@@ -496,6 +497,9 @@ function bodyFor(call, context, options = {}) {
   const classField = ts.isPropertyDeclaration(holder) && holder.initializer === top;
   const objectField = ts.isPropertyAssignment(holder) && holder.initializer === top;
   const proofOwner = classField || objectField ? holder : body;
+  // The out-of-model belt precedes every proof: a callable verdict is a static-binding grade.
+  const outOfModel = belt(context, call, body, callee, { declaredIn, writes, valueDeclarations, bindingSymbol });
+  if (outOfModel) return { why: outOfModel };
   if (erroneous(context, body)) return { why: 'ambiguous-dispatch' };
   // A member decorator may return a replacement implementation: no certificate form
   // proves a decorated member's body is the one that runs.

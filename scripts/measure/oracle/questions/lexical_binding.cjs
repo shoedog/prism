@@ -51,8 +51,30 @@ function neighbour(ts, node, wireLine, matches) {
   return found;
 }
 
+// A mention erased by TypeScript: `implements X`, an interface `extends X` (through a
+// qualified `ns.T`) and a computed key of a type literal or interface member. A class
+// `extends` and an object or class computed key are evaluated, so they are not type-only.
+function typeOnly(ts, identifier) {
+  let node = identifier;
+  while (ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node) node = node.parent;
+  const heritage = node.parent;
+  if (ts.isExpressionWithTypeArguments(heritage) && ts.isHeritageClause(heritage.parent)) {
+    const owner = heritage.parent.parent;
+    return heritage.parent.token === ts.SyntaxKind.ImplementsKeyword || ts.isInterfaceDeclaration(owner);
+  }
+  for (let p = identifier.parent; p; p = p.parent) {
+    if (ts.isComputedPropertyName(p)) {
+      return (ts.isPropertySignature(p.parent) || ts.isMethodSignature(p.parent))
+        && (ts.isTypeLiteralNode(p.parent.parent) || ts.isInterfaceDeclaration(p.parent.parent));
+    }
+    if (ts.isFunctionLike(p) || ts.isStatement(p) || ts.isDeclaration(p)) return false;
+  }
+  return false;
+}
+
 function role(ts, identifier) {
   let p = identifier.parent;
+  if (typeOnly(ts, identifier)) return 'type';
   if (ts.isDeclaration(p) && p.name === identifier && !ts.isShorthandPropertyAssignment(p)) return 'decl';
   for (let node = identifier; p; node = p, p = p.parent) {
     // A class `extends` expression is evaluated at run time, so it reads the value binding.
@@ -103,6 +125,29 @@ function valueBinding(ts, declaration) {
     || ts.isBindingElement(declaration) || ts.isImportClause(declaration)
     || ts.isImportSpecifier(declaration) || ts.isNamespaceImport(declaration)
     || ts.isImportEqualsDeclaration(declaration);
+}
+
+// The identifier is a property token BY SYNTAX: the name of a member access or qualified name, an
+// object or pattern key. Whatever it resolves to, it is no binding of its own.
+function propertyToken(ts, id) {
+  const p = id.parent;
+  return (ts.isPropertyAccessExpression(p) && p.name === id) || (ts.isQualifiedName(p) && p.right === id)
+    || (ts.isPropertyAssignment(p) && p.name === id) || (ts.isBindingElement(p) && p.propertyName === id)
+    || (ts.isDeclaration(p) && p.name === id && !valueBinding(ts, p));
+}
+
+// The instance a member access is made on, when it is certain: an identifier (its symbol) or `this`
+// (the nearest non-arrow function or class).
+function receiverIdentity(ts, checker, id) {
+  const p = id.parent;
+  if (!(ts.isPropertyAccessExpression(p) && p.name === id)) return undefined;
+  let receiver = p.expression;
+  while (ts.isParenthesizedExpression(receiver) || ts.isNonNullExpression(receiver)) receiver = receiver.expression;
+  if (ts.isIdentifier(receiver)) return checker.getSymbolAtLocation(receiver) ?? null;
+  if (receiver.kind === ts.SyntaxKind.ThisKeyword) {
+    return ts.findAncestor(receiver.parent, n => (ts.isFunctionLike(n) && !ts.isArrowFunction(n)) || ts.isClassLike(n)) ?? null;
+  }
+  return null;
 }
 
 function declaration(ts, checker, id) {
@@ -156,12 +201,24 @@ function grade(row, context) {
   const source = declaration(ts, checker, left);
   const read = declaration(ts, checker, right);
   if (!source || !read) return result('UNDECIDED', 'declaration-unproved');
-  if (source === read) return result('CORRECT');
+  if (source === read) {
+    // One member declaration does not make a write and a read the same instance slot: two
+    // member accesses are one slot only on one certain receiver binding.
+    const a = receiverIdentity(ts, checker, left);
+    const b = receiverIdentity(ts, checker, right);
+    if (a !== undefined && b !== undefined) {
+      if (!a || a !== b) return result('UNDECIDED', 'receiver-identity-unproved');
+    }
+    return result('CORRECT');
+  }
   // Both endpoints at exact identifier bytes spelled as the claimed base and resolving to
   // different VALUE bindings are a proved different binding, so no neighbour can rescue it.
   // A property token (member name, object or pattern key) is no binding: its span may be the
   // line-anchored neighbour of the real one, so a serving neighbour makes it coordinate-off.
-  if (!(valueBinding(ts, source) && valueBinding(ts, read)) && (served('from') || served('to'))) {
+  // The endpoint's SYNTAX decides before what it resolves to: a member access name resolves to a
+  // parameter property or a namespace-exported const, which is still a property token.
+  const token = propertyToken(ts, left) || propertyToken(ts, right);
+  if ((token || !(valueBinding(ts, source) && valueBinding(ts, read))) && (served('from') || served('to'))) {
     return result('UNDECIDED', 'endpoint-coordinate-off');
   }
   return result('WRONG', 'different-declaration');
