@@ -20,10 +20,11 @@
     "operation_authority": {"enum": ["schema", "route_table", "calls", "registration", "annotation"]},
     "scope": {"$ref": "#/$defs/scope"},
     "origin": {"$ref": "#/$defs/origin"},
-    "dependencies": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "occurrence_ids": {"$ref": "#/$defs/ids"},
+    "dependencies": {"$ref": "#/$defs/ids"},
     "config_sources": {"type": "array", "items": {"$ref": "#/$defs/config"}},
     "schema": {"anyOf": [{"$ref": "#/$defs/schema_evidence"}, {"type": "null"}]},
-    "expected_files": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "expected_files": {"$ref": "#/$defs/ids"},
     "file_status": {"type": "array", "items": {"$ref": "#/$defs/extraction"}},
     "entries": {"type": "array", "items": {"$ref": "#/$defs/extraction"}},
     "unaccounted_scopes": {"type": "array", "items": {"$ref": "#/$defs/extraction"}},
@@ -38,7 +39,7 @@
   "allOf": [
     {
       "if": {"required": ["snapshot_kind"], "properties": {"snapshot_kind": {"const": "computed_tree"}}},
-      "then": {"required": ["computed_at", "merge_receipt"], "properties": {"rev": {"const": null}, "subject": {"const": null}, "committed_at": {"const": null}}},
+      "then": {"$ref": "#/$defs/computed_snapshot"},
       "else": {
         "properties": {"rev": {"type": "string", "minLength": 1}},
         "not": {"anyOf": [{"required": ["computed_at"]}, {"required": ["merge_receipt"]}]}
@@ -51,6 +52,15 @@
     }
   ],
   "$defs": {
+    "name": {"type": "string", "minLength": 1},
+    "ids": {"type": "array", "items": {"$ref": "#/$defs/name"}, "uniqueItems": true},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "computed_snapshot": {
+      "required": ["computed_at", "merge_receipt"],
+      "properties": {"rev": {"const": null}, "subject": {"const": null}, "committed_at": {"const": null}, "schema": {"$ref": "#/$defs/computed_schema"}}
+    },
+    "computed_schema": {"anyOf": [{"type": "null"}, {"properties": {"source": {"type": "object",
+      "properties": {"rev": {"const": null}, "subject": {"const": null}, "committed_at": {"const": null}}}}}]},
     "scope": {
       "oneOf": [
         {"type": "object", "required": ["kind"], "properties": {"kind": {"const": "api"}}, "additionalProperties": false},
@@ -134,7 +144,7 @@
         "strip": {"type": "string"},
         "add": {"type": "string"},
         "api": {"type": "string", "minLength": 1},
-        "dependencies": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "dependencies": {"$ref": "#/$defs/ids"},
         "hook": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
         "delegate": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
       },
@@ -148,8 +158,7 @@
           "properties": {
             "kind": {"const": "named_tree"},
             "input_id": {"type": "string", "minLength": 1},
-            "repo": {"type": "string", "minLength": 1},
-            "tree": {"type": "string", "minLength": 1},
+            "repo": {"type": "string", "minLength": 1}, "tree": {"type": "string", "minLength": 1},
             "path": {"type": "string", "minLength": 1},
             "blob": {"type": "string", "minLength": 1},
             "availability": {"enum": ["available", "missing", "unreadable"]}
@@ -183,7 +192,7 @@
       "required": ["source", "content_hash", "info_version"],
       "properties": {
         "source": {"$ref": "#/$defs/source"},
-        "content_hash": {"anyOf": [{"type": "string", "pattern": "^[0-9a-f]{64}$"}, {"type": "null"}]},
+        "content_hash": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
         "info_version": {"anyOf": [{"type": "string"}, {"type": "null"}]}
       },
       "additionalProperties": false
@@ -198,11 +207,12 @@
             "repo": {"type": "string", "minLength": 1},
             "tree": {"type": "string", "minLength": 1},
             "rev": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+            "subject": {"anyOf": [{"type": "string"}, {"type": "null"}]},
             "committed_at": {"anyOf": [{"type": "string", "format": "date-time"}, {"type": "null"}]},
             "path": {"type": "string", "minLength": 1},
             "blob": {"type": "string", "minLength": 1},
             "format": {"const": "json"},
-            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            "sha256": {"$ref": "#/$defs/digest"}
           },
           "additionalProperties": false
         },
@@ -239,7 +249,7 @@
         "scope": {"$ref": "#/$defs/scope"},
         "status": {"enum": ["complete", "partial", "unreadable", "skipped", "unknown"]},
         "reason": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
-        "possible_keys": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "possible_keys": {"$ref": "#/$defs/ids"},
         "evidence": {"$ref": "#/$defs/extraction_evidence"}
       },
       "additionalProperties": false,
@@ -268,7 +278,7 @@
       "properties": {
         "input_id": {"type": "string", "minLength": 1},
         "origin": {"$ref": "#/$defs/origin"},
-        "dependencies": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "dependencies": {"$ref": "#/$defs/ids"},
         "tool": {"$ref": "#/$defs/tool"},
         "scope": {"$ref": "#/$defs/scope"}
       },
@@ -279,8 +289,7 @@
       "required": ["tree", "file", "blob", "line", "span"],
       "properties": {
         "tree": {"type": "string", "minLength": 1},
-        "file": {"type": "string", "minLength": 1},
-        "blob": {"type": "string", "minLength": 1},
+        "file": {"type": "string", "minLength": 1}, "blob": {"type": "string", "minLength": 1},
         "line": {"type": "integer", "minimum": 1},
         "span": {
           "anyOf": [
@@ -349,7 +358,7 @@
     "field": {
       "type": "object",
       "required": ["field_id", "signature"],
-      "properties": {"field_id": {"type": "string", "minLength": 1}, "signature": {"$ref": "#/$defs/wire_signature"}},
+      "properties": {"field_id": {"type": "string", "minLength": 1}, "signature": {"$ref": "#/$defs/wire_signature"}, "presence": {"enum": ["present", "absent", "unknown"]}},
       "additionalProperties": false
     },
     "message": {
@@ -361,8 +370,10 @@
         "body_presence": {"enum": ["present", "absent", "unknown"]},
         "declared_media": {"type": "array", "items": {"type": "string"}},
         "effective_media": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
-        "coverage": {"enum": ["checked", "observed_only", "partial", "withheld"]},
-        "producer_media_ref": {"$ref": "#/$defs/media_ref"}
+        "coverage": {"enum": ["checked", "observed_only", "partial", "withheld"]}, "producer_media_ref": {"$ref": "#/$defs/media_ref"},
+        "media_source": {"enum": ["message_content", "operation_media", "document_media", "producer"]},
+        "selected_schema": {"$ref": "#/$defs/schema_location"},
+        "reader_limits": {"type": "array", "items": {"$ref": "#/$defs/message_limit"}}
       },
       "additionalProperties": false,
       "allOf": [
@@ -372,6 +383,17 @@
           "else": {"properties": {"status": {"anyOf": [{"type": "string", "pattern": "^(2[0-9][0-9]|2XX)$"}, {"const": "default"}]}}}
         }
       ]
+    },
+    "schema_location": {
+      "type": "object",
+      "required": ["tree", "file", "blob", "pointer"],
+      "properties": {"tree": {"$ref": "#/$defs/name"}, "file": {"$ref": "#/$defs/name"},
+        "blob": {"$ref": "#/$defs/name"}, "pointer": {"type": "array", "items": {"type": "string"}}},
+      "additionalProperties": false
+    },
+    "message_limit": {
+      "type": "object", "required": ["pointer", "reason"], "additionalProperties": false,
+      "properties": {"pointer": {"type": "array", "items": {"$ref": "#/$defs/pointer_token"}}, "reason": {"$ref": "#/$defs/name"}}
     },
     "media_ref": {
       "type": "object",
@@ -417,7 +439,7 @@
       "required": ["grade", "target_ids"],
       "properties": {
         "grade": {"enum": ["bound", "candidate", "unbound"]},
-        "target_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "target_ids": {"$ref": "#/$defs/ids"},
         "service_input_id": {"type": "string", "minLength": 1},
         "overlaps": {"type": "array", "items": {"$ref": "#/$defs/saved_overlap"}},
         "field_use": {"type": "array", "items": {"$ref": "#/$defs/field_use"}},
@@ -446,22 +468,27 @@
       "type": "object",
       "required": ["scan_id", "client_input_id", "client_tree", "api", "authority", "source_tree", "source_hash", "config_era", "schema_inventory_id", "expected_segments", "admitted_segments", "dependencies", "matches"],
       "properties": {
-        "scan_id": {"type": "string", "minLength": 1},
-        "client_input_id": {"type": "string", "minLength": 1},
+        "scan_id": {"type": "string", "minLength": 1}, "client_input_id": {"type": "string", "minLength": 1},
         "client_tree": {"type": "string", "minLength": 1},
         "api": {"type": "string", "minLength": 1},
         "authority": {"enum": ["schema", "route_table", "calls", "registration", "annotation"]},
         "source_tree": {"type": "string", "minLength": 1},
-        "source_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_hash": {"$ref": "#/$defs/digest"},
         "config_era": {"type": "string", "minLength": 1},
         "schema_inventory_id": {"type": "string", "minLength": 1},
-        "expected_segments": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-        "admitted_segments": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-        "dependencies": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "expected_segments": {"$ref": "#/$defs/ids"},
+        "segments": {"type": "array", "items": {"$ref": "#/$defs/saved_segment"}},
+        "admitted_segments": {"$ref": "#/$defs/ids"},
+        "dependencies": {"$ref": "#/$defs/ids"},
         "matches": {"type": "array", "items": {"$ref": "#/$defs/saved_location"}},
         "scope": {"$ref": "#/$defs/scope"}
       },
       "additionalProperties": false
+    },
+    "saved_segment": {
+      "type": "object", "required": ["path", "scope", "source_receipt_id"], "additionalProperties": false,
+      "properties": {"path": {"$ref": "#/$defs/name"}, "scope": {"$ref": "#/$defs/scope"},
+        "source_receipt_id": {"anyOf": [{"$ref": "#/$defs/name"}, {"type": "null"}]}}
     },
     "saved_location": {
       "type": "object",
@@ -550,7 +577,8 @@
         "operation_authority": {"enum": ["schema", "route_table", "calls", "registration", "annotation"]},
         "scope": {"$ref": "#/$defs/scope"},
         "origin": {"$ref": "#/$defs/origin"},
-        "dependencies": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "occurrence_ids": {"$ref": "#/$defs/ids"},
+        "dependencies": {"$ref": "#/$defs/ids"},
         "config_sources": {"type": "array", "items": {"$ref": "#/$defs/config"}},
         "schema": {"anyOf": [{"$ref": "#/$defs/schema_evidence"}, {"type": "null"}]},
         "computed_at": {"type": "string", "format": "date-time"},
@@ -560,11 +588,9 @@
       "allOf": [
         {
           "if": {"required": ["snapshot_kind"], "properties": {"snapshot_kind": {"const": "computed_tree"}}},
-          "then": {"required": ["computed_at", "merge_receipt"], "properties": {"rev": {"const": null}, "subject": {"const": null}, "committed_at": {"const": null}}},
-          "else": {
-            "properties": {"rev": {"type": "string", "minLength": 1}},
-            "not": {"anyOf": [{"required": ["computed_at"]}, {"required": ["merge_receipt"]}]}
-          }
+          "then": {"$ref": "#/$defs/computed_snapshot"},
+          "else": {"properties": {"rev": {"$ref": "#/$defs/name"}},
+            "not": {"anyOf": [{"required": ["computed_at"]}, {"required": ["merge_receipt"]}]}}
         }
       ]
     }

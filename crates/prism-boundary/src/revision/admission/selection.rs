@@ -10,7 +10,30 @@ pub(super) fn cutoff(request: &AdmissionRequest) -> Option<DateTime<FixedOffset>
     match request.mode {
         ReviewMode::Live => (instant(&request.report_time)? == cutoff).then_some(cutoff),
         ReviewMode::HistoricalAsOf => {
-            (instant(request.subject_head_committed_at.as_deref()?)? == cutoff).then_some(cutoff)
+            let id = request.subject_head_input_id.as_deref()?;
+            let subject = slots::unique(
+                request
+                    .inputs
+                    .iter()
+                    .filter(|input| input.binding.input_id == id),
+                id,
+                "missing_slot",
+            )
+            .ok()?;
+            slots::validate_input(request, subject).ok()?;
+            let SnapshotInput::Commit {
+                committed_at: Some(date),
+                ..
+            } = &subject.snapshot
+            else {
+                return None;
+            };
+            (instant(date)? == cutoff
+                && request
+                    .subject_head_committed_at
+                    .as_deref()
+                    .is_none_or(|legacy| instant(legacy) == Some(cutoff)))
+            .then_some(cutoff)
         }
         ReviewMode::VersionComparison => {
             (instant(request.selection_time.as_deref()?)? == cutoff).then_some(cutoff)
@@ -21,103 +44,44 @@ pub(super) fn cutoff(request: &AdmissionRequest) -> Option<DateTime<FixedOffset>
 pub(super) fn selection(request: &AdmissionRequest, input: &AdmissionInput) -> Result<(), Refusal> {
     let id = &input.binding.input_id;
     let missing = || Refusal::new("missing_cutoff", id);
-    let recorded_cutoff = cutoff(request).ok_or_else(missing)?;
-    let selected_rev = match (&request.mode, &input.selection) {
-        (
-            ReviewMode::Live,
-            Some(SelectionReceipt::LiveRef {
-                branch,
-                rev,
-                observed_at,
-            }),
-        ) if Some(branch.as_str()) == input.binding.branch.as_deref()
-            && instant(observed_at) == Some(recorded_cutoff) =>
-        {
-            rev
+    let basis = input.binding.selection_basis;
+    let required = match basis {
+        Some(SelectionBasis::Snapshot) => false,
+        Some(SelectionBasis::Counterpart) => {
+            matches!(request.mode, ReviewMode::Live | ReviewMode::HistoricalAsOf)
         }
-        (
-            ReviewMode::HistoricalAsOf,
-            Some(SelectionReceipt::HistoricalPin {
-                branch,
-                rev,
-                available_at,
-                evidence,
-            }),
-        ) if Some(branch.as_str()) == input.binding.branch.as_deref()
-            && instant(available_at) == Some(recorded_cutoff)
-            && !evidence.is_empty() =>
-        {
-            rev
+        Some(SelectionBasis::SelectedVersion) => request.mode == ReviewMode::VersionComparison,
+        None => input.binding.branch.is_some() || request.mode == ReviewMode::VersionComparison,
+        Some(SelectionBasis::Unsupported) => {
+            return Err(Refusal::new("unsupported_kind", id).dimension("selection_basis"))
         }
-        (
-            ReviewMode::HistoricalAsOf,
-            Some(SelectionReceipt::HistoricalSnapshot {
-                branch,
-                rev,
-                captured_at,
-                evidence,
-            }),
-        ) if Some(branch.as_str()) == input.binding.branch.as_deref()
-            && instant(captured_at) == Some(recorded_cutoff)
-            && !evidence.is_empty() =>
-        {
-            rev
-        }
-        (
-            ReviewMode::HistoricalAsOf,
-            Some(SelectionReceipt::HistoricalRefHistory {
-                branch,
-                rev,
-                valid_from,
-                valid_until,
-                evidence,
-            }),
-        ) if Some(branch.as_str()) == input.binding.branch.as_deref()
-            && instant(valid_from)
-                .zip(instant(valid_until))
-                .is_some_and(|(start, end)| start <= recorded_cutoff && recorded_cutoff < end)
-            && !evidence.is_empty() =>
-        {
-            rev
-        }
-        (
-            ReviewMode::VersionComparison,
-            Some(SelectionReceipt::ExplicitPin {
-                rev,
-                selection_time: Some(time),
-                selected_by: Some(selector),
-                selection_reason,
-            }),
-        ) if instant(time) == Some(recorded_cutoff)
-            && !selector.is_empty()
-            && !selection_reason.is_empty() =>
-        {
-            rev
-        }
-        (
-            ReviewMode::VersionComparison,
-            Some(SelectionReceipt::DateRule {
-                rev,
-                selection_time,
-                selected_by,
-                selection_reason,
-                rule: Some(rule),
-                history_tip: Some(tip),
-            }),
-        ) if instant(selection_time) == Some(recorded_cutoff)
-            && !selected_by.is_empty()
-            && !selection_reason.is_empty()
-            && rule == "last_qualifying_first_parent"
-            && !tip.is_empty() =>
-        {
-            rev
-        }
-        (_, Some(SelectionReceipt::Unsupported)) => {
-            return Err(Refusal::new("unsupported_kind", id))
-        }
-        _ => return Err(missing()),
     };
-    if Some(selected_rev.as_str()) != input.binding.rev.as_deref() {
+    if matches!(
+        basis,
+        Some(SelectionBasis::Counterpart | SelectionBasis::SelectedVersion)
+    ) && !required
+    {
+        return Err(Refusal::new("slot_mismatch", id).dimension("selection_basis"));
+    }
+    if !required && input.selection.is_none() {
+        return Ok(());
+    }
+    let recorded_cutoff = cutoff(request).ok_or_else(missing)?;
+    let receipt = input.selection.as_ref().ok_or_else(missing)?;
+    let (selected_rev, selected_branch) =
+        receipt
+            .proof(request.mode, recorded_cutoff)
+            .ok_or_else(|| {
+                if *receipt == SelectionReceipt::Unsupported {
+                    Refusal::new("unsupported_kind", id)
+                } else {
+                    missing()
+                }
+            })?;
+    if selected_branch.is_some() && selected_branch != input.binding.branch.as_deref() {
+        return Err(missing());
+    }
+    if Some(selected_rev) != input.binding.rev.as_deref() {
         return Err(Refusal::mismatch(
             id,
             "rev",
@@ -126,6 +90,98 @@ pub(super) fn selection(request: &AdmissionRequest, input: &AdmissionInput) -> R
         ));
     }
     Ok(())
+}
+
+impl SelectionReceipt {
+    pub(crate) fn proof(
+        &self,
+        mode: ReviewMode,
+        cutoff: DateTime<FixedOffset>,
+    ) -> Option<(&str, Option<&str>)> {
+        let selected = match (mode, self) {
+            (
+                ReviewMode::Live,
+                Self::LiveRef {
+                    branch,
+                    rev,
+                    observed_at,
+                },
+            ) if instant(observed_at) == Some(cutoff) => (rev, Some(branch)),
+            (
+                ReviewMode::HistoricalAsOf,
+                Self::HistoricalPin {
+                    branch,
+                    rev,
+                    available_at,
+                    evidence,
+                },
+            ) if instant(available_at) == Some(cutoff) && !evidence.is_empty() => {
+                (rev, Some(branch))
+            }
+            (
+                ReviewMode::HistoricalAsOf,
+                Self::HistoricalSnapshot {
+                    branch,
+                    rev,
+                    captured_at,
+                    evidence,
+                },
+            ) if instant(captured_at) == Some(cutoff) && !evidence.is_empty() => {
+                (rev, Some(branch))
+            }
+            (
+                ReviewMode::HistoricalAsOf,
+                Self::HistoricalRefHistory {
+                    branch,
+                    rev,
+                    valid_from,
+                    valid_until,
+                    evidence,
+                },
+            ) if instant(valid_from)
+                .zip(instant(valid_until))
+                .is_some_and(|(start, end)| start <= cutoff && cutoff < end)
+                && !evidence.is_empty() =>
+            {
+                (rev, Some(branch))
+            }
+            (
+                ReviewMode::VersionComparison,
+                Self::ExplicitPin {
+                    rev,
+                    selection_time: Some(time),
+                    selected_by: Some(selector),
+                    selection_reason,
+                },
+            ) if instant(time) == Some(cutoff)
+                && !selector.is_empty()
+                && !selection_reason.is_empty() =>
+            {
+                (rev, None)
+            }
+            (
+                ReviewMode::VersionComparison,
+                Self::DateRule {
+                    rev,
+                    selection_time,
+                    selected_by,
+                    selection_reason,
+                    rule: Some(rule),
+                    history_tip: Some(tip),
+                },
+            ) if instant(selection_time) == Some(cutoff)
+                && !selected_by.is_empty()
+                && !selection_reason.is_empty()
+                && rule == "last_qualifying_first_parent"
+                && !tip.is_empty() =>
+            {
+                (rev, None)
+            }
+            _ => return None,
+        };
+        (!selected.0.is_empty() && selected.1.is_none_or(|branch| !branch.is_empty()))
+            .then_some((selected.0.as_str(), selected.1.map(String::as_str)))
+    }
 }
 
 pub(super) fn merge<'a>(

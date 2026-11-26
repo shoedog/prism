@@ -1,5 +1,6 @@
+use super::input_validation::{input_refusals, slot_cutoff, validate_slots, validate_status};
 use super::*;
-use crate::revision::{instant, Availability, ClaimDecision, ReceiptOrigin, Refusal, Role};
+use crate::revision::{ClaimDecision, Refusal, Role};
 use std::collections::BTreeSet;
 
 pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
@@ -14,27 +15,11 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
             duplicates.insert(input.input_id.as_str());
         }
     }
-    let cutoff = instant(&doc.cutoff_at);
-    let report_time = instant(&doc.report_time);
-    let cutoff_ok = cutoff
-        .zip(report_time)
-        .is_some_and(|(cutoff, report_time)| match doc.mode {
-            Some(ReviewMode::Live) => cutoff == report_time,
-            Some(ReviewMode::HistoricalAsOf | ReviewMode::VersionComparison) => {
-                cutoff <= report_time
-            }
-            None => false,
-        });
+    let cutoff_reasons = slot_cutoff(doc, &inputs);
+    let cutoff_ok = cutoff_reasons.is_empty();
     report.insert(
         "report-cutoff",
-        ClaimDecision::from_reasons(
-            None,
-            if cutoff_ok {
-                Vec::new()
-            } else {
-                vec![Refusal::new("missing_cutoff", "report-cutoff")]
-            },
-        ),
+        ClaimDecision::from_reasons(None, cutoff_reasons),
     );
 
     let local: BTreeMap<_, _> = inputs
@@ -48,18 +33,22 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
             (id, reasons)
         })
         .collect();
+    for &id in inputs.keys() {
+        report.insert(
+            &format!("input:{id}"),
+            ClaimDecision::from_reasons(Some(id), walk_input(id, &inputs, &local)),
+        );
+    }
+    validate_slots(doc, &inputs, &mut report);
+    validate_status(doc, &inputs, &mut report);
+
+    let mut seen_comparisons = BTreeSet::new();
     for comparison in &doc.comparisons {
         let id = comparison.comparison_id.as_str();
-        if report.claims.contains_key(id)
-            && doc
-                .comparisons
-                .iter()
-                .filter(|pair| pair.comparison_id == id)
-                .count()
-                == 1
-        {
+        if !seen_comparisons.insert(id) {
             continue;
         }
+        let key = comparison_key(id);
         if doc
             .comparisons
             .iter()
@@ -67,12 +56,10 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
             .count()
             > 1
         {
-            if !report.claims.contains_key(id) {
-                report.insert(
-                    id,
-                    ClaimDecision::from_reasons(None, vec![Refusal::new("receipt_conflict", id)]),
-                );
-            }
+            report.insert(
+                &key,
+                ClaimDecision::from_reasons(None, vec![Refusal::new("receipt_conflict", id)]),
+            );
             continue;
         }
         let mut reasons = Vec::new();
@@ -107,28 +94,27 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
                 reasons.push(Refusal::new("slot_mismatch", site).dimension("comparison"));
             }
         }
-        let actual_id = match id {
-            "service_first" => Some("actual_before"),
-            "client_first" => Some("actual_after"),
-            _ => None,
-        };
-        if let Some(actual_id) = actual_id {
-            match doc
-                .comparisons
-                .iter()
-                .find(|actual| actual.comparison_id == actual_id)
-            {
-                Some(actual)
-                    if actual.client_input_id != comparison.client_input_id
-                        || actual.matches.keys().ne(comparison.matches.keys()) =>
+        let inventory = inputs
+            .get(comparison.client_input_id.as_str())
+            .and_then(|input| input.occurrence_ids.as_ref());
+        match inventory {
+            None => reasons.push(
+                Refusal::new("missing_dependency", &comparison.client_input_id)
+                    .dimension("occurrence_inventory"),
+            ),
+            Some(ids) => {
+                let occurrences: BTreeSet<_> = ids.iter().map(String::as_str).collect();
+                if occurrences.len() != ids.len()
+                    || occurrences
+                        .iter()
+                        .copied()
+                        .ne(comparison.matches.keys().map(String::as_str))
                 {
                     reasons.push(Refusal::new("slot_mismatch", id).dimension("occurrences"));
                 }
-                None => reasons.push(Refusal::new("missing_dependency", actual_id)),
-                _ => {}
             }
         }
-        report.insert(id, ClaimDecision::from_reasons(None, reasons));
+        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
     }
 
     for (index, usage) in doc.usages.iter().enumerate() {
@@ -137,14 +123,52 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
             .usage_id
             .clone()
             .unwrap_or_else(|| format!("usage:{index}"));
-        for (basis, reference) in [
-            ("actual_before", &usage.match_before),
-            ("actual_after", &usage.match_after),
-            ("service_first", &usage.match_service_first),
-            ("client_first", &usage.match_client_first),
+        for (basis, reference, presence, site) in [
+            (
+                "actual_before",
+                &usage.match_before,
+                &usage.before_presence,
+                &usage.before_site,
+            ),
+            (
+                "actual_after",
+                &usage.match_after,
+                &usage.after_presence,
+                &usage.after_site,
+            ),
+            (
+                "service_first",
+                &usage.match_service_first,
+                &usage.before_presence,
+                &usage.before_site,
+            ),
+            (
+                "client_first",
+                &usage.match_client_first,
+                &usage.after_presence,
+                &usage.after_site,
+            ),
         ] {
+            let expected_pair = pair_for(&doc.change, basis);
+            let required = expected_pair.is_some() && presence == "present";
+            if required != reference.is_some() || (presence == "present") != site.is_some() {
+                reasons.push(Refusal::new("missing_dependency", basis).dimension("usage_match"));
+                continue;
+            }
             if let Some(reference) = reference {
                 check_reference(doc, &report, basis, reference, &mut reasons);
+                if expected_pair
+                    .and_then(|(_, client)| inputs.get(client.as_str()))
+                    .zip(site.as_ref())
+                    .is_none_or(|(input, site)| {
+                        input
+                            .snapshot
+                            .identity()
+                            .is_none_or(|(tree, _)| tree != site.tree)
+                    })
+                {
+                    reasons.push(Refusal::new("slot_mismatch", &id).dimension("usage_site_tree"));
+                }
             }
         }
         for (actual, alternate) in [
@@ -159,13 +183,31 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
                 reasons.push(Refusal::new("slot_mismatch", &id).dimension("site_id"));
             }
         }
-        report.insert(&id, ClaimDecision::from_reasons(None, reasons));
+        let key = format!("usage:{index}:{id}");
+        if usage.usage_id.is_some()
+            && doc
+                .usages
+                .iter()
+                .filter(|item| item.usage_id == usage.usage_id)
+                .count()
+                > 1
+        {
+            reasons.push(Refusal::new("receipt_conflict", &id));
+        }
+        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
     }
 
     if let Some(action) = &doc.change.review_action {
         let mut reasons = Vec::new();
         if action.evidence.is_empty() && action.supporting_row_ids.is_empty() {
             reasons.push(Refusal::new("missing_dependency", &action.claim_id));
+        }
+        if !doc
+            .comparisons
+            .iter()
+            .any(|pair| pair.comparison_id == action.comparison_id)
+        {
+            reasons.push(Refusal::new("missing_dependency", &action.comparison_id));
         }
         for reference in &action.evidence {
             check_reference(doc, &report, &action.comparison_id, reference, &mut reasons);
@@ -181,10 +223,100 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
                 reasons.push(Refusal::new("missing_dependency", id));
             }
         }
-        report.insert(&action.claim_id, ClaimDecision::from_reasons(None, reasons));
+        let key = if action.claim_id == "review-action" {
+            "review-action".into()
+        } else {
+            format!("review-action:{}", action.claim_id)
+        };
+        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
     }
+    validate_auxiliary(doc, &inputs, &mut report);
     validate_links(doc, &mut report);
+    for (index, warning) in doc.warnings.iter().enumerate() {
+        if let Some(refusal) = &warning.refusal {
+            report.insert(
+                &format!("warning:{index}:{}", warning.claim_id),
+                ClaimDecision::from_reasons(None, vec![refusal.clone()]),
+            );
+        }
+    }
     report
+}
+
+fn validate_auxiliary(
+    doc: &ImpactDocument,
+    inputs: &BTreeMap<&str, &DocumentInput>,
+    report: &mut AdmissionReport,
+) {
+    let consumer = doc.change.consumer.as_ref();
+    for (index, call) in doc.change.call_changes.iter().enumerate() {
+        let key = format!("call-change:{index}");
+        let mut reasons = Vec::new();
+        if !match call.kind.as_str() {
+            "inserted" => call.before_site_id.is_none() && call.after_site_id.is_some(),
+            "deleted" => call.before_site_id.is_some() && call.after_site_id.is_none(),
+            "retargeted" => call.before_site_id.is_some() && call.after_site_id.is_some(),
+            "unknown" => call
+                .reason
+                .as_deref()
+                .is_some_and(|reason| !reason.is_empty()),
+            _ => false,
+        } {
+            reasons.push(Refusal::new("slot_mismatch", &key).dimension("call_change"));
+        }
+        for (occurrence, input_id) in [
+            (
+                call.before_site_id.as_ref(),
+                consumer.and_then(|slots| slots.before_input_id.as_ref()),
+            ),
+            (
+                call.after_site_id.as_ref(),
+                consumer.and_then(|slots| slots.after_input_id.as_ref()),
+            ),
+        ] {
+            if let Some(occurrence) = occurrence {
+                if !input_id
+                    .and_then(|id| inputs.get(id.as_str()))
+                    .and_then(|input| input.occurrence_ids.as_ref())
+                    .is_some_and(|inventory| inventory.contains(occurrence))
+                {
+                    reasons.push(Refusal::new("missing_dependency", occurrence));
+                }
+            }
+        }
+        report.insert(&key, ClaimDecision::from_reasons(None, reasons));
+    }
+    let rows: BTreeSet<_> = doc
+        .change
+        .elements
+        .iter()
+        .chain(&doc.impacts)
+        .map(|row| &row.row_id)
+        .collect();
+    for (index, risk) in doc.change.risks.iter().enumerate() {
+        let reasons = risk
+            .supporting_row_ids
+            .iter()
+            .filter(|id| !rows.contains(id))
+            .map(|id| Refusal::new("missing_dependency", id))
+            .collect();
+        report.insert(
+            &format!("risk:{index}"),
+            ClaimDecision::from_reasons(None, reasons),
+        );
+    }
+    for (index, observation) in doc.unobserved.iter().enumerate() {
+        let reasons = observation
+            .membership_basis
+            .iter()
+            .filter(|id| !inputs.contains_key(id.as_str()))
+            .map(|id| Refusal::new("missing_slot", id))
+            .collect();
+        report.insert(
+            &format!("membership:{index}"),
+            ClaimDecision::from_reasons(None, reasons),
+        );
+    }
 }
 
 fn validate_links(doc: &ImpactDocument, report: &mut AdmissionReport) {
@@ -221,12 +353,15 @@ fn validate_links(doc: &ImpactDocument, report: &mut AdmissionReport) {
             .map(|link| Refusal::new("missing_dependency", link))
             .collect::<Vec<_>>();
         if !reasons.is_empty() {
-            report.insert(id, ClaimDecision::from_reasons(None, reasons));
+            report.insert(
+                &format!("row:{id}"),
+                ClaimDecision::from_reasons(None, reasons),
+            );
         }
     }
     for id in duplicate_rows {
         report.insert(
-            id,
+            &format!("row-duplicate:{id}"),
             ClaimDecision::from_reasons(None, vec![Refusal::new("receipt_conflict", id)]),
         );
     }
@@ -257,13 +392,42 @@ fn validate_links(doc: &ImpactDocument, report: &mut AdmissionReport) {
         {
             reasons.push(Refusal::new("missing_slot", &limit.input_id));
         }
+        let linked_basis = if limit.comparison_id == "service_diff" {
+            doc.change
+                .producer
+                .as_ref()
+                .is_some_and(|slots| match limit.side.as_str() {
+                    "before" => slots.before_input_id.as_ref() == Some(&limit.input_id),
+                    "after" => slots.after_input_id.as_ref() == Some(&limit.input_id),
+                    _ => false,
+                })
+        } else {
+            doc.comparisons
+                .iter()
+                .filter(|pair| pair.comparison_id == limit.comparison_id)
+                .count()
+                == 1
+                && doc.comparisons.iter().any(|pair| {
+                    pair.comparison_id == limit.comparison_id
+                        && (pair.client_input_id == limit.input_id
+                            || pair.service_input_id == limit.input_id)
+                })
+        };
+        if !linked_basis {
+            reasons.push(
+                Refusal::new("missing_dependency", &limit.comparison_id).dimension("comparison_id"),
+            );
+        }
         for claim in &limit.affected_claims {
             if !rows.get(claim).is_some_and(|links| links.contains(id)) {
                 reasons.push(Refusal::new("missing_dependency", claim));
             }
         }
         if !reasons.is_empty() {
-            report.insert(id, ClaimDecision::from_reasons(None, reasons));
+            report.insert(
+                &format!("limit:{id}"),
+                ClaimDecision::from_reasons(None, reasons),
+            );
         }
     }
 }
@@ -280,7 +444,7 @@ fn check_reference(
             .push(Refusal::new("slot_mismatch", &reference.comparison_id).dimension("comparison"));
     } else if let Some(decision) = report
         .claims
-        .get(comparison_id)
+        .get(&comparison_key(comparison_id))
         .filter(|decision| decision.status != "admitted")
     {
         reasons.extend(decision.reasons.clone());
@@ -291,7 +455,7 @@ fn check_reference(
     }
 }
 
-fn pair_for<'a>(change: &'a Change, id: &str) -> Option<(&'a String, &'a String)> {
+pub(super) fn pair_for<'a>(change: &'a Change, id: &str) -> Option<(&'a String, &'a String)> {
     let producer = change.producer.as_ref()?;
     let consumer = change.consumer.as_ref()?;
     let (service, client) = match id {
@@ -313,74 +477,11 @@ fn pair_for<'a>(change: &'a Change, id: &str) -> Option<(&'a String, &'a String)
     service.as_ref().zip(client.as_ref())
 }
 
-fn input_refusals(doc: &ImpactDocument, input: &DocumentInput) -> Vec<Refusal> {
-    use crate::model::SchemaOrigin;
-    let id = &input.input_id;
-    let Some((tree, rev)) = input.snapshot.identity() else {
-        return vec![Refusal::new("unsupported_kind", id)];
-    };
-    if input.api != doc.api {
-        return vec![Refusal::new("slot_mismatch", id).dimension("api")];
+fn comparison_key(id: &str) -> String {
+    match id {
+        "actual_before" | "actual_after" | "service_first" | "client_first" => id.into(),
+        _ => format!("comparison:{id}"),
     }
-    let origin = match &input.origin {
-        ReceiptOrigin::NamedTree {
-            input_id,
-            repo,
-            tree: origin,
-            path,
-            blob,
-            availability,
-        } => {
-            if input_id != id
-                || repo != &input.repo
-                || origin != tree
-                || path.is_empty()
-                || blob.is_empty()
-            {
-                Some(Refusal::new("slot_mismatch", id).dimension("origin"))
-            } else {
-                match availability {
-                    Availability::Available => None,
-                    Availability::Missing => Some(Refusal::new("missing_receipt", id)),
-                    Availability::Unreadable => Some(Refusal::new("unreadable_bytes", id)),
-                    Availability::Unsupported => Some(Refusal::new("unsupported_kind", id)),
-                }
-            }
-        }
-        ReceiptOrigin::IndependentCutoff {
-            evidence,
-            available_at,
-            covered_tree,
-            ..
-        } => (evidence.is_empty()
-            || covered_tree
-                .as_deref()
-                .is_some_and(|covered| covered != tree)
-            || !instant(available_at)
-                .zip(instant(&doc.cutoff_at))
-                .is_some_and(|(at, cutoff)| at <= cutoff))
-        .then(|| Refusal::new("missing_cutoff", id)),
-        _ => Some(Refusal::new("unsupported_kind", id)),
-    };
-    if let Some(refusal) = origin {
-        return vec![refusal];
-    }
-    if let Some(schema) = &input.schema {
-        let (repo, source_tree) = match &schema.source {
-            SchemaOrigin::File {
-                rev: source_rev, ..
-            } if source_rev.as_deref() != rev => {
-                return vec![Refusal::new("slot_mismatch", id).dimension("rev")];
-            }
-            SchemaOrigin::File { repo, tree, .. }
-            | SchemaOrigin::RouteTable { repo, tree, .. }
-            | SchemaOrigin::MissingExpectedSchema { repo, tree, .. } => (repo, tree),
-        };
-        if repo != &input.repo || source_tree != tree {
-            return vec![Refusal::new("slot_mismatch", id).dimension("schema.source")];
-        }
-    }
-    Vec::new()
 }
 
 fn walk_input<'a>(

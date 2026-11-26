@@ -40,7 +40,7 @@ fn tagged<T>(property: &Property<T>, encode: impl FnOnce(&T) -> String) -> Strin
     }
 }
 
-pub(super) fn content_hash(index: &SchemaIndex) -> String {
+pub(crate) fn content_hash(index: &SchemaIndex) -> String {
     let mut records = Vec::new();
     for operation in &index.operations {
         let id = operation.id.to_string();

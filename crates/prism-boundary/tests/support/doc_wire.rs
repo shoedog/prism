@@ -113,7 +113,7 @@ fn serialize_bindings(case: &Case<'_>, mut input: Value) -> Value {
                 "field:resp:GET /loom:200#/x"
             );
         }
-        doc = doc.with_schema_inventory(inventory);
+        doc = doc.with_schema_inventory(inventory).unwrap();
     }
     if case.flag("derive_extraction") {
         doc = doc.with_extraction_coverage();
@@ -208,8 +208,16 @@ fn usage_counts(mut input: Value) -> Value {
         }));
         raw.push(call);
     }
-    client["calls"] = json!(raw);
+    client["calls"] = json!(&raw);
     input["comparisons"][0]["matches"] = json!(matches);
+    input["summary"]["known_unmatched_count"]["version"] = json!("client-before");
+    let ids: Vec<_> = raw.iter().map(|call| call["site_id"].clone()).collect();
+    let inputs = input["inputs"].as_array_mut().unwrap();
+    let client_before = inputs
+        .iter_mut()
+        .find(|input| input["input_id"] == "client-before")
+        .unwrap();
+    client_before["occurrence_ids"] = json!(ids);
     input["usages"] = json!([]);
     let doc: ImpactDocument = serde_json::from_value(input).unwrap();
     let client: BindingsDocument = serde_json::from_value(client).unwrap();

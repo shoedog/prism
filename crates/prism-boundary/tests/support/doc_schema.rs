@@ -142,7 +142,7 @@ fn hashes() -> Result<(), String> {
         let index = schema(bytes, "service-before");
         let seed = json_fixture("producer.json");
         let dto: prism_boundary::BindingsDocument = serde_json::from_value(seed).unwrap();
-        let actual = serde_json::to_value(dto.with_schema_inventory(&index)).unwrap();
+        let actual = serde_json::to_value(dto.with_schema_inventory(&index).unwrap()).unwrap();
         (actual, index.byte_sha256, index.content_hash)
     }
 

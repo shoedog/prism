@@ -43,6 +43,7 @@ pub enum SnapshotInput {
         computed_at: String,
         merge_receipt: String,
     },
+    InvalidMetadata,
     Unsupported,
 }
 
@@ -51,7 +52,7 @@ impl SnapshotInput {
         match self {
             Self::Commit { tree, rev, .. } => Some((tree, Some(rev))),
             Self::ComputedTree { tree, .. } => Some((tree, None)),
-            Self::Unsupported => None,
+            Self::InvalidMetadata | Self::Unsupported => None,
         }
     }
 
@@ -77,7 +78,7 @@ impl SnapshotInput {
                 computed_at,
                 merge_receipt,
             },
-            Self::Unsupported => return None,
+            Self::InvalidMetadata | Self::Unsupported => return None,
         })
     }
 }
@@ -128,14 +129,34 @@ impl<'de> Deserialize<'de> for SnapshotInput {
                 computed_at,
                 merge_receipt,
             },
-            Wire::ComputedTree { .. } => {
-                return Err(serde::de::Error::custom(
-                    "computed tree carries commit metadata",
-                ))
-            }
+            Wire::ComputedTree { .. } => Self::InvalidMetadata,
             Wire::Unsupported => Self::Unsupported,
         })
     }
+}
+
+pub(super) fn admission_snapshot<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<SnapshotInput, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    let record = value
+        .as_object()
+        .ok_or_else(|| serde::de::Error::custom("snapshot object required"))?;
+    let additional = match value["snapshot_kind"].as_str() {
+        Some("commit") => &[][..],
+        Some("computed_tree") => &["computed_at", "merge_receipt"][..],
+        _ => return Ok(SnapshotInput::Unsupported),
+    };
+    for key in record.keys() {
+        if !["snapshot_kind", "rev", "tree", "subject", "committed_at"].contains(&key.as_str())
+            && !additional.contains(&key.as_str())
+        {
+            return Err(serde::de::Error::custom(format!(
+                "unknown snapshot key {key}"
+            )));
+        }
+    }
+    Ok(serde_json::from_value(value).unwrap_or(SnapshotInput::InvalidMetadata))
 }
 
 impl Serialize for SnapshotInput {
@@ -168,7 +189,7 @@ impl Serialize for SnapshotInput {
                 map.serialize_entry("computed_at", computed_at)?;
                 map.serialize_entry("merge_receipt", merge_receipt)?;
             }
-            Self::Unsupported => {
+            Self::InvalidMetadata | Self::Unsupported => {
                 return Err(serde::ser::Error::custom("unsupported snapshot kind"))
             }
         }
@@ -181,6 +202,8 @@ impl Serialize for SnapshotInput {
 pub enum Role {
     Producer,
     Consumer,
+    #[serde(other)]
+    Unsupported,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]

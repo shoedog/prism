@@ -57,7 +57,7 @@
             "hook": "usePilot",
             "delegate": "pilotClient"
           },
-          "branch": "main"
+          "branch": "main", "selection_basis": "snapshot"
         }
       },
       {
@@ -89,7 +89,7 @@
               "hook": "usePilot",
               "delegate": "pilotClient"
             },
-            "branch": "main"
+            "branch": "main", "selection_basis": "snapshot"
           },
           "snapshot": {
             "snapshot_kind": "commit",
@@ -160,7 +160,7 @@
                 "hook": "usePilot",
                 "delegate": "pilotClient"
               },
-              "branch": "main"
+              "branch": "main", "selection_basis": "snapshot"
             }
           },
           {
@@ -192,7 +192,7 @@
                   "hook": "usePilot",
                   "delegate": "pilotClient"
                 },
-                "branch": "main"
+                "branch": "main", "selection_basis": "snapshot"
               },
               "snapshot": {
                 "snapshot_kind": "commit",
@@ -351,6 +351,7 @@
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
+        "expect": {"/counts": {"missing_dependency": 1}},
         "admitted": true
       },
       {

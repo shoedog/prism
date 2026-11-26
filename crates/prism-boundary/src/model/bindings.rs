@@ -89,15 +89,17 @@ pub struct FieldUse {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FieldRecord {
     pub field_id: String,
+    pub signature: WireSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub signature: Option<WireSignature>,
+    pub presence: Option<String>,
 }
 
 impl From<&Field> for FieldRecord {
     fn from(field: &Field) -> Self {
         Self {
             field_id: field.id.to_string(),
-            signature: Some(WireSignature::from_shape(&field.shape)),
+            signature: WireSignature::from_shape(&field.shape),
+            presence: None,
         }
     }
 }
@@ -110,8 +112,37 @@ pub struct MessageRecord {
     pub declared_media: Vec<String>,
     pub effective_media: Option<String>,
     pub coverage: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media_source: Option<MediaSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_schema: Option<SchemaLocation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reader_limits: Vec<MessageLimit>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub producer_media_ref: Option<MediaRef>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaSource {
+    MessageContent,
+    OperationMedia,
+    DocumentMedia,
+    Producer,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SchemaLocation {
+    pub tree: String,
+    pub file: String,
+    pub blob: String,
+    pub pointer: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct MessageLimit {
+    pub pointer: Vec<super::WirePointer>,
+    pub reason: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -125,39 +156,20 @@ impl BindingsDocument {
         super::decode::document(bytes, super::decode::Kind::Bindings)
     }
 
-    pub fn with_schema_inventory(mut self, inventory: &SchemaIndex) -> Self {
+    pub fn with_schema_inventory(mut self, inventory: &SchemaIndex) -> Result<Self, DocumentError> {
         let Some((input, source)) = self.input.as_mut().zip(inventory.source.as_ref()) else {
-            return self;
+            return Err(DocumentError::InvalidDocument);
         };
-        let Some((tree, rev)) = input.snapshot.identity() else {
-            return self;
-        };
-        if (
-            source.api.as_str(),
-            source.authority.as_str(),
-            source.tree.as_str(),
-            source.commit.as_deref(),
-        ) != (
-            input.api.as_str(),
-            input.operation_authority.as_str(),
-            tree,
-            rev,
-        ) {
-            return self;
+        if !input.matches_schema_source(source) || !input.scope.same_region(&inventory.scope) {
+            return Err(DocumentError::InvalidDocument);
         }
         let Some(schema) = input.schema.as_mut() else {
-            return self;
+            return Err(DocumentError::InvalidDocument);
         };
-        if let SchemaOrigin::File {
-            sha256, path, blob, ..
-        } = &mut schema.source
-        {
-            *sha256 = inventory.byte_sha256.clone();
-            *path = source.path.clone();
-            *blob = source.blob.clone();
-        } else {
-            return self;
-        }
+        let SchemaOrigin::File { sha256, .. } = &mut schema.source else {
+            return Err(DocumentError::InvalidDocument);
+        };
+        *sha256 = inventory.byte_sha256.clone();
         schema.content_hash = Some(inventory.content_hash.clone());
         schema.info_version = inventory.info_version.clone();
 
@@ -219,6 +231,32 @@ impl BindingsDocument {
                             Coverage::Withheld => "withheld",
                         }
                         .into(),
+                        media_source: message.json_source.as_ref().map(|source| match source {
+                            JsonMediaSource::MessageContent => MediaSource::MessageContent,
+                            JsonMediaSource::OperationMedia => MediaSource::OperationMedia,
+                            JsonMediaSource::DocumentMedia => MediaSource::DocumentMedia,
+                            JsonMediaSource::Producer { .. } => MediaSource::Producer,
+                        }),
+                        selected_schema: message.selected_schema.as_ref().map(|site| {
+                            SchemaLocation {
+                                tree: site.tree.clone(),
+                                file: site.file.clone(),
+                                blob: site.blob.clone(),
+                                pointer: site.pointer.clone(),
+                            }
+                        }),
+                        reader_limits: message
+                            .limits
+                            .iter()
+                            .map(|limit| MessageLimit {
+                                pointer: limit
+                                    .pointer
+                                    .iter()
+                                    .map(super::WirePointer::from)
+                                    .collect(),
+                                reason: limit.reason.clone(),
+                            })
+                            .collect(),
                         producer_media_ref: match &message.json_source {
                             Some(JsonMediaSource::Producer { input_id, entry }) => Some(MediaRef {
                                 input_id: input_id.clone(),
@@ -253,7 +291,7 @@ impl BindingsDocument {
                 });
             }
         }
-        self
+        Ok(self)
     }
 
     pub fn with_extraction_coverage(mut self) -> Self {

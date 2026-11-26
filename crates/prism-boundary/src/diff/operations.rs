@@ -221,6 +221,9 @@ pub(super) fn compare<'a>(bounds: [BoundSide<'a>; 2], scope: &ComparisonScope) -
     let mut ledger = Ledger::default();
     let mut diff = SchemaDiff {
         bases: Some(bounds.each_ref().map(|side| side.basis.clone())),
+        schema_sources: bounds
+            .each_ref()
+            .map(|side| side.schema.and_then(|index| index.source.as_ref())),
         ..SchemaDiff::default()
     };
     let mut sides = bounds.map(|bound| Side::new(bound, scope));
@@ -364,7 +367,12 @@ fn compare_operation<'a>(
                 gap.reason,
             )
             .with_inventory_origin();
-            if presence[i].presence == Presence::Unknown {
+            if presence[i].presence == Presence::Unknown
+                && presence[1 - i].presence == Presence::Present
+            {
+                limit.origin = LimitOrigin::Both;
+                limit = limit.with_presence(&presence);
+            } else if presence[i].presence == Presence::Unknown {
                 limit = limit.with_presence(&presence);
             }
             limit.evidence.clone_from(&gap.sites);

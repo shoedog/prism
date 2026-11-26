@@ -1,7 +1,9 @@
 use crate::doc_admission::supplied_bytes;
 use crate::doc_cases::{apply_patches, fixture, json_fixture, schema, Case};
 use prism_boundary::element::MessageRoot;
-use prism_boundary::model::{unobserved_elements, ElementChangeRecord, MembershipRequest};
+use prism_boundary::model::{
+    unobserved_elements, ElementChangeRecord, MembershipRequest, RoleSlots,
+};
 use prism_boundary::revision::{
     saved_binding_status, AdmissionRequest, SavedLocation, SavedQuery, SavedScan, SavedScanEvidence,
 };
@@ -31,7 +33,7 @@ pub fn check(case: &Case<'_>) -> Result<(), String> {
     let inventory = schema(&inventory_bytes, "service-before");
     let side = case.data["side"].as_str().unwrap();
     let service_id = format!("service-{side}");
-    let selected = schema(&selected_bytes, &service_id);
+    let plain_selected = schema(&selected_bytes, &service_id);
     let element = case.data["element"].as_str().unwrap();
     if seed["source_hash"] == "from_inventory" {
         seed["source_hash"] = json!(inventory.content_hash);
@@ -65,22 +67,31 @@ pub fn check(case: &Case<'_>) -> Result<(), String> {
         bytes.insert("inventory-before".into(), inventory_bytes.clone());
     }
     bytes.insert("schema".into(), inventory_bytes);
-    let source = selected.source.as_ref().unwrap();
+    let source = plain_selected.source.as_ref().unwrap();
     admission["receipts"].as_array_mut().unwrap().push(json!({
         "id":"selected-schema", "kind":"blob", "format":"json",
         "origin":{
             "kind":"named_tree","repo":"pilot-producer","input_id":service_id,
             "path":source.path,"tree":source.tree,"blob":source.blob,"availability":"available"
         },
-        "digest":{"algorithm":"sha256","framing":"raw_bytes","value":selected.byte_sha256}
+        "digest":{"algorithm":"sha256","framing":"raw_bytes","value":plain_selected.byte_sha256}
     }));
     admission["claims"].as_array_mut().unwrap().push(json!({
         "id":"selected-schema","input_id":service_id, "slot":service_id,
         "receipt_ids":["selected-schema"]
     }));
+    if service_id == "service-before" {
+        admission["receipts"]
+            .as_array_mut()
+            .unwrap()
+            .last_mut()
+            .unwrap()["dependencies"] = json!(["config"]);
+    }
     bytes.insert("selected-schema".into(), selected_bytes);
     apply_patches(&mut admission, &case.data["receipt_patch"]);
     let admission: AdmissionRequest = serde_json::from_value(admission).unwrap();
+    let admitted = prism_boundary::admit_schema_input(&admission, &bytes, "selected-schema");
+    let selected = admitted.index().unwrap().unwrap_or(plain_selected);
     let query: SavedQuery = serde_json::from_value(json!({
         "element_id":element,"selected_input_id":case.data["selected_input_id"].as_str().unwrap_or(&service_id),
         "side":side,"saved_location":case.data["location"],
@@ -226,7 +237,7 @@ fn membership(case: &Case<'_>) -> Result<(), String> {
                 } else {
                     "after_element_id"
                 };
-                doc["operations"][0]["fields"] = json!([{"field_id":input["change"][key]}]);
+                doc["operations"][0]["fields"] = json!([{"field_id":input["change"][key], "signature": input["change"][if id == "service-before" {"before_shape"} else {"after_shape"}]}]);
             } else {
                 doc["operations"] = json!([]);
             }
@@ -247,6 +258,7 @@ fn membership(case: &Case<'_>) -> Result<(), String> {
             };
             if !observation.is_null() {
                 doc["calls"][0]["saved_match"] = observation;
+                doc["calls"][0]["saved_match"]["service_input_id"] = json!("service-before");
                 doc["calls"][0]["mapped_path"] = json!("/kiln");
                 doc["calls"][0]["original_url_text"] = json!("/kiln");
                 doc["calls"][0]["target_reason"] = Value::Null;
@@ -258,6 +270,16 @@ fn membership(case: &Case<'_>) -> Result<(), String> {
     }
     let result = unobserved_elements(&MembershipRequest {
         change: &change,
+        producer: &RoleSlots {
+            before_input_id: Some("service-before".into()),
+            after_input_id: Some("service-after".into()),
+            reason: None,
+        },
+        consumer: Some(&RoleSlots {
+            before_input_id: Some("client-before".into()),
+            after_input_id: Some("client-after".into()),
+            reason: None,
+        }),
         expected_inputs: &expected_inputs,
         admitted_bindings: &bindings,
         membership_evidence: evidence,

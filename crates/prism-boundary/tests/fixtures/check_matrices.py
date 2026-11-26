@@ -269,7 +269,12 @@ def check_p1c_rows():
 
 def check_p1d_rows():
     root = ROOT / "p1d_rows"
-    expectations = json.loads((root / "expectations.json").read_text(encoding="utf-8"))
+    expectations = {}
+    for name in ("expected-admission.json", "expectations.json"):
+        records = json.loads((root / name).read_text(encoding="utf-8"))
+        if expectations.keys() & records.keys():
+            raise ValueError(f"{name}: duplicate P1d row IDs")
+        expectations.update(records)
     rows = {row["id"]: (label, row) for label, row in read_rows(root, HEADERS["ids_matrix"])}
     pinned_controls = {
         row["id"] for _, row in read_rows(ROOT / "ids_matrix", HEADERS["ids_matrix"])

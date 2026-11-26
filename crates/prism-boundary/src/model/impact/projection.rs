@@ -8,9 +8,34 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
+impl From<&PointerToken> for WirePointer {
+    fn from(value: &PointerToken) -> Self {
+        match value {
+            PointerToken::Property(name) => Self::Property { name: name.clone() },
+            PointerToken::ListItem => Self::ListItem,
+            PointerToken::MapValue => Self::MapValue,
+        }
+    }
+}
+
 impl ImpactDocument {
     pub fn with_schema_diff(mut self, diff: &SchemaDiff<'_>) -> Self {
         if !diff_matches_slots(&self, diff) {
+            let id = "schema-diff-attachment";
+            let refusal =
+                crate::revision::Refusal::new("slot_mismatch", id).dimension("schema_diff_basis");
+            if !self
+                .warnings
+                .iter()
+                .any(|warning| warning.refusal.as_ref() == Some(&refusal))
+            {
+                self.warnings.push(UncheckedClaim {
+                    claim_id: id.into(),
+                    status: "unchecked".into(),
+                    coverage_limits: Vec::new(),
+                    refusal: Some(refusal),
+                });
+            }
             return self;
         }
         self.change.elements.clear();
@@ -124,10 +149,10 @@ impl ImpactDocument {
     fn project_limit(&mut self, limit: &crate::ComparisonLimit) -> Option<CoverageLimit> {
         let (side, basis, id) = match (limit.side, &self.change.producer) {
             (ComparisonSide::Before, Some(slots)) => {
-                ("before", "actual_before", slots.before_input_id.as_deref()?)
+                ("before", "service_diff", slots.before_input_id.as_deref()?)
             }
             (ComparisonSide::After, Some(slots)) => {
-                ("after", "actual_after", slots.after_input_id.as_deref()?)
+                ("after", "service_diff", slots.after_input_id.as_deref()?)
             }
             _ => return None,
         };
@@ -164,15 +189,7 @@ impl ImpactDocument {
             side: side.into(),
             authority: input.operation_authority.clone(),
             scope,
-            pointer: limit
-                .pointer
-                .iter()
-                .map(|token| match token {
-                    PointerToken::Property(name) => WirePointer::Property { name: name.clone() },
-                    PointerToken::ListItem => WirePointer::ListItem,
-                    PointerToken::MapValue => WirePointer::MapValue,
-                })
-                .collect(),
+            pointer: limit.pointer.iter().map(WirePointer::from).collect(),
             claim: limit_claim(&limit.claim).into(),
             reason: limit.reason.clone(),
             source: match limit.origin {
@@ -216,6 +233,7 @@ impl ImpactDocument {
                     claim_id,
                     status: "unchecked".into(),
                     coverage_limits: vec![record.limit_id.clone()],
+                    refusal: None,
                 });
             }
         }
@@ -229,8 +247,8 @@ fn diff_matches_slots(doc: &ImpactDocument, diff: &SchemaDiff<'_>) -> bool {
     };
     [&slots.before_input_id, &slots.after_input_id]
         .into_iter()
-        .zip(bases)
-        .all(|(id, basis)| {
+        .zip(bases.iter().zip(diff.schema_sources))
+        .all(|(id, (basis, source))| {
             let mut inputs = doc
                 .inputs
                 .iter()
@@ -239,7 +257,11 @@ fn diff_matches_slots(doc: &ImpactDocument, diff: &SchemaDiff<'_>) -> bool {
                 .next()
                 .filter(|_| inputs.next().is_none())
                 .is_some_and(|input| {
-                    input.role == crate::revision::Role::Producer
+                    input
+                        .scope
+                        .same_region(&Scope::from_comparison(&basis.scope))
+                        && source.is_some_and(|source| input.matches_schema_source(source))
+                        && input.role == crate::revision::Role::Producer
                         && input.api == basis.api
                         && input.operation_authority == basis.authority
                         && input
@@ -257,8 +279,8 @@ fn affected_changes(
     let LimitScope::Root(operation, root) = &limit.scope else {
         return Vec::new();
     };
-    if limit.pointer.is_empty()
-        || !matches!(
+    if !limit.pointer.is_empty()
+        && !matches!(
             limit.claim,
             ComparisonClaim::Property(_) | ComparisonClaim::FieldPresence
         )
@@ -272,15 +294,37 @@ fn affected_changes(
         }
         RootKey::Fallback => return Vec::new(),
     };
+    let root_id = crate::element::FieldId::new(root.clone(), Vec::new()).to_string();
     let target = crate::element::FieldId::new(root, limit.pointer.clone()).to_string();
+    let operation_id = operation.to_string();
     changes
         .iter()
         .filter(|row| {
-            let (element, declaration) = match limit.side {
-                ComparisonSide::Before => (&row.before_element_id, &row.before_declaration_id),
-                ComparisonSide::After => (&row.after_element_id, &row.after_declaration_id),
+            let (element, declaration, details) = match limit.side {
+                ComparisonSide::Before => (
+                    &row.before_element_id,
+                    &row.before_declaration_id,
+                    &row.before_fields,
+                ),
+                ComparisonSide::After => (
+                    &row.after_element_id,
+                    &row.after_declaration_id,
+                    &row.after_fields,
+                ),
             };
-            element.as_ref().or(declaration.as_ref()) == Some(&target)
+            let contains = |id: &str| {
+                if limit.pointer.is_empty() {
+                    id.starts_with(&root_id)
+                } else {
+                    id == target
+                }
+            };
+            element
+                .as_ref()
+                .or(declaration.as_ref())
+                .is_some_and(|id| contains(id))
+                || details.iter().any(|field| contains(&field.field_id))
+                || limit.pointer.is_empty() && element.as_ref() == Some(&operation_id)
         })
         .map(|row| row.row_id.clone())
         .collect()
@@ -357,7 +401,8 @@ fn details(fields: &[crate::FieldDetail]) -> Vec<FieldRecord> {
         .iter()
         .map(|field| FieldRecord {
             field_id: field.id.to_string(),
-            signature: Some(WireSignature::from_shape(&field.shape)),
+            signature: WireSignature::from_shape(&field.shape),
+            presence: Some(presence(field.presence).into()),
         })
         .collect()
 }

@@ -49,6 +49,7 @@
     },
     {
       "input_id": "client-before",
+      "occurrence_ids": ["call-before"],
       "api": "pilot-api",
       "repo": "pilot-consumer",
       "role": "consumer",
@@ -81,6 +82,7 @@
     },
     {
       "input_id": "client-after",
+      "occurrence_ids": ["call-after"],
       "api": "pilot-api",
       "repo": "pilot-consumer",
       "role": "consumer",
@@ -177,7 +179,10 @@
     "producer_sites": [],
     "risks": [],
     "review_action": null,
-    "selection": null
+    "selection": {
+      "input_id": "service-held",
+      "receipt": {"kind": "live_ref", "branch": "main", "rev": "service-held-rev", "observed_at": "2026-11-26T12:00:00Z"}
+    }
   },
   "impacts": [],
   "usages": [

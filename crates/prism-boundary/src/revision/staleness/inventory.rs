@@ -68,6 +68,22 @@ impl<'a> ElementKey<'a> {
         !self.path.contains('{') && scope.contains_prefix(&schema_path(self.path, "", &[]).segments)
     }
 
+    pub fn may_be_in_scope(&self, scope: &Scope, index: &SchemaIndex) -> bool {
+        if let Some(operation) = index
+            .operations
+            .iter()
+            .find(|op| op.id.to_string() == self.operation)
+        {
+            operation.declarations.is_empty()
+                || operation
+                    .declarations
+                    .iter()
+                    .any(|site| scope.contains_prefix(&site.canonical_path.segments))
+        } else {
+            self.path.contains('{') || self.in_scope(Some(scope), index)
+        }
+    }
+
     pub fn normalized_shape(&self, shape: &Value) -> Option<Value> {
         if self.field.is_some() {
             return normalize_signature(shape);
@@ -145,8 +161,10 @@ impl ElementFacts {
             let wire = op.wire_evidence.get(root);
             let message = op.messages.iter().find(|message| &message.key == root);
             if let Some(field) = known.or(observed) {
-                if wire.is_some_and(|wire| wire.declaration_only.contains(pointer)) {
-                    return Self::without_shape("absent");
+                match crate::diff::field_detail_presence(op, root, field, known.is_some()) {
+                    crate::Presence::Absent => return Self::without_shape("absent"),
+                    crate::Presence::Unknown => return Self::without_shape("unknown"),
+                    crate::Presence::Present => {}
                 }
                 let shape = field_signature(field);
                 let comparable = !gap

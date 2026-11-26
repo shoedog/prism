@@ -1,4 +1,4 @@
-use super::{selection, slots, *};
+use super::{projection::Projection, schema_claim::MediaDecision, selection, slots, *};
 use crate::schema::parse_json;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -52,6 +52,7 @@ impl<'a> Ledger<'a> {
                     })
                 });
         }
+        let config_conflicts = ledger.conflicting_configs();
         for receipt in &request.receipts {
             if !ledger.receipts.contains_key(receipt.id.as_str()) {
                 let result = slots::unique(
@@ -59,7 +60,12 @@ impl<'a> Ledger<'a> {
                     &receipt.id,
                     "missing_receipt",
                 )
-                .and_then(|record| ledger.validate_receipt(record));
+                .and_then(|record| {
+                    match config_conflicts.get(record.id.as_str()) {
+                        Some(conflict) => Err(conflict.clone()),
+                        None => ledger.validate_receipt(record),
+                    }
+                });
                 ledger.receipts.insert(&receipt.id, result);
             }
         }
@@ -78,12 +84,16 @@ impl<'a> Ledger<'a> {
             .map_err(Clone::clone)
     }
 
+    pub(super) fn validated_receipt(&self, id: &str) -> Option<&'a AdmissionReceipt> {
+        Some(self.receipts.get(id)?.as_ref().ok()?.receipt)
+    }
+
     fn validate_receipt(&self, receipt: &'a AdmissionReceipt) -> Result<ReceiptFacts<'a>, Refusal> {
         use ReceiptKind::*;
         let id = &receipt.id;
         let fail = |code| Refusal::new(code, id);
         let supported = match (&receipt.kind, &receipt.origin) {
-            (Blob | Media | Inventory, ReceiptOrigin::NamedTree { .. }) => true,
+            (Blob | Config | Media | Inventory | Mapping, ReceiptOrigin::NamedTree { .. }) => true,
             (
                 Blob,
                 ReceiptOrigin::IndependentCutoff {
@@ -102,13 +112,11 @@ impl<'a> Ledger<'a> {
                         .as_deref()
                         .is_some_and(crate::schema::supported_retrieval_uri)
             }
-            (
-                Source | Config | Mapping,
-                ReceiptOrigin::NamedTree { .. } | ReceiptOrigin::IndependentCutoff { .. },
-            ) => true,
+            (Source, ReceiptOrigin::NamedTree { .. } | ReceiptOrigin::IndependentCutoff { .. }) => {
+                true
+            }
             (Derived, ReceiptOrigin::Derived { version }) => {
-                version.as_deref().is_some_and(|v| !v.is_empty())
-                    && !receipt.dependencies.is_empty()
+                version.as_deref() == Some("0.1") && !receipt.dependencies.is_empty()
             }
             _ => false,
         };
@@ -126,9 +134,7 @@ impl<'a> Ledger<'a> {
             } => {
                 let facts = self.input_facts(input_id)?;
                 let input = facts.input;
-                if input.selection.is_some() {
-                    facts.selection.clone()?;
-                }
+                facts.selection.clone()?;
                 for (dimension, expected, received) in [
                     ("repo", input.binding.repo.as_str(), repo.as_str()),
                     ("tree", input.binding.tree.as_str(), tree.as_str()),
@@ -146,6 +152,10 @@ impl<'a> Ledger<'a> {
                     return Err(fail("missing_receipt"));
                 }
                 if receipt.kind == Config {
+                    let entry = receipt
+                        .entry
+                        .filter(|entry| *entry > 0)
+                        .ok_or_else(|| fail("missing_receipt").dimension("config.entry"))?;
                     if let Some(config) = &input.binding.config {
                         for (dimension, expected, actual) in [
                             ("config.tree", &config.tree, tree),
@@ -160,6 +170,9 @@ impl<'a> Ledger<'a> {
                                     Some(actual),
                                 ));
                             }
+                        }
+                        if entry != config.entry {
+                            return Err(fail("slot_mismatch").dimension("config.entry"));
                         }
                         if let Some(missing) = config
                             .dependencies
@@ -183,7 +196,7 @@ impl<'a> Ledger<'a> {
                 ..
             } => {
                 // Selection failure and record availability are independent facts.
-                let cutoff = selection::instant(&self.request.cutoff_at);
+                let cutoff = selection::cutoff(self.request);
                 if evidence.is_empty()
                     || !selection::instant(available_at)
                         .zip(cutoff)
@@ -239,6 +252,14 @@ impl<'a> Ledger<'a> {
         &self,
         roots: impl IntoIterator<Item = (&'a str, &'static str)>,
     ) -> (Vec<&'a AdmissionReceipt>, Vec<Refusal>) {
+        self.walk(roots, &BTreeSet::new())
+    }
+
+    pub(super) fn walk(
+        &self,
+        roots: impl IntoIterator<Item = (&'a str, &'static str)>,
+        isolated: &BTreeSet<&str>,
+    ) -> (Vec<&'a AdmissionReceipt>, Vec<Refusal>) {
         enum Step<'a> {
             Enter(&'a str, &'static str),
             Leave(&'a str),
@@ -261,7 +282,7 @@ impl<'a> Ledger<'a> {
                     visited.insert(id);
                 }
                 Step::Enter(id, missing) => {
-                    if visited.contains(id) {
+                    if visited.contains(id) || isolated.contains(id) {
                         continue;
                     }
                     if active.contains(id) {
@@ -305,7 +326,7 @@ impl<'a> Ledger<'a> {
         (records, refusals)
     }
 
-    fn claim(&self, claim: &'a AdmissionClaim) -> Result<ClaimDecision, Refusal> {
+    fn claim(&self, claim: &'a AdmissionClaim) -> Result<ResolvedClaim<'a>, Refusal> {
         let slot_id = claim
             .slot
             .as_deref()
@@ -323,21 +344,51 @@ impl<'a> Ledger<'a> {
         slots::compare_slot(slot, &input.binding)?;
         let (scope, remainder) =
             slots::project_scope(slot, &input.binding, claim.projection.as_ref())?;
-        if claim.requires_selection || input.selection.is_some() {
+        let purpose = match claim.purpose {
+            Some(ClaimPurpose::Unsupported) => {
+                return Err(Refusal::new("unsupported_kind", &claim.id))
+            }
+            Some(purpose) => purpose,
+            None if input.binding.role == Role::Producer && input.binding.authority == "schema" => {
+                ClaimPurpose::Schema
+            }
+            None => ClaimPurpose::Metadata,
+        };
+        if purpose == ClaimPurpose::Schema || !claim.receipt_ids.is_empty() {
             facts.selection.clone()?;
         }
+        if purpose == ClaimPurpose::Schema
+            && self.request.mode == ReviewMode::HistoricalAsOf
+            && selection::cutoff(self.request).is_none()
+        {
+            return Err(Refusal::new("missing_cutoff", &claim.input_id));
+        }
+        let mut media = Vec::new();
+        let mut projection = None;
+        let mut reasons = Vec::new();
         let roots = claim
             .receipt_ids
             .iter()
             .map(|id| (id.as_str(), "missing_receipt"))
             .chain(facts.merge_cutoff.map(|id| (id, "missing_dependency")));
-        let (records, mut reasons) = self.closure(roots);
-        for id in &claim.receipt_ids {
-            if let Some(record) = records.iter().find(|record| record.id == *id) {
+        let isolated = if purpose == ClaimPurpose::Schema {
+            self.request
+                .receipts
+                .iter()
+                .filter(|record| record.kind == ReceiptKind::Media)
+                .map(|record| record.id.as_str())
+                .collect()
+        } else {
+            BTreeSet::new()
+        };
+        let (records, closure_refusals) = self.walk(roots, &isolated);
+        reasons.extend(closure_refusals);
+        for record in &records {
+            if claim.receipt_ids.contains(&record.id) {
                 if let ReceiptOrigin::NamedTree { input_id, .. } = &record.origin {
-                    if *input_id != claim.input_id {
+                    if input_id != &claim.input_id {
                         reasons.push(Refusal::mismatch(
-                            id,
+                            &record.id,
                             "input_id",
                             Some(&claim.input_id),
                             Some(input_id),
@@ -346,42 +397,16 @@ impl<'a> Ledger<'a> {
                 }
             }
         }
-        if input.binding.role == Role::Producer && input.binding.authority == "schema" {
-            let blobs: Vec<_> = claim
-                .receipt_ids
-                .iter()
-                .filter_map(|id| {
-                    self.receipts
-                        .get(id.as_str())
-                        .and_then(|entry| entry.as_ref().ok())
-                        .filter(|facts| facts.receipt.kind == ReceiptKind::Blob)
-                })
-                .collect();
-            if !blobs.is_empty() {
-                match slots::unique(
-                    blobs.iter().map(|fact| fact.receipt),
-                    &claim.id,
-                    "missing_receipt",
-                ) {
-                    Ok(entry)
-                        if !self.receipts[entry.id.as_str()]
-                            .as_ref()
-                            .is_ok_and(|facts| facts.supported_schema_entry) =>
-                    {
-                        reasons.push(Refusal::new("unsupported_schema_dialect", &entry.id))
-                    }
-                    Err(refusal) => reasons.push(refusal),
-                    _ => {}
-                }
-            }
-        }
-        for id in &claim.receipt_ids {
-            if records.iter().any(|record| {
-                record.id == *id
-                    && record.kind == ReceiptKind::Blob
-                    && matches!(record.origin, ReceiptOrigin::IndependentCutoff { .. })
+        if purpose == ClaimPurpose::Schema && reasons.is_empty() {
+            let entry = self.schema_entry(claim, &records);
+            match entry.and_then(|entry| {
+                self.resolve_schema(input, entry, &records, &isolated, &scope, claim)
             }) {
-                reasons.push(Refusal::new("slot_mismatch", id).dimension("origin"));
+                Ok((resolved, proofs)) => {
+                    projection = Some(resolved);
+                    media = proofs;
+                }
+                Err(reason) => reasons.push(reason),
             }
         }
         let mut decision = ClaimDecision::from_reasons(Some(&claim.input_id), reasons);
@@ -397,19 +422,55 @@ impl<'a> Ledger<'a> {
         decision.effective_scope = (decision.status == "admitted").then_some(scope);
         decision.uncovered_scope = remainder;
         decision.dirty = input.dirty;
-        Ok(decision)
+        Ok(ResolvedClaim {
+            decision,
+            projection,
+            media,
+        })
+    }
+
+    fn schema_entry(
+        &self,
+        claim: &AdmissionClaim,
+        records: &[&'a AdmissionReceipt],
+    ) -> Result<&'a AdmissionReceipt, Refusal> {
+        let entry = slots::unique(
+            records.iter().copied().filter(|record| {
+                record.kind == ReceiptKind::Blob && claim.receipt_ids.contains(&record.id)
+            }),
+            &claim.id,
+            "missing_receipt",
+        )?;
+        if !matches!(entry.origin, ReceiptOrigin::NamedTree { .. }) {
+            return Err(Refusal::new("slot_mismatch", &entry.id).dimension("origin"));
+        }
+        if !self.receipts[entry.id.as_str()]
+            .as_ref()
+            .is_ok_and(|facts| facts.supported_schema_entry)
+        {
+            return Err(Refusal::new("unsupported_schema_dialect", &entry.id));
+        }
+        Ok(entry)
     }
 
     pub fn report(&self) -> AdmissionReport {
+        self.resolve().0
+    }
+
+    pub(in crate::revision) fn resolve(
+        &self,
+    ) -> (AdmissionReport, BTreeMap<&'a str, Projection<'a>>) {
         let mut report = AdmissionReport {
             mode: Some(self.request.mode),
             ..Default::default()
         };
+        let mut projections = BTreeMap::new();
+        let mut dependent = Vec::new();
         for claim in &self.request.claims {
             if report.claims.contains_key(&claim.id) {
                 continue;
             }
-            let decision = slots::unique(
+            let resolved = slots::unique(
                 self.request
                     .claims
                     .iter()
@@ -417,12 +478,42 @@ impl<'a> Ledger<'a> {
                 &claim.id,
                 "missing_receipt",
             )
-            .and_then(|claim| self.claim(claim))
-            .unwrap_or_else(|reason| ClaimDecision::from_reasons(None, vec![reason]));
-            report.insert(&claim.id, decision);
+            .and_then(|claim| self.claim(claim));
+            match resolved {
+                Ok(resolved) => {
+                    if let Some(projection) = resolved.projection {
+                        projections.insert(claim.id.as_str(), projection);
+                    }
+                    report.insert(&claim.id, resolved.decision);
+                    for media in resolved.media {
+                        let id =
+                            format!("media:{}:{}:{}", claim.id.len(), claim.id, media.receipt_id);
+                        let mut decision =
+                            ClaimDecision::from_reasons(Some(&claim.input_id), media.reasons);
+                        decision.evidence.push(media.receipt_id.into());
+                        decision.media_root = media.root;
+                        dependent.push((id, decision));
+                    }
+                }
+                Err(reason) => {
+                    report.insert(&claim.id, ClaimDecision::from_reasons(None, vec![reason]))
+                }
+            }
         }
-        report
+        for (mut id, decision) in dependent {
+            while report.claims.contains_key(&id) {
+                id.push(':');
+            }
+            report.insert(&id, decision);
+        }
+        (report, projections)
     }
+}
+
+struct ResolvedClaim<'a> {
+    decision: ClaimDecision,
+    projection: Option<Projection<'a>>,
+    media: Vec<MediaDecision<'a>>,
 }
 
 fn schema_dialect(json: &serde_json::Value) -> bool {

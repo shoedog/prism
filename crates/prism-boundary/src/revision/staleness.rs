@@ -1,15 +1,16 @@
 mod inventory;
+mod segments;
 use self::inventory::{ElementFacts, ElementKey};
 use super::{
-    admission::Ledger, AdmissionRequest, Availability, ReceiptKind, ReceiptOrigin, Refusal, Role,
-    Scope,
+    admission::{Ledger, Projection},
+    AdmissionRequest, Availability, ReceiptKind, ReceiptOrigin, Refusal, Role, Scope,
 };
 use crate::model::StandingMismatch;
 use crate::SchemaIndex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SavedScan {
@@ -24,10 +25,20 @@ pub struct SavedScan {
     pub schema_inventory_id: String,
     pub expected_segments: Vec<String>,
     pub admitted_segments: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub segments: Vec<SavedSegment>,
     pub dependencies: Vec<String>,
     pub matches: Vec<SavedLocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<Scope>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SavedSegment {
+    pub path: String,
+    pub scope: Scope,
+    pub source_receipt_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -95,7 +106,7 @@ pub fn saved_binding_status(
     evidence: &SavedScanEvidence<'_>,
 ) -> SavedStatusReport {
     let ledger = Ledger::new(evidence.admission, evidence.bytes);
-    let admission = ledger.report();
+    let (admission, projections) = ledger.resolve();
     let mut result = SavedStatusReport::default();
     for claim in &evidence.admission.claims {
         if admission
@@ -111,11 +122,12 @@ pub fn saved_binding_status(
         }
     }
     let key = ElementKey::parse(&query.element_id);
-    let selected_input = find_selected(query, evidence, &ledger, &admission);
+    let verified = find_selected(query, evidence, &ledger, &projections);
+    let selected_input = verified.as_ref().map(|(id, _)| *id);
     let selected = key
         .as_ref()
-        .zip(selected_input)
-        .map(|(key, _)| ElementFacts::from_index(key, evidence.selected));
+        .zip(verified.as_ref())
+        .map(|(key, (_, index))| ElementFacts::from_index(key, index));
     let mut status = BindingStatus {
         scan_id: evidence.scan.map(|scan| scan.scan_id.clone()),
         element_id: query.element_id.clone(),
@@ -157,66 +169,49 @@ fn find_selected<'a>(
     query: &SavedQuery,
     evidence: &SavedScanEvidence<'a>,
     ledger: &Ledger<'a>,
-    admission: &super::AdmissionReport,
-) -> Option<&'a str> {
+    projections: &BTreeMap<&str, Projection<'a>>,
+) -> Option<(&'a str, SchemaIndex)> {
     let source = evidence.selected.source.as_ref()?;
-    let mut matches = BTreeSet::new();
+    let key = ElementKey::parse(&query.element_id)?;
+    let mut matches = BTreeMap::new();
     for claim in &ledger.request.claims {
-        if !admission
-            .claims
-            .get(&claim.id)
-            .is_some_and(|decision| decision.status == "admitted")
-        {
+        let Some(projection) = projections.get(claim.id.as_str()) else {
             continue;
-        }
+        };
+        let scope = &projection.scope;
         let Ok(input) = ledger.input(&claim.input_id) else {
             continue;
         };
-        if input.binding.role != Role::Producer
+        let slot = ledger
+            .request
+            .slots
+            .iter()
+            .find(|slot| Some(slot.slot.as_str()) == claim.slot.as_deref());
+        if slot.and_then(|slot| slot.service_side) != Some(query.side)
+            || input.binding.role != Role::Producer
             || input.binding.api != source.api
             || input.binding.authority != source.authority
             || input.snapshot.identity() != Some((&source.tree, source.commit.as_deref()))
+            || !scope.same_region(&evidence.selected.scope)
         {
             continue;
         }
-        let (records, _) = ledger.closure(
-            claim
-                .receipt_ids
-                .iter()
-                .map(|id| (id.as_str(), "missing_receipt")),
-        );
-        if records.iter().any(|record| {
-            record.kind == ReceiptKind::Blob
-                && record
-                    .digest
-                    .as_ref()
-                    .is_some_and(|digest| digest.value == evidence.selected.byte_sha256)
-                && matches!(&record.origin, ReceiptOrigin::NamedTree { input_id, path, blob, .. }
-                if *input_id == claim.input_id && *path == source.path && *blob == source.blob)
-        }) {
-            let slot = ledger
-                .request
-                .slots
-                .iter()
-                .find(|slot| Some(slot.slot.as_str()) == claim.slot.as_deref());
-            if slot.and_then(slot_service_side) == Some(query.side) {
-                matches.insert(claim.input_id.as_str());
-            }
+        let Ok(index) = projection.index() else {
+            continue;
+        };
+        if index.source.as_ref() == Some(source)
+            && key.in_scope(Some(scope), &index)
+            && index.byte_sha256 == evidence.selected.byte_sha256
+            && index.input_closure == evidence.selected.input_closure
+            && index.content_hash == evidence.selected.content_hash
+            && index.info_version == evidence.selected.info_version
+        {
+            matches.insert(claim.input_id.as_str(), index);
         }
     }
-    // Held aliases reuse the input ID. A repeated alias cannot replace the before/after slot.
     (matches.len() == 1)
         .then(|| matches.into_iter().next())
         .flatten()
-}
-
-fn slot_service_side(slot: &super::InputSlot) -> Option<ServiceSide> {
-    slot.service_side.or(match slot.slot.as_str() {
-        "service-before" | "producer_before" => Some(ServiceSide::Before),
-        "service-after" | "producer_after" => Some(ServiceSide::After),
-        "service-held" | "producer_held" => Some(ServiceSide::Held),
-        _ => None,
-    })
 }
 
 fn evaluate(
@@ -233,9 +228,6 @@ fn evaluate(
         .ok_or_else(|| Refusal::new("missing_saved_scan", &query.element_id))?;
     let fail = |code| Refusal::new(code, &scan.scan_id);
     let element = element.ok_or_else(|| fail("unsupported_kind"))?;
-    let selected = selected
-        .filter(|_| status.selected_input_id == query.selected_input_id)
-        .ok_or_else(|| fail("slot_mismatch").dimension("selected_input_id"))?;
     let inventory = evidence
         .inventory
         .ok_or_else(|| fail("missing_inventory"))?;
@@ -268,6 +260,12 @@ fn evaluate(
     let (records, refusals) = ledger.closure(
         scan.dependencies
             .iter()
+            .filter(|id| {
+                !scan
+                    .segments
+                    .iter()
+                    .any(|segment| segment.source_receipt_id.as_ref() == Some(id))
+            })
             .map(|id| (id.as_str(), "missing_dependency")),
     );
     if let Some(refused) = refusals.into_iter().next() {
@@ -320,11 +318,13 @@ fn evaluate(
     {
         return Err(fail("slot_mismatch").dimension("schema_inventory_id"));
     }
-    if !records.iter().any(|record| {
-        record.kind == ReceiptKind::Source
-            && matches!(&record.origin, ReceiptOrigin::NamedTree { input_id, tree, .. }
+    if scan.segments.is_empty()
+        && !records.iter().any(|record| {
+            record.kind == ReceiptKind::Source
+                && matches!(&record.origin, ReceiptOrigin::NamedTree { input_id, tree, .. }
             if *input_id == scan.client_input_id && *tree == scan.client_tree)
-    }) {
+        })
+    {
         return Err(fail("slot_mismatch").dimension("client_tree"));
     }
     let config = client
@@ -344,10 +344,14 @@ fn evaluate(
     }
     if !element.in_scope(scan.scope.as_ref(), inventory)
         || !element.in_scope(Some(&inventory_owner.binding.scope), inventory)
+        || !element.in_scope(Some(&inventory.scope), inventory)
     {
         return Err(fail("scope_unchecked"));
     }
 
+    let selected = selected
+        .filter(|_| status.selected_input_id == query.selected_input_id)
+        .ok_or_else(|| fail("slot_mismatch").dimension("selected_input_id"))?;
     if inventory.content_hash != evidence.selected.content_hash {
         result
             .standing_mismatches
@@ -374,13 +378,7 @@ fn evaluate(
             location.map_or(&scan.scan_id, |l| &l.location_id),
         ));
     }
-    if let Some(segment) = scan
-        .expected_segments
-        .iter()
-        .find(|segment| !scan.admitted_segments.contains(segment))
-    {
-        return Err(Refusal::new("missing_dependency", segment));
-    }
+    segments::check(scan, element, inventory, ledger, &records)?;
     let Some(location) = location else {
         if let Some(id) = &query.saved_location {
             return Err(Refusal::new("missing_dependency", id));

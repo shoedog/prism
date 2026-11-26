@@ -1,0 +1,160 @@
+{
+  "A10": {
+    "variants": [
+      {
+        "name": "producer_after",
+        "patches": [
+          {
+            "path": "/slots/-",
+            "value": {
+              "slot": "producer_after",
+              "input_id": "different-input",
+              "api": "pilot-api",
+              "role": "producer",
+              "repo": "pilot-producer",
+              "authority": "schema",
+              "scope": {"kind": "api"},
+              "rev": "service-before-rev",
+              "tree": "service-before-tree",
+              "config": {
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "entry": 1,
+                "era": "v1",
+                "defaults": "driver-defaults",
+                "export": "pilotClient",
+                "mount": "/api",
+                "strip": "",
+                "add": "",
+                "api": "pilot-api",
+                "dependencies": ["mapping"],
+                "hook": "usePilot",
+                "delegate": "pilotClient"
+              },
+              "branch": "main"
+            }
+          },
+          {"path": "/claims/0/slot", "value": "producer_after"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "input_id"}
+      },
+      {
+        "name": "producer_reference",
+        "patches": [
+          {
+            "path": "/slots/-",
+            "value": {
+              "slot": "producer_reference",
+              "input_id": "different-input",
+              "api": "pilot-api",
+              "role": "producer",
+              "repo": "pilot-producer",
+              "authority": "schema",
+              "scope": {"kind": "api"},
+              "rev": "service-before-rev",
+              "tree": "service-before-tree",
+              "config": {
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "entry": 1,
+                "era": "v1",
+                "defaults": "driver-defaults",
+                "export": "pilotClient",
+                "mount": "/api",
+                "strip": "",
+                "add": "",
+                "api": "pilot-api",
+                "dependencies": ["mapping"],
+                "hook": "usePilot",
+                "delegate": "pilotClient"
+              },
+              "branch": "main"
+            }
+          },
+          {"path": "/claims/0/slot", "value": "producer_reference"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "input_id"}
+      },
+      {
+        "name": "producer_held",
+        "patches": [
+          {
+            "path": "/slots/-",
+            "value": {
+              "slot": "producer_held",
+              "input_id": "different-input",
+              "api": "pilot-api",
+              "role": "producer",
+              "repo": "pilot-producer",
+              "authority": "schema",
+              "scope": {"kind": "api"},
+              "rev": "service-before-rev",
+              "tree": "service-before-tree",
+              "config": {
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "entry": 1,
+                "era": "v1",
+                "defaults": "driver-defaults",
+                "export": "pilotClient",
+                "mount": "/api",
+                "strip": "",
+                "add": "",
+                "api": "pilot-api",
+                "dependencies": ["mapping"],
+                "hook": "usePilot",
+                "delegate": "pilotClient"
+              },
+              "branch": "main"
+            }
+          },
+          {"path": "/claims/0/slot", "value": "producer_held"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "input_id"}
+      },
+      {
+        "name": "reuse-held",
+        "patches": [
+          {
+            "path": "/slots/-",
+            "value": {
+              "slot": "producer_held",
+              "input_id": "service-before",
+              "api": "pilot-api",
+              "role": "producer",
+              "repo": "pilot-producer",
+              "authority": "schema",
+              "scope": {"kind": "api"},
+              "rev": "service-before-rev",
+              "tree": "service-before-tree",
+              "config": {
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "entry": 1,
+                "era": "v1",
+                "defaults": "driver-defaults",
+                "export": "pilotClient",
+                "mount": "/api",
+                "strip": "",
+                "add": "",
+                "api": "pilot-api",
+                "dependencies": ["mapping"],
+                "hook": "usePilot",
+                "delegate": "pilotClient"
+              },
+              "branch": "main",
+              "selection_basis": "snapshot",
+              "service_side": "held"
+            }
+          },
+          {"path": "/claims/0/slot", "value": "producer_held"}
+        ],
+        "admitted": true
+      }
+    ]
+  }
+}

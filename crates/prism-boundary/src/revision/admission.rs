@@ -9,9 +9,11 @@
 
 mod graph;
 mod projection;
+mod schema_claim;
 mod selection;
 mod slots;
 pub(super) use graph::Ledger;
+pub(super) use projection::Projection;
 pub use projection::{admit_schema_input, SchemaAdmission};
 pub(crate) use selection::instant;
 
@@ -19,9 +21,10 @@ use super::{ReviewMode, Role, SnapshotInput};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Scope {
+    #[default]
     Api,
     PathPrefix {
         segments: Vec<Vec<crate::element::PathToken>>,
@@ -35,6 +38,7 @@ pub struct ScopeRemainder {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct ConfigSource {
     pub tree: String,
     pub path: String,
@@ -53,6 +57,7 @@ pub struct ConfigSource {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct InputSlot {
     pub slot: String,
     pub input_id: String,
@@ -66,11 +71,32 @@ pub struct InputSlot {
     pub config: Option<ConfigSource>,
     pub branch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection_basis: Option<SelectionBasis>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub service_side: Option<super::ServiceSide>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SelectionBasis {
+    Snapshot,
+    Counterpart,
+    SelectedVersion,
+    #[serde(other)]
+    Unsupported,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimPurpose {
+    Schema,
+    Metadata,
+    #[serde(other)]
+    Unsupported,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReceiptOrigin {
     NamedTree {
         input_id: String,
@@ -124,6 +150,7 @@ pub enum ReceiptKind {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct AdmissionReceipt {
     pub id: String,
     pub kind: ReceiptKind,
@@ -134,9 +161,11 @@ pub struct AdmissionReceipt {
     pub digest: Option<ByteDigest>,
     pub retrieval_uri: Option<String>,
     pub entry: Option<usize>,
+    pub scope: Option<Scope>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct ByteDigest {
     pub algorithm: String,
     pub framing: String,
@@ -144,7 +173,7 @@ pub struct ByteDigest {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SelectionReceipt {
     LiveRef {
         branch: String,
@@ -189,6 +218,7 @@ pub enum SelectionReceipt {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct MergeReceipt {
     pub id: String,
     pub base: Option<String>,
@@ -201,11 +231,13 @@ pub struct MergeReceipt {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct ScopeProjection {
     pub requested: Scope,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct AdmissionClaim {
     pub id: String,
     pub input_id: String,
@@ -214,23 +246,28 @@ pub struct AdmissionClaim {
     pub projection: Option<ScopeProjection>,
     #[serde(default)]
     pub requires_selection: bool,
+    pub purpose: Option<ClaimPurpose>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct AdmissionInput {
     pub binding: InputSlot,
+    #[serde(deserialize_with = "super::admission_snapshot")]
     pub snapshot: SnapshotInput,
     pub dirty: Option<bool>,
     pub selection: Option<SelectionReceipt>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct AdmissionRequest {
     pub mode: ReviewMode,
     pub report_time: String,
     pub cutoff_at: String,
     pub selection_time: Option<String>,
     pub subject_head_committed_at: Option<String>,
+    pub subject_head_input_id: Option<String>,
     pub slots: Vec<InputSlot>,
     pub inputs: Vec<AdmissionInput>,
     pub receipts: Vec<AdmissionReceipt>,
@@ -246,7 +283,31 @@ pub struct Refusal {
     pub record_id: Option<String>,
     pub expected: Option<String>,
     pub received: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub additional_mismatches: Vec<MismatchDetail>,
     pub evidence: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct MismatchDetail {
+    pub dimension: String,
+    pub record_id: Option<String>,
+    pub expected: Option<String>,
+    pub received: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct MediaRootEvidence {
+    pub operation_id: String,
+    pub direction: MediaDirection,
+    pub status: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaDirection {
+    Request,
+    Response,
 }
 
 #[derive(Debug, Serialize)]
@@ -261,6 +322,8 @@ pub struct ClaimDecision {
     pub selection: Option<SelectionReceipt>,
     pub uncovered_scope: Option<ScopeRemainder>,
     pub dirty: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_root: Option<MediaRootEvidence>,
     pub evidence: Vec<String>,
 }
 
@@ -287,12 +350,40 @@ impl Refusal {
             expected: None,
             received: None,
             evidence: vec![record.into()],
+            additional_mismatches: Vec::new(),
         }
     }
 
     pub(crate) fn dimension(mut self, dimension: &str) -> Self {
         self.dimension = Some(dimension.into());
         self
+    }
+
+    fn detail(&self) -> Option<MismatchDetail> {
+        Some(MismatchDetail {
+            dimension: self.dimension.clone()?,
+            record_id: self.record_id.clone(),
+            expected: self.expected.clone(),
+            received: self.received.clone(),
+        })
+    }
+
+    fn merge(&mut self, other: Self) {
+        let primary = self.detail();
+        for detail in other
+            .detail()
+            .into_iter()
+            .chain(other.additional_mismatches)
+        {
+            if Some(&detail) != primary.as_ref() && !self.additional_mismatches.contains(&detail) {
+                self.additional_mismatches.push(detail);
+            }
+        }
+        for item in other.evidence {
+            if !self.evidence.contains(&item) {
+                self.evidence.push(item);
+            }
+        }
     }
 
     fn mismatch(id: &str, dimension: &str, expected: Option<&str>, received: Option<&str>) -> Self {
@@ -326,11 +417,7 @@ impl ClaimDecision {
             let existing = by_code
                 .entry(refusal.code.clone())
                 .or_insert_with(|| refusal.clone());
-            for item in refusal.evidence {
-                if !existing.evidence.contains(&item) {
-                    existing.evidence.push(item);
-                }
-            }
+            existing.merge(refusal);
         }
         let admitted = by_code.is_empty();
         Self {
@@ -342,6 +429,7 @@ impl ClaimDecision {
             selection: None,
             uncovered_scope: None,
             dirty: None,
+            media_root: None,
             evidence: Vec::new(),
         }
     }

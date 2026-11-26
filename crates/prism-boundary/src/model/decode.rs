@@ -39,7 +39,8 @@ pub(super) fn document<T: DeserializeOwned>(bytes: &[u8], kind: Kind) -> Result<
     if !parsed.duplicates.is_empty() {
         return Err(DocumentError::DuplicateJsonMember);
     }
-    let value = parsed.value;
+    let mut value = parsed.value;
+    normalize_numbers(&mut value);
     if !value.is_object() {
         return Err(DocumentError::InvalidDocument);
     }
@@ -260,5 +261,38 @@ fn has_type(value: &Value, kind: &str) -> bool {
         "object" => value.is_object(),
         "string" => value.is_string(),
         _ => false,
+    }
+}
+
+// Normalize exact integers before schema checks and DTO decoding. Leave fractional
+// and out-of-range numbers intact for fields that allow arbitrary JSON numbers.
+fn normalize_numbers(value: &mut Value) {
+    match value {
+        Value::Number(number) if number.as_u64().is_none() && number.as_i64().is_none() => {
+            let canonical = crate::schema::signature::canonical_number(&number.to_string());
+            let (coefficient, exponent) = canonical.split_once('e').unwrap_or((&canonical, "0"));
+            let Some(multiplier) = exponent
+                .parse::<u32>()
+                .ok()
+                .and_then(|n| 10i128.checked_pow(n))
+            else {
+                return;
+            };
+            let Some(integer) = coefficient
+                .parse::<i128>()
+                .ok()
+                .and_then(|n| n.checked_mul(multiplier))
+            else {
+                return;
+            };
+            if let Ok(n) = u64::try_from(integer) {
+                *number = n.into();
+            } else if let Ok(n) = i64::try_from(integer) {
+                *number = n.into();
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(normalize_numbers),
+        Value::Object(object) => object.values_mut().for_each(normalize_numbers),
+        _ => {}
     }
 }

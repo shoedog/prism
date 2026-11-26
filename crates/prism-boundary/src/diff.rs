@@ -20,6 +20,7 @@
 
 mod basis;
 mod fields;
+pub(crate) use fields::field_detail_presence;
 mod limits;
 mod operations;
 mod producer;
@@ -208,6 +209,7 @@ pub struct LimitCounts {
 #[derive(Debug, Default)]
 pub struct SchemaDiff<'a> {
     pub(crate) bases: Option<[DiffBasis<'a>; 2]>,
+    pub(crate) schema_sources: [Option<&'a crate::inventory::SchemaSource>; 2],
     pub changes: Vec<ElementChange<'a>>,
     pub response_root_pairs: Vec<ResponseRootPair>,
     pub limits: Vec<ComparisonLimit>,

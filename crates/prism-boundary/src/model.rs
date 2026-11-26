@@ -34,6 +34,36 @@ pub struct DocumentInput {
     pub dependencies: Vec<String>,
     pub config_sources: Vec<ConfigSource>,
     pub schema: Option<SchemaEvidence>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub occurrence_ids: Option<Vec<String>>,
+}
+
+impl DocumentInput {
+    pub(super) fn matches_schema_source(&self, source: &crate::inventory::SchemaSource) -> bool {
+        if self.role != Role::Producer
+            || self.api != source.api
+            || self.operation_authority != source.authority
+            || self.snapshot.identity() != Some((&source.tree, source.commit.as_deref()))
+        {
+            return false;
+        }
+        match self.schema.as_ref().map(|schema| &schema.source) {
+            Some(SchemaOrigin::File {
+                path,
+                blob,
+                repo,
+                tree,
+                ..
+            }) => {
+                (path, blob, repo, tree) == (&source.path, &source.blob, &self.repo, &source.tree)
+            }
+            None => matches!(&self.origin, ReceiptOrigin::NamedTree {
+                input_id, repo, tree, path, blob, availability: crate::revision::Availability::Available,
+            } if (input_id, repo, tree, path, blob) ==
+                (&self.input_id, &self.repo, &source.tree, &source.path, &source.blob)),
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -56,6 +86,8 @@ pub enum SchemaOrigin {
         repo: String,
         tree: String,
         rev: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        subject: Option<String>,
         committed_at: Option<String>,
         path: String,
         blob: String,

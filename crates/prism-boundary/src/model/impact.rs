@@ -5,6 +5,7 @@ use crate::SchemaDiff;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+mod input_validation;
 mod membership;
 mod projection;
 mod validation;
@@ -26,6 +27,8 @@ pub struct ImpactDocument {
     pub impacts: Vec<ElementChangeRecord>,
     pub usages: Vec<Usage>,
     pub binding_status: Vec<BindingStatus>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub saved_scans: Vec<crate::revision::SavedScan>,
     pub coverage: Vec<CoverageLimit>,
     pub warnings: Vec<UncheckedClaim>,
     pub standing_mismatches: Vec<StandingMismatch>,
@@ -42,11 +45,67 @@ pub struct Change {
     pub status_additions: Vec<StatusEdit>,
     pub status_removals: Vec<StatusEdit>,
     pub response_root_pairs: Vec<RootPair>,
-    pub call_changes: Vec<Value>,
+    pub call_changes: Vec<CallChange>,
     pub producer_sites: Vec<SourceSite>,
-    pub risks: Vec<Value>,
+    pub risks: Vec<Risk>,
     pub review_action: Option<ReviewAction>,
-    pub selection: Option<Value>,
+    pub selection: Option<ChangeSelection>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CallChange {
+    pub kind: String,
+    pub before_site_id: Option<String>,
+    pub after_site_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Risk {
+    pub kind: String,
+    pub reason: String,
+    pub supporting_row_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct ChangeSelection {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_head_input_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt: Option<crate::revision::SelectionReceipt>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observed_tip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_rev: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_by: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection_history_tip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub availability_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub availability_evidence: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comparison_basis: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposed_base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposed_head: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge_receipt: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -175,6 +234,8 @@ pub struct Metric {
 
 pub struct MembershipRequest<'a> {
     pub change: &'a ElementChangeRecord,
+    pub producer: &'a RoleSlots,
+    pub consumer: Option<&'a RoleSlots>,
     pub expected_inputs: &'a [String],
     pub admitted_bindings: &'a [super::BindingsDocument],
     pub membership_evidence: &'a [Value],
@@ -197,6 +258,8 @@ pub struct StatusEdit {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UncheckedClaim {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<crate::revision::Refusal>,
     pub claim_id: String,
     pub status: String,
     pub coverage_limits: Vec<String>,

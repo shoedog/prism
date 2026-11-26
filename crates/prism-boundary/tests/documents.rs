@@ -266,3 +266,10 @@ fn historical_selection_requires_evidence_covering_the_cutoff() {
         );
     }
 }
+
+#[path = "support/fold_admission.rs"]
+mod fold_admission;
+#[path = "support/fold_impact.rs"]
+mod fold_impact;
+#[path = "support/fold_saved.rs"]
+mod fold_saved;

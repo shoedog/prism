@@ -7,9 +7,20 @@ use std::fs;
 pub const API: &str = "pilot-api";
 
 pub fn run(scenarios: &[&str], check: fn(&Case<'_>) -> Result<(), String>) {
-    let entries: Value =
-        serde_json::from_str(include_str!("../fixtures/p1d_rows/expectations.json"))
-            .expect("P1d row expectations");
+    let mut entries = serde_json::Map::new();
+    for shard in [
+        include_str!("../fixtures/p1d_rows/expected-admission.json"),
+        include_str!("../fixtures/p1d_rows/expectations.json"),
+    ] {
+        let records: serde_json::Map<String, Value> =
+            serde_json::from_str(shard).expect("P1d row expectations");
+        for (id, record) in records {
+            assert!(
+                entries.insert(id.clone(), record).is_none(),
+                "duplicate row {id}"
+            );
+        }
+    }
     let mut failures = Vec::new();
     let mut count = 0;
     for row in p1d_rows() {

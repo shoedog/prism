@@ -3,6 +3,7 @@
   "report_time": "2026-11-26T12:00:00Z",
   "cutoff_at": "2026-11-26T12:00:00Z",
   "selection_time": null,
+  "subject_head_input_id": "service-after",
   "subject_head_committed_at": "2026-11-25T12:00:00Z",
   "slots": [
     {
@@ -35,7 +36,9 @@
         "hook": "usePilot",
         "delegate": "pilotClient"
       },
-      "branch": "main"
+      "branch": "main",
+      "selection_basis": "snapshot",
+      "service_side": "before"
     },
     {
       "slot": "client-before",
@@ -50,7 +53,8 @@
       "rev": "client-before-rev",
       "tree": "client-before-tree",
       "config": null,
-      "branch": "main"
+      "branch": "main",
+      "selection_basis": "snapshot"
     },
     {
       "slot": "service-after",
@@ -65,7 +69,9 @@
       "rev": "service-after-rev",
       "tree": "service-after-tree",
       "config": null,
-      "branch": "main"
+      "branch": "main",
+      "selection_basis": "snapshot",
+      "service_side": "after"
     },
     {
       "slot": "service-held",
@@ -80,7 +86,9 @@
       "rev": "service-held-rev",
       "tree": "service-held-tree",
       "config": null,
-      "branch": "main"
+      "branch": "main",
+      "selection_basis": "snapshot",
+      "service_side": "held"
     }
   ],
   "inputs": [
@@ -115,7 +123,9 @@
           "hook": "usePilot",
           "delegate": "pilotClient"
         },
-        "branch": "main"
+        "branch": "main",
+        "selection_basis": "snapshot",
+        "service_side": "before"
       },
       "snapshot": {
         "snapshot_kind": "commit",
@@ -141,7 +151,8 @@
         "rev": "client-before-rev",
         "tree": "client-before-tree",
         "config": null,
-        "branch": "main"
+        "branch": "main",
+        "selection_basis": "snapshot"
       },
       "snapshot": {
         "snapshot_kind": "commit",
@@ -167,7 +178,9 @@
         "rev": "service-after-rev",
         "tree": "service-after-tree",
         "config": null,
-        "branch": "main"
+        "branch": "main",
+        "selection_basis": "snapshot",
+        "service_side": "after"
       },
       "snapshot": {
         "snapshot_kind": "commit",
@@ -193,7 +206,9 @@
         "rev": "service-held-rev",
         "tree": "service-held-tree",
         "config": null,
-        "branch": "main"
+        "branch": "main",
+        "selection_basis": "snapshot",
+        "service_side": "held"
       },
       "snapshot": {
         "snapshot_kind": "commit",
@@ -232,6 +247,7 @@
     {
       "id": "config",
       "kind": "config",
+      "entry": 1,
       "origin": {
         "kind": "named_tree",
         "input_id": "service-before",

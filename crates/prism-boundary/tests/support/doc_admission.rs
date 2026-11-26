@@ -179,7 +179,7 @@ fn check_projection(
             .iter()
             .map(|field| field.as_str().unwrap().to_owned())
             .collect();
-        if !actual.is_superset(&expected) {
+        if actual != expected {
             return Err(format!("observed {actual:?}, expected {expected:?}"));
         }
     }

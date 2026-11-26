@@ -18,6 +18,7 @@
     "impacts": {"type": "array", "items": {"$ref": "#/$defs/element"}},
     "usages": {"type": "array", "items": {"$ref": "#/$defs/usage"}},
     "binding_status": {"type": "array", "items": {"$ref": "#/$defs/binding_status"}},
+    "saved_scans": {"type": "array", "items": {"$ref": "urn:prism:boundary:bindings:0.1#/$defs/saved_scan"}},
     "coverage": {"type": "array", "items": {"$ref": "#/$defs/coverage"}},
     "warnings": {"type": "array", "items": {"$ref": "#/$defs/warning"}},
     "standing_mismatches": {"type": "array", "items": {"$ref": "#/$defs/mismatch"}},
@@ -320,10 +321,21 @@
       },
       "additionalProperties": false
     },
+    "selection_receipt": {"oneOf": [
+      {"type": "object", "required": ["kind", "branch", "rev", "observed_at"], "properties": {"kind": {"const": "live_ref"}, "branch": {"type": "string", "minLength": 1}, "rev": {"type": "string", "minLength": 1}, "observed_at": {"type": "string", "format": "date-time"}}, "additionalProperties": false},
+      {"type": "object", "required": ["kind", "branch", "rev", "available_at", "evidence"], "properties": {"kind": {"const": "historical_pin"}, "branch": {"type": "string", "minLength": 1}, "rev": {"type": "string", "minLength": 1}, "available_at": {"type": "string", "format": "date-time"}, "evidence": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+      {"type": "object", "required": ["kind", "branch", "rev", "captured_at", "evidence"], "properties": {"kind": {"const": "historical_snapshot"}, "branch": {"type": "string", "minLength": 1}, "rev": {"type": "string", "minLength": 1}, "captured_at": {"type": "string", "format": "date-time"}, "evidence": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+      {"type": "object", "required": ["kind", "branch", "rev", "valid_from", "valid_until", "evidence"], "properties": {"kind": {"const": "historical_ref_history"}, "branch": {"type": "string", "minLength": 1}, "rev": {"type": "string", "minLength": 1}, "valid_from": {"type": "string", "format": "date-time"}, "valid_until": {"type": "string", "format": "date-time"}, "evidence": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+      {"type": "object", "required": ["kind", "rev", "selection_time", "selected_by", "selection_reason"], "properties": {"kind": {"const": "explicit_pin"}, "rev": {"type": "string", "minLength": 1}, "selection_time": {"type": "string", "format": "date-time"}, "selected_by": {"type": "string", "minLength": 1}, "selection_reason": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+      {"type": "object", "required": ["kind", "rev", "selection_time", "selected_by", "selection_reason", "rule", "history_tip"], "properties": {"kind": {"const": "date_rule"}, "rev": {"type": "string", "minLength": 1}, "selection_time": {"type": "string", "format": "date-time"}, "selected_by": {"type": "string", "minLength": 1}, "selection_reason": {"type": "string", "minLength": 1}, "rule": {"type": "string", "minLength": 1}, "history_tip": {"type": "string", "minLength": 1}}, "additionalProperties": false}
+    ]},
     "selection": {
       "type": "object",
       "required": [],
       "properties": {
+        "input_id": {"type": "string", "minLength": 1},
+        "subject_head_input_id": {"type": "string", "minLength": 1},
+        "receipt": {"$ref": "#/$defs/selection_receipt"},
         "branch": {"type": "string", "minLength": 1},
         "observed_tip": {"type": "string", "minLength": 1},
         "observed_at": {"type": "string", "format": "date-time"},
@@ -415,7 +427,7 @@
       "required": ["limit_id", "comparison_id", "input_id", "side", "authority", "scope", "pointer", "claim", "reason", "source", "evidence", "affected_claims"],
       "properties": {
         "limit_id": {"type": "string", "minLength": 1},
-        "comparison_id": {"enum": ["actual_before", "actual_after", "service_first", "client_first"]},
+        "comparison_id": {"enum": ["actual_before", "actual_after", "service_first", "client_first", "service_diff"]},
         "input_id": {"type": "string", "minLength": 1},
         "side": {"enum": ["before", "after", "held"]},
         "authority": {"enum": ["schema", "route_table", "calls", "registration", "annotation"]},
@@ -437,6 +449,7 @@
       "required": ["claim_id", "status", "coverage_limits"],
       "properties": {
         "claim_id": {"type": "string", "minLength": 1},
+        "refusal": {"$ref": "#/$defs/refusal"},
         "status": {"const": "unchecked"},
         "coverage_limits": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
       },
@@ -451,9 +464,20 @@
         "record_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
         "expected": {"anyOf": [{"type": "string"}, {"type": "null"}]},
         "received": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "additional_mismatches": {"type": "array", "items": {"$ref": "#/$defs/mismatch_detail"}},
         "evidence": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
+    },
+    "mismatch_detail": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dimension", "record_id", "expected", "received"],
+      "properties": {
+        "dimension": {"type": "string", "minLength": 1},
+        "record_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "expected": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "received": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+      }
     },
     "binding_status": {
       "type": "object",
@@ -479,8 +503,14 @@
           "then": {"properties": {"reason": {"type": "string", "minLength": 1}}},
           "else": {"properties": {"reason": {"const": null}}}
         },
-        {"if": {"required": ["status"], "properties": {"status": {"const": "binding_current"}}}, "then": {"required": ["saved_shape", "selected_shape"]}},
-        {"if": {"required": ["status"], "properties": {"status": {"const": "binding_stale"}}}, "then": {"required": ["saved_shape", "selected_shape"]}}
+        {
+          "if": {"required": ["status"], "properties": {"status": {"enum": ["binding_current", "binding_stale"]}}},
+          "then": {"required": ["saved_shape", "selected_shape"], "properties": {
+            "selected_presence": {"const": "present"},
+            "scan_id": {"type": "string", "minLength": 1},
+            "saved_location": {"type": "string", "minLength": 1}
+          }}
+        }
       ]
     },
     "mismatch": {

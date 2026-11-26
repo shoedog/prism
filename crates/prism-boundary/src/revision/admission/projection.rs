@@ -1,7 +1,6 @@
 use super::*;
 use crate::revision::{
-    AdmittedSchemaInput, Blob, DependencyReceipt, Format, ProducerMediaEvidence, ReferenceBlob,
-    Snapshot,
+    AdmittedSchemaInput, Blob, DependencyReceipt, ProducerMediaEvidence, ReferenceBlob, Snapshot,
 };
 
 pub struct SchemaAdmission<'a> {
@@ -9,31 +8,49 @@ pub struct SchemaAdmission<'a> {
     pub report: AdmissionReport,
 }
 
-struct Projection<'a> {
-    api: &'a str,
-    authority: &'a str,
-    snapshot: Snapshot<'a>,
-    entry: Blob<'a>,
-    retrieval_uri: Option<&'a str>,
-    references: Vec<ReferenceBlob<'a>>,
-    config_receipts: Vec<DependencyReceipt<'a>>,
-    media_receipts: Vec<ProducerMediaEvidence<'a>>,
+pub(in crate::revision) struct Projection<'a> {
+    pub scope: Scope,
+    pub api: &'a str,
+    pub authority: &'a str,
+    pub snapshot: Snapshot<'a>,
+    pub entry: Blob<'a>,
+    pub retrieval_uri: Option<&'a str>,
+    pub references: Vec<ReferenceBlob<'a>>,
+    pub config_receipts: Vec<DependencyReceipt<'a>>,
+    pub media_receipts: Vec<ProducerMediaEvidence<'a>>,
 }
 
 impl SchemaAdmission<'_> {
+    /// Build the inventory scoped to the admitted claim.
+    pub fn index(&self) -> Result<Option<crate::SchemaIndex>, crate::schema::SchemaError> {
+        self.projection.as_ref().map(Projection::index).transpose()
+    }
+
     /// Borrow the reader input, including its admitted reference and media slices.
     pub fn input(&self) -> Option<AdmittedSchemaInput<'_>> {
-        let input = self.projection.as_ref()?;
-        Some(AdmittedSchemaInput {
-            api: input.api,
-            authority: input.authority,
-            snapshot: input.snapshot,
-            entry: input.entry,
-            retrieval_uri: input.retrieval_uri,
-            references: &input.references,
-            config_receipts: &input.config_receipts,
-            media_receipts: &input.media_receipts,
-        })
+        Some(self.projection.as_ref()?.input())
+    }
+}
+
+impl Projection<'_> {
+    pub(in crate::revision) fn index(
+        &self,
+    ) -> Result<crate::SchemaIndex, crate::schema::SchemaError> {
+        let index = crate::index_schema(&self.input())?;
+        Ok(project_to_scope(index, self.scope.clone()))
+    }
+
+    pub(super) fn input(&self) -> AdmittedSchemaInput<'_> {
+        AdmittedSchemaInput {
+            api: self.api,
+            authority: self.authority,
+            snapshot: self.snapshot,
+            entry: self.entry,
+            retrieval_uri: self.retrieval_uri,
+            references: &self.references,
+            config_receipts: &self.config_receipts,
+            media_receipts: &self.media_receipts,
+        }
     }
 }
 
@@ -43,179 +60,50 @@ pub fn admit_schema_input<'a>(
     claim_id: &str,
 ) -> SchemaAdmission<'a> {
     let ledger = Ledger::new(request, bytes);
-    let mut report = ledger.report();
-    let projection = match report.claims.get(claim_id) {
-        Some(decision) if decision.status == "admitted" => match project(&ledger, claim_id) {
-            Ok(projection) => Some(projection),
-            Err(refusal) => {
-                report.insert(claim_id, ClaimDecision::from_reasons(None, vec![refusal]));
-                None
-            }
-        },
-        Some(_) => None,
-        None => {
-            report.insert(
-                claim_id,
-                ClaimDecision::from_reasons(None, vec![Refusal::new("missing_receipt", claim_id)]),
-            );
-            None
+    let (mut report, mut projections) = ledger.resolve();
+    let projection = projections.remove(claim_id);
+    let failure = match report.claims.get(claim_id) {
+        None => Some(Refusal::new("missing_receipt", claim_id)),
+        Some(decision) if decision.status == "admitted" && projection.is_none() => {
+            Some(Refusal::new("slot_mismatch", claim_id).dimension("purpose"))
         }
+        _ => None,
     };
+    if let Some(failure) = failure {
+        report.insert(claim_id, ClaimDecision::from_reasons(None, vec![failure]));
+    }
     SchemaAdmission { projection, report }
 }
 
-fn project<'a>(ledger: &Ledger<'a>, claim_id: &str) -> Result<Projection<'a>, Refusal> {
-    let claim = ledger
-        .request
-        .claims
-        .iter()
-        .find(|claim| claim.id == claim_id)
-        .ok_or_else(|| Refusal::new("missing_receipt", claim_id))?;
-    let input = ledger.input(&claim.input_id)?;
-    if input.binding.role != Role::Producer || input.binding.authority != "schema" {
-        return Err(Refusal::new("slot_mismatch", claim_id).dimension("authority"));
+fn project_to_scope(mut index: crate::SchemaIndex, scope: Scope) -> crate::SchemaIndex {
+    if scope == crate::revision::Scope::Api {
+        return index;
     }
-    let (records, _) = ledger.closure(
-        claim
-            .receipt_ids
+    index.operations.retain(|op| {
+        op.declarations
             .iter()
-            .map(|id| (id.as_str(), "missing_receipt")),
-    );
-    let entry_id = claim.receipt_ids.iter().filter_map(|id| {
-        records
-            .iter()
-            .copied()
-            .find(|record| record.id == *id && record.kind == ReceiptKind::Blob)
+            .any(|declaration| scope.contains_prefix(&declaration.canonical_path.segments))
     });
-    let entry = slots::unique(entry_id, claim_id, "missing_receipt")?;
-    let blob =
-        blob(entry, ledger.bytes).ok_or_else(|| Refusal::new("unreadable_bytes", &entry.id))?;
-    let mut output = Projection {
-        api: &input.binding.api,
-        authority: &input.binding.authority,
-        snapshot: input
-            .snapshot
-            .as_snapshot()
-            .ok_or_else(|| Refusal::new("unsupported_kind", &claim.input_id))?,
-        entry: blob,
-        retrieval_uri: entry.retrieval_uri.as_deref(),
-        references: Vec::new(),
-        config_receipts: Vec::new(),
-        media_receipts: Vec::new(),
+    let ids: std::collections::BTreeSet<_> = index.operations.iter().map(|op| &op.id).collect();
+    let owned = |field: &crate::inventory::Field| match &field.id.root {
+        crate::element::MessageRoot::Request(op) | crate::element::MessageRoot::Response(op, _) => {
+            ids.contains(op)
+        }
     };
-    for record in records {
-        if record.id == entry.id {
-            continue;
-        }
-        match record.kind {
-            ReceiptKind::Blob => {
-                if let Some((retrieval_uri, blob)) = record
-                    .retrieval_uri
-                    .as_deref()
-                    .zip(self::blob(record, ledger.bytes))
-                {
-                    output.references.push(ReferenceBlob {
-                        retrieval_uri,
-                        blob,
-                    });
-                }
-            }
-            ReceiptKind::Config | ReceiptKind::Mapping => {
-                if let Some(receipt) = dependency(
-                    record,
-                    record
-                        .entry
-                        .or_else(|| input.binding.config.as_ref().map(|config| config.entry)),
-                ) {
-                    output.config_receipts.push(receipt);
-                }
-            }
-            ReceiptKind::Media => {
-                if let Some(receipt) = dependency(record, record.entry.or(Some(1))) {
-                    let bytes = &ledger.bytes[&record.id];
-                    let (sources, _) = ledger.closure(
-                        record
-                            .dependencies
-                            .iter()
-                            .map(|id| (id.as_str(), "missing_dependency")),
-                    );
-                    if media_sources_match(bytes, receipt, &sources) {
-                        output
-                            .media_receipts
-                            .push(ProducerMediaEvidence { receipt, bytes });
-                    }
-                }
-            }
-            ReceiptKind::Source
-            | ReceiptKind::Inventory
-            | ReceiptKind::Derived
-            | ReceiptKind::Unsupported => {}
-        }
+    index.fields.retain(owned);
+    index.observed_fields.retain(owned);
+    index.reached.retain(|op, _| ids.contains(op));
+    for operations in index.inverse.values_mut() {
+        operations.retain(|op| ids.contains(op));
     }
-    Ok(output)
-}
-
-fn dependency(record: &AdmissionReceipt, entry: Option<usize>) -> Option<DependencyReceipt<'_>> {
-    let ReceiptOrigin::NamedTree {
-        tree, path, blob, ..
-    } = &record.origin
-    else {
-        return None;
-    };
-    Some(DependencyReceipt {
-        input_id: &record.id,
-        tree,
-        path,
-        blob,
-        entry: entry?,
-    })
-}
-
-fn blob<'a>(
-    record: &'a AdmissionReceipt,
-    bytes: &'a BTreeMap<String, Vec<u8>>,
-) -> Option<Blob<'a>> {
-    let (tree, path, blob) = match &record.origin {
-        ReceiptOrigin::NamedTree {
-            tree, path, blob, ..
-        }
-        | ReceiptOrigin::IndependentCutoff {
-            covered_tree: Some(tree),
-            path: Some(path),
-            blob: Some(blob),
-            ..
-        } => (tree, path, blob),
-        _ => return None,
-    };
-    Some(Blob {
-        path,
-        tree,
-        oid: blob,
-        bytes: bytes.get(&record.id)?,
-        format: Format::Json,
-    })
-}
-
-fn media_sources_match(
-    bytes: &[u8],
-    receipt: DependencyReceipt<'_>,
-    sources: &[&AdmissionReceipt],
-) -> bool {
-    let Ok(catalog) = serde_json::from_slice::<serde_json::Value>(bytes) else {
-        return false;
-    };
-    receipt
-        .entry
-        .checked_sub(1)
-        .and_then(|entry| catalog.get(entry))
-        .and_then(|record| record["coverage"]["paths"].as_array())
-        .is_some_and(|paths| {
-            paths.iter().all(|site| {
-                sources.iter().any(|source| {
-                    matches!(&source.origin, ReceiptOrigin::NamedTree { tree, path, blob, .. }
-                    if source.kind == ReceiptKind::Source && tree == receipt.tree
-                    && site["file"] == path.as_str() && site["blob"] == blob.as_str())
-                })
-            })
-        })
+    let visible: std::collections::BTreeSet<_> = index
+        .fields
+        .iter()
+        .chain(&index.observed_fields)
+        .map(|field| field.id.to_string())
+        .collect();
+    index.public_fields.retain(|id| visible.contains(id));
+    index.content_hash = crate::schema::signature::content_hash(&index);
+    index.scope = scope;
+    index
 }

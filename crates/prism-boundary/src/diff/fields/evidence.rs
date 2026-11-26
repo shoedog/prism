@@ -34,15 +34,7 @@ impl<'a> OperationFields<'a> {
                 let root = Root::new(op, self, key.clone());
                 fields.values().map(move |entry| FieldDetail {
                     id: entry.field.id.clone(),
-                    presence: if entry.comparable && root.authority_reason().is_none() {
-                        Presence::Present
-                    } else if root.declaration_only(&entry.field.id.pointer)
-                        && root.presence_reason(&entry.field.id.pointer).is_none()
-                    {
-                        Presence::Absent
-                    } else {
-                        Presence::Unknown
-                    },
+                    presence: root.detail_presence(entry.field, entry.comparable),
                     shape: entry.field.shape.clone(),
                     sites: entry.field.sites.clone(),
                 })
@@ -67,6 +59,17 @@ impl<'r, 'a> Root<'r, 'a> {
             message: op.messages.iter().find(|message| message.key == key),
             wire: op.wire_evidence.get(&key),
             key,
+        }
+    }
+
+    fn detail_presence(&self, field: &Field, comparable: bool) -> Presence {
+        let pointer = &field.id.pointer;
+        if comparable && self.authority_reason().is_none() {
+            Presence::Present
+        } else if self.declaration_only(pointer) && self.presence_reason(pointer).is_none() {
+            Presence::Absent
+        } else {
+            Presence::Unknown
         }
     }
 
@@ -247,4 +250,15 @@ pub(in crate::diff) fn standing(
     for message in &op.messages {
         Root::new(op, fields, message.key.clone()).standing(side, ledger);
     }
+}
+
+pub(crate) fn field_detail_presence(
+    op: &Operation,
+    key: &RootKey,
+    field: &Field,
+    comparable: bool,
+) -> Presence {
+    let mut fields = OperationFields::default();
+    fields.insert(key.clone(), field, comparable);
+    Root::new(op, &fields, key.clone()).detail_presence(field, comparable)
 }

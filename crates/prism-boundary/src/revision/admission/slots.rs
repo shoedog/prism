@@ -4,7 +4,7 @@ impl Scope {
     pub(crate) fn contains_prefix(&self, path: &[Vec<crate::element::PathToken>]) -> bool {
         match self {
             Self::Api => true,
-            Self::PathPrefix { segments } => path.starts_with(segments),
+            Self::PathPrefix { segments } => prefix_of(segments, path),
         }
     }
 
@@ -12,9 +12,9 @@ impl Scope {
         match (self, other) {
             (Self::Api, scope) | (scope, Self::Api) => Some(scope.clone()),
             (Self::PathPrefix { segments: a }, Self::PathPrefix { segments: b }) => {
-                if a.starts_with(b) {
+                if prefix_of(b, a) {
                     Some(self.clone())
-                } else if b.starts_with(a) {
+                } else if prefix_of(a, b) {
                     Some(other.clone())
                 } else {
                     None
@@ -22,10 +22,50 @@ impl Scope {
             }
         }
     }
+
+    pub(crate) fn same_region(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::PathPrefix { segments: a }, Self::PathPrefix { segments: b }) => {
+                a.len() == b.len() && prefix_of(a, b) && prefix_of(b, a)
+            }
+            _ => self == other,
+        }
+    }
+
+    pub(crate) fn from_comparison(scope: &crate::ComparisonScope) -> Self {
+        match scope {
+            crate::ComparisonScope::Api => Self::Api,
+            crate::ComparisonScope::PathPrefix(prefix) => Self::PathPrefix {
+                segments: prefix.segments.clone(),
+            },
+        }
+    }
+}
+
+fn prefix_of(
+    prefix: &[Vec<crate::element::PathToken>],
+    path: &[Vec<crate::element::PathToken>],
+) -> bool {
+    use crate::element::PathToken;
+    prefix == [Vec::new()]
+        || (prefix.len() <= path.len()
+            && prefix.iter().zip(path).all(|(a, b)| {
+                a.len() == b.len()
+                    && a.iter().zip(b).all(|(a, b)| match (a, b) {
+                        (PathToken::Capture(a), PathToken::Capture(b)) => {
+                            a.width == b.width && a.optional_separator == b.optional_separator
+                        }
+                        _ => a == b,
+                    })
+            }))
 }
 
 pub(super) fn compare_slot(expected: &InputSlot, actual: &InputSlot) -> Result<(), Refusal> {
     let id = &actual.input_id;
+    if expected.role == Role::Unsupported || actual.role == Role::Unsupported {
+        return Err(Refusal::new("unsupported_kind", id).dimension("role"));
+    }
+    let mut mismatches = Vec::new();
     for (dimension, left, right) in [
         (
             "input_id",
@@ -60,35 +100,46 @@ pub(super) fn compare_slot(expected: &InputSlot, actual: &InputSlot) -> Result<(
         ),
     ] {
         if left != right {
-            return Err(Refusal::mismatch(id, dimension, left, right));
+            mismatches.push(Refusal::mismatch(id, dimension, left, right));
         }
+    }
+    if expected.selection_basis != actual.selection_basis {
+        mismatches.push(Refusal::new("slot_mismatch", id).dimension("selection_basis"));
     }
     if expected.role != actual.role {
-        return Err(Refusal::new("slot_mismatch", id).dimension("role"));
+        mismatches.push(Refusal::new("slot_mismatch", id).dimension("role"));
     }
-    if expected.service_side.is_some()
-        && actual.service_side.is_some()
-        && expected.service_side != actual.service_side
-    {
-        return Err(Refusal::new("slot_mismatch", id).dimension("service_side"));
+    let held_alias = expected.slot != actual.slot
+        && expected.service_side == Some(super::super::ServiceSide::Held)
+        && actual.role == Role::Producer;
+    if expected.service_side != actual.service_side && !held_alias {
+        mismatches.push(Refusal::new("slot_mismatch", id).dimension("service_side"));
     }
     if expected.config != actual.config {
-        let mut dimension = "config".to_string();
-        if let (Some(expected), Some(actual)) = (&expected.config, &actual.config) {
-            let expected = serde_json::to_value(expected).expect("serializable config");
-            let actual = serde_json::to_value(actual).expect("serializable config");
-            if let Some((key, _)) = expected
-                .as_object()
-                .into_iter()
-                .flatten()
-                .find(|(key, value)| actual.get(key.as_str()) != Some(value))
-            {
-                dimension = format!("config.{key}");
+        match (&expected.config, &actual.config) {
+            (Some(expected), Some(actual)) => {
+                let expected = serde_json::to_value(expected).expect("serializable config");
+                let actual = serde_json::to_value(actual).expect("serializable config");
+                for (key, value) in expected.as_object().into_iter().flatten() {
+                    if actual.get(key) != Some(value) {
+                        mismatches.push(
+                            Refusal::new("slot_mismatch", id).dimension(&format!("config.{key}")),
+                        );
+                    }
+                }
             }
+            _ => mismatches.push(Refusal::new("slot_mismatch", id).dimension("config")),
         }
-        return Err(Refusal::new("slot_mismatch", id).dimension(&dimension));
     }
-    Ok(())
+    let mut mismatches = mismatches.into_iter();
+    if let Some(mut first) = mismatches.next() {
+        for mismatch in mismatches {
+            first.merge(mismatch);
+        }
+        Err(first)
+    } else {
+        Ok(())
+    }
 }
 
 pub(super) fn project_scope(
@@ -120,6 +171,9 @@ pub(super) fn validate_input(
 ) -> Result<(), Refusal> {
     let binding = &input.binding;
     let id = &binding.input_id;
+    if input.snapshot == SnapshotInput::InvalidMetadata {
+        return Err(Refusal::new("slot_mismatch", id).dimension("origin"));
+    }
     let (tree, rev) = input
         .snapshot
         .identity()

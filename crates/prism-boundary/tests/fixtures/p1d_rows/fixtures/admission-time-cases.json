@@ -57,7 +57,7 @@
         "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
       }
     ],
-    "base_patches": [{"path": "/claims/0/requires_selection", "value": true}, {"path": "/slots/0/branch", "value": "main"}]
+    "base_patches": [{"path": "/slots/0/selection_basis", "value": "counterpart"}, {"path": "/inputs/0/binding/selection_basis", "value": "counterpart"}]
   },
   "A33": {
     "variants": [
@@ -165,7 +165,8 @@
       }
     ],
     "base_patches": [
-      {"path": "/claims/0/requires_selection", "value": true},
+      {"path": "/slots/0/selection_basis", "value": "counterpart"},
+      {"path": "/inputs/0/binding/selection_basis", "value": "counterpart"},
       {"path": "/mode", "value": "historical_as_of"},
       {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"}
     ]
@@ -178,7 +179,7 @@
           {"path": "/receipts/0/origin/availability", "value": "unreadable"},
           {
             "path": "/claims/-",
-            "value": {"id": "revision-fact", "input_id": "service-before", "slot": "service-before", "receipt_ids": [], "projection": null}
+            "value": {"id": "revision-fact", "input_id": "service-before", "slot": "service-before", "receipt_ids": [], "projection": null, "purpose": "metadata"}
           }
         ],
         "expect": {
@@ -189,13 +190,14 @@
       {
         "name": "missing-head-date",
         "patches": [
-          {"path": "/subject_head_committed_at", "value": null}
+          {"path": "/inputs/2/snapshot/committed_at", "value": null}
         ],
         "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
       }
     ],
     "base_patches": [
-      {"path": "/claims/0/requires_selection", "value": true},
+      {"path": "/slots/0/selection_basis", "value": "counterpart"},
+      {"path": "/inputs/0/binding/selection_basis", "value": "counterpart"},
       {"path": "/mode", "value": "historical_as_of"},
       {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
       {

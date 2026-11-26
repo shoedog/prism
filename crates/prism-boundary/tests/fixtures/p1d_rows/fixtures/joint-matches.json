@@ -72,6 +72,7 @@
     },
     {
       "input_id": "client-before",
+      "occurrence_ids": ["call-before"],
       "api": "pilot-api",
       "repo": "pilot-consumer",
       "role": "consumer",
@@ -104,6 +105,7 @@
     },
     {
       "input_id": "client-after",
+      "occurrence_ids": ["call-after"],
       "api": "pilot-api",
       "repo": "pilot-consumer",
       "role": "consumer",
