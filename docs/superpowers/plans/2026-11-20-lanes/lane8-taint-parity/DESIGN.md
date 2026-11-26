@@ -305,14 +305,13 @@ Benchmark gate's paired `taint-reaches` non-regression only, not classes.
 **Crossing ledger (product diagnostic, PLAN I-1).** Under `PRISM_TAINT_CROSSING_TRACE` the walk logs each accepted crossing, each synthetic ReturnInput traversal (Use, return component, owner and state), and every refused
 hop with its reason, keyed by walk, root and hop. The `walk` field identifies the primary walk or a
 sanitizer bypass rewalk. The process-local `walk_id` distinguishes individual invocations.
-The call span and `grades` describe the same resolved site. `edge_grade` describes the CPG
-edge label. `slot` reports the AST-proven argument or receiving slot when available.
-For a return crossing or refusal, navigation and trace-mode review use their parsed files to
-match the call's assignment to the receiving occurrence. Review uses this view for diagnostics only.
-Graph-only walks that lack the view emit `site=unavailable(review-mode)` when they cannot prove
-a return site. With a view, `site=unavailable(assignment-proof)` means no unique assignment to the
-receiving occurrence and callee was proved. Both markers carry `slot=- grades=[]`. `site=-`
-denotes a record without a unique call site, such as a local ReturnInput or an unmatched refusal.
+The hop's site is established only when the same call expression contains the source operand
+and its result reaches the receiving occurrence. For a CallDescent the call contains the source
+actual and its callee binds it to the receiving formal. The ledger prints that call's span, the
+proved argument or receiving `slot`, and the call's resolution `grades`. In every other case
+`site=- slot=- grades=[]` means “site not established.” `edge_grade` describes the CPG edge label.
+Navigation, review with either return-flow setting, and bypass rewalks use the same rule.
+Review uses its parsed files for these diagnostics, including on cache hits.
 This ledger supplies the I-walk pre-dispatch comparison. Option B
 supplies distal reachability and attribution. From the census's
 frozen sources, `taint-reaches` frontier mode on the full checkout at each commit gives the whole-repository

@@ -1,7 +1,11 @@
+use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::call_graph::CallSite;
+use crate::ast::ParsedFile;
+use crate::call_graph::{CallSiteOrigin, FunctionId};
+use crate::data_flow::{VarAccessKind, VarLocation};
+use crate::languages::Language;
 use crate::resolution::ResolutionConfidence;
 
 use petgraph::graph::NodeIndex;
@@ -34,33 +38,9 @@ pub struct CrossingSite {
     pub slot: Option<usize>,
 }
 
-impl CrossingSite {
-    pub(super) fn for_call(
-        site: &CallSite,
-        node: NodeIndex,
-        relation: Relation,
-        order: Option<&dyn SameLineOrderView>,
-    ) -> Self {
-        Self {
-            start_byte: site.start_byte,
-            end_byte: site.end_byte,
-            slot: order.and_then(|order| order.crossing_slot(node, site, relation)),
-        }
-    }
-}
-
 pub(super) struct SiteEvidence {
     pub location: CrossingSite,
     grades: Vec<ResolutionConfidence>,
-}
-
-impl SiteEvidence {
-    pub(super) fn exact(location: CrossingSite) -> Self {
-        Self {
-            location,
-            grades: vec![ResolutionConfidence::Exact],
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -94,6 +74,64 @@ impl<'a> CrossingLedger<'a> {
                 id: NEXT_WALK.fetch_add(1, Ordering::Relaxed),
                 site_view,
             })
+    }
+}
+
+pub(super) struct LegacyCrossingLedger<'a> {
+    ledger: CrossingLedger<'a>,
+    root: NodeIndex,
+    depths: BTreeMap<NodeIndex, usize>,
+}
+
+impl<'a> LegacyCrossingLedger<'a> {
+    pub(super) fn new(ledger: CrossingLedger<'a>, root: NodeIndex) -> Self {
+        Self {
+            ledger,
+            root,
+            depths: BTreeMap::from([(root, 0)]),
+        }
+    }
+
+    pub(super) fn reached(
+        &mut self,
+        cpg: &CodePropertyGraph,
+        node: NodeIndex,
+        (parent, label): (NodeIndex, Option<FlowConfidence>),
+    ) {
+        let crossed = label.is_some_and(|label| {
+            cpg.crossing_kind(parent, node, Relation::DataFlow, Some(label))
+                .is_some()
+        });
+        self.depths
+            .insert(node, self.depths[&parent] + usize::from(crossed));
+    }
+
+    pub(super) fn attempt(
+        &self,
+        cpg: &CodePropertyGraph,
+        from: NodeIndex,
+        to: NodeIndex,
+        label: FlowConfidence,
+        admitted: bool,
+    ) {
+        if cpg
+            .crossing_kind(from, to, Relation::DataFlow, Some(label))
+            .is_some()
+        {
+            let relation = Relation::CallDescent;
+            let site = cpg.ledger_site(from, to, relation, self.ledger.site_view);
+            cpg.log_trace_attempt(
+                self.ledger,
+                self.root,
+                from,
+                to,
+                relation,
+                site.as_ref(),
+                Some(label),
+                self.depths[&from],
+                (!admitted).then_some(LossReason::PolicyCeiling),
+            );
+        }
     }
 }
 
@@ -141,29 +179,108 @@ impl CodePropertyGraph {
 }
 
 impl CodePropertyGraph {
-    pub(super) fn site_evidence(
+    /// The ledger prints a site, slot and grades only if the same call expression contains
+    /// the source operand and its result reaches the receiving occurrence. For a CallDescent,
+    /// the call contains the source actual and its callee binds it to the receiving formal.
+    /// Where either endpoint or a unique site cannot be established, all three fields are empty.
+    pub(super) fn ledger_site(
         &self,
-        site: &CallSite,
-        location: CrossingSite,
-        return_owner: Option<&(String, String, usize)>,
+        from: NodeIndex,
+        to: NodeIndex,
+        relation: Relation,
+        view: Option<&dyn SameLineOrderView>,
     ) -> Option<SiteEvidence> {
-        let resolved = self.call_graph.resolve_call_site_full(site).resolved;
-        if let Some((file, name, start)) = return_owner {
-            if !resolved.iter().any(|candidate| {
-                (
-                    &candidate.target.file,
-                    &candidate.target.name,
-                    candidate.target.start_line,
-                ) == (file, name, *start)
-            }) {
+        let view = view?;
+        let receiver = self.to_var_location(to)?;
+        if receiver.kind != VarAccessKind::Def {
+            return None;
+        }
+        let call_owner = match relation {
+            Relation::CallDescent => from,
+            Relation::ReturnFlow | Relation::AssignmentPropagation => to,
+            _ => return None,
+        };
+        let caller = view.ledger_file(self.node(call_owner).file())?;
+        let callee_owner = match relation {
+            Relation::CallDescent => Some(self.node_file_fn(to)?),
+            Relation::ReturnFlow => Some(self.node_file_fn(from)?),
+            _ => None,
+        };
+        let actual = self.to_var_location(from);
+        let descent_site = if relation == Relation::CallDescent {
+            Some(self.binding_site(from, to).ok()?)
+        } else {
+            None
+        };
+        let mut established = self.return_sites(call_owner).filter_map(|site| {
+            if descent_site.is_some_and(|candidate| candidate != site) {
                 return None;
             }
-        }
-        let grades: Vec<_> = resolved
-            .into_iter()
-            .map(|candidate| candidate.confidence)
-            .collect();
-        (!grades.is_empty()).then_some(SiteEvidence { location, grades })
+            let call = caller
+                .tree
+                .root_node()
+                .descendant_for_byte_range(site.start_byte, site.end_byte)?;
+            if call.byte_range() != (site.start_byte..site.end_byte)
+                || !caller.language.is_call_node(call.kind())
+                || call.has_error()
+                || site.origin != CallSiteOrigin::Source
+            {
+                return None;
+            }
+            let (slot, arity) = if relation == Relation::CallDescent {
+                (
+                    argument_slot(caller, call, &site.caller, actual.as_ref()?, true)?,
+                    0,
+                )
+            } else {
+                let assignment =
+                    caller.assignment_for_exact_call(site.start_byte, site.end_byte)?;
+                let slot = assignment.lvalues.iter().position(|lhs| {
+                    (lhs.start_byte, lhs.end_byte, &lhs.path)
+                        == (receiver.start_byte, receiver.end_byte, &receiver.path)
+                })?;
+                (slot, assignment.lvalues.len())
+            };
+            let resolved = self.call_graph.resolve_call_site_full(site);
+            let slot = match relation {
+                Relation::AssignmentPropagation => {
+                    super::build::singleton_exact(&resolved)?;
+                    argument_slot(caller, call, &site.caller, actual.as_ref()?, false)?
+                }
+                _ => {
+                    let (file, name, start) = callee_owner.as_ref()?;
+                    let callee = view.ledger_file(file)?;
+                    if !resolved.resolved.iter().any(|entry| {
+                        let target = entry.target;
+                        (&target.file, &target.name, target.start_line) == (file, name, *start)
+                            && function_at(callee, target).is_some_and(|owner| {
+                                if relation == Relation::CallDescent {
+                                    formal_matches(callee, owner, slot, &receiver)
+                                } else {
+                                    returned_operand(callee, owner, self.node(from), slot, arity)
+                                }
+                            })
+                    }) {
+                        return None;
+                    }
+                    slot
+                }
+            };
+            Some(SiteEvidence {
+                location: CrossingSite {
+                    start_byte: site.start_byte,
+                    end_byte: site.end_byte,
+                    slot: Some(slot),
+                },
+                grades: resolved
+                    .resolved
+                    .into_iter()
+                    .map(|entry| entry.confidence)
+                    .collect(),
+            })
+        });
+        let site = established.next()?;
+        established.next().is_none().then_some(site)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -196,12 +313,6 @@ impl CodePropertyGraph {
             } => format!(" component={child_slot} return={return_start_byte}..{return_end_byte}"),
             _ => String::new(),
         };
-        let missing_site = match (relation, reason, ledger.site_view) {
-            (Relation::ReturnFlow, Some(LossReason::NoMatchingSite), _) => "-",
-            (Relation::ReturnFlow, _, None) => "unavailable(review-mode)",
-            (Relation::ReturnFlow, _, Some(_)) => "unavailable(assignment-proof)",
-            _ => "-",
-        };
         let reason = reason.map_or_else(String::new, |reason| format!(" reason={reason}"));
         let site_grades = site
             .into_iter()
@@ -210,7 +321,7 @@ impl CodePropertyGraph {
             .collect::<Vec<_>>()
             .join(",");
         let site = site.map_or_else(
-            || missing_site.into(),
+            || "-".into(),
             |site| format!("{}..{}", site.location.start_byte, site.location.end_byte),
         );
         // The diagnostic has no bearing on the walk, including when stderr is closed.
@@ -222,12 +333,127 @@ impl CodePropertyGraph {
     }
 }
 
+fn argument_slot(
+    parsed: &ParsedFile,
+    call: tree_sitter::Node<'_>,
+    caller: &FunctionId,
+    actual: &VarLocation,
+    positional: bool,
+) -> Option<usize> {
+    if (&actual.file, &actual.function, actual.function_start_line)
+        != (&caller.file, &caller.name, caller.start_line)
+        || actual.kind != VarAccessKind::Use
+        || actual.start_byte >= actual.end_byte
+        || !parsed.is_semantic_value_use(actual.start_byte, actual.end_byte)
+    {
+        return None;
+    }
+    let arguments = parsed.language.call_arguments(&call)?;
+    let mut cursor = arguments.walk();
+    for (slot, arg) in arguments
+        .named_children(&mut cursor)
+        .filter(|arg| !arg.is_extra())
+        .enumerate()
+    {
+        if positional
+            && matches!(
+                arg.kind(),
+                "keyword_argument"
+                    | "list_splat"
+                    | "dictionary_splat"
+                    | "spread_element"
+                    | "variadic_argument"
+            )
+        {
+            return None;
+        }
+        if arg.start_byte() <= actual.start_byte && actual.end_byte <= arg.end_byte() {
+            let span = actual.start_byte..actual.end_byte;
+            return (!positional || arg.byte_range() == span).then_some(slot);
+        }
+    }
+    None
+}
+
+fn function_at<'a>(parsed: &'a ParsedFile, target: &FunctionId) -> Option<tree_sitter::Node<'a>> {
+    let mut candidates = parsed.all_functions().into_iter().filter(|function| {
+        parsed.node_line_range(function) == (target.start_line, target.end_line)
+            && parsed
+                .language
+                .function_name(function)
+                .is_some_and(|name| parsed.node_text(&name) == target.name)
+    });
+    let function = candidates.next()?;
+    candidates.next().is_none().then_some(function)
+}
+
+fn formal_matches(
+    parsed: &ParsedFile,
+    owner: tree_sitter::Node<'_>,
+    slot: usize,
+    receiver: &VarLocation,
+) -> bool {
+    // Receiver-bearing signatures require call-form-specific argument mapping.
+    if (parsed.language == Language::Go && owner.kind() == "method_declaration")
+        || (parsed.language == Language::Python
+            && owner.parent().is_some_and(|parent| {
+                let block = if parent.kind() == "decorated_definition" {
+                    parent.parent()
+                } else {
+                    Some(parent)
+                };
+                block
+                    .and_then(|block| block.parent())
+                    .is_some_and(|parent| parent.kind() == "class_definition")
+            }))
+    {
+        return false;
+    }
+    receiver.path.fields.is_empty()
+        && parsed
+            .function_parameter_slot_occurrences(&owner)
+            .is_some_and(|formals| {
+                formals.get(slot).is_some_and(|(name, start, end)| {
+                    (name, *start, *end)
+                        == (&receiver.path.base, receiver.start_byte, receiver.end_byte)
+                })
+            })
+}
+
+fn returned_operand(
+    parsed: &ParsedFile,
+    owner: tree_sitter::Node<'_>,
+    from: &CpgNode,
+    slot: usize,
+    arity: usize,
+) -> bool {
+    let span = byte_span(from);
+    parsed.return_value_nodes(&owner).iter().any(|ret| {
+        ret.values.len() == arity
+            && ret.values.get(slot).is_some_and(|value| {
+                span == (value.start_byte, value.end_byte)
+                    && match from {
+                        CpgNode::Variable {
+                            access: VarAccess::Use,
+                            ..
+                        } => true,
+                        CpgNode::ReturnValue {
+                            return_start_byte,
+                            return_end_byte,
+                            child_slot,
+                            ..
+                        } => {
+                            (*return_start_byte, *return_end_byte, *child_slot)
+                                == (ret.start_byte, ret.end_byte, value.slot)
+                        }
+                        _ => false,
+                    }
+            })
+    })
+}
+
 impl CodePropertyGraph {
-    fn shortcut_site(
-        &self,
-        use_idx: NodeIndex,
-        def_idx: NodeIndex,
-    ) -> Option<&crate::call_graph::CallSite> {
+    fn shortcut_suppressed(&self, use_idx: NodeIndex, def_idx: NodeIndex) -> bool {
         let CpgNode::Variable {
             file: caller_file,
             function: caller_name,
@@ -237,7 +463,7 @@ impl CodePropertyGraph {
             ..
         } = &self.graph[use_idx]
         else {
-            return None;
+            return false;
         };
 
         self.graph
@@ -250,11 +476,11 @@ impl CodePropertyGraph {
                     }
                 )
             })
-            .find_map(|edge| {
+            .any(|edge| {
                 let Some((callee_file, callee_name, callee_start)) =
                     self.node_file_fn(edge.source())
                 else {
-                    return None;
+                    return false;
                 };
                 self.call_graph
                     .calls
@@ -265,7 +491,7 @@ impl CodePropertyGraph {
                             && id.start_line == *caller_start
                     })
                     .flat_map(|(_, sites)| sites)
-                    .find(|site| {
+                    .any(|site| {
                         site.start_byte <= *use_start
                             && *use_end <= site.end_byte
                             && super::build::singleton_exact(
@@ -284,18 +510,13 @@ impl CodePropertyGraph {
         &self,
         node: NodeIndex,
         return_flow_mode: ReturnFlowMode,
-    ) -> Vec<(
-        NodeIndex,
-        Relation,
-        Option<FlowConfidence>,
-        Option<&CallSite>,
-    )> {
+    ) -> Vec<(NodeIndex, Relation, Option<FlowConfidence>, bool)> {
         let mut out: Vec<_> = self
             .graph
             .edges(node)
             .filter_map(|edge| match edge.weight() {
                 CpgEdge::DataFlow(label) => {
-                    Some((edge.target(), Relation::DataFlow, Some(*label), None))
+                    Some((edge.target(), Relation::DataFlow, Some(*label), false))
                 }
                 _ => None,
             })
@@ -309,10 +530,10 @@ impl CodePropertyGraph {
                 .edges(node)
                 .filter_map(|edge| match edge.weight() {
                     CpgEdge::ReturnInput => {
-                        Some((edge.target(), Relation::ReturnInput, None, None))
+                        Some((edge.target(), Relation::ReturnInput, None, false))
                     }
                     CpgEdge::ReturnFlow { .. } => {
-                        Some((edge.target(), Relation::ReturnFlow, None, None))
+                        Some((edge.target(), Relation::ReturnFlow, None, false))
                     }
                     _ => None,
                 })
@@ -362,9 +583,8 @@ impl CodePropertyGraph {
                         .collect();
                     same.sort_by_key(|&i| self.node_sort_key(i));
                     out.extend(same.into_iter().map(|t| {
-                        let shortcut = (return_flow_mode == ReturnFlowMode::On)
-                            .then(|| self.shortcut_site(node, t))
-                            .flatten();
+                        let shortcut = return_flow_mode == ReturnFlowMode::On
+                            && self.shortcut_suppressed(node, t);
                         (t, Relation::AssignmentPropagation, None, shortcut)
                     }));
                 }
@@ -391,7 +611,7 @@ impl CodePropertyGraph {
                     self.same_function_same_path_uses_any_line(node)
                 };
                 for u in uses {
-                    out.push((u, Relation::RecoveredDefUse, None, None));
+                    out.push((u, Relation::RecoveredDefUse, None, false));
                 }
             }
             _ => {}

@@ -7,8 +7,7 @@ use crate::resolution::ResolutionConfidence;
 use petgraph::graph::NodeIndex;
 
 use super::trace::Relation;
-use super::trace_cuts::{CrossingSite, SiteEvidence};
-use super::{CodePropertyGraph, CpgNode, FlowConfidence, FlowDoubt, SameLineOrderView, VarAccess};
+use super::{CodePropertyGraph, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -340,7 +339,7 @@ impl CodePropertyGraph {
         })
     }
 
-    fn return_sites(&self, to: NodeIndex) -> impl Iterator<Item = &CallSite> {
+    pub(super) fn return_sites(&self, to: NodeIndex) -> impl Iterator<Item = &CallSite> {
         let owner = self.node_file_fn(to);
         self.call_graph
             .calls
@@ -414,48 +413,4 @@ fn site_contains_occurrence(site: &CallSite, start_byte: usize, end_byte: usize)
         return site.start_byte <= start_byte && start_byte < site.end_byte;
     }
     site.start_byte <= start_byte && end_byte <= site.end_byte
-}
-
-impl CodePropertyGraph {
-    pub(super) fn crossing_site(
-        &self,
-        from: NodeIndex,
-        to: NodeIndex,
-        relation: Relation,
-        gate: Result<(), LossReason>,
-        order: Option<&dyn SameLineOrderView>,
-    ) -> Option<SiteEvidence> {
-        if relation == Relation::ReturnFlow {
-            if gate == Err(LossReason::NoMatchingSite) {
-                return None;
-            }
-            let order = order?;
-            // An exact call elsewhere in the caller can admit the hop. The ledger names
-            // the call that actually writes this receiving occurrence and binds to this callee.
-            let mut assigned = self.return_sites(to).filter_map(|site| {
-                let slot = order.crossing_slot(to, site, relation)?;
-                Some((site, slot))
-            });
-            let (site, slot) = assigned.next()?;
-            if assigned.next().is_some() {
-                return None;
-            }
-            let location = CrossingSite {
-                start_byte: site.start_byte,
-                end_byte: site.end_byte,
-                slot: Some(slot),
-            };
-            return self.site_evidence(site, location, Some(&self.node_file_fn(from)?));
-        }
-        let site = self.binding_site(from, to).ok()?;
-        let (start, end) = super::trace_cuts::byte_span(self.node(from));
-        if !site_contains_occurrence(site, start, end) {
-            return None;
-        }
-        self.site_evidence(
-            site,
-            CrossingSite::for_call(site, from, relation, order),
-            None,
-        )
-    }
 }

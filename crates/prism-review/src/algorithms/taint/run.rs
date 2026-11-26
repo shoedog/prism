@@ -172,12 +172,11 @@ pub(super) fn slice_attributed_impl(
 
     // Forward propagation from each source (CFG-constrained when available).
     // An optional crossing ceiling applies the context-entry policy (#602 S3b-R).
-    let (mut paths, flow_evidence) = match (taint_config.return_flow, scope.crossing()) {
-        (true, policy) => ctx.taint_forward_cfg_with_return_flow_labeled(&taint_sources, policy),
-        (false, None) => ctx.cpg.taint_forward_cfg_labeled(&taint_sources),
-        (false, Some(policy)) => ctx
-            .cpg
-            .taint_forward_cfg_labeled_with_policy(&taint_sources, policy),
+    let policy = scope.crossing();
+    let (mut paths, flow_evidence) = if taint_config.return_flow {
+        ctx.taint_forward_cfg_with_return_flow_labeled(&taint_sources, policy)
+    } else {
+        ctx.taint_forward_cfg_labeled(&taint_sources, policy)
     };
     if let Some(trace) = trace {
         let sources = super::trace::CaptureSources {

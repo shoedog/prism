@@ -18,6 +18,7 @@ use crate::type_providers::typescript::TypeScriptTypeProvider;
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::trace_cuts::CrossingLedger;
 use super::{CodePropertyGraph, TaintCrossingPolicy};
 
 /// Metadata about a diff-scoped CPG.
@@ -58,6 +59,20 @@ pub struct CpgContext<'a> {
 }
 
 impl<'a> CpgContext<'a> {
+    pub fn taint_forward_cfg_labeled(
+        &self,
+        sources: &[(String, usize)],
+        policy: Option<&TaintCrossingPolicy<'_>>,
+    ) -> (
+        Vec<FlowPath>,
+        BTreeMap<(VarLocation, VarLocation), EvidencePath>,
+    ) {
+        let site_view = AstOrderView::new(&self.cpg, self.files);
+        let ledger = CrossingLedger::start("primary", Some(&site_view));
+        self.cpg
+            .taint_forward_cfg_labeled_with_ledger(sources, policy, ledger)
+    }
+
     /// Review's line-seeded return walk uses the parsed files for ledger diagnostics only.
     pub fn taint_forward_cfg_with_return_flow_labeled(
         &self,

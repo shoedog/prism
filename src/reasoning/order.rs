@@ -6,7 +6,7 @@ use petgraph::graph::NodeIndex;
 
 use crate::ast::ParsedFile;
 use crate::cpg::{
-    CodePropertyGraph, OrderingDecision, OrderingUnavailableReason, OrderingWarning, Relation,
+    CodePropertyGraph, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
     SameLineOrderView,
 };
 
@@ -22,35 +22,8 @@ impl<'a> AstOrderView<'a> {
 }
 
 impl SameLineOrderView for AstOrderView<'_> {
-    fn crossing_slot(
-        &self,
-        node: NodeIndex,
-        site: &crate::call_graph::CallSite,
-        relation: Relation,
-    ) -> Option<usize> {
-        let loc = self.cpg.to_var_location(node)?;
-        if loc.file != site.caller.file {
-            return None;
-        }
-        let parsed = self.files.get(&loc.file)?;
-        if relation == Relation::ReturnFlow {
-            return parsed
-                .assignment_for_exact_call(site.start_byte, site.end_byte)?
-                .lvalues
-                .iter()
-                .position(|lhs| (lhs.start_byte, lhs.end_byte) == (loc.start_byte, loc.end_byte));
-        }
-        let call = parsed
-            .tree
-            .root_node()
-            .descendant_for_byte_range(site.start_byte, site.end_byte)?;
-        let arguments = call.child_by_field_name("arguments")?;
-        let mut cursor = arguments.walk();
-        let slot = arguments
-            .named_children(&mut cursor)
-            .filter(|child| !child.is_extra())
-            .position(|arg| arg.start_byte() <= loc.start_byte && loc.end_byte <= arg.end_byte());
-        slot
+    fn ledger_file(&self, file: &str) -> Option<&ParsedFile> {
+        self.files.get(file)
     }
 
     fn admit_same_line_recovered_def_use(

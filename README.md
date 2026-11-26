@@ -548,13 +548,10 @@ git show abc123 --format="" > changes.patch
 | | membrane | No additional flags |
 | | echo | No additional flags |
 
-Set `PRISM_TAINT_CROSSING_TRACE=1` to write the crossing ledger to stderr. With
-`--taint-return-flow`, review uses its parsed files to identify the receiving call and slot,
-as `prism nav taint-reaches` does. `grades` describes the call site's resolution, and
-`edge_grade` describes the edge label. `site=-` indicates a record with no unique call site.
-For graph-only walks, `site=unavailable(review-mode)` means the return site needs the AST view.
-`site=unavailable(assignment-proof)` means the supplied view could not prove a unique
-receiving call for the return hop.
+Set `PRISM_TAINT_CROSSING_TRACE=1` to write the crossing ledger to stderr.
+Review and `prism nav taint-reaches` use parsed files for the diagnostic.
+`grades` describes the call site's resolution, and `edge_grade` describes the edge label.
+The empty form `site=- slot=- grades=[]` means “site not established.”
 
 With `--algorithm taint --taint-context imports`, Prism starts from the original review files.
 When a tainted argument reaches a call with an eligible import hint, Prism tries to load the

@@ -7,7 +7,7 @@ use crate::finding_confidence::{EvidenceHop, EvidencePath};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 
-use super::trace_cuts::{BoundaryEdge, CrossingLedger, CrossingSite, SiteEvidence, TraceCut};
+use super::trace_cuts::{BoundaryEdge, CrossingLedger, TraceCut};
 use super::trace_descent::{DescentGateKey, LossReason};
 use super::{CodePropertyGraph, CpgEdge, CpgNode, TaintCrossingPolicy, VarAccess};
 
@@ -74,13 +74,7 @@ pub struct OrderingWarning {
 }
 
 pub trait SameLineOrderView {
-    /// Byte-proven slot in the optional syntax view, used for crossing diagnostics.
-    fn crossing_slot(
-        &self,
-        _node: NodeIndex,
-        _site: &crate::call_graph::CallSite,
-        _relation: Relation,
-    ) -> Option<usize> {
+    fn ledger_file(&self, _file: &str) -> Option<&crate::ast::ParsedFile> {
         None
     }
 
@@ -463,7 +457,7 @@ impl CodePropertyGraph {
         }
 
         let mut logged_crossings = BTreeSet::new();
-        let site_view = ledger.and_then(|ledger| ledger.site_view);
+        let site_for = |from, to, relation| self.ledger_site(from, to, relation, ledger?.site_view);
         while let Some(node) = queue.pop_front() {
             let depth = depths[&(root, node)];
             for (next, rel, label, shortcut) in self.taint_neighbors(node, return_flow_mode) {
@@ -471,16 +465,14 @@ impl CodePropertyGraph {
                     continue;
                 }
                 let record_cut = |trace: &mut Trace, reason| {
-                    let site = shortcut.map(|site| {
-                        CrossingSite::for_call(site, node, Relation::CallDescent, site_view)
-                    });
+                    let site = site_for(node, next, rel);
                     let first = trace.cuts.insert(TraceCut {
                         root,
                         from: node,
                         to: next,
                         reason,
                         relation: rel,
-                        site,
+                        site: site.as_ref().map(|site| site.location),
                         depth,
                     });
                     if let (true, Some(ledger)) = (first, ledger) {
@@ -490,14 +482,14 @@ impl CodePropertyGraph {
                             node,
                             next,
                             rel,
-                            site.map(SiteEvidence::exact).as_ref(),
+                            site.as_ref(),
                             label,
                             depth,
                             Some(reason),
                         );
                     }
                 };
-                if shortcut.is_some() {
+                if shortcut {
                     record_cut(trace, LossReason::ShortcutSuppressed);
                     continue;
                 }
@@ -511,7 +503,6 @@ impl CodePropertyGraph {
                 }
                 let mut relation = rel;
                 let mut next_depth = depth;
-                let mut site = None;
                 if let Some(kind) = self.crossing_kind(node, next, rel, label) {
                     if rel != Relation::ReturnFlow {
                         relation = Relation::CallDescent;
@@ -526,9 +517,7 @@ impl CodePropertyGraph {
                         descent_gate_cache,
                         policy,
                     );
-                    if ledger.is_some() {
-                        site = self.crossing_site(node, next, relation, gate, site_view);
-                    }
+                    let site = site_for(node, next, relation);
                     let location = site.as_ref().map(|site| site.location);
                     if let Err(reason) = gate {
                         let first = trace.boundary.insert(BoundaryEdge {
@@ -590,8 +579,8 @@ impl CodePropertyGraph {
                             root,
                             node,
                             next,
-                            relation,
-                            site.as_ref(),
+                            rel,
+                            site_for(node, next, rel).as_ref(),
                             label,
                             depth,
                             None,
