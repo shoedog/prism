@@ -100,8 +100,12 @@ fn good() -> Row {
 
 fn verdicts(row: &Row) -> (Option<Endpoint>, Option<Endpoint>, Endpoint) {
     let j = run(row);
-    assert_eq!(j.pairs.len(), 1, "one admitted pair");
-    (j.writes[0], j.operands[0], j.pairs[0].1)
+    assert_eq!(
+        (j.writes.len(), j.operands.len()),
+        (1, 1),
+        "one admitted pair"
+    );
+    (j.writes[0], j.operands[0], j.pair(0, 0))
 }
 
 #[test]
@@ -213,13 +217,13 @@ fn element_join_rejects_missing_or_hidden_endpoint() {
     let parsed = ParsedFile::parse("f.py", SRC, Language::Python).unwrap();
     let scan = &python::scan_file(&parsed)[0];
     let none = join_owner("f.py", scan, 1, None, &Buckets::new(), &Buckets::new());
-    assert_eq!(none.pairs[0].1, Err(J::Missing));
+    assert_eq!(none.pair(0, 0), Err(J::Missing));
     // A syntax-refused candidate is never joined.
     let slice = "def f(d, t):\n    d[:1] = t\n    sink(d)\n";
     let parsed = ParsedFile::parse("f.py", slice, Language::Python).unwrap();
     let scan = &python::scan_file(&parsed)[0];
     let none = join_owner("f.py", scan, 1, None, &Buckets::new(), &Buckets::new());
-    assert_eq!((none.writes[0], none.pairs.len()), (None, 0));
+    assert_eq!((none.writes[0], scan.pair_count()), (None, 0));
 }
 
 /// The records of one Python program through the real producer.

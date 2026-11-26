@@ -194,6 +194,64 @@ fn element_preview_respects_branch_rebind_and_loop_order() {
     );
 }
 
+/// Routes of the single pair of `def case(t, c)`: a store, `between`, then a whole read.
+fn between_reached(between: &str) -> bool {
+    let src =
+        format!("def case(t, c):\n    d = {{}}\n    d['a'] = t\n    {between}\n    sink(d)\n");
+    let parsed = ParsedFile::parse("t.py", &src, Language::Python).unwrap();
+    let scans = scan_file(&parsed);
+    let all = routes(&parsed, scans.iter().find(|s| s.name == "case").unwrap());
+    assert_eq!(all.len(), 1, "{src}");
+    all[0].1.is_reached()
+}
+
+#[test]
+fn element_preview_follows_literal_boolean_and_ternary_operands() {
+    // a literal left operand decides which operand runs: the taken one is unconditional, so a
+    // clear or rebind in it ends the route (`d` is `{}` afterwards); the other never runs
+    for (between, reached) in [
+        // taken operand runs: the kill is certain
+        ("True and d.clear()", false),
+        ("1 and d.clear()", false),
+        ("'x' and d.clear()", false),
+        ("(True) and d.clear()", false),
+        ("not False and d.clear()", false),
+        ("False or d.clear()", false),
+        ("0 or d.clear()", false),
+        ("None or d.clear()", false),
+        ("'' or d.clear()", false),
+        ("True and (d := {})", false),
+        ("False or (d := {})", false),
+        ("d.clear() if True else None", false),
+        ("None if False else d.clear()", false),
+        ("(d := {}) if 1 else None", false),
+        // the operand that never runs keeps the route (controls)
+        ("False and d.clear()", true),
+        ("0 and d.clear()", true),
+        ("None and d.clear()", true),
+        ("'' and d.clear()", true),
+        ("not True and d.clear()", true),
+        ("True or d.clear()", true),
+        ("1 or d.clear()", true),
+        ("'x' or d.clear()", true),
+        ("False and (d := {})", true),
+        ("True or (d := {})", true),
+        ("None if True else d.clear()", true),
+        ("d.clear() if False else None", true),
+        ("None if 1 else (d := {})", true),
+        // non-literal operands stay deferred, as before
+        ("c and d.clear()", true),
+        ("c or d.clear()", true),
+        ("d.clear() if c else None", true),
+        ("(c and True) and d.clear()", true),
+        // a literal on the right, or a call as the test, decides nothing
+        ("c and True and d.clear()", true),
+        ("d.clear() if t else None", true),
+    ] {
+        assert_eq!(between_reached(between), reached, "{between}");
+    }
+}
+
 fn leak(s: String) -> &'static str {
     Box::leak(s.into_boxed_str())
 }

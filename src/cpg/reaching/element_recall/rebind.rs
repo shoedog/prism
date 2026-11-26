@@ -22,12 +22,68 @@ pub(super) const WINDOW_MUTATORS: [&str; 8] = [
     "__delitem__",
 ];
 
+/// The truth value of a literal constant (`True`, `1`, `'x'`, `None`, `not 0`, in parentheses),
+/// or `None` for anything evaluated at run time.
+fn literal_truth(n: Node, src: &str) -> Option<bool> {
+    let n = peel_down(n);
+    match n.kind() {
+        "true" => Some(true),
+        "false" | "none" => Some(false),
+        "integer" | "float" => number_truth(text(n, src)),
+        "string" => {
+            let parts = kids(n);
+            if parts.iter().any(|c| c.kind() == "interpolation") {
+                return None;
+            }
+            let body = |c: &Node| matches!(c.kind(), "string_content" | "escape_sequence");
+            Some(parts.iter().any(body))
+        }
+        "not_operator" => literal_truth(n.child_by_field_name("argument")?, src).map(|b| !b),
+        _ => None,
+    }
+}
+
+/// Nonzero-ness of an integer or float literal; complex and unreadable spellings are unknown.
+fn number_truth(raw: &str) -> Option<bool> {
+    let low: String = raw
+        .chars()
+        .filter(|c| *c != '_')
+        .collect::<String>()
+        .to_lowercase();
+    let radix = ["0x", "0o", "0b"].iter().any(|p| low.starts_with(p));
+    let digits = match radix {
+        true => &low[2..],
+        false => low.split('e').next().unwrap_or(""),
+    };
+    let plain = |c: char| c.is_ascii_alphanumeric() || c == '.';
+    let readable = !digits.is_empty() && digits.chars().all(plain) && !low.ends_with('j');
+    readable.then(|| digits.chars().any(|c| c != '0' && c != '.'))
+}
+
 /// True for the named child that may not execute: conditional-expression arms, the right
 /// operand of `and`/`or`, later operands of a comparison chain and comprehension parts.
-fn deferred(parent: Node, index: usize) -> bool {
+/// A literal constant decides the first two: `True and X`, `False or X` and the arm a literal
+/// test selects always run, so they are not deferred; `False and X`, `True or X` and the other
+/// arm never run and stay deferred (they cannot kill anything).
+fn deferred(parent: Node, index: usize, src: &str) -> bool {
     match parent.kind() {
-        "conditional_expression" => index != 1,
-        "boolean_operator" => index == 1,
+        "conditional_expression" => {
+            let named: Vec<_> = kids(parent).into_iter().filter(|c| c.is_named()).collect();
+            let test = named.get(1).and_then(|t| literal_truth(*t, src));
+            match test {
+                Some(taken) if index != 1 => index != if taken { 0 } else { 2 },
+                _ => index != 1,
+            }
+        }
+        "boolean_operator" => {
+            let left = parent.child_by_field_name("left");
+            let op = parent.child_by_field_name("operator").map(|o| text(o, src));
+            let runs = match (op, left.and_then(|l| literal_truth(l, src))) {
+                (Some("and"), Some(true)) | (Some("or"), Some(false)) => true,
+                _ => false,
+            };
+            index == 1 && !runs
+        }
         "comparison_operator" => index >= 2,
         "list_comprehension"
         | "set_comprehension"
@@ -39,11 +95,11 @@ fn deferred(parent: Node, index: usize) -> bool {
 
 /// Named children in evaluation order, each with its deferral flag. An assignment evaluates
 /// its right side before its targets, a conditional expression its test before either arm.
-fn ordered(n: Node) -> Vec<(Node, bool)> {
+fn ordered<'a>(n: Node<'a>, src: &str) -> Vec<(Node<'a>, bool)> {
     let named = kids(n).into_iter().filter(|c| c.is_named());
     let mut out: Vec<_> = named
         .enumerate()
-        .map(|(i, c)| (c, deferred(n, i)))
+        .map(|(i, c)| (c, deferred(n, i, src)))
         .collect();
     match n.kind() {
         "assignment" => out.sort_by_key(|(c, _)| n.child_by_field_name("right") != Some(*c)),
@@ -59,7 +115,11 @@ fn ordered(n: Node) -> Vec<(Node, bool)> {
 /// Depth-first walk of one atom in evaluation order. `f(node, post, cond)` runs when a node is
 /// entered (`post` false) and, for a node that is not under a deferred arm, again when it has
 /// been evaluated. `cond` marks a node that may not execute. Returns true when `f` did.
-pub(super) fn walk<'a>(atom: Node<'a>, f: &mut dyn FnMut(Node<'a>, bool, bool) -> bool) -> bool {
+pub(super) fn walk<'a>(
+    atom: Node<'a>,
+    src: &str,
+    f: &mut dyn FnMut(Node<'a>, bool, bool) -> bool,
+) -> bool {
     enum Fr<'a> {
         In(Node<'a>, bool),
         Out(Node<'a>),
@@ -83,7 +143,7 @@ pub(super) fn walk<'a>(atom: Node<'a>, f: &mut dyn FnMut(Node<'a>, bool, bool) -
                 if !cond {
                     stack.push(Fr::Out(n));
                 }
-                for (c, d) in ordered(n).into_iter().rev() {
+                for (c, d) in ordered(n, src).into_iter().rev() {
                     stack.push(Fr::In(c, cond || d));
                 }
             }
@@ -208,7 +268,7 @@ impl Rebind {
 
 impl Transfer for Rebind {
     fn kills(&self, atom: Node<'_>, src: &str) -> bool {
-        walk(atom, &mut |n, post, cond| {
+        walk(atom, src, &mut |n, post, cond| {
             !post && !cond && (self.replaces(n, src) || self.cuts(n, src))
         })
     }
@@ -219,7 +279,7 @@ impl Transfer for Rebind {
 
     fn clobbered_before<'a>(&self, atom: Node<'a>, rs: &[Span], src: &str) -> Vec<bool> {
         let (mut late, mut dead) = (vec![false; rs.len()], false);
-        walk(atom, &mut |n, post, cond| {
+        walk(atom, src, &mut |n, post, cond| {
             if !post {
                 for (i, r) in rs.iter().enumerate() {
                     if (r.start, r.end) == (n.start_byte(), n.end_byte()) {

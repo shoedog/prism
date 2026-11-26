@@ -8,7 +8,9 @@
 //! refusal, never a published edge). `join` is the endpoint verdict (`joined` or the refusal),
 //! null for a candidate the syntax refused. `binding` is the root name. The `owner` record also
 //! carries the RD exit, the raw work `P` (null when RD is unavailable), the sequential
-//! attrition and the limit outcomes. Predictions are finalized once the file's edges, labels and
+//! attrition and the limit outcomes. An owner refused as a whole with more admitted pairs than
+//! the raw limit lists a bounded sample of `prediction` and `pairs` rows; `attrition.admitted` is
+//! its exact pair count and `omitted_pair_records` the exact number of rows left out. Predictions are finalized once the file's edges, labels and
 //! supplemental exact keys are known.
 use super::super::{DefSite, RdUnavailable};
 use super::join::{join_owner, Buckets, Endpoint, Originals};
@@ -131,6 +133,7 @@ fn ledger(rec: &mut Value, pv: &OwnerPreview) {
     rec["omitted_fanin_pairs"] = json!(pv.fanin_pairs);
     rec["over_edge_cap"] = json!(pv.over_edge_cap);
     rec["omitted_cap_pairs"] = json!(pv.cap_pairs);
+    rec["omitted_pair_records"] = json!(pv.omitted_pairs);
 }
 
 impl FileTrace {
@@ -255,12 +258,12 @@ impl FileTrace {
             rec["span"] = bytes(scan.span);
             rec["writes"] = json!(scan.writes.len());
             rec["nodes"] = json!(scan.operands.len());
-            rec["pairs"] = joined
+            rec["pairs"] = pv
                 .pairs
                 .iter()
-                .map(|((w, r), e)| {
-                    let (w, r) = (&scan.writes[*w], &scan.operands[*r]);
-                    json!({"w": bytes(w.span), "r": bytes(r.span), "role": tag(r.verdict), "join": verdict(Some(*e))})
+                .map(|p| {
+                    let (w, r) = (&scan.writes[p.w], &scan.operands[p.r]);
+                    json!({"w": bytes(w.span), "r": bytes(r.span), "role": tag(r.verdict), "join": verdict(Some(joined.pair(p.w, p.r)))})
                 })
                 .collect();
             out.push(rec);

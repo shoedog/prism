@@ -160,6 +160,28 @@ fn element_preview_refuses_rebind_after_receiver_capture() {
 }
 
 #[test]
+fn element_preview_literal_branches_decide_receiver_capture() {
+    // the index is evaluated after the receiver is captured: a taken literal branch that
+    // rebinds or clears the root detaches the store; the branch that never runs does not
+    for body in [
+        "    d = {}\n    d[True and (d := {})] = t\n    sink(d)\n",
+        "    d = {}\n    d[False or (d := {})] = t\n    sink(d)\n",
+        "    d = {}\n    d[(d := {}) if 1 else 'a'] = t\n    sink(d)\n",
+        "    d = {0: {}}\n    d[0][True and d.clear()] = t\n    sink(d)\n",
+    ] {
+        assert_eq!(one(body), Capture, "{body}");
+    }
+    for body in [
+        "    d = {}\n    d[False and (d := {})] = t\n    sink(d)\n",
+        "    d = {}\n    d[True or (d := {})] = t\n    sink(d)\n",
+        "    d = {}\n    d[(d := {}) if 0 else 'a'] = t\n    sink(d)\n",
+        "    d = {0: {}}\n    d[0][False and d.clear()] = t\n    sink(d)\n",
+    ] {
+        assert_eq!(one(body), Hit, "{body}");
+    }
+}
+
+#[test]
 fn element_preview_keeps_earlier_sibling_and_cuts_delete() {
     // other indexed stores generate and never kill, even for the same slot (key-blind)
     table(

@@ -106,18 +106,62 @@ pub(crate) struct OwnerScan {
 
 impl OwnerScan {
     /// Admitted `(write, operand)` index pairs where the operand is the store's root
-    /// or a static selector prefix of its container.
+    /// or a static selector prefix of its container, lazily and in write-then-operand order.
+    fn admitted(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        let writes = self
+            .writes
+            .iter()
+            .enumerate()
+            .filter(|(_, w)| w.verdict.is_ok());
+        writes.flat_map(move |(w, write)| {
+            let reads = self.operands.iter().enumerate();
+            let fed = move |(_, o): &(usize, &Operand)| {
+                let (a, b) = (&write.path, &o.path);
+                o.verdict.is_ok() && a.root == b.root && a.fields.starts_with(&b.fields)
+            };
+            reads.filter(fed).map(move |(r, _)| (w, r))
+        })
+    }
+
+    /// Every admitted pair, materialized. Callers that may face a huge owner count first
+    /// ([`OwnerScan::pair_count`]) and take at most [`OwnerScan::pair_head`].
     pub(crate) fn pairs(&self) -> Vec<(usize, usize)> {
-        let mut out = Vec::new();
-        for (w, write) in self.writes.iter().enumerate() {
-            for (r, operand) in self.operands.iter().enumerate() {
-                let (a, b) = (&write.path, &operand.path);
-                let prefix = a.fields.starts_with(&b.fields);
-                if write.verdict.is_ok() && operand.verdict.is_ok() && a.root == b.root && prefix {
-                    out.push((w, r));
-                }
-            }
+        self.pair_head(usize::MAX)
+    }
+
+    /// The first `n` admitted pairs, allocating only those.
+    pub(crate) fn pair_head(&self, n: usize) -> Vec<(usize, usize)> {
+        let out: Vec<_> = self.admitted().take(n).collect();
+        #[cfg(test)]
+        {
+            let mut seen = PAIRS_BUILT.lock().unwrap();
+            let slot = seen.entry(self.name.clone()).or_default();
+            *slot = (*slot).max(out.len());
         }
         out
     }
+
+    /// The number of admitted pairs, from counts of the operands of each selector path, without
+    /// building a pair. Saturates at `u64::MAX`.
+    pub(crate) fn pair_count(&self) -> u64 {
+        let mut groups: std::collections::BTreeMap<(&Option<String>, &Vec<String>), u64> =
+            std::collections::BTreeMap::new();
+        for o in self.operands.iter().filter(|o| o.verdict.is_ok()) {
+            *groups.entry((&o.path.root, &o.path.fields)).or_default() += 1;
+        }
+        let mut total = 0u64;
+        for w in self.writes.iter().filter(|w| w.verdict.is_ok()) {
+            for ((root, fields), n) in &groups {
+                if **root == w.path.root && w.path.fields.starts_with(fields) {
+                    total = total.saturating_add(*n);
+                }
+            }
+        }
+        total
+    }
 }
+
+/// Tests read the largest pair list any owner of that name ever materialized.
+#[cfg(test)]
+pub(super) static PAIRS_BUILT: std::sync::Mutex<std::collections::BTreeMap<String, usize>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());

@@ -82,7 +82,7 @@ fn link_len(obj: Node, tr: &Rebind, src: &str) -> Option<usize> {
 /// Does evaluating `expr`, with `held` links of the receiver chain already captured, rebind
 /// the root or mutate a strict ancestor of a captured link?
 fn detaches(expr: Node, tr: &Rebind, held: usize, src: &str) -> bool {
-    walk(expr, &mut |n, post, cond| {
+    walk(expr, src, &mut |n, post, cond| {
         if post || cond {
             return false;
         }

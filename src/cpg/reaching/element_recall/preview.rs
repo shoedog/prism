@@ -7,7 +7,7 @@
 //! facts are built from copies of the producer's inputs and never reach the graph, the labels or
 //! the statistics.
 use super::join::{operand_path, write_path, Buckets, JoinRefusal, OwnerJoin};
-use super::limits::{cap, raw_rows, Limits, Rd, RdExit, Work};
+use super::limits::{cap, raw_rows, Limits, Rd, RdExit, Work, REFUSAL_SAMPLE};
 use super::route::{self, Refused, Route, Step};
 use super::{OwnerScan, Span};
 use crate::access_path::ARRAY_FIELD;
@@ -127,6 +127,8 @@ impl Occupied {
 pub(crate) enum Refusal {
     Rd(Rd),
     RawCap,
+    /// More admitted pairs than the raw limit: never built, whatever `P` says.
+    PairBound,
     Join(JoinRefusal),
     Binding,
     Placement,
@@ -173,7 +175,10 @@ pub(crate) struct OwnerPreview {
     /// `None` when RD is unavailable: `P` is unknown.
     pub work: Option<Work>,
     pub raw_capped: bool,
+    /// Listed pair outcomes: every admitted pair, or a bounded sample of an owner refused whole.
     pub pairs: Vec<PairPreview>,
+    /// Admitted pairs left out of `pairs` (exact).
+    pub omitted_pairs: u64,
     pub attrition: Attrition,
     pub fanin_reads: usize,
     pub fanin_pairs: usize,
@@ -215,10 +220,65 @@ fn location(
     }
 }
 
-/// Predict one owner.
+/// The refusal of an owner whose admitted pair count alone exceeds the raw limit.
+pub(super) fn pair_bound(admitted: u64, limits: &Limits) -> Option<Refusal> {
+    (admitted > limits.raw_pairs).then_some(Refusal::PairBound)
+}
+
+/// Raw work `P` from bucket counts alone: each certified write's raw Def rows times the distinct
+/// eligible whole reads it feeds, grouped by the reads' selector path so no pair is built.
+fn raw_work(i: &Inputs) -> Work {
+    let scan = i.scan;
+    let owner = (i.file, scan.name.as_str(), scan.span.line);
+    let rows = |b, p: Option<_>, kind, s| p.map_or(0, |p| raw_rows(b, owner, &p, kind, s));
+    let mut fed: BTreeMap<(&Option<String>, &Vec<String>), u64> = BTreeMap::new();
+    for o in scan.operands.iter().filter(|o| o.verdict.is_ok()) {
+        if rows(i.uses, operand_path(&o.path), VarAccessKind::Use, o.span) > 0 {
+            *fed.entry((&o.path.root, &o.path.fields)).or_default() += 1;
+        }
+    }
+    let per_write = scan.writes.iter().filter(|w| w.verdict.is_ok()).map(|w| {
+        let mult = rows(i.defs, write_path(&w.path), VarAccessKind::Def, w.span);
+        let matching = fed.iter().filter(|((root, fields), _)| {
+            **root == w.path.root && w.path.fields.starts_with(fields)
+        });
+        (mult, matching.map(|(_, n)| *n).sum::<u64>())
+    });
+    Work::count(per_write)
+}
+
+/// Names the owner's subtree declares `nonlocal` or `global`, nested functions included: a store
+/// into such a root may be rebound by code outside the owner's own statements.
+fn declared_outer(i: &Inputs) -> BTreeSet<String> {
+    let scan = i.scan;
+    let owner = i
+        .parsed
+        .all_functions()
+        .into_iter()
+        .find(|f| (f.start_byte(), f.end_byte()) == (scan.span.start, scan.span.end));
+    let mut names = BTreeSet::new();
+    let (Some(owner), src) = (owner, i.parsed.source.as_str()) else {
+        return names;
+    };
+    let mut stack = vec![owner];
+    while let Some(n) = stack.pop() {
+        let mut cursor = n.walk();
+        let children: Vec<_> = n.children(&mut cursor).collect();
+        if matches!(n.kind(), "nonlocal_statement" | "global_statement") {
+            let ids = children.iter().filter(|c| c.kind() == "identifier");
+            names.extend(ids.map(|c| src[c.start_byte()..c.end_byte()].to_string()));
+        }
+        stack.extend(children);
+    }
+    names
+}
+
+/// Predict one owner. Raw work, the RD exit and the admitted pair count are decided from counts;
+/// an owner refused as a whole lists at most [`REFUSAL_SAMPLE`] pairs when its admitted pairs
+/// exceed the raw limit, and reports the exact omitted total.
 pub(crate) fn preview(i: &Inputs) -> OwnerPreview {
     let scan = i.scan;
-    let pairs = scan.pairs();
+    let admitted = scan.pair_count();
     let rd = i.rd.map_or(
         Rd {
             exit: RdExit::Unseen,
@@ -231,8 +291,9 @@ pub(crate) fn preview(i: &Inputs) -> OwnerPreview {
         work: None,
         raw_capped: false,
         pairs: Vec::new(),
+        omitted_pairs: 0,
         attrition: Attrition {
-            admitted: pairs.len(),
+            admitted: usize::try_from(admitted).unwrap_or(usize::MAX),
             ..Attrition::default()
         },
         fanin_reads: 0,
@@ -240,43 +301,39 @@ pub(crate) fn preview(i: &Inputs) -> OwnerPreview {
         over_edge_cap: false,
         cap_pairs: 0,
     };
-    let refuse = |why: Refusal| {
-        let all = pairs.iter().map(|&(w, r)| PairPreview {
+    let refuse = |why: Refusal, out: &mut OwnerPreview| {
+        let head = match admitted > i.limits.raw_pairs {
+            true => scan.pair_head(REFUSAL_SAMPLE),
+            false => scan.pairs(),
+        };
+        out.omitted_pairs = admitted.saturating_sub(head.len() as u64);
+        let all = head.into_iter().map(|(w, r)| PairPreview {
             w,
             r,
             outcome: Err(why.clone()),
         });
-        all.collect::<Vec<_>>()
+        out.pairs = all.collect();
     };
     let facts = match i.rd {
         Some(f) if rd.exit == RdExit::Available => f,
         _ => {
-            out.pairs = refuse(Refusal::Rd(rd));
+            refuse(Refusal::Rd(rd), &mut out);
             return out;
         }
     };
-    let owner = (i.file, scan.name.as_str(), scan.span.line);
-    let mut buckets: BTreeMap<usize, (u64, BTreeSet<usize>)> = BTreeMap::new();
-    for &(w, r) in &pairs {
-        let (ws, os) = (&scan.writes[w], &scan.operands[r]);
-        let (wp, op) = (write_path(&ws.path), operand_path(&os.path));
-        let rows = |b, p: Option<_>, kind, s| p.map_or(0, |p| raw_rows(b, owner, &p, kind, s));
-        let (mult, reads) = (
-            rows(i.defs, wp, VarAccessKind::Def, ws.span),
-            rows(i.uses, op, VarAccessKind::Use, os.span),
-        );
-        let entry = buckets.entry(w).or_insert((mult, BTreeSet::new()));
-        if mult > 0 && reads > 0 {
-            entry.1.insert(r);
-        }
-    }
-    let work = Work::count(buckets.values().map(|(m, rs)| (*m, rs.len() as u64)));
+    let work = raw_work(i);
     out.work = Some(work);
     if work.exceeds(i.limits.raw_pairs) {
         out.raw_capped = true;
-        out.pairs = refuse(Refusal::RawCap);
+        refuse(Refusal::RawCap, &mut out);
         return out;
     }
+    if let Some(why) = pair_bound(admitted, &i.limits) {
+        refuse(why, &mut out);
+        return out;
+    }
+    let pairs = scan.pairs();
+    let outer = declared_outer(i);
     let routes = route::routes(i.parsed, scan);
     let mut survivors: BTreeMap<(Span, Span), Vec<Step>> = BTreeMap::new();
     let a = &mut out.attrition;
@@ -284,8 +341,11 @@ pub(crate) fn preview(i: &Inputs) -> OwnerPreview {
         let (ws, os) = (&scan.writes[w], &scan.operands[r]);
         let root = ws.path.root.as_deref().unwrap_or("");
         let free = |a: &mut Attrition| -> Result<Vec<Step>, Refusal> {
-            i.join.pairs[k].1.map_err(Refusal::Join)?;
+            i.join.pair(w, r).map_err(Refusal::Join)?;
             a.joined += 1;
+            if outer.contains(root) {
+                return Err(Refusal::Binding);
+            }
             facts.proves(root, ws.span, os.span)?;
             a.bound += 1;
             let steps = match &routes[k].1 {

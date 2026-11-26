@@ -415,3 +415,177 @@ fn element_preview_refuses_occupied_keys() {
     let plain = loc(&r, VarAccessKind::Def, 2);
     assert!(Occupied::new([(&plain, &rl)]).0.is_empty());
 }
+
+/// `def <name>(t, sink)` storing `stores` indexed values into `d`, then reading `d` whole `reads`
+/// times: `sink(d)` (no definition) or `c<i> = d` (one definition each).
+fn flood(name: &str, stores: usize, reads: usize, copies: bool) -> String {
+    let mut src = format!("def {name}(t, sink):\n    d = {{}}\n");
+    (0..stores).for_each(|i| src.push_str(&format!("    d[{i}] = t\n")));
+    for i in 0..reads {
+        let read = if copies {
+            format!("c{i} = d")
+        } else {
+            "sink(d)".to_string()
+        };
+        src.push_str(&format!("    {read}\n"));
+    }
+    src
+}
+
+fn built(name: &str) -> usize {
+    super::PAIRS_BUILT
+        .lock()
+        .unwrap()
+        .get(name)
+        .copied()
+        .unwrap_or(0)
+}
+
+/// The listed pair records stay bounded; the owner record carries the exact totals.
+fn assert_bounded(rs: &[Value], name: &str, total: u64) {
+    let o = owner(rs, name);
+    assert_eq!(
+        o["attrition"]["admitted"], total,
+        "{name}: exact admitted total"
+    );
+    let listed = REFUSAL_SAMPLE as u64;
+    assert_eq!(o["omitted_pair_records"], total - listed);
+    assert_eq!(o["pairs"].as_array().unwrap().len(), REFUSAL_SAMPLE);
+    let predictions = rs.iter().filter(|r| r["kind"] == "prediction").count();
+    assert_eq!(
+        predictions, REFUSAL_SAMPLE,
+        "{name}: bounded sample of refusals"
+    );
+    assert!(
+        built(name) <= REFUSAL_SAMPLE,
+        "{name}: built {} pairs",
+        built(name)
+    );
+}
+
+#[test]
+fn element_preview_raw_cap_builds_no_pair_records() {
+    // 60 stores x 60 whole reads = 3600 pairs against an injected raw limit of 100: the owner is
+    // refused from bucket counts, with a bounded sample and exact totals
+    let rs = run(
+        "flood_inj.py",
+        &flood("flood_inj", 60, 60, false),
+        Some(limit(100)),
+    );
+    let o = owner(&rs, "flood_inj");
+    assert_eq!(pick(o, &["raw_pairs", "raw_capped"]), json!([3600, true]));
+    assert_bounded(&rs, "flood_inj", 3600);
+    assert_eq!(
+        outcomes(&rs, "flood_inj"),
+        counts(&[("refused:rawcap", REFUSAL_SAMPLE)])
+    );
+    // control: at the limit nothing is sampled, every pair is listed and predicted
+    let at = run(
+        "flood_eq.py",
+        &flood("flood_eq", 6, 6, false),
+        Some(limit(36)),
+    );
+    let o = owner(&at, "flood_eq");
+    assert_eq!(pick(o, &["raw_pairs", "raw_capped"]), json!([36, false]));
+    assert_eq!(o["pairs"].as_array().unwrap().len(), 36);
+    assert!(o.get("omitted_pair_records").is_none_or(|v| v == 0));
+    assert_eq!(outcomes(&at, "flood_eq"), counts(&[("predicted", 36)]));
+}
+
+#[test]
+fn element_preview_production_flood_is_refused_before_allocation() {
+    // 2000 stores x 2000 reads is 4,000,000 pairs: over the production raw limit. No `sink(d)`
+    // read defines a name, so reaching definitions stays available and the raw cap decides.
+    let rs = run(
+        "flood_prod.py",
+        &flood("flood_prod", 2000, 2000, false),
+        None,
+    );
+    let o = owner(&rs, "flood_prod");
+    assert_eq!(
+        pick(o, &["rd", "raw_pairs", "raw_capped"]),
+        json!(["available", 4_000_000, true])
+    );
+    assert_bounded(&rs, "flood_prod", 4_000_000);
+    assert_eq!(
+        outcomes(&rs, "flood_prod"),
+        counts(&[("refused:rawcap", REFUSAL_SAMPLE)])
+    );
+}
+
+#[test]
+fn element_preview_rd_unavailable_flood_lists_a_bounded_sample() {
+    // 2100 stores and 2100 copies exceed the definition cap: RD is unavailable, `P` is unknown,
+    // and the owner still must not build 4.4 million refusal records
+    let rs = run("flood_rd.py", &flood("flood_rd", 2100, 2100, true), None);
+    let o = owner(&rs, "flood_rd");
+    assert!(
+        o["rd"].as_str().unwrap().ends_with("def_cap"),
+        "{}",
+        o["rd"]
+    );
+    assert!(o["raw_pairs"].is_null());
+    assert_bounded(&rs, "flood_rd", 2100 * 2100);
+    let got = outcomes(&rs, "flood_rd");
+    assert_eq!(got.len(), 1, "{got:?}");
+    let (name, n) = got.iter().next().unwrap();
+    assert!(
+        name.starts_with("refused:rd:") && *n == REFUSAL_SAMPLE,
+        "{got:?}"
+    );
+}
+
+#[test]
+fn element_preview_pair_bound_guards_owners_whose_work_is_small() {
+    // admitted pairs beyond the raw limit are never built, whatever `P` says
+    let limits = Limits::PRODUCTION;
+    assert!(preview::pair_bound(1_000_000, &limits).is_none());
+    let over = preview::pair_bound(1_000_001, &limits).unwrap();
+    assert_eq!(over.name(), "pairbound");
+    assert!(preview::pair_bound(13, &limit(12)).is_some());
+    assert!(preview::pair_bound(12, &limit(12)).is_none());
+    // counting admitted pairs needs no pair list
+    let parsed = ParsedFile::parse("c.py", &flood("cnt", 30, 40, false), Language::Python).unwrap();
+    let scan = &python::scan_file(&parsed)[0];
+    assert_eq!(scan.pair_count(), 1200);
+    assert_eq!(scan.pair_count(), scan.pairs().len() as u64);
+}
+
+#[test]
+fn element_preview_refuses_roots_rebound_by_nonlocal_or_global() {
+    // a nested function that declares `nonlocal d` may rebind the store's root between the
+    // store and the read: the pair must not be predicted. Controls: the same program without
+    // the declaration, and one where the nested function binds its own `d`.
+    let nested = |decl: &str| {
+        let g = format!("    def g():\n{decl}        d = {{}}\n");
+        format!("def f(t, sink):\n    d = {{}}\n{g}    d['a'] = t\n    g()\n    sink(d)\n")
+    };
+    let cases = [
+        ("nonlocal", nested("        nonlocal d\n"), "refused:binding"),
+        ("own", nested(""), "predicted"),
+        // a `global d` in the nested function names the module's `d`, never f's local; refused
+        // all the same (the whole owner subtree is judged, conservatively)
+        ("global-nested", nested("        global d\n"), "refused:binding"),
+        (
+            "global-owner",
+            "d = {}\ndef f(t, sink):\n    global d\n    d['a'] = t\n    sink(d)\n".to_string(),
+            "",
+        ),
+        // another name declared nonlocal does not touch `d`
+        (
+            "other-name",
+            "def f(t, sink):\n    d = {}\n    e = 1\n    def g():\n        nonlocal e\n        e = 2\n    d['a'] = t\n    g()\n    sink(d)\n".to_string(),
+            "predicted",
+        ),
+    ];
+    for (name, src, expected) in cases {
+        let file = format!("nl_{name}.py");
+        // "" marks a program the inventory never pairs at all (a global root is no local)
+        let want: Vec<_> = (!expected.is_empty())
+            .then_some((expected, 1))
+            .into_iter()
+            .collect();
+        let got = outcomes(&run(&file, &src, None), "f");
+        assert_eq!(got, counts(&want), "{name}\n{src}");
+    }
+}

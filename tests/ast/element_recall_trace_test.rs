@@ -12,16 +12,52 @@ const CASES: &str = concat!(
 );
 const PREFIX: &str = "element-recall\tv1\t";
 
-fn binary() -> Option<PathBuf> {
-    let Some(path) = std::env::var_os("PRISM_DIAG_BIN") else {
-        eprintln!("PRISM_DIAG_BIN is unset: the child-process trace checks are not run");
-        return None;
+/// The child binary named by `bin`. An unset variable skips the checks unless `require` (the
+/// verification job sets `PRISM_DIAG_REQUIRE=1`), where a missing or unusable binary is an error.
+fn resolve_binary(
+    bin: Option<std::ffi::OsString>,
+    require: bool,
+) -> Result<Option<PathBuf>, String> {
+    let Some(path) = bin else {
+        return match require {
+            true => Err("PRISM_DIAG_REQUIRE=1 but PRISM_DIAG_BIN is unset".to_string()),
+            false => Ok(None),
+        };
     };
-    assert!(
-        Path::new(&path).is_file(),
-        "PRISM_DIAG_BIN {path:?} is not a file"
-    );
-    Some(path.into())
+    match Path::new(&path).is_file() {
+        true => Ok(Some(path.into())),
+        false => Err(format!("PRISM_DIAG_BIN {path:?} is not a file")),
+    }
+}
+
+fn binary() -> Option<PathBuf> {
+    let require = std::env::var("PRISM_DIAG_REQUIRE").is_ok_and(|v| v == "1");
+    match resolve_binary(std::env::var_os("PRISM_DIAG_BIN"), require) {
+        Ok(None) => {
+            eprintln!("PRISM_DIAG_BIN is unset: the child-process trace checks are not run");
+            None
+        }
+        Ok(found) => found,
+        Err(why) => panic!("{why}"),
+    }
+}
+
+#[test]
+fn child_trace_checks_fail_when_required_and_the_binary_is_missing() {
+    use std::ffi::OsString;
+    // required: an unset variable and a missing file both fail instead of skipping
+    assert!(resolve_binary(None, true).is_err());
+    let gone = Some(OsString::from("/nonexistent/prism-diag-bin"));
+    assert!(resolve_binary(gone.clone(), true).is_err());
+    // not required: unset skips (the notice is printed by `binary`), a bad path still fails
+    assert_eq!(resolve_binary(None, false), Ok(None));
+    assert!(resolve_binary(gone, false).is_err());
+    // a usable binary resolves either way
+    let here = std::env::current_exe().unwrap();
+    for require in [false, true] {
+        let got = resolve_binary(Some(here.clone().into_os_string()), require);
+        assert_eq!(got, Ok(Some(here.clone())));
+    }
 }
 
 /// Expected projections of one program: `«x»` marks the span inside its context text.

@@ -50,8 +50,18 @@ pub(crate) type Endpoint = Result<(), JoinRefusal>;
 pub(crate) struct OwnerJoin {
     pub writes: Vec<Option<Endpoint>>,
     pub operands: Vec<Option<Endpoint>>,
-    /// Per admitted pair of `OwnerScan::pairs`: the first endpoint refusal, W before R.
-    pub pairs: Vec<((usize, usize), Endpoint)>,
+}
+
+impl OwnerJoin {
+    /// The first endpoint refusal of one admitted pair, W before R. Computed on demand, so an
+    /// owner with a huge pair count never holds a per-pair table.
+    pub(crate) fn pair(&self, w: usize, r: usize) -> Endpoint {
+        let both = [self.writes[w], self.operands[r]];
+        both.into_iter()
+            .flatten()
+            .find(|e| e.is_err())
+            .unwrap_or(Ok(()))
+    }
 }
 
 /// The path the producer records for a store: root, pre-bracket fields, one `[]`.
@@ -121,7 +131,7 @@ fn endpoint(
     }
 }
 
-/// Join every admitted write, operand and pair of `scan`. `owners` counts scans of this file with
+/// Join every admitted write and operand of `scan` (pairs are read through [`OwnerJoin::pair`]). `owners` counts scans of this file with
 /// the owner's name and start line; `originals` is the owner pass, if the producer ran one.
 pub(crate) fn join_owner(
     file: &str,
@@ -202,18 +212,5 @@ pub(crate) fn join_owner(
                 .then(|| judge(key, VarAccessKind::Use, syntax))
         })
         .collect();
-    let pairs = scan
-        .pairs()
-        .into_iter()
-        .map(|(w, r)| {
-            let both = [writes[w], operands[r]];
-            let verdict = both.into_iter().flatten().find(|e| e.is_err());
-            ((w, r), verdict.unwrap_or(Ok(())))
-        })
-        .collect();
-    OwnerJoin {
-        writes,
-        operands,
-        pairs,
-    }
+    OwnerJoin { writes, operands }
 }

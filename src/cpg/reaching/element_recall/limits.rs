@@ -15,6 +15,9 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(crate) const RAW_PAIRS: u64 = 1_000_000;
 pub(crate) const READ_SOURCES: usize = 8;
 pub(crate) const OWNER_EDGES: usize = 256;
+/// Per-pair refusal records listed for an owner whose pairs exceed the allocation bound; the
+/// owner record carries the exact total and the omitted count.
+pub(crate) const REFUSAL_SAMPLE: usize = 16;
 
 /// The three limits. Production uses [`Limits::PRODUCTION`]; unit tests inject smaller ones.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
