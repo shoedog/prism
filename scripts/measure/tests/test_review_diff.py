@@ -1,0 +1,651 @@
+"""S4 review comparisons, accounting and receipt custody through the CLI."""
+
+from __future__ import annotations
+
+from contextlib import ExitStack
+import json
+from pathlib import Path
+import random
+import unittest
+from unittest.mock import patch
+
+from .helpers import DEFAULT_VERSION, fixture_digest, sha256_of
+from .test_matrix_rows import CASES
+from .test_population import (
+    EMPTY, METRICS, QUIET, STANDARD_SPEC, ReviewFixture, envelope_bytes,
+)
+
+ROW_FIELDS = {"ordinal", "repo", "commit", "status", "reason", "arms", *METRICS,
+              "rule_transitions", "anchors"}
+ARM_FIELDS = {"status", "exit", "guard_status", "output", "output_sha256", "stderr", "stderr_sha256",
+              "input_before_sha256", "input_after_sha256"}
+SAMPLE_FIELDS = {"ordinal", "repo", "commit", *METRICS}
+TOTAL_FIELDS = {"schema", "population_sha256", "scope", "population", "selected", "ok",
+                "failed_ordinals", "refused_ordinals", "excluded_ordinals", *METRICS,
+                "sample_size", "seed", "arms"}
+RECEIPT_FIELDS = {"schema", "population_sha256", "arms", "gate_sha256", "gate_step_id", "artifacts"}
+SHARED_ARGS = ["--algorithm", "taint", "--resolution", "scoped"]
+
+
+def finding(**changes):
+    return {"file": "src/a.ts", "line": 3, "algorithm": "taint", "category": "taint_sink",
+            "description": "fixture finding", **changes}
+
+
+def single(*findings):
+    return {**EMPTY, "findings": list(findings)}
+
+
+class ReviewChecks(ReviewFixture):
+    def matrix_arms(self, ident, inputs=None):
+        case = CASES / ident
+        for role in ("base", "head"):
+            filename = inputs[role] if inputs else role + ".json"
+            path = case / filename
+            self.make_arm(role, stdout=path.read_bytes())
+
+    def pair(self, base, head):
+        self.make_arm("base", single(*base))
+        self.make_arm("head", single(*head))
+
+    def assert_counts(self, record, presence=0, payload=0, ambiguous=0):
+        self.assertEqual({key: record[key] for key in METRICS},
+                         dict(zip(METRICS, (presence, payload, ambiguous))))
+
+    def assert_streams(self, row, role, *, stdout, stderr, name=None):
+        arm = row["arms"][name or role]
+        for field, suffix, raw in (("output", "stdout", stdout), ("stderr", "stderr", stderr)):
+            relative = f"arms/{row['ordinal']}/{role}.{suffix}"
+            self.assertEqual(arm[field], relative)
+            path = self.out / relative
+            self.assertEqual(path.read_bytes(), raw)
+            self.assertEqual(arm[field + "_sha256"], sha256_of(path))
+            self.assertEqual(self.read_json("review-receipt.json")["artifacts"][relative],
+                             {"bytes": len(raw), "sha256": sha256_of(path)})
+
+    def check_drift_between_arms(self):
+        from measure import inputs, review_diff
+
+        self.make_population()
+        self.keep_dirty_source()
+        before = self.source_state()
+        real_bind = inputs.bind_tree
+        mutated = []
+
+        def change_after_base_postcheck(root, *args, **kwargs):
+            binding = real_bind(root, *args, **kwargs)
+            attempts = self.attempts()
+            if (not mutated and len(attempts) == 1 and attempts[0]["role"] == "base"
+                    and Path(root).resolve() == Path(attempts[0]["root"]).resolve()):
+                (Path(root) / "src/a.ts").write_bytes(b"drift between arms\n")
+                mutated.append(fixture_digest(Path(root)))
+            return binding
+
+        # Inject at the existing digest seam, after returning the measured base bytes.
+        with ExitStack() as stack:
+            for module in (inputs, review_diff):
+                if getattr(module, "bind_tree", None) is real_bind:
+                    stack.enter_context(patch.object(module, "bind_tree", change_after_base_postcheck))
+            self.review(expected=1)
+        changed_digest, = mutated
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("refused", "review-input-changed"))
+        base, head = (row["arms"][role] for role in ("base", "head"))
+        self.assertEqual(base["input_before_sha256"], self.pinned_digest)
+        self.assertEqual(base["input_after_sha256"], self.pinned_digest)
+        self.assertEqual(base["status"], "ok")
+        self.assertEqual(head["input_before_sha256"], changed_digest)
+        self.assert_unlaunched(head)
+        self.assert_null_metrics(row)
+        self.assertEqual([attempt["role"] for attempt in self.attempts()], ["base"])
+        self.assertEqual(self.source_state(), before)
+
+
+class ReviewDiffTests(ReviewChecks):
+    def test_identical_payloads_cancel_with_multiplicity_and_order(self):
+        self.make_population()
+        self.matrix_arms("review-005")
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row)
+        self.assertEqual(row["anchors"], [])
+
+        self.out = self.work / "one-copy-removed"
+        head = json.loads((CASES / "review-005/head.json").read_bytes())
+        del head["findings"][0]
+        self.make_arm("head", head)
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, presence=1)
+        residual, = row["anchors"]
+        self.assertEqual((residual["added"], residual["removed"]), (0, 1))
+
+    def test_lost_related_line_is_a_payload_change(self):
+        self.make_population()
+        self.matrix_arms("review-001")
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, payload=1)
+        anchor, = row["anchors"]
+        pair, = anchor["pairs"]
+        self.assertEqual((pair["count"], pair["fields"], pair["text_only"]),
+                         (1, ["related_lines"], False))
+        self.assertEqual(pair["from"]["related_lines"], [1, 2])
+        self.assertEqual(pair["to"]["related_lines"], [2])
+
+    def test_added_rule_id_is_a_rule_transition_not_a_presence_change(self):
+        self.make_population()
+        self.matrix_arms("review-002")
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, payload=1)
+        self.assertEqual(row["rule_transitions"], [
+            {"from": ["sql-query"], "to": ["input-validation", "sql-query"],
+             "count": 1, "from_state": "list", "to_state": "list"},
+        ])
+
+    def test_findings_read_once_per_arm(self):
+        self.make_population()
+        kept = finding()
+        lost = finding(line=4)
+        inactive = finding(file="unused.ts", line=99)
+        base = {"algorithms_run": ["Taint"], "all_findings": [kept, lost], "findings": [inactive]}
+        head = {**single(kept), "all_findings": [lost, inactive]}
+        self.make_arm("base", base)
+        self.make_arm("head", head)
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, presence=1)
+        anchor, = row["anchors"]
+        self.assertEqual(anchor["base_bag"], [lost])
+        self.assertEqual(anchor["head_bag"], [])
+
+    def test_selected_array_must_exist_and_be_usable(self):
+        self.make_population()
+        for index, envelope in enumerate((
+                {"algorithms_run": ["Taint"], "findings": []},
+                {"results": [{"algorithm": "Taint", "findings": []}], "all_findings": {}},
+                {"algorithm": "Taint", "findings": None, "all_findings": []})):
+            with self.subTest(envelope=envelope):
+                self.out = self.work / f"bad-envelope-{index}"
+                self.make_arm("head", envelope)
+                self.review(expected=1)
+                row, = self.read_rows()
+                self.assertEqual(row["status"], "failed")
+                self.assertEqual(row["arms"]["head"]["exit"], 0)
+                self.assert_null_metrics(row)
+
+    def test_rule_metadata_and_ordered_nested_array_are_payload(self):
+        self.make_population()
+        left = finding(rules=[{"id": "A", "cwe": "CWE-1"}],
+                       diagrams=[{"kind": "flow", "text": ["a", "b"]}])
+        right = finding(rules=[{"cwe": "CWE-2", "id": "A"}],
+                        diagrams=[{"text": ["b", "a"], "kind": "flow"}])
+        self.pair([left], [right])
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, payload=1)
+        self.assertEqual(row["rule_transitions"], [])
+        anchor, = row["anchors"]
+        pair, = anchor["pairs"]
+        self.assertEqual(pair["fields"], ["diagrams", "rules"])
+        self.assertEqual(pair["from"], left)
+        self.assertEqual(pair["to"], right)
+
+    def test_rule_states_distinguish_missing_null_and_empty(self):
+        self.make_population()
+        self.pair([finding(), finding(line=4, rules=None)],
+                  [finding(rules=None), finding(line=4, rules=[])])
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, payload=2)
+        self.assertCountEqual(row["rule_transitions"], [
+            {"from": None, "to": None, "count": 1, "from_state": "missing", "to_state": "null"},
+            {"from": None, "to": [], "count": 1, "from_state": "null", "to_state": "list"},
+        ])
+
+    def test_ambiguous_surplus_preserves_bags_without_transitions(self):
+        self.make_population()
+        left = [finding(rules=["shared"]), finding(rules=["A"]), finding(rules=["B"])]
+        right = [finding(rules=["C"]), finding(rules=["shared"])]
+        self.pair(left, right)
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, presence=1, payload=1, ambiguous=1)
+        self.assertEqual(row["rule_transitions"], [])
+        anchor, = row["anchors"]
+        self.assertEqual((anchor["removed"], anchor["added"], anchor["ambiguous"]), (1, 0, True))
+        self.assertCountEqual(anchor["base_bag"], left[1:])
+        self.assertEqual(anchor["head_bag"], right[:1])
+        self.assertEqual(anchor["pairs"], [])
+
+    def test_homogeneous_larger_bag_supports_a_pair_and_a_surplus(self):
+        self.make_population()
+        shared, old, new = finding(), finding(severity="warning"), finding(severity="info")
+        self.pair([old, shared], [new, shared, new])
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, presence=1, payload=1)
+        anchor, = row["anchors"]
+        self.assertEqual((anchor["removed"], anchor["added"], anchor["ambiguous"]), (0, 1, False))
+        self.assertEqual(anchor["pairs"], [
+            {"from": old, "to": new, "count": 1, "fields": ["severity"], "text_only": False},
+        ])
+
+    def test_single_text_field_is_text_only(self):
+        self.make_population()
+        self.pair([finding(message="old"), finding(line=4)],
+                  [finding(message="new"), finding(line=4, description="new")])
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, payload=2)
+        pairs = [pair for anchor in row["anchors"] for pair in anchor["pairs"]]
+        self.assertCountEqual([pair["fields"] for pair in pairs], [["description"], ["message"]])
+        self.assertTrue(all(pair["text_only"] is True for pair in pairs))
+
+    def test_failed_arm_fails_its_row_and_totals_name_it(self):
+        self.make_population(ordinals=(2,))
+        self.make_arm("head", single(finding()), exit_code=7)
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["ordinal"], row["status"]), (2, "failed"))
+        self.assertTrue(row["reason"])
+        self.assert_null_metrics(row)
+        self.assertEqual(row["arms"]["head"]["exit"], 7)
+        self.assertEqual(row["arms"]["head"]["guard_status"],
+                         {"kind": "child", "launched": True, "child_exit": 7})
+        self.assertEqual(self.read_json("totals.json")["failed_ordinals"], [2])
+        self.assertEqual(self.read_rows("sample.jsonl"), [])
+
+    def test_worktree_checked_before_and_after_both_arms(self):
+        self.make_population()
+        self.review()
+        row, = self.read_rows()
+        for arm in row["arms"].values():
+            self.assertEqual(arm["status"], "ok")
+            for field in ("input_before_sha256", "input_after_sha256"):
+                self.assertEqual(arm[field], self.pinned_digest)
+
+    def test_post_arm_drift_fails_row_and_keeps_launched_streams(self):
+        """review-019: valid output and zero exit cannot override a changed scratch tree."""
+        self.make_population()
+        self.keep_dirty_source()
+        before = self.source_state()
+        self.make_arm("base", after_read="(root / 'src/a.ts').write_bytes(b'drift\\n')")
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("failed", "review-input-changed"))
+        self.assertEqual(row["arms"]["base"]["input_before_sha256"], self.pinned_digest)
+        after = self.work / "drifted"
+        after.mkdir()
+        (after / "src").mkdir()
+        (after / "src/a.ts").write_bytes(b"drift\n")
+        (after / "views.py").write_bytes((self.source / "views.py").read_bytes())
+        self.assertEqual(row["arms"]["base"]["input_after_sha256"], fixture_digest(after))
+        self.assert_unlaunched(row["arms"]["head"])
+        self.assert_streams(row, "base", stdout=envelope_bytes(EMPTY), stderr=b"base diagnostic\n")
+        self.assertEqual([item["role"] for item in self.attempts()], ["base"])
+        self.assert_null_metrics(row)
+        self.assertEqual(self.source_state(), before)
+
+    def test_head_drift_after_launch_fails_the_row(self):
+        self.make_population()
+        self.make_arm("head", after_read="(root / 'src/a.ts').write_bytes(b'head drift\\n')")
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("failed", "review-input-changed"))
+        base, head = (row["arms"][role] for role in ("base", "head"))
+        self.assertEqual(base["input_after_sha256"], self.pinned_digest)
+        self.assertEqual(head["input_before_sha256"], self.pinned_digest)
+        self.assertRegex(head["input_after_sha256"], r"^[0-9a-f]{64}$")
+        self.assertNotEqual(head["input_after_sha256"], self.pinned_digest)
+        self.assert_streams(row, "head", stdout=envelope_bytes(EMPTY), stderr=b"head diagnostic\n")
+        self.assert_null_metrics(row)
+
+    def test_spec_file_drift_cannot_earn_comparison_coverage(self):
+        """open-n3-8: both arms must measure the registered spec, even outside the worktree."""
+        self.make_population()
+        edited_spec = json.dumps({"files": [{"file_path": "src/a.ts", "modify_type": "Modified",
+                                             "diff_lines": [1, 2]}]})
+        self.make_arm("head", before_read=f"""
+if spec_path is not None:
+    try:
+        spec_path.write_bytes({edited_spec.encode("utf-8")!r})
+    except PermissionError:
+        pass
+""")
+        result = self.review(expected=None)
+        row, = self.read_rows()
+        attempts = self.attempts()
+        self.assertEqual(attempts[0]["spec"], json.dumps(STANDARD_SPEC))
+        if result.returncode == 0:
+            self.assert_measured_spec(STANDARD_SPEC)
+            self.assertEqual(row["status"], "ok")
+        else:
+            self.assertEqual(result.returncode, 1)
+            self.assertIn(row["status"], {"failed", "refused"})
+            self.assert_null_metrics(row)
+
+    def test_replacing_head_binary_cannot_borrow_original_identity(self):
+        """open-n1-13: replacing head between ordinals cannot misattribute its streams."""
+        self.make_population(ordinals=(1, 2))
+        original = self.binaries["head"]
+        original_hash = sha256_of(original)
+        replacement = self.make_arm("head", {**EMPTY, "fixture_build": "replacement"})
+        replacement_bytes = replacement.read_bytes()
+        self.make_arm("head")
+        self.assertEqual(sha256_of(original), original_hash)
+        self.make_arm("base", after_read=f"""
+with open({str(self.log)!r}, encoding="utf-8") as prior:
+    if any(item["role"] == "base" and item["root"] is not None
+           for item in map(json.loads, prior)):
+        Path({str(original)!r}).write_bytes({replacement_bytes!r})
+""")
+        result = self.review(expected=None)
+        first, second = self.read_rows()
+        self.assertEqual((first["ordinal"], first["status"]), (1, "ok"))
+        self.assertNotEqual(sha256_of(original), original_hash)
+        self.assertEqual(self.read_json("review-receipt.json")["arms"]["head"]["binary"]["sha256"],
+                         original_hash)
+        self.assert_streams(first, "head", stdout=envelope_bytes(EMPTY), stderr=b"head diagnostic\n")
+        if result.returncode == 0:
+            self.assertEqual(second["status"], "ok")
+            self.assert_streams(second, "head", stdout=envelope_bytes(EMPTY),
+                                stderr=b"head diagnostic\n")
+        else:
+            self.assertEqual(result.returncode, 1)
+            self.assertIn(second["status"], {"refused", "failed"})
+            self.assert_null_metrics(second)
+            arm = second["arms"]["head"]
+            if arm["guard_status"] and arm["guard_status"]["launched"]:
+                self.assert_streams(second, "head", stdout=envelope_bytes(EMPTY),
+                                    stderr=b"head diagnostic\n")
+            else:
+                self.assert_unlaunched(arm)
+
+    def test_review_receipt_round_trip_binds_positional_arms_and_raw_streams(self):
+        """review-017/018: failed and unlaunched arms have distinct evidence."""
+        from measure import review_diff
+
+        self.make_population()
+        left = self.make_arm("base", exit_code=7, stdout=b"", stderr=b"partial\x00diagnostic\xff")
+        right = self.binaries["head"]
+        self.review(arms=[f"z-control={left}::--flag::two words",
+                          f"a-candidate={right}::--other=value=x"], expected=1)
+        row, = self.read_rows()
+        self.assertEqual(row["status"], "failed")
+        self.assertEqual(set(row["arms"]), {"z-control", "a-candidate"})
+        self.assert_unlaunched(row["arms"]["a-candidate"])
+        self.assert_streams(row, "base", name="z-control", stdout=b"",
+                            stderr=b"partial\x00diagnostic\xff")
+        receipt = self.read_json("review-receipt.json")
+        self.assertEqual(set(receipt), RECEIPT_FIELDS)
+        self.assertEqual(receipt["schema"], "prism.measure.review-receipt/1")
+        self.assertEqual(receipt["population_sha256"], sha256_of(self.population))
+        self.assertIsNone(receipt["gate_sha256"])
+        self.assertIsNone(receipt["gate_step_id"])
+        self.assertEqual(receipt["arms"], self.read_json("totals.json")["arms"])
+        self.assertEqual(set(receipt["arms"]), {"base", "head"})
+        launched, = self.attempts()
+        self.assertEqual(launched["role"], "base")
+        for role, name, binary, args in (
+                ("base", "z-control", left, ["--flag", "two words"]),
+                ("head", "a-candidate", right, ["--other=value=x"])):
+            arm = receipt["arms"][role]
+            self.assertEqual(set(arm), {"name", "binary", "shared_args", "arm_args", "commands"})
+            self.assertEqual((arm["name"], arm["shared_args"], arm["arm_args"]),
+                             (name, SHARED_ARGS, args))
+            self.assertEqual(arm["binary"]["path"], str(binary.resolve()))
+            self.assertEqual(arm["binary"]["sha256"], sha256_of(binary))
+            self.assertEqual(set(arm["binary"]), {"path", "sha256", "version"})
+            if role == "base":
+                self.assertEqual(arm["binary"]["version"], f"{DEFAULT_VERSION} fixture base")
+                self.assertEqual(arm["commands"], [
+                    {"ordinal": 1, "argv": [launched["binary"], *launched["argv"]]},
+                ])
+            else:
+                self.assertIn(arm["binary"]["version"], (None, f"{DEFAULT_VERSION} fixture head"))
+                self.assertEqual(arm["commands"], [])
+
+        self.assertEqual(set(receipt["artifacts"]), {
+            "per-diff.jsonl", "totals.json", "sample.jsonl", "arms/1/base.stdout", "arms/1/base.stderr",
+        })
+        for name, artifact in receipt["artifacts"].items():
+            path = self.out / name
+            self.assertEqual(artifact, {"bytes": path.stat().st_size, "sha256": sha256_of(path)})
+
+        # S4 replay seam mirrors run receipt admission. Failed measurements still round-trip.
+        review_diff.admit(self.out, population=self.population)
+        path = self.out / "arms/1/base.stderr"
+        original = path.read_bytes()
+        path.write_bytes(b"changed" + original[7:])
+        with self.assertRaises((OSError, ValueError)):
+            review_diff.admit(self.out, population=self.population)
+        path.write_bytes(original)
+        review_diff.admit(self.out, population=self.population)
+        receipt["arms"]["base"], receipt["arms"]["head"] = receipt["arms"]["head"], receipt["arms"]["base"]
+        totals = self.read_json("totals.json")
+        totals["arms"] = receipt["arms"]
+        path = self.out / "totals.json"
+        path.write_bytes(json.dumps(totals).encode("utf-8"))
+        receipt["artifacts"]["totals.json"] = {"bytes": path.stat().st_size, "sha256": sha256_of(path)}
+        (self.out / "review-receipt.json").write_bytes(json.dumps(receipt).encode("utf-8"))
+        with self.assertRaises((OSError, ValueError)):
+            review_diff.admit(self.out, population=self.population)
+
+    def test_only_records_success_failure_refusal_and_exclusion(self):
+        self.make_population(ordinals=(4, 3, 1, 2))
+        next(row for row in self.registration["diffs"] if row["ordinal"] == 3)["spec_sha256"] = "0" * 64
+        self.write_population()
+        self.make_arm("head", after_read=f"""
+with open({str(self.log)!r}, encoding="utf-8") as prior:
+    if any(item["role"] == "head" and item["root"] is not None
+           for item in map(json.loads, prior)):
+        output, code = b"partial", 7
+""")
+        self.review("--only", "1,2,3", expected=1)
+        rows = self.read_rows()
+        self.assertEqual([(row["ordinal"], row["status"]) for row in rows],
+                         [(1, "ok"), (2, "failed"), (3, "refused"), (4, "excluded")])
+        totals = self.read_json("totals.json")
+        self.assertEqual({key: totals[key] for key in (
+            "scope", "population", "selected", "ok", "failed_ordinals", "refused_ordinals",
+            "excluded_ordinals", "sample_size")}, {
+                "scope": "subset", "population": 4, "selected": 3, "ok": 1,
+                "failed_ordinals": [2], "refused_ordinals": [3], "excluded_ordinals": [4],
+                "sample_size": 1,
+            })
+        for row in rows[1:]:
+            self.assertTrue(row["reason"])
+            self.assert_null_metrics(row)
+        for row in rows[2:]:
+            for arm in row["arms"].values():
+                self.assert_unlaunched(arm)
+        self.assert_counts(totals)
+        self.assertEqual([row["ordinal"] for row in self.read_rows("sample.jsonl")], [1])
+
+    def test_sample_is_deterministic_for_a_seed(self):
+        self.make_population(ordinals=(5, 3, 1, 4, 2))
+        for run, seed in enumerate((11, 11, None)):
+            self.out = self.work / f"draw-{run}"
+            self.review("--sample", "2", *(() if seed is None else ("--seed", str(seed))))
+            effective = 20261101 if seed is None else seed
+            expected = sorted(random.Random(effective).sample(list(range(1, 6)), 2))
+            self.assertEqual([row["ordinal"] for row in self.read_rows("sample.jsonl")], expected)
+            totals = self.read_json("totals.json")
+            self.assertEqual((totals["seed"], totals["sample_size"]), (effective, 2))
+
+    def test_output_shapes_and_population_scope(self):
+        self.make_population()
+        self.pair([], [finding()])
+        self.review()
+        row, = self.read_rows()
+        self.assertEqual(set(row), ROW_FIELDS)
+        self.assertEqual((row["ordinal"], row["repo"], row["commit"], row["status"]),
+                         (1, self.source.name, self.commit, "ok"))
+        for arm in row["arms"].values():
+            self.assertEqual(set(arm), ARM_FIELDS)
+        anchor, = row["anchors"]
+        self.assertEqual(set(anchor), {"anchor", "base_bag", "head_bag", "added", "removed",
+                                       "payload_changes", "ambiguous", "pairs"})
+        self.assert_counts(row, presence=1)
+        totals = self.read_json("totals.json")
+        self.assertEqual(set(totals), TOTAL_FIELDS)
+        self.assertEqual((totals["schema"], totals["population_sha256"], totals["scope"]),
+                         ("prism.measure.review/1", sha256_of(self.population), "population"))
+        self.assertEqual((totals["population"], totals["selected"], totals["ok"]), (1, 1, 1))
+        self.assertEqual((totals["failed_ordinals"], totals["refused_ordinals"],
+                          totals["excluded_ordinals"]), ([], [], []))
+        self.assert_counts(totals, presence=1)
+        self.assertEqual(self.read_rows("sample.jsonl"), [{key: row[key] for key in SAMPLE_FIELDS}])
+
+    def test_arm_and_shared_arg_parsing_do_not_use_a_shell(self):
+        """open-n4-19: literal arm splitting and shared shlex args have distinct grammars."""
+        self.make_population()
+        left, right = self.binaries.values()
+        self.review("--review-args", "--algorithm taint --taint-source 'std::exec'",
+                    arms=[f"left={left}::--one=value=x::literal space::;echo no",
+                          f"right={right}::--two::std::exec"])
+        base, head = self.attempts()
+        for item, extra in ((base, ["--one=value=x", "literal space", ";echo no"]),
+                            (head, ["--two", "std", "exec"])):
+            args = item["argv"]
+            self.assertEqual(args[0:2], ["--repo", item["root"]])
+            self.assertEqual(args[2], "--diff")
+            self.assertEqual(args[4:], [
+                "--algorithm", "taint", "--taint-source", "std::exec",
+                *extra, "--format", "json", "--no-cache",
+            ])
+
+    def test_invalid_invocation_or_population_exits_two_before_enumeration(self):
+        self.make_population()
+        left, right = self.binaries.values()
+        valid = [f"left={left}", f"right={right}"]
+        invocations = [
+            (["--only", "1,1"], valid), (["--only", "9"], valid), (["--sample", "-1"], valid),
+            ([], valid[:1]), ([], [valid[0], f"left={right}"]),
+            ([], [f"{valid[0]}::--repo::elsewhere", valid[1]]),
+            ([], [f"{valid[0]}::--diff=bogus", valid[1]]),
+            (["--review-args=--format text"], valid),
+        ]
+        for options, arms in invocations:
+            with self.subTest(options=options, arms=arms):
+                self.review(*options, arms=arms, expected=2)
+                self.assertFalse((self.out / "per-diff.jsonl").exists())
+        self.registration["diffs"].append(self.registration["diffs"][0].copy())
+        self.write_population()
+        self.review(expected=2)
+        self.assertFalse((self.out / "review-receipt.json").exists())
+        self.assertEqual(self.fake_log(), [])
+
+    def test_child_exit_75_is_failed_and_guard_quiet_is_refused(self):
+        self.make_population(ordinals=(1, 2, 3))
+        self.make_arm("base", exit_code=75)
+        self.review("--only", "1", expected=1)
+        row = self.read_rows()[0]
+        self.assertEqual(row["status"], "failed")
+        self.assertEqual(row["arms"]["base"]["guard_status"],
+                         {"kind": "child", "launched": True, "child_exit": 75})
+        self.assert_streams(row, "base", stdout=envelope_bytes(EMPTY), stderr=b"base diagnostic\n")
+
+        self.out = self.work / "quiet"
+        self.log.unlink()
+        self.make_guard({"--diff": (75, QUIET)})
+        self.review("--only", "1,3", expected=75)
+        rows = self.read_rows()
+        self.assertEqual([row["status"] for row in rows], ["refused", "excluded", "refused"])
+        self.assertEqual(rows[0]["arms"]["base"]["guard_status"], QUIET)
+        self.assertEqual(self.attempts(), [])
+        for row in rows:
+            self.assert_null_metrics(row)
+            for arm in row["arms"].values():
+                self.assert_unlaunched(arm)
+        totals = self.read_json("totals.json")
+        self.assertEqual(totals["refused_ordinals"], [1, 3])
+        self.assertEqual(totals["excluded_ordinals"], [2])
+        self.assertEqual(totals["ok"], 0)
+
+    def test_guard_quiet_after_failure_retains_both_dispositions(self):
+        """open-n2-27: the host-quiet exit applies and earlier failures remain recorded."""
+        self.make_population(ordinals=(1, 2, 3))
+        self.make_arm("head", exit_code=7)
+        normal = self.guard
+        self.guard = self.work / "quiet-guard"
+        quiet = self.make_guard({"--diff": (75, QUIET)})
+        self.guard = normal
+        self.guard_for = lambda argv: quiet if "--diff" in argv and len(self.attempts()) >= 2 else normal
+        self.review(expected=75)
+        rows = self.read_rows()
+        self.assertEqual([row["status"] for row in rows], ["failed", "refused", "refused"])
+        self.assertEqual(rows[1]["arms"]["base"]["guard_status"], QUIET)
+        totals = self.read_json("totals.json")
+        self.assertEqual((totals["failed_ordinals"], totals["refused_ordinals"]), ([1], [2, 3]))
+        self.assertEqual([item["role"] for item in self.attempts()], ["base", "head"])
+
+    def test_product_calls_share_one_controlled_environment(self):
+        """open-n2-11: the S4 product launches use the §2 environment control."""
+        self.make_population()
+        self.env.update(PRISM_EDGES_BYTES="1", PRISM_TEST_SWITCH="tainted", MEASURE_TEST_AMBIENT="x")
+        self.review()
+        log = self.fake_log()
+        self.assertEqual({(item["role"], item["root"] is None) for item in log}, {
+            ("base", True), ("head", True), ("base", False), ("head", False),
+        })
+        for item in log:
+            env = item["env"]
+            self.assertEqual(env["LC_ALL"], "C")
+            self.assertEqual(env["HOME"], self.env["HOME"])
+            self.assertNotIn("MEASURE_TEST_AMBIENT", env)
+            self.assertFalse(any(key.startswith("PRISM_") for key in env), env)
+            self.assertEqual(env, log[0]["env"])
+
+    @unittest.skip("OPEN-ROW open-n1-27: disposition not stated")
+    def test_conflicting_single_and_multi_markers(self):
+        """open-n1-27: compare conflicting active arrays only after marker precedence is defined."""
+        self.make_population()
+        self.make_arm("head", {**single(finding()), "algorithms_run": ["Taint"], "all_findings": []})
+
+    @unittest.skip("OPEN-ROW open-n1-29: disposition not stated")
+    def test_description_and_message_change_together(self):
+        """open-n1-29: the wording singles out description or message."""
+        self.make_population()
+        self.pair([finding(message="old")], [finding(description="new", message="new")])
+
+    @unittest.skip("OPEN-ROW open-n2-11: disposition not stated")
+    def test_effective_review_environment_is_recorded(self):
+        """open-n2-11: §5 gives no location in its exact receipt shapes for the effective environment."""
+        self.make_population()
+        self.env["PRISM_TEST_SWITCH"] = "tainted"
+
+    @unittest.skip("OPEN-ROW open-n2-26: disposition not stated")
+    def test_envelope_without_mode_marker(self):
+        """open-n2-26: no marker selects either array."""
+        self.make_population()
+        self.make_arm("head", {"findings": [finding()], "all_findings": []})
+
+    @unittest.skip("OPEN-ROW open-n3-18: disposition not stated")
+    def test_unlocated_finding(self):
+        """open-n3-18: no rule states how a finding without file or line is accounted."""
+        self.make_population()
+        self.make_arm("head", single({"category": "taint_sink"}))
+
+    @unittest.skip("OPEN-ROW open-n3-19: disposition not stated")
+    def test_repeated_rule_ids_with_distinct_metadata(self):
+        """open-n3-19: complete RuleRefs form a set but the repeated-ID projection is open."""
+        self.make_population()
+        self.pair([finding(rules=[{"id": "A", "cwe": "CWE-1"}])],
+                  [finding(rules=[{"id": "A", "cwe": "CWE-1"}, {"id": "A", "cwe": "CWE-2"}])])
+
+    @unittest.skip("OPEN-ROW open-n3-20: disposition not stated")
+    def test_only_explicitly_lists_the_complete_population(self):
+        """open-n3-20: the scope label for an exhaustive --only is open."""
+        self.make_population(ordinals=(2, 1))
+        self.review("--only", "1,2")
+        self.assertEqual(self.read_json("totals.json")["selected"], 2)
+
+    @unittest.skip("OPEN-ROW open-n4-19: disposition not stated")
+    def test_literal_double_colon_in_one_arm_only(self):
+        """open-n4-19: the shared-argument escape route applies to both arms."""
+        self.make_population()
+        left, right = self.binaries.values()
+        self.review(arms=[f"left={left}", f"right={right}::--taint-source::std::exec"])
