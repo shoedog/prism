@@ -346,6 +346,16 @@ cross-package concrete-asserted keys, and package-level `var` receivers.
 classification; `prism nav interface-manifest --repo <dir>` emits the PR-2 in-scope
 interface-dispatch manifest (the §8a denominator for the precision gate report).
 
+`prism nav proto-writes --repo <dir> [--format json|text]` is an unstable JS/TS/TSX
+syntax listing. It reports each nested-key or walked write by target byte span and
+includes the selector sites that supply its receiver. JSON also includes the value
+reads on each target and live selector line, including unresolved reads. Read
+completeness requires proven binding identity and member versions. JSON and text
+show new `incomplete_reason` values for identity escapes, implicit arguments,
+direct eval, possible member aliases, opaque calls, deferred evaluation, accessors
+and unproven control flow. Text prints facts and refusal reasons without expanding
+candidate histories. This slice reports guard state `none` for every fact.
+
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
 two reaching-definition availability counters. RD-unavailable functions with more than
@@ -608,8 +618,22 @@ JS/TS/TSX positional bindings read the argument list by the call node's full byt
 callee name, so inner and outer calls in a chain have separate arguments. A dense array-literal
 spread such as `f(...[0, 1], x)` advances the fixed-slot offset by its syntactic length, including
 through parentheses and runtime-transparent TypeScript wrappers. A hole, a spread element in the
-array, or a non-literal spread operand makes later positions unknown. The spread itself contributes
-no argument-to-formal edge. Object-literal field flow retains its spread-argument exclusion.
+array, or a non-literal spread operand makes later positions unknown. A spread operand and its
+elements supply no fixed-slot bindings. Object-literal field flow retains its spread-argument exclusion.
+
+JS/TS/TSX identifier rest formals (lane 9, slice B) receive ordinary Uses and dense spread-element
+Uses whose minimum runtime offset reaches the rest slot. The slot counts defaults and unsupported
+fixed patterns and omits TypeScript `this`. Rest flow uses the implementation's byte-matched entry
+Def, and scoped rebinding can disqualify it. Exact rest edges require a singleton target and,
+for namespace-qualified imports, a matching value export. Cross-file `free_single` Exact targets
+remain ineligible. An opaque spread must start within rest. Its Exact edge also requires a positive
+iteration witness from a bounded literal and evaluation-prefix check. A proved-empty spread
+yields no edge at either confidence. An ordinary NameOnly rest edge uses
+`nameonly/call_nameonly` and requires the call site and target declaration to be in different
+files. Rest transfers that depend on dense-literal iteration or later scalar offsets assume the
+standard array iterator, as slice A offsets do. A replacement of the standard iterator in owner-body
+statements after the call needs a second invocation and is not checked (disclosed residual). See the
+known-gaps document for the iteration proof's coverage.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

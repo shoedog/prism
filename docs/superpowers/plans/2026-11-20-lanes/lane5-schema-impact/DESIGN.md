@@ -888,7 +888,7 @@ rating of the five reports. Keep the rating unmeasured. P's public producer uses
 E-1 has 217 rows and E-2 has 306. Section 9 records every disposition. After stage D review (two-round cap), update
 matrix expectations including explicit accepted-loss diagnostics and regenerate `ids.tsv` from §5.1 on the public
 pin. Only that regenerated file is the byte-for-byte P1 golden. D-census recorded 59 cuts per pair. Before P1
-recount S04 (schema field coverage) and P02 (frozen replay locations) in §7.2 and apply the feasibility check in PLAN P6.
+recount S04 (schema field coverage) and reconcile P02 (frozen replay locations) in §7.2 with the owner decision in PLAN P6.
 
 ### 7.2 Pilot slices against pairs
 
@@ -916,7 +916,7 @@ reports for both pairs together in P4.
 | 3 | P3 | R's configuration first, then P's. One consumer inventory and matcher implementation, separate measurements and binding checks on both pairs under §6.2. Report R's retained configured joins out of 236 (§8). |
 | 4 | P4 | First A1 product review on **both** pairs. R has operation-level coverage. P has schema and producer field evidence. |
 | 5 | P5 | P only. Measure F3, continue to field reads at ≥50% oracle reads found and ≤10% unmatched or wrong among all submitted reads. Otherwise retain operation-level client links and producer field sites. |
-| 6 | P6 | Both. Recover every reader-counted replay location (8 P, 5 R), retain at least 95% of each full reference location set (185/194 P, 60/63 R), and reproduce each pair's outcome shares within five percentage points. PLAN P6 defines the three independent checks. |
+| 6 | P6 | Both. Recover every reader-counted replay location (8 P, 5 R) and retain at least 95% of each scored set, rounded up (153/161 P, 60/63 R). Check outcome shares against each pair's five-point band, subject to P's open reference question (§8). PLAN P6 defines the three independent checks. |
 
 #### Firing rates on the pinned populations
 
@@ -946,13 +946,17 @@ stays unknown and holds the measurement gate open. Publish only R aggregates.
 
 At P pin `6744295f`, S04 found missing media on 26/290 roots or response keys. The declaration-only rule
 withheld 140/2,421 standing fields (5.78%). Across 69 F4 source revisions it withheld 4,041/90,388 field
-observations at 849/12,761 roots or keys. P02 found 33/194 frozen replay locations (17.01%) blocked by missing
-media at the original versions. Apply §5.1 to P's Go codec and wire-media handling at each corresponding tree.
-For each of the 140 fields and 33 locations record the original key and the evidence or refusal. If `f` of the
-140 standing fields have that evidence, S04 withholds
-`(140 − f)/2,421`. Full coverage of each affected set would reduce these measured media losses to 0/2,421
-and 0/194 respectively. Actual recovery is pending. The supplied configs separately withhold all 154 P and
-236 R prior unique positives. P3 supplies scoped export-to-API records and rematches both pairs.
+observations at 849/12,761 roots or keys. For S04, record each original key and the §5.1 evidence or refusal.
+If `f` of the 140 standing fields have that evidence, S04 withholds `(140 − f)/2,421`.
+Actual S04 recovery is pending.
+
+P02 flagged 33 of 194 frozen replay locations for missing media at the original versions. Zero of the 33
+qualified. The owner decision of 2026-11-25 removes 20 predictions already stale at the original revision and
+keeps 13 as **Not checked** because historical JSON request media remains unverified. That leaves 174 accounted
+locations and 161 scored. No request-side evidence was admitted for P02. The §5.1 rule still requires producer
+evidence for omitted media at each revision. PLAN P6 records the dispositions and freezes the scored group's
+outcome shares before any product run. The supplied configs separately withhold all 154 P and 236 R prior
+unique positives. P3 supplies scoped export-to-API records and rematches both pairs.
 
 The study figures provide reference denominators and observations. D-census supplies the baseline rates.
 Reconcile them with actual P1–P5 results at the corresponding slice gates. Return a material loss to the design
@@ -969,8 +973,14 @@ seat before implementation proceeds.
 | 5 | Where the pilot lives | separate crate `crates/prism-boundary`, own binary | moving into the `prism` binary later is a CLI wiring change | before P1 |
 | 6 | Thresholds G1 to G4 and the replay parameters (10-commit revert and lift windows, R's 14 days, the 150-location adjudication cap, G4's 60%) | as in section 6 | none | at the memo |
 | 7 | Require a minimum number of P3 configured joins retained from R's 236 baseline joins? | **Report, no floor.** Report the same-target numerator/236 and all losses and changes. The precision check and P4 evidenced join still apply. | Reassess P3 yield against the chosen threshold. | before P3 sees product results |
-| 8 | Should the missing-media cut change the P6 benchmark? | Keep **95% per full frozen pair** (185/194 P, 60/63 R), all reader-counted locations and the five-point outcome bands. Keep all 33 affected P locations in the denominator. | Re-score both frozen cohorts. | before P6 sees product results |
-| 9 | May the producer establish JSON when Swagger 2 omits media? | Yes, under §5.1 with evidence for the root at its own revision. Return an insufficient public ceiling to the owner before P1. | Recount S04 and P02 and revise field coverage. | before P1 |
+| 8 | What is the P6 retention benchmark? | **Decided 2026-11-25.** P requires **153 of 161** checkable locations (95%, rounded up) and every one of the eight reader-counted recoveries. Show the 20 removed and 13 unchecked beside the score. R keeps **60/63** and all reader-counted recoveries. | Re-score the affected frozen cohort. | settled |
+| 9 | Is request-side evidence admitted for P02 when Swagger 2 omits media? | **No (2026-11-25).** Keep the 13 as **Not checked**. The earlier §5.1 media rule stands. An omitted media type still requires producer evidence scoped to the root at its own revision. | Recount P02 and revise field coverage if the decision changes. | settled |
+| 10 | **Open owner question.** Which reference and tolerance should P6 use for P's outcome shares? | **Default A.** Use the five-point band around the frozen scored-group shares (17.39%, 31.06%, 51.55%) and print the original 194-based shares and deltas alongside them. PLAN P6 gives the alternatives. | Re-score only. No implementation depends on it. | before P6 sees product results |
+| 11 | **Open owner question.** How should the JSON-only statement apply to the two multipart upload routes of pilot-producer? | **Default.** The JSON-only statement does not apply to those two routes. Keep them outside any field-level claim until the owner rules. | Revisit field coverage for those routes. | before any field-level claim for those routes |
+
+The owner stated that all payload routes of `pilot-producer` take JSON only. Use that statement only as context
+in reports for `pilot-producer` and `pilot-consumer`. The private reports remain at operation level, with fields
+unchecked. The statement supplies no evidence for the public gate.
 
 ## 9. Risks and accepted limits
 
@@ -1286,6 +1296,8 @@ inputs can support in both directions. Sections 5.1–5.6 and PLAN P1/P4 impleme
 - **§6.1, evaluation.** Test admission before freezing and renderer byte identity after freezing. Live Markdown
   delivery contains only the review and its full appendix. Study selection, follow-up evidence and adjudications
   belong to the separate evaluation companion.
+
+**2026-11-25.** Recorded the owner's P6 retention gate and request-media decision in §§7–8 and PLAN P6.
 
 ## Review round 1: disposition
 
