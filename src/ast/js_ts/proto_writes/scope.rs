@@ -15,6 +15,7 @@ pub(super) struct Scope<'a> {
 
 pub(super) struct Lexical<'a> {
     file: &'a ParsedFile,
+    pub(super) module_syntax: bool,
     pub(super) scopes: BTreeMap<usize, Scope<'a>>,
     pub(super) binding_owners: BTreeMap<usize, AstSpan>,
     pub(super) binding_owner_ids: BTreeMap<usize, usize>,
@@ -28,8 +29,11 @@ pub(super) struct Lexical<'a> {
 
 impl<'a> Lexical<'a> {
     pub(super) fn build(file: &'a ParsedFile) -> Self {
+        let root = file.tree.root_node();
         let mut lexical = Self {
             file,
+            module_syntax: children(root)
+                .any(|child| matches!(child.kind(), "import_statement" | "export_statement")),
             scopes: BTreeMap::new(),
             binding_owners: BTreeMap::new(),
             binding_owner_ids: BTreeMap::new(),
@@ -40,7 +44,6 @@ impl<'a> Lexical<'a> {
             eval_functions: BTreeSet::new(),
             namespaces: BTreeSet::new(),
         };
-        let root = file.tree.root_node();
         let mut pending = vec![root];
         while let Some(node) = pending.pop() {
             if identifier(node) && file.source.as_bytes()[node.byte_range()].contains(&b'\\') {

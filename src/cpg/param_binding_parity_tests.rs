@@ -1,4 +1,4 @@
-//! Occurrence-aware Step-5b parity for spread arguments and chained calls.
+//! Occurrence-aware Step 5b parity across argument producers and cache routes.
 
 use super::callee_legacy::with_legacy;
 use super::*;
@@ -295,4 +295,161 @@ fn spread_and_rest_graph_is_identical_across_every_route() {
     let cold_edited = CodePropertyGraph::build(&edited_files);
     assert_eq!(edge_multiset(&partial), edge_multiset(&cold_edited));
     assert_eq!(fixture_bindings(&partial), pinned, "partial hit bindings");
+}
+
+#[path = "param_binding_bare_tests.rs"]
+mod bare;
+
+#[test]
+fn bare_literal_leaves_respect_outgoing_free_single_reachability() {
+    use crate::cpg::object_literal_arg_tests::{literal_edges, spell};
+
+    const MAIN: &str = "const take = p => {\n  parseInt(p.a);\n  observe(p.a);\n};\n\
+                       function main(v) {\n  take({ a: v });\n}\n";
+    const LIB: &str = "export function parseInt(text) {\n  use(text);\n}\n";
+    for (import, lib, route, keep_first_leaf) in [
+        ("", Some(LIB), Some(ResolutionKind::FreeSingle), false),
+        ("", None, None, true),
+        (
+            "import { parseInt } from './lib';",
+            Some(LIB),
+            Some(ResolutionKind::ImportMember),
+            true,
+        ),
+    ] {
+        let mut sources = BTreeMap::from([("m.js".into(), format!("{import}\n{MAIN}"))]);
+        if let Some(lib) = lib {
+            sources.insert("lib.js".into(), lib.into());
+        }
+        let files = parse(&sources);
+        let cold = CodePropertyGraph::build(&files);
+        let legacy = with_legacy(|| CodePropertyGraph::build(&files));
+        let serial = super::step5b_reference::with_serial(|| CodePropertyGraph::build(&files));
+        for (assembly, cpg) in [("production", cold), ("legacy", legacy), ("serial", serial)] {
+            let context = format!("{assembly} with {route:?}");
+            let site = bare::site(&cpg, &files["m.js"], "parseInt(p.a)", "parseInt");
+            let resolved: Vec<_> = cpg
+                .call_graph
+                .resolve_call_site(site)
+                .into_iter()
+                .map(|arm| (arm.target.file.as_str(), arm.kind, arm.confidence))
+                .collect();
+            let expected: Vec<_> = route
+                .into_iter()
+                .map(|kind| ("lib.js", kind, ResolutionConfidence::Exact))
+                .collect();
+            assert_eq!(resolved, expected, "{context}");
+            let has_outgoing = cpg.graph.edge_references().any(|edge| {
+                *edge.weight() == CpgEdge::DataFlow(FlowConfidence::Exact)
+                    && spell(&cpg, edge.source()) == Some(("take:p.a@3".into(), true))
+                    && spell(&cpg, edge.target()) == Some(("parseInt:text@1".into(), false))
+            });
+            assert_eq!(has_outgoing, route.is_some(), "{context}");
+            let mut expected =
+                BTreeMap::from([("main:v@7 -> take:p.a@4".into(), FlowConfidence::Exact)]);
+            if keep_first_leaf {
+                expected.insert("main:v@7 -> take:p.a@3".into(), FlowConfidence::Exact);
+            }
+            assert_eq!(literal_edges(&cpg), expected, "{context}");
+            let exact = cpg
+                .graph
+                .edge_weights()
+                .filter(|edge| **edge == CpgEdge::DataFlow(FlowConfidence::Exact))
+                .count();
+            assert_eq!(cpg.dfg_label_stats.dfg_label_exact, exact, "{context}");
+        }
+    }
+}
+
+#[test]
+fn bare_bindings_are_identical_across_every_route() {
+    use bare::{assert_bindings, endpoint, site, target, BARE};
+    let mut sources = BTreeMap::from([
+        ("lib.js".into(), format!("export const take = {BARE};")),
+        (
+            "main.js".into(),
+            "import { take } from './lib';\nfunction main(v) { take(v); take({ a: v }); }".into(),
+        ),
+        (
+            "loose.js".into(),
+            "export function loose(v) { take(v); take({ a: v }); }".into(),
+        ),
+        (
+            "unrelated.js".into(),
+            "export function unrelated() { return 1; }".into(),
+        ),
+    ]);
+    let files = parse(&sources);
+    let cold = CodePropertyGraph::build(&files);
+    let assert_endpoints = |graph: &CodePropertyGraph| {
+        let lib = &files["lib.js"];
+        let owner = target(graph, lib, "take", BARE);
+        for (file, admitted) in [("main.js", true), ("loose.js", false)] {
+            let parsed = &files[file];
+            for (call, leaf) in [("take(v)", false), ("take({ a: v })", true)] {
+                let site = site(graph, parsed, call, "take");
+                let edges = graph.graph.edge_indices().filter_map(|index| {
+                    let (from, to) = graph.graph.edge_endpoints(index)?;
+                    let edge = graph.graph[index].clone();
+                    (matches!(edge, CpgEdge::DataFlow(_))
+                        && matches!(graph.node(from), CpgNode::Variable { file, start_byte, end_byte, .. }
+                            if file == &parsed.path && site.start_byte <= *start_byte && *end_byte <= site.end_byte)
+                        && matches!(graph.node(to), CpgNode::Variable { file, function, .. }
+                            if file == &lib.path && function == "take"))
+                    .then_some(PendingArgumentFlow {
+                        edge: (from, to, edge),
+                        cross_file_free_single_exact: false,
+                        bare_literal: false,
+                    })
+                }).collect::<Vec<_>>();
+                let expected = [endpoint(lib, owner, leaf)];
+                assert_bindings(
+                    graph,
+                    site,
+                    parsed,
+                    &edges,
+                    if admitted { &expected } else { &[] },
+                );
+            }
+        }
+    };
+    assert_endpoints(&cold);
+    let cold_edges = edge_multiset(&cold);
+    assert_step5b_parity(&files, &cold, &cold_edges);
+
+    let dir = tempfile::tempdir().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&sources);
+    cpg_cache::save_cache(&cold, &hashes, false, dir.path()).unwrap();
+    let CacheResult::Hit(full) = cpg_cache::load_cache(&hashes, false, dir.path()) else {
+        panic!("expected a full hit");
+    };
+    assert_endpoints(&full);
+    assert_eq!(edge_multiset(&full), cold_edges);
+
+    sources.insert(
+        "unrelated.js".into(),
+        "export function unrelated() { return 2; }".into(),
+    );
+    let edited_hashes = cpg_cache::compute_file_hashes(&sources);
+    let CacheResult::PartialHit {
+        cached_call_graph,
+        cached_dfg,
+        changed_files,
+    } = cpg_cache::load_cache(&edited_hashes, false, dir.path())
+    else {
+        panic!("expected a partial hit");
+    };
+    let edited_files = parse(&sources);
+    let partial = CodePropertyGraph::build_incremental(
+        cached_call_graph,
+        cached_dfg,
+        &changed_files,
+        &edited_files,
+        None,
+    );
+    assert_endpoints(&partial);
+    assert_eq!(
+        edge_multiset(&partial),
+        edge_multiset(&CodePropertyGraph::build(&edited_files))
+    );
 }

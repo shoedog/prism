@@ -363,7 +363,23 @@ completeness requires proven binding identity and member versions. JSON and text
 show new `incomplete_reason` values for identity escapes, implicit arguments,
 direct eval, possible member aliases, opaque calls, deferred evaluation, accessors
 and unproven control flow. Text prints facts and refusal reasons without expanding
-candidate histories. This slice reports guard state `none` for every fact.
+candidate histories. The listing discharges individual receiver steps for a
+stable own-slot installation with a literal or template-literal key followed by
+a standalone assignment, or for a bounded key on an admitted receiver. Bounded
+keys come from literals, arithmetic, comparisons, numeric counters, numeric
+records with proven writes, closed literal tables, `typeof` expressions,
+dominating `typeof x === "number"` guards, or anchored fragments. Slot proofs
+model standard built-in identity for `Array.from`, `Array(n).fill`,
+`Object.defineProperty` and `Object.create`. Runtime changes to built-ins
+are outside that model. The install proof refuses a dot or quoted-key source write to
+`Object.defineProperty` in the analyzed file; other ways to rebind it are
+outside the model. Script-level `var` and function declaration bindings (a file
+with no top-level `import` or `export`, so a CommonJS file counts as a script
+and loses recall, not soundness) lack the local identity these proofs require,
+including for numeric record collections and their loop items.
+Private table children, null walks, shared-slot proofs, closed-data
+write-back and intrinsic-trusting key domains are deferred. Every fact has
+guard state `none`.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
@@ -554,7 +570,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v190) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v192) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -644,6 +660,17 @@ standard array iterator, as slice A offsets do. A replacement of the standard it
 statements after the call needs a second invocation and is not checked (disclosed residual). See the
 known-gaps document for the iteration proof's coverage.
 
+An ordinary JS/TS/TSX bare-arrow argument (lane 9, slice C) binds at its exact runtime offset
+to the entry Def for the identifier's byte span. The locator requires a unique named implementation
+or an independently resolved positional anonymous owner. Exact input needs a complete singleton
+pool, excludes foreign `free_single` targets, and requires a matching value-export witness for
+`import_qualified`. Same-file ordinary NameOnly targets retain the call's label. The
+`inferred_from_enclosing_call` refusal applies because an inferred name from an enclosing call
+does not prove the call returned the callback. A refused incoming transfer leaves its Def
+available. The outgoing source guard also checks each bare literal-leaf edge's read.
+Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
+call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
+
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals
 flatten to `k.j`) gets `Use(v) -> Use(p.<read>)` edges to the formal's reads that the definition
@@ -655,7 +682,7 @@ fed, and a leaf at or below a written path feeds no read). The label is the call
 the definition edge's. A spread or computed key refuses every key written before it; for duplicate keys the last
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
 non-data values (calls, arithmetic, arrays), a spread argument before the literal, NameOnly or
-multi-target calls, and destructured, rest or bare-arrow formals bind nothing. A mixed formal's reads
+multi-target calls, and destructured or rest formals bind nothing. A mixed formal's reads
 in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
 are not fed (known gap).
 
