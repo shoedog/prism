@@ -483,7 +483,7 @@ impl Producer {
 
             // Reuse the selected endpoint across count, replay and interning.
             let pattern_values = super::pattern_values::Values::new(parsed, func_node);
-            if pattern_formals.iter().any(|formal| !formal.guarded()) {
+            if !pattern_formals.is_empty() {
                 if let Some(evidence) = evidence.as_deref_mut() {
                     for site in pattern_values.unresolved_sites() {
                         evidence.signature_write_sites.push(([func_node.start_byte(), func_node.end_byte()], site));
@@ -544,18 +544,17 @@ impl Producer {
             let mut augmented = (cap.is_some() || !pattern_increment.is_empty()).then(|| {
                 crate::cpg::unavailable_before_edges(parsed, &func_node, &rd_defs, cfg_index)
             }).flatten();
-            let one_node = cap.is_some() && augmented.is_none() && !pattern_increment.is_empty()
+            let one_node = augmented.is_none() && !pattern_increment.is_empty()
                 && crate::cpg::pattern_one_node_refusal(parsed, &func_node, &rd_defs, cfg_index);
             let census_cap = pattern_increment.census_overflow(parsed, &func_node, &rd_defs, augmented.is_none() && !one_node);
-            let legacy_defs = (!pattern_increment.is_empty() && (augmented.is_some() || one_node || census_cap)).then(|| {
-                pattern_increment.legacy_rd(&rd_defs)
-            });
-            let legacy = legacy_defs.as_ref().and_then(|defs| {
+            let legacy_defs = (!pattern_increment.is_empty()).then(|| pattern_increment.legacy_rd(&rd_defs));
+            let legacy = legacy_defs.as_ref().filter(|_| augmented.is_some() || one_node || census_cap).and_then(|defs| {
                 crate::cpg::unavailable_before_edges(parsed, &func_node, defs, cfg_index)
             });
-            if one_node && legacy_defs.as_ref().is_some_and(|defs| {
+            let p35_relabel = one_node && legacy_defs.as_ref().is_some_and(|defs| {
                 !crate::cpg::pattern_one_node_refusal(parsed, &func_node, defs, cfg_index)
-            }) {
+            });
+            if p35_relabel {
                 augmented = Some(crate::cpg::RdUnavailable::NoCfgEdges);
             }
             let lexical = super::lexical_prune::LexicalFacts::new(parsed, func_node, &lvalue_spans, &rvalue_spans, census, c_census, &c_file_parens);
@@ -578,6 +577,8 @@ impl Producer {
             }
             let mut use_pattern = withheld.is_none();
             let (mut owner_capped, mut emitted_patterns) = (false, Vec::new());
+            let mut relocations = BTreeMap::new();
+            let mut legacy_edge_end = edges.len();
             'select_owner: loop {
                 let selected_rd = if use_pattern { rd_defs.as_slice() } else { legacy_defs.as_deref().expect("cap comparison prepared legacy definitions") };
                 let unavailable = if cap.is_none() { None } else if use_pattern { augmented } else { legacy };
@@ -600,12 +601,12 @@ impl Producer {
                     let mut candidates = Vec::new();
                     let mut emission = super::fallback_cap::Emission::new(&mut edges, counting);
                     let mut get_use =
-                        |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize), body_scope: Option<(usize, usize)>| {
+                        |path: &AccessPath, ref_line: usize, allow: bool, admitted: (usize, usize)| {
                             if !keep_path(path) {
                                 return None;
                             }
                             let preferred = preferred_use_locs.get(&(path.clone(), ref_line));
-                            if synthetic || super::pattern_seam::relocate(parsed, func_node, path, ref_line, preferred, body_scope) {
+                            if synthetic {
                                 if refused_occurrence(path, admitted.0) {
                                     return None;
                                 }
@@ -660,7 +661,7 @@ impl Producer {
                         for (ref_line, admitted) in refs {
                             let in_signature_line = *ref_line >= start && *ref_line <= *param_decl_line;
                             if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
-                            if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted, None) {
+                            if let Some(use_loc) = get_use(path, *ref_line, !in_signature_line, *admitted) {
                                 if !scope.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
                                 if !order.keep_pair(path, loc.start_byte, loc.end_byte, loc.line, *ref_line, &mut prune_stats) { continue; }
                                 if !lexical.keep_def(path, loc.start_byte, loc.end_byte, *ref_line, &mut prune_stats) { continue; }
@@ -680,9 +681,8 @@ impl Producer {
                         let def_line = span.line;
                         // R1: every JS/TS Def, including writes, stays in its
                         // binding environment; body vars cannot reach defaults.
-                        let body_scope = use_pattern.then(|| body_seam(path, span.start_byte)).flatten();
-                        let def_scope = body_scope.or_else(||
-                            crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte));
+                        let def_scope =
+                            crate::profile::gates::def_scope(parsed, &func_node, &path.base, span.start_byte);
                         // #761: a parameter-list alias binding's own identifier is no read of it, whatever
                         // row the def is placed on (the def sits on the owner's first line).
                         let refs = crate::profile::search_refs(
@@ -694,7 +694,6 @@ impl Producer {
                             span.start_byte,
                             def_scope,
                             synthetic
-                                || body_scope.is_some()
                                 || parsed.js_ts_is_param_alias_binding_at(span.start_byte, span.end_byte),
                         );
                         for (ref_line, admitted) in &refs {
@@ -706,7 +705,7 @@ impl Producer {
                                 continue; // Skip self-reference
                             }
                             if lexical.drop_write_only(path, *ref_line, &mut prune_stats) { continue; }
-                            let Some(use_loc) = get_use(path, *ref_line, true, *admitted, body_scope) else {
+                            let Some(use_loc) = get_use(path, *ref_line, true, *admitted) else {
                                 continue;
                             };
                             if scope.raw_signature_outside_scope(path, span.start_byte, *ref_line, &mut prune_stats) { continue; }
@@ -730,10 +729,13 @@ impl Producer {
                                         end_byte: span.end_byte,
                                         kind: VarAccessKind::Def,
                                     });
-                                FlowEdge {
-                                    from: def_loc,
-                                    to: use_loc,
+                                if use_pattern {
+                                    super::pattern_seam::record_relocation(
+                                        parsed, func_node, &member_refs, &def_loc, &use_loc, span.start_byte,
+                                        body_seam(path, span.start_byte), &refused_occurrence, &mut relocations,
+                                    );
                                 }
+                                FlowEdge { from: def_loc, to: use_loc }
                             });
                         }
 
@@ -747,7 +749,6 @@ impl Producer {
                         };
                         if let Some(resolved) = twin {
                             if resolved != *path {
-                                let body_scope = use_pattern.then(|| body_seam(&resolved, span.start_byte)).flatten();
                                 let resolved_refs = crate::profile::search_refs(
                                     parsed,
                                     &member_refs,
@@ -755,20 +756,20 @@ impl Producer {
                                     &resolved,
                                     def_line,
                                     span.start_byte,
-                                    body_scope.or_else(|| crate::profile::gates::def_scope(
+                                    crate::profile::gates::def_scope(
                                         parsed,
                                         &func_node,
                                         &resolved.base,
                                         span.start_byte,
-                                    )),
-                                    synthetic || body_scope.is_some(),
+                                    ),
+                                    synthetic,
                                 );
                                 for (ref_line, admitted) in &resolved_refs {
                                     if *ref_line == def_line {
                                         continue;
                                     }
                                     if lexical.drop_write_only(&resolved, *ref_line, &mut prune_stats) { continue; }
-                                    let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted, body_scope) else {
+                                    let Some(use_loc) = get_use(&resolved, *ref_line, true, *admitted) else {
                                         continue;
                                     };
                                     // Keep RHS reads and their legacy anchors, but a Go
@@ -789,10 +790,13 @@ impl Producer {
                                                 end_byte: span.end_byte,
                                                 kind: VarAccessKind::Def,
                                             });
-                                        FlowEdge {
-                                            from: def_loc,
-                                            to: use_loc,
+                                        if use_pattern {
+                                            super::pattern_seam::record_relocation(
+                                                parsed, func_node, &member_refs, &def_loc, &use_loc, span.start_byte,
+                                                body_seam(&resolved, span.start_byte), &refused_occurrence, &mut relocations,
+                                            );
                                         }
+                                        FlowEdge { from: def_loc, to: use_loc }
                                     });
                                 }
                             }
@@ -845,6 +849,9 @@ impl Producer {
                         }
                     }
 
+                    if !counting {
+                        legacy_edge_end = emission.end();
+                    }
                     // Preserve the Uses already chosen for legacy edges before adding exact
                     // pattern endpoints of the same owner, line and path.
                     let active_patterns = if use_pattern { pattern_endpoints.as_slice() } else { &[] };
@@ -911,13 +918,20 @@ impl Producer {
             if owner_capped {
                 continue 'functions;
             }
-            let rd_defs = if use_pattern { rd_defs } else { legacy_defs.expect("cap comparison prepared legacy definitions") };
+            let rd_defs = if use_pattern { rd_defs.as_slice() } else { legacy_defs.as_deref().expect("cap comparison prepared legacy definitions") };
+            // Classify the legacy edges with their original definitions and endpoints. A new
+            // definition must not enroll old edges in a different census or alias analysis.
+            // The one-node admission exception (p35) still takes the augmented owner's label.
+            let legacy_edges = &edges[function_edge_start..legacy_edge_end];
+            let preserve_legacy = use_pattern && legacy_defs.is_some() && !p35_relabel;
             let signature_pairs: BTreeSet<_> = emitted_patterns.iter().filter_map(|&index| {
                 let (formal, selected) = &pattern_endpoints[index];
                 selected.signature.then(|| ExactFlowEdge::from_refs(&formal.def, &selected.loc))
             }).collect();
             let mut body_pairs = Vec::new();
-            let function_edges = if signature_pairs.is_empty() {
+            let function_edges = if preserve_legacy {
+                legacy_edges
+            } else if signature_pairs.is_empty() {
                 &edges[function_edge_start..]
             } else {
                 body_pairs.extend(edges[function_edge_start..].iter().filter(|edge| {
@@ -936,14 +950,22 @@ impl Producer {
                 function_edges,
             );
             crate::profile::Owner::reaching(&mut profile_owner, rd_defs.len(), lvalue_spans.len());
-            match reaching_definitions_with_exact(
-                parsed,
-                &func_node,
-                &rd_defs,
-                function_edges,
-                &exact_candidates,
-                cfg_index,
-            ) {
+            let pattern_body_labels = if preserve_legacy {
+                super::pattern_labels::body_labels(
+                    parsed, &func_node, rd_defs, cfg_index, &pattern_endpoints, &emitted_patterns,
+                )
+            } else {
+                BTreeMap::new()
+            };
+            let label_defs = if preserve_legacy {
+                legacy_defs.as_deref().expect("legacy classification prepared definitions")
+            } else {
+                rd_defs
+            };
+            let outcome = reaching_definitions_with_exact(
+                parsed, &func_node, label_defs, function_edges, &exact_candidates, cfg_index,
+            );
+            match outcome {
                 RdOutcome::Available(result) => {
                     if super::owner_labels::reference_paths() {
                         #[cfg(test)]
@@ -972,60 +994,18 @@ impl Producer {
                         recall.emit(&mut uses, &mut edges, &mut labels, &mut rd_function_stats, func_node, &func_name);
                     }
                 }
-                RdOutcome::Unavailable(reason) => {
-                    crate::cpg::record_go_recall_skip(parsed, func_node, &rd_defs, reason, &mut rd_function_stats);
-                    if reason.is_def_cap() || reason.is_line_cap() {
-                        rd_function_stats.record_over_cap(func_name.clone(), start);
-                    } else {
-                        rd_function_stats.record_without_cfg(func_name.clone(), start);
-                    }
-                    let fallback = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
-                    let reference = super::owner_labels::reference_paths();
-                    if !reference && function_edges.len() >= super::owner_labels::BULK_MIN {
-                        Self::merge_owner_labels(
-                            &mut labels,
-                            Self::fallback_owner_labels(function_edges, fallback),
-                            owner_is_unique,
-                        );
-                    } else {
-                        for edge in function_edges {
-                            Self::insert_label(
-                                &mut labels,
-                                (edge.from.clone(), edge.to.clone()),
-                                fallback,
-                            );
-                        }
-                    }
-                    let classified: BTreeMap<_, _> = exact_candidates
-                        .iter()
-                        .map(|edge| (ExactFlowEdge::from_legacy(edge), fallback))
-                        .collect();
-                    // Without exact candidates nothing is stored, so the
-                    // per-edge label map below is built only when needed.
-                    if reference || !classified.is_empty() {
-                        let fallback_labels: BTreeMap<_, _> = function_edges
-                            .iter()
-                            .map(|edge| ((edge.from.clone(), edge.to.clone()), fallback))
-                            .collect();
-                        if reference {
-                            #[cfg(test)]
-                            Self::store_supplemental_exact_frozen(
-                                &mut exact_labels,
-                                function_edges,
-                                &fallback_labels,
-                                classified,
-                            );
-                        } else {
-                            Self::store_supplemental_exact(
-                                &mut exact_labels,
-                                function_edges,
-                                &fallback_labels,
-                                classified,
-                            );
-                        }
-                    }
-                }
+                RdOutcome::Unavailable(reason) => Self::record_unavailable_owner(
+                    parsed, func_node, &func_name, start, label_defs, function_edges,
+                    &exact_candidates, reason, owner_is_unique, &mut labels, &mut exact_labels,
+                    &mut rd_function_stats,
+                ),
             }
+            super::pattern_seam::apply_relocations(
+                &mut edges[function_edge_start..legacy_edge_end], &mut uses, relocations,
+            );
+            super::pattern_labels::store_body_labels(
+                &mut edges, legacy_edge_end, &mut labels, &mut exact_labels, &pattern_body_labels,
+            );
             let signature_label = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
             for &index in &emitted_patterns {
                 let (formal, selected) = &pattern_endpoints[index];
@@ -1039,7 +1019,9 @@ impl Producer {
                 for index in emitted_patterns {
                     let (formal, selected) = &pattern_endpoints[index];
                     let pair = (formal.def.clone(), selected.loc.clone());
-                    let label = if selected.signature { signature_label } else { labels.get(&pair).copied().unwrap_or(signature_label) };
+                    let label = if selected.signature { signature_label } else {
+                        pattern_body_labels.get(&pair).or_else(|| labels.get(&pair)).copied().unwrap_or(signature_label)
+                    };
                     selected.credit(formal, func_node, evidence, label);
                 }
                 super::pattern_formals::finish_owner_evidence(&pattern_formals, func_node, evidence);

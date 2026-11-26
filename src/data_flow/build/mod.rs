@@ -126,6 +126,7 @@ mod param_alias_trace;
 mod pattern_caps;
 mod pattern_execution;
 mod pattern_formals;
+mod pattern_labels;
 mod pattern_projection;
 mod pattern_reads;
 mod pattern_seam;
@@ -133,6 +134,10 @@ mod pattern_signature_effects;
 pub(crate) use pattern_formals::is_signature_pair;
 #[cfg(test)]
 mod pattern_formals_amended_tests;
+#[cfg(test)]
+mod pattern_formals_evidence_tests;
+#[cfg(test)]
+mod pattern_formals_r4_tests;
 #[cfg(test)]
 mod pattern_formals_tests;
 mod pattern_values;

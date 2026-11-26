@@ -25,6 +25,19 @@ pub(super) fn read_operand<'a>(
     while let Some(parent) = receiver.parent() {
         match parent.kind() {
             "jsx_closing_element" | "meta_property" => return None,
+            "unary_expression"
+                if root == operand
+                    && parent
+                        .child_by_field_name("argument")
+                        .is_some_and(|argument| {
+                            strip_transparent_wrappers(argument) == Some(root)
+                        })
+                    && parent
+                        .child_by_field_name("operator")
+                        .is_some_and(|operator| operator.kind() == "delete") =>
+            {
+                return None;
+            }
             "member_expression" | "subscript_expression"
                 if parent.child_by_field_name("object") == Some(receiver) =>
             {

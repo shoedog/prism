@@ -59,7 +59,7 @@ pub(super) fn unconditional_key_write(parsed: &ParsedFile, site: &Site) -> bool 
                     .is_some_and(|pair| pair.kind() == "pair_pattern");
             }
             kind if transparent(kind) => {}
-            "assignment_expression" | "augmented_assignment_expression" => {
+            "assignment_expression" => {
                 if parent.child_by_field_name("left") != Some(node) {
                     return false;
                 }

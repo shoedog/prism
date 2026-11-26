@@ -178,6 +178,7 @@ mod tests {
                     line: 2,
                     start_byte: i,
                     alias_derived: false,
+                    s1_entry: false,
                 })
                 .collect();
             for owner in parsed.all_functions() {
@@ -254,6 +255,7 @@ mod tests {
                     line: 1,
                     start_byte: i,
                     alias_derived: false,
+                    s1_entry: false,
                 })
                 .collect();
             let owner = parsed.all_functions().into_iter().next().unwrap();

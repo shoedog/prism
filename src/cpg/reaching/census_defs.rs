@@ -323,6 +323,7 @@ pub(super) fn complete_with(
             line: k.line,
             start_byte: k.start_byte,
             alias_derived: false,
+            s1_entry: false,
         });
         next += 1;
     }

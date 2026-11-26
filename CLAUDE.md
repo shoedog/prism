@@ -655,10 +655,10 @@ A shared representative must belong to the proved environment and value version.
 the witnessed mixed-line signature-closure endpoint for raw writes and alias twins.
 Parameter names and argument slots keep their separate accessors. When S1 alone crosses the
 2,048-Def RD or 1,000,000-pair fallback limit, the file producer replays the owner's legacy facts.
-The uncapped p35 sibling relabel and the D3 alias-twin relabel are the bounded legacy label
-exceptions. Changes outside DFG statistics are limited to witnessed Step 5c return inputs,
-return-flow suppression transitions and the ordinary TypeScript argument-slot join in DESIGN
-§5.9. The S1 ledger records attempts, overlapping projection causes and cap decisions before
+The bounded legacy changes are the R2.6 endpoint relocation and the uncapped p35 sibling
+relabel. Signature writes and alias twins keep their legacy labels, including D3's
+`alias_unstable`. Changes outside DFG statistics are limited to witnessed Step 5c return
+inputs, return-flow suppression transitions and ordinary argument-slot joins in DESIGN §5.9. The S1 ledger records attempts, overlapping projection causes and cap decisions before
 deduplication. `PRISM_S1_TRACE=1` emits projection demotions and downstream joins on stderr. A cold run can set
 `PRISM_S1_SUPPRESSION_BASE` to a baseline trace file to report suppression counter transitions.
 

@@ -92,11 +92,23 @@ impl CompactDfg {
         from: &VarLocation,
         to: &VarLocation,
     ) -> Option<FlowConfidence> {
-        // A pair whose endpoints are stored occurrences (they carry bytes) has its
-        // own label; the line-group label answers only callers without them.
+        let signature_label = FlowConfidence::NameOnly(crate::cpg::FlowDoubt::CfgIncomplete);
         if let (Some(f), Some(t)) = (self.arena.exact(from), self.arena.exact(to)) {
-            if let Some(confidence) = self.exact_labels.get(&(f, t)) {
-                return Some(*confidence);
+            if self.exact_labels.get(&(f, t)) == Some(&signature_label)
+                && self
+                    .signature_pairs
+                    .get_or_init(|| {
+                        // The supplemental producer excludes primary pairs. Only
+                        // S1 signature labels are recorded in both lanes.
+                        self.edges
+                            .iter()
+                            .copied()
+                            .filter(|pair| self.exact_labels.get(pair) == Some(&signature_label))
+                            .collect()
+                    })
+                    .contains(&(f, t))
+            {
+                return Some(signature_label);
             }
         }
         self.legacy_label(from, to)

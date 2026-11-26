@@ -35,6 +35,7 @@ impl<'a> Increment<'a> {
             .push((loc, defs.get(&key(loc)).map_or(0, Vec::len)));
         self.rd_positions.insert(rd.len());
         Producer::push_rd_def(rd, loc, false);
+        rd.last_mut().expect("entry just pushed").s1_entry = true;
     }
 
     /// The solver completes the definition list with census-only defs (and an S1 entry def can make

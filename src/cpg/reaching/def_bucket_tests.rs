@@ -237,6 +237,7 @@ pub(super) fn site(
         line,
         start_byte,
         alias_derived,
+        s1_entry: false,
     }
 }
 fn query(path: AccessPath, line: usize, start_byte: usize) -> FlowEdge {
@@ -448,4 +449,31 @@ fn differential_census_matrix() {
         with_census > 40,
         "census fixtures reach a Killed label: {with_census}"
     );
+}
+
+#[test]
+fn s1_entry_precedes_even_a_write_on_the_synthetic_signature_node() {
+    let source = "function f({a}, b = (a = 1)) {\n  observe(0);\n  return a;\n}\n";
+    let parsed =
+        ParsedFile::parse("s1.js", source, crate::languages::Language::JavaScript).unwrap();
+    let owner = parsed.all_functions()[0];
+    let path = AccessPath::simple("a");
+    let write = site(1, path.clone(), 1, source.find("a = 1").unwrap(), false);
+    for s1_entry in [false, true] {
+        let entry = DefSite {
+            s1_entry,
+            ..site(0, path.clone(), 1, source.find("{a}").unwrap() + 1, false)
+        };
+        let _mode = Mode::begin(false);
+        let outcome = reaching_definitions(&parsed, &owner, &[entry, write.clone()], &[]);
+        assert!(matches!(outcome, RdOutcome::Available(_)));
+        let observation = Mode::take();
+        let [(bound, flat)] = observation.sets.as_slice() else {
+            panic!("expected one reaching-definition pass");
+        };
+        // The binding-aware set may retain both facts when the signature
+        // declaration identity is unresolved. The flat set pins the order.
+        assert!(flat[2].contains(1));
+        assert_eq!(flat[2].contains(0), !s1_entry, "bound: {bound:?}");
+    }
 }

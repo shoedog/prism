@@ -298,10 +298,6 @@ impl PatternFormal {
             .collect()
     }
 
-    pub(super) fn guarded(&self) -> bool {
-        self.guarded
-    }
-
     pub(super) fn produces_def(&self) -> bool {
         self.reads
             .values()

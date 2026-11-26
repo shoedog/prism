@@ -2,9 +2,68 @@
 
 use super::{pattern_execution, pattern_formals::decoded_name};
 use crate::access_path::AccessPath;
+use crate::ast::member_reference_index::MemberReferenceSearch;
 use crate::ast::ParsedFile;
-use crate::data_flow::VarLocation;
+use crate::data_flow::{BindingKey, ExactFlowEdge, FlowEdge, VarLocation};
+use std::collections::BTreeMap;
 use tree_sitter::Node;
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn record_relocation<'a>(
+    parsed: &'a ParsedFile,
+    owner: Node<'a>,
+    refs: &MemberReferenceSearch<'a>,
+    from: &VarLocation,
+    to: &VarLocation,
+    def_byte: usize,
+    body: Option<(usize, usize)>,
+    refused: impl Fn(&AccessPath, usize) -> bool,
+    moves: &mut BTreeMap<ExactFlowEdge, VarLocation>,
+) {
+    if !relocate(parsed, owner, &to.path, to.line, Some(to), body) {
+        return;
+    }
+    let body_reads = crate::profile::search_refs(
+        parsed, refs, &owner, &to.path, from.line, def_byte, body, true,
+    );
+    if let Some(&(start_byte, end_byte)) = body_reads.get(&to.line) {
+        if !refused(&to.path, start_byte) {
+            moves.insert(
+                ExactFlowEdge::from_refs(from, to),
+                VarLocation {
+                    start_byte,
+                    end_byte,
+                    ..to.clone()
+                },
+            );
+        }
+    }
+}
+
+pub(super) fn apply_relocations(
+    edges: &mut [FlowEdge],
+    uses: &mut BTreeMap<BindingKey, Vec<VarLocation>>,
+    moves: BTreeMap<ExactFlowEdge, VarLocation>,
+) {
+    if moves.is_empty() {
+        return;
+    }
+    for edge in edges {
+        if let Some(to) = moves.get(&ExactFlowEdge::from_legacy(edge)) {
+            edge.to = to.clone();
+        }
+    }
+    for to in moves.into_values() {
+        uses.entry((
+            to.file.clone(),
+            to.function.clone(),
+            to.function_start_line,
+            to.path.clone(),
+        ))
+        .or_default()
+        .push(to);
+    }
+}
 
 pub(super) fn relocate(
     parsed: &ParsedFile,
