@@ -5,6 +5,10 @@ use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 const MATRIX: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/proto_writes_matrix");
+const REQUIREMENTS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/docs/superpowers/plans/2026-11-20-lanes/lane4-prototype-pollution/ROW_REQUIREMENTS.md"
+));
 
 #[derive(Deserialize)]
 struct Row {
@@ -70,21 +74,35 @@ fn matches_target_facts(
         .collect();
     actual.sort_unstable();
     expected.sort_unstable();
-    actual == expected
-        && facts.iter().all(|fact| {
+    let mut witnesses = Vec::new();
+    if actual != expected
+        || !facts.iter().all(|fact| {
             let selectors: Vec<_> = fact
                 .key_operands
                 .iter()
                 .filter(|operand| operand.role == KeyRole::Selector)
                 .map(|operand| operand.base.as_str())
                 .collect();
+            let matching: Vec<_> = selectors
+                .iter()
+                .copied()
+                .filter(|base| allowed.iter().any(|name| name == base))
+                .collect();
+            let has_witness = !matching.is_empty();
+            witnesses.extend(matching);
             fact.class == class
                 && fact.guard == GuardState::None
-                && selectors
-                    .iter()
-                    .any(|base| allowed.iter().any(|name| name == base))
-                && required.iter().all(|base| selectors.contains(base))
+                && !selectors.is_empty()
+                && has_witness != required.is_empty()
         })
+    {
+        return false;
+    }
+    witnesses.sort_unstable();
+    witnesses.dedup();
+    let mut required = required.to_vec();
+    required.sort_unstable();
+    witnesses == required
 }
 
 #[test]
@@ -112,21 +130,42 @@ fn matrix_assertion_refuses_extra_targets_and_missing_required_witnesses() {
 }
 
 #[test]
-fn matrix_nonrecursive_polluting_rows() {
+fn matrix_nonrecursive_rows() {
     let rows = std::fs::read_to_string(format!("{MATRIX}/rows.jsonl")).unwrap();
-    let mut counts = BTreeMap::<String, (usize, usize)>::new();
+    let requirements: BTreeMap<_, _> = REQUIREMENTS
+        .lines()
+        .filter_map(|line| {
+            let columns: Vec<_> = line.split('|').map(str::trim).collect();
+            let ["", id, "safe" | "pollutes", class, guard, _, witnesses, _, ""] =
+                columns.as_slice()
+            else {
+                return None;
+            };
+            let witnesses = if *witnesses == "—" {
+                Vec::new()
+            } else {
+                witnesses.split(", ").collect()
+            };
+            Some((*id, (*class, *guard, witnesses)))
+        })
+        .collect();
+    let mut counts = BTreeMap::<(String, String), (usize, usize)>::new();
     let mut failures = Vec::new();
     let mut complete = 0;
     let mut reasons = BTreeMap::<&str, usize>::new();
     let mut designated = BTreeMap::new();
     assert_eq!(rows.lines().count(), 326);
+    assert_eq!(requirements.len(), 326);
     for row in rows
         .lines()
         .map(|line| serde_json::from_str::<Row>(line).unwrap())
     {
-        if row.truth != "pollutes" || row.want_class == "recursive_merge" {
+        if row.want_class == "recursive_merge" {
             continue;
         }
+        let (expected_class, expected_guard, witnesses) = &requirements[row.id.as_str()];
+        assert_eq!(row.want_class, *expected_class, "{}", row.id);
+        assert_eq!(row.want_guard, *expected_guard, "{}", row.id);
         let source = std::fs::read_to_string(format!("{MATRIX}/{}", row.file)).unwrap();
         let language = if row.file.ends_with(".ts") {
             Language::TypeScript
@@ -138,10 +177,16 @@ fn matrix_nonrecursive_polluting_rows() {
         targets(parsed.tree.root_node(), row.write_line, &mut spans);
         if row.id == "pw04" {
             assert_eq!(spans, [(31, 114), (67, 71)]);
+        } else if row.id == "t2-110" {
+            assert_eq!(spans, [(293, 316), (320, 336)]);
+            spans.truncate(1);
         } else if row.want_class != "none" {
             assert_eq!(spans.len(), 1, "{}: designated targets {spans:?}", row.id);
         }
-        assert!(matches!(row.want_guard.as_str(), "none" | "partial"));
+        assert!(matches!(
+            row.want_guard.as_str(),
+            "none" | "partial" | "sufficient"
+        ));
         let facts = parsed.js_ts_proto_writes();
         let on_line: Vec<_> = facts
             .iter()
@@ -166,55 +211,77 @@ fn matrix_nonrecursive_polluting_rows() {
             other => panic!("unknown class {other}"),
         };
         let passed = if let Some(class) = class {
-            // The contract names both positive witnesses for this loop and the
-            // request path, rather than the local receiver, for t3-051.
-            let required: &[&str] = match row.id.as_str() {
-                "t3-051" => &["req"],
-                "t3-054" => &["pending", "key"],
-                _ => &[],
-            };
+            // The table pins the consumed selector. These two rows also have
+            // upstream source operands for a parameter default or iteration.
+            let mut witnesses = witnesses.clone();
+            witnesses.extend(match row.id.as_str() {
+                "t2-162" => Some("scope"),
+                "t2-174" => Some("text"),
+                _ => None,
+            });
             matches_target_facts(
                 &on_line,
                 spans.clone(),
                 class,
                 &row.attacker_names,
-                required,
+                &witnesses,
             )
         } else {
             on_line.is_empty()
         };
-        let count = counts.entry(row.want_class).or_default();
+        let passed = passed && exclusion_fold::required_matrix_operands(&row.id, &on_line);
+        let count = counts.entry((row.truth, row.want_class)).or_default();
         count.0 += usize::from(passed);
         count.1 += 1;
         if !passed {
-            failures.push(format!("{} at {:?}: {on_line:?}", row.id, spans));
+            let observed: Vec<_> = on_line
+                .iter()
+                .map(|fact| {
+                    let operands: Vec<_> = fact
+                        .key_operands
+                        .iter()
+                        .map(|operand| (operand.role, operand.name.as_str()))
+                        .collect();
+                    ((fact.start_byte, fact.end_byte), fact.class, operands)
+                })
+                .collect();
+            failures.push(format!(
+                "{} at {spans:?} requires {expected_class} with {witnesses:?}: {observed:?}",
+                row.id
+            ));
         }
     }
     let total = reasons.values().sum::<usize>();
     eprintln!("fail_closed_reads: total={total} by_reason={reasons:?}");
-    assert_eq!(1722 - complete, total, "counts against c21952a8");
+    assert_eq!(total, 438);
+    assert_eq!(complete, 3277);
     eprintln!("matrix complete_reads: {complete}");
-    assert_eq!(designated.len(), 134);
+    assert_eq!(designated.len(), 302);
     let mut changed = failures.len();
     if let Some(path) = std::env::var_os("PRISM_FOLD3_BASE_FACTS") {
         let recorded: BTreeMap<String, serde_json::Value> =
             serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         assert_eq!(recorded.len(), 134);
-        changed = designated
+        changed = recorded
             .iter()
-            .filter(|(id, facts)| recorded.get(*id) != serde_json::to_value(facts).ok().as_ref())
+            .filter(|(id, expected)| {
+                let facts = designated
+                    .get(*id)
+                    .unwrap_or_else(|| panic!("baseline row {id} is missing from the matrix"));
+                serde_json::to_value(facts).unwrap() != **expected
+            })
             .count();
     }
     eprintln!("designated_fact_rows_changed: {changed}");
-    assert_eq!(changed, 0);
     eprintln!("matrix pass/total {counts:?}");
-    assert_eq!(counts.values().map(|count| count.1).sum::<usize>(), 134);
+    assert_eq!(counts.values().map(|count| count.1).sum::<usize>(), 302);
     assert!(
         failures.is_empty(),
         "{} mismatches:\n{}",
         failures.len(),
         failures.join("\n")
     );
+    assert_eq!(changed, 0);
 }
 
 fn js(source: &str) -> ParsedFile {
@@ -590,5 +657,9 @@ fn iteration_requires_a_synchronous_callback_in_the_callback_position() {
     assert_eq!(facts.iter().map(|fact| fact.line).collect::<Vec<_>>(), [8]);
 }
 
+#[path = "proto_writes_exclusion_fold_tests.rs"]
+mod exclusion_fold;
+#[path = "proto_writes_exclusion_tests.rs"]
+mod exclusions;
 #[path = "proto_writes_fold_tests.rs"]
 mod fold;
