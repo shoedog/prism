@@ -7,7 +7,7 @@ use crate::finding_confidence::{EvidenceHop, EvidencePath};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 
-use super::trace_cuts::{self, BoundaryEdge, CrossingSite, TraceCut};
+use super::trace_cuts::{BoundaryEdge, CrossingLedger, CrossingSite, SiteEvidence, TraceCut};
 use super::trace_descent::{DescentGateKey, LossReason};
 use super::{CodePropertyGraph, CpgEdge, CpgNode, TaintCrossingPolicy, VarAccess};
 
@@ -101,8 +101,8 @@ pub struct Trace {
     /// Concrete DataFlow hop payloads for parent entries whose relation is
     /// `DataFlow`; other relations remain explicit conservative bridges.
     pub data_flow_hops: BTreeMap<(NodeIndex, NodeIndex), EvidenceHop>,
-    /// Set (not Vec) so repeated `(root, from, to)` triples from parallel edges / multi-root
-    /// traversal collapse — Plan B counts `InterproceduralBoundary` warnings off this.
+    /// Distinct refused-hop records per root. Parallel hops may retain different reasons
+    /// or diagnostics. Warning emission deduplicates separately.
     pub boundary: BTreeSet<BoundaryEdge>,
     pub cuts: BTreeSet<TraceCut>,
     pub degraded: bool,
@@ -206,6 +206,7 @@ impl CodePropertyGraph {
         policy: Option<&TaintCrossingPolicy<'_>>,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
+        let ledger = CrossingLedger::start("primary");
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
@@ -283,6 +284,7 @@ impl CodePropertyGraph {
                     &no_exclusions,
                     return_flow_mode,
                     policy,
+                    ledger,
                 );
             }
         }
@@ -298,8 +300,7 @@ impl CodePropertyGraph {
         roots: &[NodeIndex],
         order: Option<&dyn SameLineOrderView>,
     ) -> Trace {
-        let no_exclusions = BTreeSet::new();
-        self.taint_trace_nodes_impl(roots, order, &no_exclusions, ReturnFlowMode::Off)
+        self.taint_trace_nodes_with_mode(roots, order, ReturnFlowMode::Off)
     }
 
     pub fn taint_trace_nodes_with_mode(
@@ -309,7 +310,7 @@ impl CodePropertyGraph {
         return_flow_mode: ReturnFlowMode,
     ) -> Trace {
         let no_exclusions = BTreeSet::new();
-        self.taint_trace_nodes_impl(roots, order, &no_exclusions, return_flow_mode)
+        self.taint_trace_nodes_impl(roots, order, &no_exclusions, return_flow_mode, "primary")
     }
 
     /// P14 fix-wave BLOCKER fix: like [`Self::taint_trace_nodes`], but every hop `(from, to)` in
@@ -327,7 +328,7 @@ impl CodePropertyGraph {
         order: Option<&dyn SameLineOrderView>,
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
     ) -> Trace {
-        self.taint_trace_nodes_impl(roots, order, excluded_hops, ReturnFlowMode::Off)
+        self.taint_trace_nodes_excluding_with_mode(roots, order, excluded_hops, ReturnFlowMode::Off)
     }
 
     pub fn taint_trace_nodes_excluding_with_mode(
@@ -337,7 +338,7 @@ impl CodePropertyGraph {
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
         return_flow_mode: ReturnFlowMode,
     ) -> Trace {
-        self.taint_trace_nodes_impl(roots, order, excluded_hops, return_flow_mode)
+        self.taint_trace_nodes_impl(roots, order, excluded_hops, return_flow_mode, "bypass")
     }
 
     fn taint_trace_nodes_impl(
@@ -346,8 +347,10 @@ impl CodePropertyGraph {
         order: Option<&dyn SameLineOrderView>,
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
         return_flow_mode: ReturnFlowMode,
+        walk: &'static str,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
+        let ledger = CrossingLedger::start(walk);
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
@@ -413,6 +416,7 @@ impl CodePropertyGraph {
                     excluded_hops,
                     return_flow_mode,
                     None,
+                    ledger,
                 );
             }
         }
@@ -435,6 +439,7 @@ impl CodePropertyGraph {
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
         return_flow_mode: ReturnFlowMode,
         policy: Option<&TaintCrossingPolicy<'_>>,
+        ledger: Option<CrossingLedger>,
     ) {
         if !matches!(self.graph[root], CpgNode::Variable { .. }) {
             return;
@@ -447,7 +452,6 @@ impl CodePropertyGraph {
             queue.push_back(root);
         }
 
-        let log_crossings = trace_cuts::enabled();
         let mut logged_crossings = BTreeSet::new();
         while let Some(node) = queue.pop_front() {
             let depth = depths[&(root, node)];
@@ -456,14 +460,10 @@ impl CodePropertyGraph {
                     continue;
                 }
                 let record_cut = |trace: &mut Trace, reason| {
-                    let site = shortcut.map(|site| CrossingSite {
-                        start_byte: site.start_byte,
-                        end_byte: site.end_byte,
-                        slot: order.and_then(|order| {
-                            order.crossing_slot(node, site, Relation::CallDescent)
-                        }),
+                    let site = shortcut.map(|site| {
+                        CrossingSite::for_call(site, node, Relation::CallDescent, order)
                     });
-                    if trace.cuts.insert(TraceCut {
+                    let first = trace.cuts.insert(TraceCut {
                         root,
                         from: node,
                         to: next,
@@ -471,14 +471,15 @@ impl CodePropertyGraph {
                         relation: rel,
                         site,
                         depth,
-                    }) && log_crossings
-                    {
+                    });
+                    if let (true, Some(ledger)) = (first, ledger) {
                         self.log_trace_attempt(
+                            ledger,
                             root,
                             node,
                             next,
                             rel,
-                            site,
+                            site.map(SiteEvidence::exact).as_ref(),
                             label,
                             depth,
                             Some(reason),
@@ -513,10 +514,13 @@ impl CodePropertyGraph {
                         depth,
                         descent_gate_cache,
                         policy,
+                        ledger.is_some(),
+                        order,
                     );
-                    if gate.is_err() || log_crossings {
-                        site = self.crossing_site(node, next, relation, order);
+                    if ledger.is_some() {
+                        site = self.crossing_site(node, next, relation, gate, order);
                     }
+                    let location = site.as_ref().map(|site| site.location);
                     if let Err(reason) = gate {
                         let first = trace.boundary.insert(BoundaryEdge {
                             root,
@@ -525,16 +529,17 @@ impl CodePropertyGraph {
                             kind,
                             reason,
                             relation,
-                            site,
+                            site: location,
                             depth,
                         });
-                        if first && log_crossings {
+                        if let (true, Some(ledger)) = (first, ledger) {
                             self.log_trace_attempt(
+                                ledger,
                                 root,
                                 node,
                                 next,
                                 relation,
-                                site,
+                                site.as_ref(),
                                 label,
                                 depth,
                                 Some(reason),
@@ -542,9 +547,19 @@ impl CodePropertyGraph {
                         }
                         continue;
                     }
-                    if log_crossings && logged_crossings.insert((node, next, relation, site)) {
+                    if let Some(ledger) =
+                        ledger.filter(|_| logged_crossings.insert((node, next, relation, location)))
+                    {
                         self.log_trace_attempt(
-                            root, node, next, relation, site, label, depth, None,
+                            ledger,
+                            root,
+                            node,
+                            next,
+                            relation,
+                            site.as_ref(),
+                            label,
+                            depth,
+                            None,
                         );
                     }
                     next_depth += 1;
@@ -560,9 +575,17 @@ impl CodePropertyGraph {
                     trace.parents_by_root.insert((root, next), (node, relation));
                     depths.insert((root, next), next_depth);
                     queue.push_back(next);
-                    if log_crossings && rel == Relation::ReturnInput {
+                    if let (Relation::ReturnInput, Some(ledger)) = (rel, ledger) {
                         self.log_trace_attempt(
-                            root, node, next, relation, site, label, depth, None,
+                            ledger,
+                            root,
+                            node,
+                            next,
+                            relation,
+                            site.as_ref(),
+                            label,
+                            depth,
+                            None,
                         );
                     }
                 }

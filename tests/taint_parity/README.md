@@ -104,14 +104,14 @@ are listed, using the reached decisions on the marked sink line.
 - Boundary reasons are `target_not_binding`, `no_matching_site`,
   `ambiguous_site`, `not_exact`, `unproven_slot`, `depth_cap`,
   `policy_ceiling`, `self_param`, and `self_return`.
-- Other reasons are `return_not_entered_site`, `no_graph_edge`,
+- Other reasons are `return_not_entered_site`, `unproven_return_input`, `no_graph_edge`,
   `shortcut_suppressed`, `cfg_pruned`, `sanitizer_model`,
   `operand_granularity`, and `unmodelled`.
 - Review-side reasons are `review_no_return_flow`, `review_no_recovered_def_use`,
   `review_cfg_filter`, `review_context_policy`, `uncertified_flow`, and `matcher_admission`.
 
-The harness asserts active boundary reasons on the marked pair in
-`per_sink[].sources[]` and pins comparison
+The harness requires the marked pair in `per_sink[].sources[]` on deferred
+`option_b` rows, asserts active boundary reasons on marked pairs, and pins comparison
 reasons with paired fixtures. Catalog and knob runtime assertions arrive with I-8 and I-5. Both review modes use the default
 crossing policy even on rows with explicit walk knobs. Update the matching
 expectations when an enabled group's required behavior changes.

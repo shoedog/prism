@@ -7,7 +7,8 @@ use crate::resolution::ResolutionConfidence;
 use petgraph::graph::NodeIndex;
 
 use super::trace::Relation;
-use super::{CodePropertyGraph, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
+use super::trace_cuts::{CrossingSite, SiteEvidence};
+use super::{CodePropertyGraph, CpgNode, FlowConfidence, FlowDoubt, SameLineOrderView, VarAccess};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -314,14 +315,16 @@ impl CodePropertyGraph {
                 || (site.start_byte <= source_start_byte && source_end_byte <= site.end_byte))
     }
 
-    pub(super) fn return_flow_ascent(
+    fn return_flow_ascent(
         &self,
         from: NodeIndex,
         to: NodeIndex,
-    ) -> Result<(), LossReason> {
+        log_crossings: bool,
+        order: Option<&dyn SameLineOrderView>,
+    ) -> Result<Option<&CallSite>, LossReason> {
         let owner = self.node_file_fn(from).ok_or(LossReason::NoMatchingSite)?;
         let mut candidate = false;
-        for site in self.return_sites(to) {
+        let mut proofs = self.return_sites(to).filter(|site| {
             let resolved = self.call_graph.resolve_call_site_full(site);
             let matches_owner = |target: &crate::call_graph::FunctionId| {
                 (&target.file, &target.name, target.start_line) == (&owner.0, &owner.1, owner.2)
@@ -329,21 +332,51 @@ impl CodePropertyGraph {
             if super::build::singleton_exact(&resolved)
                 .is_some_and(|entry| matches_owner(entry.target))
             {
-                return Ok(());
+                return true;
             }
             candidate |= resolved
                 .resolved
                 .iter()
                 .any(|entry| matches_owner(entry.target));
+            false
+        });
+        let Some(first) = proofs.next() else {
+            return Err(if candidate {
+                LossReason::NotExact
+            } else {
+                LossReason::NoMatchingSite
+            });
+        };
+        // The first proof admits the hop. Only the ledger needs to identify the site.
+        if !log_crossings {
+            return Ok(None);
         }
-        Err(if candidate {
-            LossReason::NotExact
-        } else {
-            LossReason::NoMatchingSite
-        })
+        let Some(second) = proofs.next() else {
+            return Ok(Some(first));
+        };
+        Ok(Self::assigned_return_site(
+            to,
+            [first, second].into_iter().chain(proofs),
+            order,
+        ))
     }
 
-    pub(super) fn return_sites(&self, to: NodeIndex) -> impl Iterator<Item = &CallSite> {
+    fn assigned_return_site<'a>(
+        to: NodeIndex,
+        sites: impl Iterator<Item = &'a CallSite>,
+        order: Option<&dyn SameLineOrderView>,
+    ) -> Option<&'a CallSite> {
+        let order = order?;
+        let mut assigned = sites.filter(|site| {
+            order
+                .crossing_slot(to, site, Relation::ReturnFlow)
+                .is_some()
+        });
+        let site = assigned.next()?;
+        assigned.next().is_none().then_some(site)
+    }
+
+    fn return_sites(&self, to: NodeIndex) -> impl Iterator<Item = &CallSite> {
         let owner = self.node_file_fn(to);
         self.call_graph
             .calls
@@ -389,7 +422,9 @@ impl CodePropertyGraph {
         depth: usize,
         cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
         policy: Option<&super::TaintCrossingPolicy<'_>>,
-    ) -> Result<(), LossReason> {
+        log_crossings: bool,
+        order: Option<&dyn SameLineOrderView>,
+    ) -> Result<Option<&CallSite>, LossReason> {
         use super::BoundaryKind::*;
         match kind {
             SelfFunctionParam => return Err(LossReason::SelfParam),
@@ -400,13 +435,13 @@ impl CodePropertyGraph {
             return Err(LossReason::DepthCap);
         }
         if relation == Relation::ReturnFlow {
-            return self.return_flow_ascent(from, to);
+            return self.return_flow_ascent(from, to, log_crossings, order);
         }
         self.descend_target(from, to, label, cache)?;
         if policy.is_some() && self.admitted_data_flow_label(policy, from, to).is_none() {
             return Err(LossReason::PolicyCeiling);
         }
-        Ok(())
+        Ok(None)
     }
 }
 
@@ -425,35 +460,23 @@ impl CodePropertyGraph {
         from: NodeIndex,
         to: NodeIndex,
         relation: Relation,
-        order: Option<&dyn super::SameLineOrderView>,
-    ) -> Option<super::CrossingSite> {
-        let (site, slot) = if relation == Relation::ReturnFlow {
-            let order = order?;
-            let mut matching = self.return_sites(to).filter_map(|site| {
-                order
-                    .crossing_slot(to, site, relation)
-                    .map(|slot| (site, Some(slot)))
-            });
-            let pair = matching.next()?;
-            if matching.next().is_some() {
-                return None;
+        gate: Result<Option<&CallSite>, LossReason>,
+        order: Option<&dyn SameLineOrderView>,
+    ) -> Option<SiteEvidence> {
+        if relation == Relation::ReturnFlow {
+            if let Ok(proof) = gate {
+                return proof.map(|site| {
+                    SiteEvidence::exact(CrossingSite::for_call(site, to, relation, order))
+                });
             }
-            pair
-        } else {
-            let site = self.binding_site(from, to).ok()?;
-            let (start, end) = super::trace_cuts::byte_span(self.node(from));
-            if !site_contains_occurrence(site, start, end) {
-                return None;
-            }
-            (
-                site,
-                order.and_then(|order| order.crossing_slot(from, site, relation)),
-            )
-        };
-        Some(super::CrossingSite {
-            start_byte: site.start_byte,
-            end_byte: site.end_byte,
-            slot,
-        })
+            let site = Self::assigned_return_site(to, self.return_sites(to), order)?;
+            return self.site_evidence(site, CrossingSite::for_call(site, to, relation, order));
+        }
+        let site = self.binding_site(from, to).ok()?;
+        let (start, end) = super::trace_cuts::byte_span(self.node(from));
+        if !site_contains_occurrence(site, start, end) {
+            return None;
+        }
+        self.site_evidence(site, CrossingSite::for_call(site, from, relation, order))
     }
 }

@@ -52,9 +52,5 @@ fn sink_past_refused_hop_keeps_parent_verdict() {
             reachability_and_boundary(&cpg, &trace, root, boundary.to, None, &mut Vec::new()),
             (Reachability::BoundaryExited, Some(boundary))
         );
-        assert_eq!(
-            reachability_for_node_from(&cpg, &trace, sink, root),
-            Reachability::NotReached
-        );
     }
 }

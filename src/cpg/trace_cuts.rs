@@ -1,6 +1,8 @@
 use std::io::{self, Write};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::call_graph::CallSite;
+use crate::resolution::ResolutionConfidence;
 
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
@@ -8,7 +10,7 @@ use petgraph::Direction;
 
 use super::{
     BoundaryKind, CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, LossReason, Relation,
-    ReturnFlowMode, VarAccess,
+    ReturnFlowMode, SameLineOrderView, VarAccess,
 };
 
 /// A def-use crossing recorded without traversing the refused hop.
@@ -20,6 +22,7 @@ pub struct BoundaryEdge {
     pub kind: BoundaryKind,
     pub reason: LossReason,
     pub relation: Relation,
+    /// Resolved site evidence collected when the crossing ledger is enabled.
     pub site: Option<CrossingSite>,
     pub depth: usize,
 }
@@ -29,6 +32,35 @@ pub struct CrossingSite {
     pub start_byte: usize,
     pub end_byte: usize,
     pub slot: Option<usize>,
+}
+
+impl CrossingSite {
+    pub(super) fn for_call(
+        site: &CallSite,
+        node: NodeIndex,
+        relation: Relation,
+        order: Option<&dyn SameLineOrderView>,
+    ) -> Self {
+        Self {
+            start_byte: site.start_byte,
+            end_byte: site.end_byte,
+            slot: order.and_then(|order| order.crossing_slot(node, site, relation)),
+        }
+    }
+}
+
+pub(super) struct SiteEvidence {
+    pub location: CrossingSite,
+    grades: Vec<ResolutionConfidence>,
+}
+
+impl SiteEvidence {
+    pub(super) fn exact(location: CrossingSite) -> Self {
+        Self {
+            location,
+            grades: vec![ResolutionConfidence::Exact],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -42,8 +74,22 @@ pub struct TraceCut {
     pub depth: usize,
 }
 
-pub(super) fn enabled() -> bool {
-    std::env::var_os("PRISM_TAINT_CROSSING_TRACE").is_some_and(|value| value == "1")
+#[derive(Clone, Copy)]
+pub(super) struct CrossingLedger {
+    walk: &'static str,
+    id: usize,
+}
+
+impl CrossingLedger {
+    pub(super) fn start(walk: &'static str) -> Option<Self> {
+        static NEXT_WALK: AtomicUsize = AtomicUsize::new(0);
+        std::env::var_os("PRISM_TAINT_CROSSING_TRACE")
+            .is_some_and(|value| value == "1")
+            .then(|| Self {
+                walk,
+                id: NEXT_WALK.fetch_add(1, Ordering::Relaxed),
+            })
+    }
 }
 
 pub(super) fn byte_span(node: &CpgNode) -> (usize, usize) {
@@ -90,14 +136,30 @@ impl CodePropertyGraph {
 }
 
 impl CodePropertyGraph {
+    pub(super) fn site_evidence(
+        &self,
+        site: &CallSite,
+        location: CrossingSite,
+    ) -> Option<SiteEvidence> {
+        let grades: Vec<_> = self
+            .call_graph
+            .resolve_call_site_full(site)
+            .resolved
+            .into_iter()
+            .map(|candidate| candidate.confidence)
+            .collect();
+        (!grades.is_empty()).then_some(SiteEvidence { location, grades })
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(super) fn log_trace_attempt(
         &self,
+        ledger: CrossingLedger,
         root: NodeIndex,
         from: NodeIndex,
         to: NodeIndex,
         relation: Relation,
-        site: Option<CrossingSite>,
+        site: Option<&SiteEvidence>,
         label: Option<FlowConfidence>,
         depth: usize,
         reason: Option<LossReason>,
@@ -108,7 +170,7 @@ impl CodePropertyGraph {
             (None, _) => "taint-crossing",
         };
         let slot = site
-            .and_then(|site| site.slot)
+            .and_then(|site| site.location.slot)
             .map_or_else(|| "-".into(), |slot| slot.to_string());
         let component = match self.node(to) {
             CpgNode::ReturnValue {
@@ -120,29 +182,20 @@ impl CodePropertyGraph {
             _ => String::new(),
         };
         let reason = reason.map_or_else(String::new, |reason| format!(" reason={reason}"));
-        let site_grades = match relation {
-            Relation::CallDescent => self.binding_site(from, to).ok(),
-            Relation::ReturnFlow => self.return_sites(to).find(|candidate| {
-                site.is_some_and(|site| {
-                    (site.start_byte, site.end_byte) == (candidate.start_byte, candidate.end_byte)
-                })
-            }),
-            _ => None,
-        }
-        .map(|site| self.call_graph.resolve_call_site_full(site).resolved)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|candidate| format!("{:?}", candidate.confidence))
-        .collect::<Vec<_>>()
-        .join(",");
+        let site_grades = site
+            .into_iter()
+            .flat_map(|site| &site.grades)
+            .map(|grade| format!("{grade:?}"))
+            .collect::<Vec<_>>()
+            .join(",");
         let site = site.map_or_else(
             || "-".into(),
-            |site| format!("{}..{}", site.start_byte, site.end_byte),
+            |site| format!("{}..{}", site.location.start_byte, site.location.end_byte),
         );
-        let label = format!("{label:?}");
         // The diagnostic has no bearing on the walk, including when stderr is closed.
         let _ = writeln!(io::stderr().lock(),
-            "{event} root={:?} from={:?} to={:?} relation={relation:?} site={site} slot={slot} grades=[{site_grades}] edge_grade={label:?} depth={depth}{component}{reason}",
+            "{event} walk={} walk_id={} root={:?} from={:?} to={:?} relation={relation:?} site={site} slot={slot} grades=[{site_grades}] edge_grade={label:?} depth={depth}{component}{reason}",
+            ledger.walk, ledger.id,
             self.trace_identity(root), self.trace_identity(from), self.trace_identity(to)
         );
     }

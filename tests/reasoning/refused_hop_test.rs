@@ -80,7 +80,7 @@ fn dispatch_keeps_parent_verdict() {
 }
 
 #[test]
-fn late_distal_target_is_a_miss_in_both_definition_orders() {
+fn option_b_distal_fanout_stays_deferred_in_both_definition_orders() {
     for callees in [
         (0..130).collect::<Vec<_>>(),
         [129].into_iter().chain(0..129).collect(),
@@ -107,7 +107,7 @@ fn late_distal_target_is_a_miss_in_both_definition_orders() {
 }
 
 #[test]
-fn suffix_guards_cannot_reclassify_a_distal_sink() {
+fn option_b_distal_sink_stays_deferred_with_competing_routes() {
     let source = r#"function entry() { const t = acquire(); h1(t); }
 function h1(x) { h2(x); }
 function h2(y) {

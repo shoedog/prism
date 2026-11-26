@@ -96,6 +96,19 @@ fn row(id: &str) -> Row {
 }
 
 #[test]
+#[should_panic(expected = "f01: missing marked source-operand pair")]
+fn deferred_row_requires_its_marked_pair() {
+    let mut row = row("f01");
+    let fixture = Fixture::load(&row);
+    // Keep the live refusal and line verdict, but mark bytes outside the sink operand.
+    row.sink.operand = [0, 1];
+    let deferred_group = std::mem::replace(&mut row.group, "reasons".into());
+    assert_eq!(walk(&row, &fixture).reaches, Verdict::NotReached);
+    row.group = deferred_group;
+    walk(&row, &fixture);
+}
+
+#[test]
 fn f01_checks_each_roots_own_reason() {
     let mut row = row("f01");
     row.group = "reasons".into();

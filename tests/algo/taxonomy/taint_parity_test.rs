@@ -14,6 +14,8 @@ use std::path::{Component, Path};
 use std::sync::Arc;
 use tempfile::TempDir;
 
+#[path = "taint_parity_test/ledger_checks.rs"]
+mod ledger_checks;
 #[path = "taint_parity_test/reason_checks.rs"]
 mod reason_checks;
 mod rows;
@@ -266,6 +268,13 @@ fn walk(row: &Row, fixture: &Fixture) -> Walk {
         })
         .filter(|(_, source)| symbol_bytes(&source.source) == row.src.bytes)
         .collect::<Vec<_>>();
+    if row.group == "option_b" {
+        assert!(
+            !pairs.is_empty(),
+            "{}: missing marked source-operand pair",
+            row.id
+        );
+    }
     let reaches = Reachability::aggregate(pairs.iter().map(|(_, source)| source.reachability))
         .unwrap_or(Reachability::NotReached);
     if row.walk_comparable {
