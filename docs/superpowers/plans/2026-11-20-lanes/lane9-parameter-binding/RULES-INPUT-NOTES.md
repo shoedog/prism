@@ -131,7 +131,7 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 | `b04` | ts this | correct | RED | B rest | **Keep.** Bind 2 specified edges, including main.x → f.a (exact). |
 | `b05a` | rest pattern | correct | Pass | B rest | **Loss.** Keep the negatives. A rest pattern exposes component bindings, not the single identifier rest Def to which B delivers elements. |
 | `b05b` | rebound rest | correct | Pass | B rest | **Keep.** 1 prohibited edge. |
-| `b06` | nameonly | correct | RED | B rest | **Set.** Use the ordinary call's name-only confidence for rest and its existing wire doubt. C's ordinary bare-target precision refusal does not apply to rest. |
+| `b06` | same-file NameOnly method | correct | RED | B rest | **Loss #2.** Preserve #1, the NameOnly `r6_single_owner` resolution to `f`. B withholds the same-file binding. Require no edge of any label from `main.v` to `f.rest`. |
 | `b07` | rest object literal | correct | Pass | B rest | **Loss.** Keep q → q and no x → rest. Supplied object-literal fields are not the object element itself. B does not flatten object fields into rest. |
 | `b08` | refusal reachability | correct | Pass | Consumers | **Keep.** Bind f.rest → freeSink.p (exact). check Def, unreachability. |
 | `b09a` | least offset | ambiguous | RED | B rest | **Loss.** Require w → r, no v → p or r and no xs → r. The lower bounds of v and w are zero and one respectively. |
@@ -143,13 +143,13 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 | `b10d` | no variable source | correct | Unexecuted | B rest | **External.** The external M2 fixture census must report zero sites. The CPG companion row prohibits an incoming variable edge. |
 | `t1-5` | default before rest | correct | RED | B rest | **Keep.** Bind 2 specified edges, including main.v → f.rest (exact). 1 prohibited edge. |
 | `t2-4` | generator rest | correct | RED | B rest | **Keep.** Bind main.v → collect.items (exact). |
-| `t3-2` | unknown spread two fixed slots | correct | RED | B rest | **Keep.** Bind main.v → f.rest (exact). 2 prohibited edges. |
+| `t3-2` | unknown spread two fixed slots | correct | RED | B rest | **Loss #1.** The ledger required main.v → f.rest (exact), which holds only when xs yields at least one element. The least offset of v is 1 and rest starts at 2, so DESIGN §5 B supplies no binding. Prohibitions #2–3 stay mandatory. |
 | `t4-3` | constructor rest | correct | RED | B rest | **Loss.** #1 x → first is the recorded fixed loss. #2 y → rest is blocked/RED without the constructor site. Require #3 no y → first. Exercise the supplied-site control below. |
 | `s1-6` | known spread raises unknown offset floor | correct | RED | B rest | **Keep.** Bind main.value → pack.tail (exact). 2 prohibited edges. |
 | `s1-7` | destructured fixed formal consumes one slot | correct | RED | B rest | **Loss.** Mark #1 a → fixed only. The fixed builder stops at the preceding destructure. Require b → tail and both crossed negatives. |
 | `s1-8` | return flow certification with rest inputs | correct | RED | Consumers | **Keep.** Check counter, reachability. |
 | `s2-4` | parameter property and tuple rest | correct | RED | B rest | **Loss.** #1 label → tag also lacks a parameter-property Def. #2–3 count/text → parts are blocked/RED without the constructor site. Require #4 no label → parts, including with a supplied site. |
-| `s2-5` | shadowed rest write keeps entry binding | correct | RED | B rest | **Keep.** Bind main.value → collect.items (exact). 1 prohibited edge. |
+| `s2-5` | shadowed rest write keeps entry binding | correct | RED | B rest | **Keep.** The round 1 fold restores the outer entry Def. Require #1 main.value → collect.items (exact) and #2 no main.value → reset.items. |
 | `s2-6` | member spread begins at rest after literal prefix | correct | RED | B rest | **Set.** #1 withhold box.items → tail. Matching member bytes and a known start do not prove an element. Keep both fixed-slot prohibitions. |
 | `s3-3` | super forwarding cannot bind back to derived constructor | correct | RED | B rest | **Set.** #1 last → Derived.constructor.items is blocked/RED without that constructor site. Require it with a supplied site. Keep all three prohibitions (#2–4). |
 | `s3-4` | independent unknown spreads start in the rest range | correct | RED | B rest | **Set.** Withhold #2 left → tail and #4 right → tail. Neither opaque operand has a yield witness. Keep lead → first, last → tail and all three crossed negatives. |
@@ -158,7 +158,7 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 | `s4-3` | fixed overload signatures with a rest implementation | correct | RED | B rest | **Keep.** Bind 3 specified edges, including main.value → pack.items (exact). 2 prohibited edges. check Def. |
 | `s4-4` | spread straddling the fixed slot versus one wholly in rest | correct | RED | B rest | **Loss.** Keep #1–2 prohibiting left → tail/first for the straddle. For #3 withhold right → tail despite its trailing start because yield is unproved. Keep #4 no right → first. |
 | `s4-5` | object rest pattern index and synthesized length | correct | Pass | B rest | **Loss.** Keep the negatives. A rest pattern exposes component bindings, not the single identifier rest Def to which B delivers elements. |
-| `s5-5` | least offset rest edge retains nameonly trace boundary | correct | RED | D label | **Keep.** Bind main.value → pack.tail (nameonly/call_nameonly). 1 prohibited edge. check trace boundary, reachability. |
+| `s5-5` | least offset reaches rest at a same-file NameOnly call | correct | RED | B rest | **Loss of original #1, #3, #4.** The offset reaches rest, but B withholds the same-file edge. Require no `main.value → pack.tail` edge at #1 and keep #2's Exact prohibition. At #3 require that the value Def cannot reach the tail read. The prerequisites module's `s5-5-foreign` exercises the positive edge, trace boundary and reachability. |
 | `s5-6` | implicit derived constructor forwards into base rest | ambiguous | RED | B rest | **Loss.** #2 value → Base.tail is blocked/RED unless the extracted new Derived site identifies Base’s implementation. Exercise that binding with the supplied target, keep #1’s Def and check a wrong-target control. No synthetic forwarding. |
 | `s5-7` | dense literal spread element enters rest after fixed slot | ambiguous | RED | B rest | **Set.** Bind the actual element value → tail once, exact. The preceding 0 occupies the fixed slot. |
 | `s5-8` | writing unmapped arguments preserves entry rest binding | correct | RED | B rest | **Keep.** Bind main.value → pack.items (exact). check Def. |
@@ -170,10 +170,25 @@ The input truth comes from the reviewed matrix. The base outcome is historical. 
 | `x2-5` | guaranteed elements inside an unknown length array spread | ambiguous | RED | B rest | **Loss.** No edge from after or uncertain. The top-level nested spread contributes a floor of zero, even though the two literal elements in the first operand guarantee rest membership at runtime. |
 | `x3-4` | fixed slot after first default precedes rest despite function length zero | correct | RED | B rest | **Keep.** Bind 2 specified edges, including main.fixed → pack.middle (exact). 2 prohibited edges. |
 | `x3-5` | default derived constructor forwards without iterating a rest array | correct | RED | B rest | **Loss.** #1 lost → Explicit.forward and #2 kept reaching Base.parts require their respective admitted constructor sites. Both are blocked/RED when missing. Supply each site separately and keep the two arms distinct. The review removed the negative walk through the explicitly spread array with a patched iterator. |
-| `x4-3` | shifted fixed argument feeds a default while a rest argument bypasses it | correct | RED | Consumers | **Keep.** Bind 2 specified edges, including main.fixed → pack.first (exact). 2 prohibited edges. check reachability, unreachability. |
+| `x4-3` | shifted fixed argument feeds a default while a rest argument bypasses it | correct | RED | Consumers | **Loss #5.** Reads of earlier formals inside parameter default initializers have no Use node (#916), outside slice B. Both exact edges (#1–2), both prohibitions (#3–4) and the nonreachability check (#6) stay mandatory. |
 | `x4-4` | twice bound prefixes fill fixed and rest slots in binding order | correct | RED | B rest | **Loss.** Neither bound prefix nor the final payload has a proved adapter offset. No new head or tail transfer through the two bind results. The reviewed matrix skips this row. |
 | `x5-3` | reflect construct new target supplies only the prototype | correct | RED | B rest | **Loss.** Preserve the reviewed whole-row skip for Reflect.construct. Its ordinary #3 direct → Shape.other independently needs a constructor site. Record the missing prerequisite, exercise #3 with a supplied site in a companion and keep its decoy negatives. The skipped reflection arm earns no pass. |
 | `x5-4` | rest collection and fixed slot forwarding certify separately | correct | RED | Consumers | **Keep.** Bind main.value → relay.items (exact). 1 prohibited edge. check counter. |
+
+### Ordinary B NameOnly rest edges
+
+The independent `binding` verdicts for head `bd9c0945` give the following cost when the §5 B file comparison is applied to B-only graded `nameonly/call_nameonly` additions. The figures subtract 23 inherited foreign slice A edges from SB. Compare `row.from.file` and `row.to.file` with the SB package qualifier intact. Counts are edges. C, W and U mean CORRECT, WRONG and UNDECIDED. [X verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/X/graded/verdicts.jsonl) · [T verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/T/graded/verdicts.jsonl) · [SB verdicts](/Users/wesleyjinks/prism-evidence/param-binding/sliceB/SB/graded/verdicts.jsonl)
+
+| Corpus | Withheld same-file | C / W / U | Kept foreign | C / W / U |
+|---|---:|---|---:|---|
+| X | 4 | 0 / 4 / 0 | 109 | 82 / 0 / 27 |
+| T | 29 | 16 / 13 / 0 | 18 | 18 / 0 / 0 |
+| SB | 36 | 0 / 3 / 33 | 177 | 1 / 0 / 176 |
+| **Total** | **69** | **16 / 20 / 33** | **304** | **101 / 0 / 203** |
+
+The unfiltered head failed the pooled gate at 20/373 (5.36%), with 20/137 WRONG among decided rows. All 20 errors matched a receiver method to an unrelated same-file declaration. Applying the file comparison to those verdicts gives **0/304** on the gate and **0/101** among decided rows. The 203 retained UNDECIDED rows earn zero credit. The 793 B-only Exact additions comprise 789 CORRECT, 0 WRONG and 4 UNDECIDED. These counts price the design on the recorded differential. Regrade the implementation head for activation. [Differential ledger](/Users/wesleyjinks/prism-evidence/param-binding/LEDGER.md)
+
+Before this amendment, b06 and s5-5 were the only ordinary B same-file NameOnly rest positives across the 425 matrix IDs. Both now prohibit those edges. Three E rows require same-file `nameonly/call_nameonly` rest edges from independently derived `argument_follow` targets. Keep t4-9 #2, s3-23 #3 and x3-11 #4–5. D's s1-17 #2 also delivers into same-file rest, under `nameonly/builtin_callback`. Keep its role edge. Each producer retains its ledger disposition.
 
 ## C · Bare parameters
 
