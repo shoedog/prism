@@ -340,8 +340,9 @@ mod stream;
 /// - v189: C/C++ rules U and D refuse an owner whose macros can change bracket structure (#829): `Off::MacroBrackets` (a spelled or reachable macro whose replacement list does not nest, a listed external block macro or its wrapper), `MacroBodySplit` (a body potential group holds a held comma or forwards a loose macro), `MacroArgSplit`/`MacroArgLoose` (the same hazards inside a potential group of the owner's own text) and `OwnerExposed` (an argument list that starts outside the owner can hold it, or a `paren_open` macro is spelled before it), so DataFlow edges of C/C++ owners that spell such macros are kept; the census digest tag is `c-macro-census-v3` with the closed facts `unbalanced`, `loose_comma`, `arg_split`, `paren_open`.
 /// - v190: JS/TS/TSX positional argument binding uses the call's full span and the runtime offsets of arguments around spreads, changing cross-function DataFlow edges and dependent return-flow certification.
 /// - v191: JS/TS/TSX arguments bind to identifier rest Defs using a runtime offset lower bound and an iteration witness for Exact opaque spreads, changing DataFlow edges and dependent return-flow certification.
-/// - v192: JS/TS/TSX object-pattern formals register Defs for used, admitted locals. Their reads and initializer captures connect at binding-proved endpoints. M1, W1, S and S2 select base reads when an entry projection is unproved.
-const CACHE_VERSION: u32 = 192;
+/// - v192: admitted JS/TS/TSX bare-arrow formals receive positional and literal-leaf DataFlow edges, changing dependent return-flow certification.
+/// - v193: JS/TS/TSX object-pattern formals register Defs for used, admitted locals. Their reads and initializer captures connect at binding-proved endpoints. M1, W1, S and S2 select base reads when an entry projection is unproved.
+const CACHE_VERSION: u32 = 193;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -874,7 +875,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 192);
+        assert_eq!(super::CACHE_VERSION, 193);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
