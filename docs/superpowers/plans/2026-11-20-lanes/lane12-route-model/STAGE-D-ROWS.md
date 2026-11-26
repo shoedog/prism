@@ -88,6 +88,7 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | anonymous_unindexed | gn02, nh02, cx26, cx43, cx57 |
 | build_only | es7-07 |
 | callback_unproven | cx59, es2-26, d1-02, fk-15 |
+| class_body_import | fk-81 |
 | dispatch_conflict | cx48 (possible binding overlap), d1-12/13/14, d2-10/11/14/17/18, d3-02–05 |
 | entry_unproven | fl15 explicit query, d1-07 missing export |
 | superseded | d1-06, d1-15 |
@@ -104,7 +105,7 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | hapi_registration_unproven | hp10/22, cx07, es1-32, d1-03/04/09, d2-04/12 |
 | hapi_route_not_literal | cx47, cx48 |
 | hapi_server_param_unproven | hp17, hp18, es1-33 |
-| imported_unproven | fk-23, fk-41, fk-42, fk-46, fk-52, fk-60–63, fk-69, fk-75, fk-80 |
+| imported_unproven | fk-23, fk-41, fk-42, fk-46, fk-52, fk-60–63, fk-69, fk-75, fk-80–81 |
 | inner_decorator | fl20, es2-29, es3-06 |
 | member_handler | hp11, cx27, cx50, cx58 |
 | module_descriptor_name | fk-52, fk-61 |
@@ -682,8 +683,8 @@ exposure or binding through the refused mount. Apply the regular checks to sourc
 supported metadata and view-map operations, including d2-14.
 
 The static import proof in DESIGN §5.3 governs the counted import and escape refusals. Each counted
-refusal has a distinct `PROVEN` control. After review round 2 there are 134 rows, with
-43 `WITHHELD`, 30 `KNOWN_LIMIT` and 61 `PROVEN`. The main-row IDs fk-11, fk-12 and fk-18
+refusal has a distinct `PROVEN` control. There are 136 rows, with
+44 `WITHHELD`, 29 `KNOWN_LIMIT` and 63 `PROVEN`. The main-row IDs fk-11, fk-12 and fk-18
 are unused gaps in the existing numbering. The diagnostic arrays are exact multisets. Each
 entry gives `[reason, file, enclosing source text, span text]`. Materialize the unique span
 inside the named occurrence as UTF-8 bytes. Match a bare name as one identifier token in the
@@ -775,6 +776,7 @@ refused no-effect callee, apply the escape refusal to the separately proven view
 | fk-78 | Add `pkg/routes.py` to fk-56 with an independent Blueprint serving `/replacement`. Leave the initializer alias and capture as written. | WITHHELD (`submodule_shadow`). The eligible same-named child competes with the alias. Keep `mount_child_unproven` and withhold exposure and binding through the mount. Native still uses the initializer alias and GET `/routes` returns routes. | `[["submodule_shadow", "app.py", "app.register_blueprint(pkg.routes.bp)", "pkg.routes.bp"]]` | fk-56 |
 | fk-79 | On Python 3.12+, write `type __getattr__ = int` in `pkg_alias/__init__.py` and define the `/routes` Blueprint in `pkg_alias/routes.py`. App uses `from pkg_alias import routes` and mounts `routes.bp`. | WITHHELD (`getattr_module`). The type statement supplies an explicit lexical binding. Keep `mount_child_unproven` and withhold exposure and binding through the mount. Native import raises TypeError because the type alias cannot be called as a hook. | `[["getattr_module", "app.py", "app.register_blueprint(routes.bp)", "routes.bp"]]` | fk-c79 |
 | fk-80 | In `impl.py`, define `handler` returning first. In `views.py`, use `from impl import handler` followed by `f = handler`. App uses `from views import f` and registers `f` at `/x`. | WITHHELD. The assignment alias re-exports the imported handler. Keep the literal declaration and unresolved written view with `imported_unproven`. Withhold inferred metadata and dispatch binding. Native installs endpoint handler with GET/HEAD/OPTIONS and GET returns first. | `[]` | fk-c80 |
+| fk-81 | In `views.py`, define `__f`, `_C__f` and `f` returning raw, mangled and first respectively. In `app.py`, put `from views import __f` directly in `class C`, then call `app.add_url_rule('/x', endpoint='x', view_func=__f, methods=['GET'])` in the class body. | WITHHELD (`class_body_import`). Keep the grounded receiver, literal `/x`, endpoint x, written GET and unresolved callback `__f` with `imported_unproven`. Withhold dispatch binding. Native binds `C._C__f` to `views._C__f` and GET returns mangled. | `[["class_body_import", "app.py", "from views import __f", "__f"]]` | fk-c81 |
 
 | Control ID | Fixture shape | Required proof |
 |---|---|---|
@@ -824,7 +826,7 @@ refused no-effect callee, apply the escape refusal to the separately proven view
 | fk-c65 | In fk-65 rename the mutating def to `unused`. Keep both calls. | PROVEN. Both calls earn the direct no-effect exemption. Prove `/x` and `/y` with endpoints f and g, effective GET/HEAD/OPTIONS and binding to both views. |
 | fk-c66 | In fk-66 omit the `sys.modules` store. | PROVEN. Prove `/x`, endpoint f, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first from the source module. |
 | fk-c67 | In fk-67 use `from pkg.base import bp` at the capture. | PROVEN. The direct capture selects the source allocation. Prove the mount, full `/routes` and binding. Native GET returns routes. |
-| fk-c68 | Remove the `__path__` write in fk-68, leaving both child files. | KNOWN_LIMIT. This control stays in the import-machinery pair with zero runtime credit. Emit the same source mount, full `/routes` and binding as fk-68. Native loads the regular child, mounts `/routes` and GET returns routes. |
+| fk-c68 | Remove the `__path__` write in fk-68, keeping `import os` and both child files. | PROVEN. Prove the mount, full `/routes` and binding to the handler in `pkg/routes.py`. Native GET returns routes. |
 | fk-c69 | Omit the `global __f` declaration in fk-69. | PROVEN. The class-private def stays in the class namespace. Prove full `/x`, endpoint `_Install__f`, effective GET/HEAD/OPTIONS and binding to the module's `_Install__f`. Native GET returns first. |
 | fk-c70 | Omit the `global __f` declaration in fk-70. | PROVEN. Bind to the same module-level `__f`, with full `/x`, endpoint `__f` and effective GET/HEAD/OPTIONS. Native GET returns raw. |
 | fk-c71 | Omit the `__package__` assignment in fk-71. | PROVEN. The source relative import proves the mount, full `/routes` and binding in `pkg/routes.py`. Native GET returns routes. |
@@ -835,3 +837,4 @@ refused no-effect callee, apply the escape refusal to the separately proven view
 | fk-c77 | Empty the initializer in fk-77. | PROVEN. The dotted import establishes the regular child. Prove the mount, full `/routes` and binding in `pkg_hop/routes.py`. Native GET returns routes. |
 | fk-c79 | In fk-79 write `type other = int`. | PROVEN. The from-import selects the source child. Prove the mount, full `/routes` and binding. Native GET returns routes. |
 | fk-c80 | In fk-80 capture `from impl import handler as f` directly. | PROVEN. The direct import proves full `/x`, endpoint handler, effective GET/HEAD/OPTIONS and binding to `impl.handler`. Native GET returns first. |
+| fk-c81 | Use the same `views.py` as fk-81. At module scope, use `from views import f` and register `f` with the same literal path, endpoint and methods. | PROVEN. Full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and dispatch binding to `views.f`. Native GET returns first. |

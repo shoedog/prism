@@ -131,8 +131,8 @@ Go selector values see 5.6.
 **Reason** is one closed snake_case enum shared by records, exposure cuts, diagnostics and matrix validation. Its variants are
 `receiver_unproven imported_unproven mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
 non_literal_path regex_path mount_cycle expansion_truncated`,
-`getattr_module star_import global_write multi_write nested_single submodule_shadow module_descriptor_name`
-(Python import diagnostics), `no_effect_body` (Python callee check),
+`getattr_module star_import global_write multi_write nested_single submodule_shadow module_descriptor_name
+class_body_import` (Python import diagnostics),
 `callback_unproven member_handler wrapper_call inner_decorator class_view anonymous_unindexed spread_callback handler_object`,
 `method_value_receiver_unproven method_value_receiver_shadowed method_value_method_unproven method_value_interface
 method_value_external func_field_value qualified_function_value method_expression`,
@@ -319,8 +319,9 @@ directly imported declaration. Recognized native Flask imports continue to suppl
 Require one unconditional eligible terminal binding. Use Python's NFKC-normalised identifiers as
 binding and predicate keys. NFKC-normalise module-path and hop segments in the source text and
 match the resulting keys byte-for-byte against filesystem candidate names (fk-74–75).
-Keep original UTF-8 byte spans and spellings in diagnostics. Apply
-the following predicates in order across the terminal and applicable attribute-path hops.
+A capturing import may stand at module or function scope. Keep original UTF-8 byte spans and
+spellings in diagnostics. Apply the first seven predicates in order across the terminal and
+applicable attribute-path hops, then apply the capture-scope check.
 
 1. `getattr_module` applies to any explicit module-scope lexical binding of `__getattr__`,
    conditional or unconditional. Count named imports and aliases that bind that spelling,
@@ -362,6 +363,9 @@ the following predicates in order across the terminal and applicable attribute-p
    def. On 3.11+ a repeated qualified lookup may return the def after specialization. The veto
    applies in both cases. The tested `__annotations__` and `__annotate__` lookups preserve an
    explicit declaration, including on versions exposing the corresponding descriptors.
+8. `class_body_import` applies when the capturing import stands directly in a class body.
+   Withhold the capture because class attribute bindings are subject to class scoping and
+   private-name mangling (fk-81 and its module-scope control fk-c81).
 
 Keep the existing decorator transparency checks. Flask accepts a proved `@bp.get('/a')` (fk-c10).
 For the following stack, keep the admitted route and mark its written callback unresolved with
@@ -375,17 +379,17 @@ def f():
 ```
 
 A no-effect callee must bind to its direct, undecorated def. Assignment aliases of that def cannot
-earn the exemption. Use `no_effect_body`. Comments, `pass`, a bare return and a return of `None`
+earn the exemption. Comments, `pass`, a bare return and a return of `None`
 (including grouped `None`) pass. A docstring statement fails.
 
 Evaluate imported captures used by registration or mount proofs, by the no-effect check, or reached
 during escape indexing (fk-34). On refusal preserve independently established literals, the written
 callback and the role-specific receiver, callback or mount behavior. A failed callee check withholds
-dependent inferred metadata. Emit only the first applicable counted predicate per distinct refused
+dependent inferred metadata. Emit only the first applicable counted reason per distinct refused
 capture span. Use the imported name before `as` for a bare from-import and the full expression for
-a qualified capture. For a refused no-effect callee, emit once at each distinct whole-call span
+a qualified capture. For a counted import refusal of a no-effect callee, emit once at each distinct whole-call span
 (fk-65). Emit the diagnostic even when Flask drops a site for lack of a receiver hint. An unsupported
-form with no counted predicate, including an unestablished child hop or terminal re-export, keeps
+form with no counted reason, including an unestablished child hop or terminal re-export, keeps
 only its role-specific refusal. Use `mount_child_unproven` for a mount child and
 `imported_unproven` for an imported receiver or view retained by the adapter. For an unsupported
 imported callee, the no-effect exemption is unavailable and dependent fields are withheld.
@@ -409,7 +413,7 @@ at `56a9a0d4`, `setup.unused = _mut` invalidated the entire module for the no-ef
 
 For these Python imports, out-of-model behavior includes runtime module-object mutation (reflective
 writes and direct attribute stores, `globals()`, `vars()`, `setattr` and `__dict__` stores,
-`importlib.reload`, `sys.modules` replacement (fk-66) and `exec`), dynamic lookup without a
+`importlib.reload`, `sys.modules` replacement (fk-66) and `exec`), dynamic lookup without an
 explicit lexical module `__getattr__` binding, dynamic import machinery changes and non-source
 children, initialization order and timing, and native descriptor precedence. The controller withdrew
 the import-machinery veto after the rule produced three of the four distinct material findings in
@@ -419,10 +423,12 @@ Module-scope lexical writes to these attributes, including writes through `globa
 in the terminal module, hop packages, source initializers and the capturing module. Mutations such
 as `__path__.insert(...)`, `__path__.append(...)` and `__path__[:] = ...` are also out of model.
 A wildcard import can supply one of these attributes or install a `__getattr__` hook through its
-export set. Pins fk-68, fk-c68, fk-71–73 and fk-76–77 record these import boundaries. The closed descriptor veto
+export set. Pins fk-68, fk-71–73 and fk-76–77 record these import boundaries. fk-c68 is the
+`PROVEN` source-import control. The closed descriptor veto
 is a conservative belt based on source spelling. Supported view and router escape checks and
 explicit view metadata writes remain part of the setup model. The [Stage D pins](STAGE-D-ROWS.md#python-router-and-view-value-boundary)
-record emitted fields beside native observations. Each `KNOWN_LIMIT` pin makes no claim about
+record emitted fields beside native observations across 136 cases, with 44 `WITHHELD`,
+29 `KNOWN_LIMIT` and 63 `PROVEN`. Each `KNOWN_LIMIT` pin makes no claim about
 the native object and earns zero runtime credit for the affected fields.
 
 #### FastAPI
@@ -812,27 +818,29 @@ The frozen populations, binding floors and ledger dispositions above govern each
   excludes 1,545 client-like sites from 3,503 scanner sites. The scanner excludes 413 Superset mock
   decorators before that site count. The five-app denominator includes all 340 scanner sites.
   Review round 2 reproduced the preceding site keys, import-reached keys and cost table.
-  The columns are exclusive, with the first counted reason taking precedence.
+  The outcome columns use the first counted reason. The `class_body_import` column counts
+  sites with at least one such capture, including sites where an earlier reason takes precedence.
 
-  | Framework or corpus | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | Former rule flagged R / M |
-  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-  | Flask | `36e4a824` | 683 | 354 | 74 | 3 / 5 | 3 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 3 |
-  | FastAPI | `0cb4a8e2` | 2,142 | 1,358 | 152 | 1 / 5 | 1 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 2 |
-  | Apache Superset | `ad7fcac1` | 678 | 14 | 6 | 0 / 1 | 0 / 1 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 1 |
-  | Total |  | 3,503 | 1,726 | 232 | 4 / 11 | 4 / 11 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 6 |
+  | Framework or corpus | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | `class_body_import` R / M | Former rule flagged R / M |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | Flask | `36e4a824` | 683 | 354 | 74 | 3 / 5 | 3 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 3 |
+  | FastAPI | `0cb4a8e2` | 2,142 | 1,358 | 152 | 1 / 5 | 1 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 2 |
+  | Apache Superset | `ad7fcac1` | 678 | 14 | 6 | 0 / 1 | 0 / 1 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 1 |
+  | Total |  | 3,503 | 1,726 | 232 | 4 / 11 | 4 / 11 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 6 |
 
-  | Application | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | Former rule flagged R / M |
-  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-  | full-stack-fastapi-template | `77e550a7` | 29 | 23 | 6 | 0 / 6 | 0 / 6 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
-  | fastapi-realworld-example-app | `029eb778` | 29 | 20 | 9 | 0 / 9 | 0 / 9 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
-  | microblog | `a975ef64` | 32 | 27 | 5 | 27 / 5 | 27 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 27 / 5 |
-  | redash | `f561a53d` | 66 | 60 | 6 | 21 / 1 | 4 / 1 | 17 / 0 | 0 / 0 | 0 / 0 | 21 / 1 |
-  | CTFd | `b88e0bf7` | 184 | 171 | 13 | 34 / 12 | 34 / 12 | 0 / 0 | 0 / 0 | 0 / 0 | 34 / 12 |
-  | Total |  | 340 | 301 | 39 | 82 / 33 | 65 / 33 | 17 / 0 | 0 / 0 | 0 / 0 | 82 / 18 |
+  | Application | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | `class_body_import` R / M | Former rule flagged R / M |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | full-stack-fastapi-template | `77e550a7` | 29 | 23 | 6 | 0 / 6 | 0 / 6 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+  | fastapi-realworld-example-app | `029eb778` | 29 | 20 | 9 | 0 / 9 | 0 / 9 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+  | microblog | `a975ef64` | 32 | 27 | 5 | 27 / 5 | 27 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 27 / 5 |
+  | redash | `f561a53d` | 66 | 60 | 6 | 21 / 1 | 4 / 1 | 17 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 21 / 1 |
+  | CTFd | `b88e0bf7` | 184 | 171 | 13 | 34 / 12 | 34 / 12 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 34 / 12 |
+  | Total |  | 340 | 301 | 39 | 82 / 33 | 65 / 33 | 17 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 82 / 18 |
 
   Every first-reason count and pairwise overlap is zero for both populations and both site kinds
   (`getattr_module`, `star_import`, `global_write`, `multi_write`, `nested_single`, `submodule_shadow`,
-  `module_descriptor_name`). Other unresolved cases among the import-reached sites are also zero.
+  `module_descriptor_name`, `class_body_import`). Other unresolved cases among the import-reached
+  sites are also zero.
   Review round 1 measured 18 framework/Superset and 157 app check entries removed by skipping
   attribute-hop predicates on a from-import's module path, with the same site classifications.
 
