@@ -245,6 +245,11 @@ impl<'a> Classifier<'a, '_> {
         depth: usize,
         insertion: Option<Node<'a>>,
     ) -> bool {
+        // A script-level var is a global-object property: writes through `window.x` are
+        // invisible to the references the lexical scope can see.
+        if self.script_global_binding(binding) {
+            return false;
+        }
         let Some(refs) = self.binding_references(binding) else {
             return false;
         };

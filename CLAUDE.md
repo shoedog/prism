@@ -360,9 +360,12 @@ records with proven writes, closed literal tables, `typeof` expressions,
 dominating `typeof x === "number"` guards, or anchored fragments. Slot proofs
 model standard built-in identity for `Array.from`, `Array(n).fill`,
 `Object.defineProperty` and `Object.create`. Runtime changes to built-ins
-are outside that model. The install proof refuses a direct source write to
-`Object.defineProperty` in the analyzed file. Script-level `var` and function
-declaration bindings lack the local identity these proofs require.
+are outside that model. The install proof refuses a dot or quoted-key source write to
+`Object.defineProperty` in the analyzed file; other ways to rebind it are
+outside the model. Script-level `var` and function declaration bindings (a file
+with no top-level `import` or `export`, so a CommonJS file counts as a script
+and loses recall, not soundness) lack the local identity these proofs require,
+including for numeric record collections and their loop items.
 Private table children, null walks, shared-slot proofs, closed-data
 write-back and intrinsic-trusting key domains are deferred. Every fact has
 guard state `none`.

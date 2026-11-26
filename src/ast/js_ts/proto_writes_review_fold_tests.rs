@@ -229,3 +229,24 @@ fn call_result_slot_models_standard_array_from_identity() {
 
 #[path = "proto_writes_review_coverage_tests.rs"]
 mod coverage;
+
+#[test]
+fn script_var_loop_item_of_a_numeric_record_collection_is_visible_through_global_object() {
+    let target = "grid[r.level].f";
+    let script = format!(
+        "const rows = [{{ level: 0 }}];
+         for (var item of rows) {{}}
+         window.item.level = 'x';
+         const grid = [{{}}];
+         for (const r of rows) {target} = 1;"
+    );
+    // Controls: a block-scoped item, a function wrapper and a module file keep the discharge.
+    for control in [
+        script.replacen("var item", "let item", 1),
+        format!("function run() {{ {script} }}"),
+        format!("export {{}}; {script}"),
+    ] {
+        check(&control, target, false);
+    }
+    check(&script, target, true);
+}
