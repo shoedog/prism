@@ -6,7 +6,7 @@
 mod argument_nodes;
 
 #[path = "bare_param_admission.rs"]
-mod bare_param_admission;
+pub(in crate::cpg) mod bare_param_admission;
 
 #[path = "callee_params.rs"]
 mod callee_params;

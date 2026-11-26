@@ -72,7 +72,43 @@ impl Admission {
 }
 
 pub(super) fn trace_enabled() -> bool {
+    #[cfg(test)]
+    if capture::active() {
+        return true;
+    }
     std::env::var_os("PRISM_C_BARE_TRACE").is_some_and(|value| value == "1")
+}
+
+/// Test-only capture of the trace records (a sink beside stderr, so tests can read them).
+#[cfg(test)]
+pub(super) mod capture {
+    use std::sync::Mutex;
+
+    static LINES: Mutex<Option<Vec<String>>> = Mutex::new(None);
+    static SERIAL: Mutex<()> = Mutex::new(());
+
+    pub(super) fn active() -> bool {
+        LINES.lock().map(|l| l.is_some()).unwrap_or(false)
+    }
+
+    pub(in crate::cpg) fn push(line: &str) -> bool {
+        match LINES.lock().ok().as_deref_mut() {
+            Some(Some(lines)) => {
+                lines.push(line.to_owned());
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Run `f` with capture on; other tests running meanwhile may add their own records.
+    pub(in crate::cpg) fn run<R>(f: impl FnOnce() -> R) -> (R, Vec<String>) {
+        let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        *LINES.lock().unwrap() = Some(Vec::new());
+        let out = f();
+        let lines = LINES.lock().unwrap().take().unwrap_or_default();
+        (out, lines)
+    }
 }
 
 #[derive(Default)]
@@ -105,6 +141,10 @@ impl<'a> TraceKeys<'a> {
             "reason": reason,
         });
         let line = format!("PRISM_C_BARE_TRACE {record}\n");
+        #[cfg(test)]
+        if capture::push(&line) {
+            return;
+        }
         let _ = io::stderr().lock().write_all(line.as_bytes());
     }
 }

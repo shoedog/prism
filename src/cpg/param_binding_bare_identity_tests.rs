@@ -167,7 +167,7 @@ fn bare_slot_requires_the_entry_def_bytes() {
 }
 
 #[test]
-fn enclosing_call_refuses_the_inferred_ordinary_endpoint() {
+pub(super) fn enclosing_call_refuses_the_inferred_ordinary_endpoint() {
     check_enclosing_call("take(v)", false);
 }
 

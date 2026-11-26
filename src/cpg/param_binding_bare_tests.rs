@@ -439,3 +439,48 @@ fn ordinary_bare_name_only_requires_the_same_file() {
 
 #[path = "param_binding_bare_identity_tests.rs"]
 mod identity;
+
+#[test]
+fn trace_records_every_refusal_reason_with_its_key_fields() {
+    let (_, lines) = crate::cpg::build::bare_param_admission::capture::run(|| {
+        check_foreign_free_single(false);
+        check_exact_pool(ResolutionKind::LocalDef, "take", false);
+        check_namespace_export_witness(false);
+        ordinary_bare_name_only_requires_the_same_file();
+        identity::enclosing_call_refuses_the_inferred_ordinary_endpoint();
+    });
+    let mut reasons = BTreeSet::new();
+    for line in &lines {
+        let json = line.strip_prefix("PRISM_C_BARE_TRACE ").expect("prefix");
+        let record: serde_json::Value = serde_json::from_str(json).expect("json record");
+        for key in [
+            "caller_file",
+            "call",
+            "callee",
+            "target_file",
+            "target_owner",
+            "declaration",
+            "formal",
+            "route",
+            "confidence",
+            "reason",
+        ] {
+            assert!(record.get(key).is_some(), "{key} in {record}");
+        }
+        reasons.insert(record["reason"].as_str().unwrap().to_owned());
+    }
+    for reason in [
+        "cross_file_free_single_exact",
+        "non_singleton_exact",
+        "missing_actual_export_witness",
+        "foreign_ordinary_name_only",
+        "inferred_from_enclosing_call",
+    ] {
+        assert!(
+            reasons.contains(reason),
+            "{reason} missing from {reasons:?}"
+        );
+    }
+    // Off by default: with no capture and no env switch the sink is silent.
+    assert!(!crate::cpg::build::bare_param_admission::capture::push("x"));
+}
