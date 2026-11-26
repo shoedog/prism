@@ -27,6 +27,7 @@ pub struct DfgEdgeRecord {
 }
 
 pub fn dfg_edge_dump(cpg: &CodePropertyGraph) -> Vec<DfgEdgeRecord> {
+    crate::cpg::s1_trace::report_final(cpg);
     let mut records: Vec<_> = cpg
         .graph
         .edge_references()

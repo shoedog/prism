@@ -1,0 +1,1 @@
+{"openapi":"3.1.0","paths":{"/p":{"post":{"responses":{"200":{"content":{"application/json":{"schema":{"type":"object","properties":{"x":{"type":"string","$schema":"https://json-schema.org/draft/2020-12/schema"},"stable":{"type":"string"}}}}}}}}}}}

@@ -41,12 +41,20 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
         load_cache(&hashes, false, dir.path()),
         CacheResult::Hit(_)
     ));
+    assert_stale_version_miss(&hashes, dir.path());
+}
+
+pub(crate) fn assert_stale_version_miss(
+    hashes: &std::collections::BTreeMap<String, String>,
+    dir: &std::path::Path,
+) {
+    use super::*;
+    let path = cache_bin_path(dir);
+    let mut owned: CpgCache = bincode::deserialize(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(owned.version, CACHE_VERSION);
     owned.version -= 1;
     fs::write(&path, bincode::serialize(&owned).unwrap()).unwrap();
-    assert!(matches!(
-        load_cache(&hashes, false, dir.path()),
-        CacheResult::Miss
-    ));
+    assert!(matches!(load_cache(hashes, false, dir), CacheResult::Miss));
 }
 
 #[test]

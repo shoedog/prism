@@ -1,0 +1,53 @@
+{
+  "openapi": "3.0.3",
+  "info": {"title": "Wire control", "version": "1"},
+  "paths": {
+    "/p": {
+      "post": {
+        "responses": {
+          "200": {"$ref": "#/components/responses/BadHeaders"},
+          "201": {"$ref": "#/components/responses/Good"},
+          "202": {"$ref": "#/components/responses/BadContent"},
+          "203": {"$ref": "#/components/responses/BadLinks"},
+          "206": {"$ref": "#/components/responses/BadDescription"},
+          "207": {"$ref": "#/components/responses/Bodyless"}
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadHeaders": {
+        "description": "ok",
+        "content": {
+          "application/json": {"schema": {"type": "object", "properties": {"x": {"type": "string"}}}}
+        },
+        "headers": 7
+      },
+      "Good": {
+        "description": "ok",
+        "content": {
+          "application/json": {"schema": {"type": "object", "properties": {"x": {"type": "string"}}}}
+        },
+        "headers": {}
+      },
+      "BadContent": {"description": "ok", "content": [], "headers": {}},
+      "BadLinks": {
+        "description": "ok",
+        "content": {
+          "application/json": {"schema": {"type": "object", "properties": {"x": {"type": "string"}}}}
+        },
+        "headers": {},
+        "links": false
+      },
+      "BadDescription": {
+        "description": 7,
+        "content": {
+          "application/json": {"schema": {"type": "object", "properties": {"x": {"type": "string"}}}}
+        },
+        "headers": {}
+      },
+      "Bodyless": {"description": "ok", "links": {}, "x-note": 7}
+    }
+  }
+}

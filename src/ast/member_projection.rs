@@ -7,6 +7,7 @@
 //! are therefore never projection targets, on the declaration line or any other line.
 
 use super::callback_identity::ScopeBindMemo;
+use super::js_ts::props_keys::{is_transparent_wrapper, strip_transparent_wrappers};
 use super::*;
 
 /// What one body walk found for a member-only formal.
@@ -263,7 +264,7 @@ impl ParsedFile {
     /// Whether this member expression is the target of a write: assignment (plain,
     /// compound, logical) left side, `++`/`--`, `delete`, an array/object pattern target
     /// (including rest and nested patterns), or a `for (… in/of …)` head.
-    pub(in crate::ast) fn member_is_write_target(&self, node: Node<'_>) -> bool {
+    pub(crate) fn member_is_write_target(&self, node: Node<'_>) -> bool {
         let mut child = node;
         let mut parent = node.parent();
         while let Some(p) = parent {
@@ -311,30 +312,4 @@ struct FactsWalk<'a> {
     def_scope: Option<usize>,
     seam_open: bool,
     memo: ScopeBindMemo,
-}
-
-fn is_transparent_wrapper(kind: &str) -> bool {
-    matches!(
-        kind,
-        "parenthesized_expression"
-            | "non_null_expression"
-            | "as_expression"
-            | "satisfies_expression"
-            | "type_assertion"
-    )
-}
-
-/// Peel transparent wrappers off an expression. `None` when a wrapper has no inner
-/// expression. A `type_assertion` (`<T>e`) carries its expression last; the others first.
-pub(in crate::ast) fn strip_transparent_wrappers(mut node: Node<'_>) -> Option<Node<'_>> {
-    while is_transparent_wrapper(node.kind()) {
-        let mut cursor = node.walk();
-        let mut inner = node.named_children(&mut cursor).filter(|c| !c.is_extra());
-        node = if node.kind() == "type_assertion" {
-            inner.last()?
-        } else {
-            inner.next()?
-        };
-    }
-    Some(node)
 }

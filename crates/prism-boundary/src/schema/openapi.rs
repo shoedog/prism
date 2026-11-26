@@ -1,7 +1,7 @@
 mod parameters;
 
 use self::parameters::labels;
-use super::references::{Documents, Field, Located, PathItem};
+use super::references::{parse_json, Documents, Field, Located, Parsed, PathItem};
 use super::status::read_statuses;
 use super::{servers, Declaration, Diagnostic, Dialect, Inventory, Operation, SchemaError, Site};
 use crate::element::{schema_path, OperationId};
@@ -14,13 +14,14 @@ const METHODS: &[&str] = &["delete", "get", "head", "options", "patch", "post", 
 
 pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Inventory, SchemaError> {
     let documents = Documents::new(input, entry_value(input)?);
+    scan_operations(&documents, input)
+}
+
+pub(super) fn scan_operations(
+    documents: &Documents<'_>,
+    input: &AdmittedSchemaInput<'_>,
+) -> Result<Inventory, SchemaError> {
     let document = &documents.entry.value;
-    let dialect = match document["openapi"].as_str() {
-        Some(version) if version.starts_with("3.0.") => Dialect::OpenApi30,
-        Some(version) if version.starts_with("3.1.") => Dialect::OpenApi31,
-        _ if document["swagger"] == "2.0" => Dialect::Swagger2,
-        _ => return Err(SchemaError::Dialect),
-    };
     let mut inventory = Inventory {
         api: input.api.into(),
         authority: input.authority.into(),
@@ -30,6 +31,30 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
         unprojected: Vec::new(),
         diagnostics: Vec::new(),
     };
+    if ["openapi", "swagger", "paths"]
+        .iter()
+        .any(|key| documents.entry.duplicate(&[], key))
+    {
+        inventory.diagnostics.push(Diagnostic::new(
+            "duplicate_member",
+            "document",
+            documents.entry.site(Vec::new()),
+        ));
+        return Ok(inventory);
+    }
+    let dialect = match document["openapi"].as_str() {
+        Some(version) if version.starts_with("3.0.") => Dialect::OpenApi30,
+        Some(version) if version.starts_with("3.1.") => Dialect::OpenApi31,
+        _ if document["swagger"] == "2.0" => Dialect::Swagger2,
+        _ => return Err(SchemaError::Dialect),
+    };
+    let info = documents.entry.site(vec!["info".into()]);
+    if documents.entry.duplicate(&[], "info") || documents.entry.has_duplicates(&info.pointer) {
+        inventory.info_version = None;
+        inventory
+            .diagnostics
+            .push(Diagnostic::new("duplicate_member", "info", info));
+    }
     let Some(paths) = document["paths"].as_object() else {
         if document.get("paths").is_some() {
             inventory.diagnostics.push(Diagnostic::new(
@@ -45,8 +70,14 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
             continue;
         }
         let site = documents.entry.site(vec!["paths".into(), path.clone()]);
+        if documents.entry.duplicate(&site.pointer[..1], path) {
+            inventory
+                .diagnostics
+                .push(Diagnostic::new("duplicate_member", "path_item", site));
+            continue;
+        }
         let Some(item) = PathItem::resolve(
-            &documents,
+            documents,
             Located {
                 value: raw,
                 document: &documents.entry,
@@ -73,7 +104,7 @@ pub(crate) fn read_operations(input: &AdmittedSchemaInput<'_>) -> Result<Invento
                 continue;
             }
             index_declaration(
-                &documents,
+                documents,
                 &item,
                 path,
                 method,
@@ -101,7 +132,26 @@ fn index_declaration(
     inventory: &mut Inventory,
 ) {
     let Located { value, site, .. } = operation;
-    let (responses, success_keys) = read_statuses(value, site, dialect, &mut inventory.diagnostics);
+    let operation_id = if operation.duplicate("operationId") {
+        inventory.diagnostics.push(Diagnostic::new(
+            "duplicate_member",
+            "operation",
+            site.child("operationId"),
+        ));
+        None
+    } else {
+        value["operationId"].as_str().map(str::to_owned)
+    };
+    let (responses, success_keys) = if operation.duplicate("responses") {
+        inventory.diagnostics.push(Diagnostic::new(
+            "duplicate_member",
+            "responses",
+            site.child("responses"),
+        ));
+        (BTreeMap::new(), Vec::new())
+    } else {
+        read_statuses(value, site, dialect, &mut inventory.diagnostics)
+    };
     let deployments = deployments(
         documents,
         item,
@@ -132,6 +182,23 @@ fn index_declaration(
             .cloned()
             .unwrap_or_else(|| item.site.child(method)),
         site: site.clone(),
+        resource: operation
+            .document
+            .base
+            .as_ref()
+            .map(super::servers::Uri::key),
+        parameters: match item.field("parameters") {
+            Some(Field::Overlap) => Err(()),
+            Some(Field::Declared { location, .. }) => Ok(Some((
+                location
+                    .document
+                    .base
+                    .as_ref()
+                    .map(super::servers::Uri::key),
+                location.site.clone(),
+            ))),
+            None => Ok(None),
+        },
         reference_chain: chain.to_vec(),
         deployments: Vec::new(),
         responses,
@@ -165,7 +232,7 @@ fn index_declaration(
             std::collections::btree_map::Entry::Vacant(entry) => {
                 entry.insert(Operation {
                     id,
-                    operation_id: value["operationId"].as_str().map(str::to_owned),
+                    operation_id: operation_id.clone(),
                     declarations: vec![declaration],
                     dialect,
                 });
@@ -191,6 +258,25 @@ fn deployments(
 ) -> Vec<servers::Deployment> {
     let entry = &documents.entry;
     if dialect == Dialect::Swagger2 {
+        if entry.duplicate(&[], "basePath") {
+            diagnostics.push(Diagnostic::new(
+                "duplicate_member",
+                "server",
+                entry.site(vec!["basePath".into()]),
+            ));
+            return Vec::new();
+        }
+        if entry.duplicate(&[], "host")
+            || operation.duplicate("schemes")
+            || operation.value.get("schemes").is_none() && entry.duplicate(&[], "schemes")
+        {
+            diagnostics.push(Diagnostic::new(
+                "duplicate_member",
+                "server",
+                operation.site.clone(),
+            ));
+            return Vec::new();
+        }
         return servers::swagger(
             &entry.value,
             operation.value,
@@ -199,24 +285,22 @@ fn deployments(
             diagnostics,
         );
     }
-    if let Some(servers) = operation
-        .child("servers")
-        .filter(|list| !empty_list(list.value))
-    {
-        return servers::openapi(
-            servers.value,
-            servers.document.base.as_ref(),
-            &servers.site,
-            diagnostics,
-        );
+    if let Some(servers) = operation.child("servers") {
+        if operation.duplicate("servers") || !empty_list(servers.value) {
+            return openapi_deployments(servers, diagnostics);
+        }
     }
     match item.field("servers") {
         Some(Field::Overlap) => return Vec::new(),
-        Some(Field::Declared { location, .. }) if !empty_list(location.value) => {
-            return servers::openapi(
-                location.value,
-                location.document.base.as_ref(),
-                &location.site,
+        Some(Field::Declared { location, .. })
+            if !empty_list(location.value)
+                || location.document.ambiguous_path(&location.site.pointer) =>
+        {
+            return openapi_deployments(
+                Located {
+                    site: location.site.clone(),
+                    ..*location
+                },
                 diagnostics,
             );
         }
@@ -224,10 +308,30 @@ fn deployments(
     }
     let implicit = serde_json::json!([{"url": "/"}]);
     let servers = entry.value.get("servers").filter(|list| !empty_list(list));
+    openapi_deployments(
+        Located {
+            value: servers.unwrap_or(&implicit),
+            document: entry,
+            site: entry.site(vec!["servers".into()]),
+        },
+        diagnostics,
+    )
+}
+
+fn openapi_deployments(
+    servers: Located<'_, '_>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<servers::Deployment> {
+    if servers.document.ambiguous_path(&servers.site.pointer)
+        || servers.document.duplicates_under(&servers.site.pointer)
+    {
+        diagnostics.push(Diagnostic::new("duplicate_member", "server", servers.site));
+        return Vec::new();
+    }
     servers::openapi(
-        servers.unwrap_or(&implicit),
-        entry.base.as_ref(),
-        &entry.site(vec!["servers".into()]),
+        servers.value,
+        servers.document.base.as_ref(),
+        &servers.site,
         diagnostics,
     )
 }
@@ -236,12 +340,12 @@ fn empty_list(value: &Value) -> bool {
     value.as_array().is_some_and(Vec::is_empty)
 }
 
-fn entry_value(input: &AdmittedSchemaInput<'_>) -> Result<Value, SchemaError> {
+pub(super) fn entry_value(input: &AdmittedSchemaInput<'_>) -> Result<Parsed, SchemaError> {
     if input.entry.tree != input.snapshot.tree() {
         return Err(SchemaError::EntryTree);
     }
     if input.entry.format == crate::revision::Format::Yaml {
         return Err(SchemaError::Yaml);
     }
-    serde_json::from_slice(input.entry.bytes).map_err(SchemaError::Json)
+    parse_json(input.entry.bytes).map_err(SchemaError::Json)
 }

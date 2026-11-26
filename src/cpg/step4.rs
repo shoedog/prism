@@ -63,6 +63,7 @@ impl CodePropertyGraph {
         let mut without_cfg = BTreeSet::new();
         {
             let view = dfg.assembly_view();
+            let mut signature_labels = BTreeMap::new();
             // Probe the supplemental map with existing IDs rather than building
             // an owned ExactFlowEdge map over every legacy edge.
             let conflicts: BTreeSet<_> = view
@@ -72,7 +73,19 @@ impl CodePropertyGraph {
                     let legacy = view
                         .label(f, t)
                         .unwrap_or(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
-                    (legacy != exact).then(|| binding(view.location(f)))
+                    if legacy == exact {
+                        return None;
+                    }
+                    let from = view.location(f);
+                    if exact == FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                        && files.get(&from.file).is_some_and(|file| {
+                            crate::data_flow::is_s1_signature_pair(file, from, view.location(t))
+                        })
+                    {
+                        signature_labels.insert((f, t), exact);
+                        return None;
+                    }
+                    Some(binding(from))
                 })
                 .collect();
             if !conflicts.is_empty() {
@@ -93,14 +106,18 @@ impl CodePropertyGraph {
                     endpoints.get(t, files, var_index, exact_var_index, graph),
                 ) {
                     let from_loc = view.location(f);
-                    let confidence = view.label(f, t).unwrap_or_else(|| {
-                        without_cfg.insert((
-                            from_loc.file.clone(),
-                            from_loc.function.clone(),
-                            from_loc.function_start_line,
-                        ));
-                        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
-                    });
+                    let confidence = signature_labels
+                        .get(&(f, t))
+                        .copied()
+                        .or_else(|| view.label(f, t))
+                        .unwrap_or_else(|| {
+                            without_cfg.insert((
+                                from_loc.file.clone(),
+                                from_loc.function.clone(),
+                                from_loc.function_start_line,
+                            ));
+                            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)
+                        });
                     if materialized.insert((from, to, confidence)) {
                         legacy_labels
                             .entry((from, to))

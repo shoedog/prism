@@ -1,7 +1,7 @@
 use crate::revision::Blob;
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) struct Site {
+pub struct Site {
     pub file: String,
     pub tree: String,
     pub blob: String,
@@ -26,7 +26,7 @@ impl Site {
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) struct Diagnostic {
+pub struct Diagnostic {
     pub code: &'static str,
     pub scope: &'static str,
     pub site: Site,

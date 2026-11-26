@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
 import re
 import stat
 
@@ -17,6 +18,22 @@ COMMIT_TOKEN = re.compile(r"[0-9a-fA-F]{7,40}")
 STEP_ID = re.compile(r"[A-Za-z0-9_-]+")
 VERSION = "version.stdout"
 VERSION_STDERR = "version.stderr"
+ARTIFACT_KEYS = frozenset({"sha256", "bytes"})
+# FORMATS section 2 record shapes: (required, optional). Optional members are the
+# additive S1 fields, validated when present. Nothing else may appear.
+TOP_KEYS = (frozenset({"schema", "kit_commit", "start", "end", "status", "binary", "corpus",
+                       "prediction", "gate_sha256", "gate_step_id", "options", "version_command",
+                       "commands", "guard", "host", "artifacts"}), frozenset({"kit_dirty"}))
+BINARY_KEYS = (frozenset({"path", "sha256", "version"}), frozenset())
+CORPUS_KEYS = (frozenset({"key", "commit", "root", "pin_check", "manifest_sha256", "tree_sha256",
+                          "input_sha256", "end_input_sha256", "input_state_sha256",
+                          "end_input_state_sha256"}), frozenset())
+VERSION_KEYS = (frozenset({"argv", "env", "exit", "guard_status", "start", "end", "stdout_sha256",
+                           "stdout_bytes", "stderr"}), frozenset())
+COMMAND_KEYS = (frozenset({"id", "argv", "env", "output", "output_sha256", "bytes", "stderr",
+                           "exit", "guard_status", "start", "end"}), frozenset())
+GUARD_KEYS = (frozenset({"path", "limit_gb"}), frozenset({"sha256", "quiet_helper_sha256"}))
+HOST_KEYS = (frozenset({"platform", "cpus", "env"}), frozenset())
 GUARD_EXITS = {"host_quiet": 75, "rss_unavailable": 76, "rss_limit": 137, "guard_error": 1}
 
 
@@ -29,6 +46,23 @@ def trace_settings(values):
             raise ValueError(f"invalid or repeated trace setting {setting!r}")
         result[name] = value
     return result
+
+
+def check_env_map(mapping, what, *, reserved=False):
+    """Validate one environment map on its ORIGINAL keys and values.
+
+    Rule: every map whose keys the format defines is validated on its original keys,
+    never on a re-parsed join (a key such as ``PRISM_TRACE=x`` joined with its value
+    would re-parse as the valid name ``PRISM_TRACE``). ``reserved`` admits the kit's
+    own byte switch, which only a recorded command environment may carry.
+    """
+    if not isinstance(mapping, dict):
+        raise ValueError(f"invalid {what} environment")
+    for name, value in mapping.items():
+        if (not isinstance(name, str) or not TRACE_NAME.fullmatch(name)
+                or name == EDGE_BYTES and not reserved
+                or not isinstance(value, str) or "\0" in value):
+            raise ValueError(f"invalid {what} environment key {name!r}")
 
 
 def valid_version_pin(pin):
@@ -55,6 +89,14 @@ def matches_version(version, pin):
         return False
     return token == pin or bool(COMMIT_TOKEN.fullmatch(commit) and COMMIT_TOKEN.fullmatch(pin)
                                 and commit.lower().startswith(pin.lower()))
+
+
+def closed(record, shape, name):
+    """Require a JSON object with exactly the declared members, optional ones aside."""
+    required, optional = shape
+    if not isinstance(record, dict) or not required <= record.keys() <= required | optional:
+        raise ValueError(f"invalid {name} record: members must be exactly those defined")
+    return record
 
 
 def shell_exit(code):
@@ -108,6 +150,18 @@ def analysis_commands(binary, root, options):
 
 def artifact(path):
     return {"sha256": sha256_file(path), "bytes": path.stat().st_size}
+
+
+def verified_bytes(path, record):
+    """Read one receipt-bound artifact once and verify the bytes returned."""
+    if not stat.S_ISREG(path.lstat().st_mode):
+        raise ValueError(f"unbound measurement artifact: {path.name}")
+    data = path.read_bytes()
+    if (not isinstance(record, dict) or record.keys() != ARTIFACT_KEYS
+            or record["sha256"] != hashlib.sha256(data).hexdigest()
+            or type(record["bytes"]) is not int or record["bytes"] != len(data)):
+        raise ValueError(f"unbound measurement artifact: {path.name}")
+    return data
 
 
 def is_digest(value):
@@ -179,7 +233,7 @@ def _check_output(command, actual, sha_key, size_key):
         raise ValueError("command output digest or size mismatch")
 
 
-def admit(directory, *, selected=(), entries=None):
+def admit(directory, *, selected=(), entries=None, with_digest=False):
     """Read one successful receipt and verify every artifact, plus selected data.
 
     Consumer-specific stream schemas and cross-arm decisions are applied by the
@@ -187,7 +241,8 @@ def admit(directory, *, selected=(), entries=None):
     manifest-bound receipt is checked against the effective corpus registry.
     """
     try:
-        return _admit(directory, selected, entries)
+        record, data = _admit(directory, selected, entries)
+        return (record, hashlib.sha256(data).hexdigest()) if with_digest else record
     except (OSError, KeyError, TypeError, AttributeError) as error:
         raise ValueError(f"invalid measurement receipt: {error}") from error
 
@@ -196,10 +251,15 @@ def _admit(directory, selected, entries):
     path = directory / "receipt.json"
     if not stat.S_ISREG(path.lstat().st_mode):
         raise ValueError("receipt must be a regular file")
-    receipt = json_object(path.read_bytes())
+    data = path.read_bytes()
+    receipt = json_object(data)
     if receipt.get("schema") != SCHEMA or receipt.get("status") != "ok":
         raise ValueError("expected a successful supported measurement receipt")
 
+    closed(receipt, TOP_KEYS, "receipt")
+    for name, shape in (("binary", BINARY_KEYS), ("corpus", CORPUS_KEYS), ("guard", GUARD_KEYS),
+                        ("host", HOST_KEYS), ("version_command", VERSION_KEYS)):
+        closed(receipt[name], shape, name)
     gate_binding(receipt["gate_sha256"], receipt["gate_step_id"])
     _check_provenance(receipt)
     binary, corpus, options = (receipt[key] for key in ("binary", "corpus", "options"))
@@ -229,7 +289,7 @@ def _admit(directory, selected, entries):
             or options["cache"] != "no-cache" or not isinstance(options["trace_env"], dict)
             or any(not isinstance(value, str) for value in options["trace_env"].values())):
         raise ValueError("invalid measurement options")
-    trace_settings(f"{name}={value}" for name, value in options["trace_env"].items())
+    check_env_map(options["trace_env"], "trace")
 
     expected = analysis_commands(binary["path"], corpus["root"], options)
     artifacts = receipt["artifacts"]
@@ -237,17 +297,21 @@ def _admit(directory, selected, entries):
     names.update(path for _, _, _, stdout, stderr in expected for path in (stdout, stderr))
     if not isinstance(artifacts, dict) or artifacts.keys() != names:
         raise ValueError("measurement artifacts do not match required output set")
-    for name in sorted(names):
+    # The version output is decoded below, so it is read once, with its hash taken
+    # from the bytes that are decoded; every other artifact is hashed here.
+    version_bytes = verified_bytes(directory / VERSION, artifacts[VERSION])
+    for name in sorted(names - {VERSION}):
         path = directory / name
         record = artifacts[name]
         if (not stat.S_ISREG(path.lstat().st_mode) or not isinstance(record, dict)
-                or type(record.get("bytes")) is not int or artifact(path) != record):
+                or record.keys() != ARTIFACT_KEYS or type(record["bytes"]) is not int
+                or artifact(path) != record):
             raise ValueError(f"unbound measurement artifact: {name}")
 
     version = receipt["version_command"]
     _check_command(version, [binary["path"], "--version"], {}, VERSION_STDERR)
     _check_output(version, artifacts[VERSION], "stdout_sha256", "stdout_bytes")
-    if binary["version"] != (directory / VERSION).read_bytes().decode("utf-8").strip():
+    if binary["version"] != version_bytes.decode("utf-8").strip():
         raise ValueError("version output differs from the recorded version")
     commands = receipt["commands"]
     if not isinstance(commands, list) or len(commands) != len(expected):
@@ -256,6 +320,8 @@ def _admit(directory, selected, entries):
     if selected - {entry[0] for entry in expected}:
         raise ValueError("selected measurement output was not requested")
     for command, (name, argv, env, stdout, stderr) in zip(commands, expected):
+        closed(command, COMMAND_KEYS, "command")
+        check_env_map(command.get("env"), "command", reserved=True)
         _check_command(command, argv, env, stderr)
         if command.get("id") != name or command.get("output") != stdout:
             raise ValueError("analysis command has the wrong output role")
@@ -263,8 +329,8 @@ def _admit(directory, selected, entries):
         if name in selected:
             path = directory / stdout
             if stdout.endswith(".json"):
-                json_object(path.read_bytes())
+                json_object(verified_bytes(path, artifacts[stdout]))
             else:
-                for _ in jsonl_objects(path):
+                for _ in jsonl_objects(path, artifacts[stdout]):
                     pass
-    return receipt
+    return receipt, data

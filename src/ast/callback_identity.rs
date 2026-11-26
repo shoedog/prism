@@ -298,6 +298,27 @@ impl ParsedFile {
         self.js_ts_binding_scope_at(def_byte, name).map(|s| s.0)
     }
 
+    /// Parameter decorators evaluate outside the decorated callable's formals, but
+    /// still see bindings introduced inside the decorator expression itself.
+    pub(crate) fn js_ts_pattern_decorator_scope(
+        &self,
+        operand: Node<'_>,
+        name: &str,
+        decorated: &[Node<'_>],
+    ) -> Option<usize> {
+        let boundaries = self.language.callable_boundary_node_types();
+        let mut ancestor = operand.parent();
+        while let Some(scope) = ancestor {
+            if !decorated.contains(&scope)
+                && self.js_ts_scope_binds(scope, &boundaries, name, operand.start_byte())
+            {
+                return Some(scope.id());
+            }
+            ancestor = scope.parent();
+        }
+        None
+    }
+
     /// Scope identity and visibility span of a binding at an evaluated byte.
     /// Callable body vars exclude defaults; method keys exclude all formals.
     pub(super) fn js_ts_binding_scope_at_uncached(
@@ -868,7 +889,7 @@ impl ParsedFile {
         }
     }
 
-    pub(super) fn js_ts_decode_identifier_text(text: &str) -> Option<String> {
+    pub(crate) fn js_ts_decode_identifier_text(text: &str) -> Option<String> {
         let mut chars = text.chars();
         let mut decoded = String::new();
         while let Some(c) = chars.next() {
