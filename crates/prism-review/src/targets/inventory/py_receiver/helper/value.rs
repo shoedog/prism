@@ -5,6 +5,7 @@ use crate::targets::inventory::{
     python::source::{children, ungroup},
     Family, UnprovenCause,
 };
+use prism::ast::ParsedFile;
 use tree_sitter::Node;
 
 pub(super) enum HelperResult<'tree> {
@@ -66,7 +67,8 @@ impl<'tree> Resolver<'_, 'tree> {
                 == definition
                     .child(0)
                     .is_some_and(|token| token.kind() == "async");
-        let known_none = (!returns.is_empty() || Completion::suite(body).normal)
+        let known_none = (!returns.is_empty()
+            || Completion::suite(self.parsed, body) == Completion::Completes)
             && returns
                 .iter()
                 .all(|(value, _, _)| value.is_none_or(|value| value.kind() == "none"));
@@ -185,101 +187,110 @@ impl<'tree> Resolver<'_, 'tree> {
     }
 }
 
-/// Bounded witnesses for reaching the end of a suite or breaking its enclosing loop.
-#[derive(Default)]
-struct Completion {
-    normal: bool,
-    breaks: bool,
+/// Bounded witnesses for reaching the end of a suite.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Completion {
+    Completes,
+    Never,
+    Unknown,
+}
+
+#[derive(PartialEq, Eq)]
+enum Condition {
+    True,
+    False,
+    Either,
+    Unknown,
 }
 
 impl Completion {
-    const NORMAL: Self = Self {
-        normal: true,
-        breaks: false,
-    };
-
-    fn suite(body: Node<'_>) -> Self {
+    fn suite(parsed: &ParsedFile, body: Node<'_>) -> Self {
         let mut statements = children(body).peekable();
         if body.has_error() || statements.peek().is_none() {
-            return Self::default();
+            return Self::Unknown;
         }
-        let mut exits = Self::NORMAL;
         for statement in statements {
-            if !exits.normal {
-                break;
+            let completion = Self::statement(parsed, statement);
+            if completion != Self::Completes {
+                return completion;
             }
-            let next = Self::statement(statement);
-            exits.normal = next.normal;
-            exits.breaks |= next.breaks;
         }
-        exits
+        Self::Completes
     }
 
-    fn statement(statement: Node<'_>) -> Self {
+    fn statement(parsed: &ParsedFile, statement: Node<'_>) -> Self {
         match statement.kind() {
-            "expression_statement"
-            | "pass_statement"
-            | "delete_statement"
-            | "import_statement"
-            | "import_from_statement"
-            | "global_statement"
-            | "function_definition" => Self::NORMAL,
-            "break_statement" => Self {
-                normal: false,
-                breaks: true,
-            },
-            "if_statement" => Self::conditional(statement),
-            "while_statement" => match Self::literal_condition(statement) {
-                Some(true) => Self {
-                    normal: Self::body(statement, "body").breaks,
-                    breaks: false,
-                },
-                Some(false) => statement
-                    .child_by_field_name("alternative")
-                    .map_or(Self::NORMAL, |arm| Self::body(arm, "body")),
-                None => Self::default(),
-            },
-            // Transfers and compound statements without a modeled exit (including
-            // try, with and match) do not supply a fallthrough witness.
-            _ => Self::default(),
+            "expression_statement" | "pass_statement" => Self::Completes,
+            "raise_statement" | "return_statement" => Self::Never,
+            "if_statement" => Self::conditional(parsed, statement),
+            _ => Self::Unknown,
         }
     }
 
-    fn conditional(statement: Node<'_>) -> Self {
+    fn conditional(parsed: &ParsedFile, statement: Node<'_>) -> Self {
         let arms = std::iter::once(statement).chain(
             children(statement).filter(|arm| matches!(arm.kind(), "elif_clause" | "else_clause")),
         );
-        let mut exits = Self::default();
+        let mut exits = Self::Never;
+        let mut implicit_exit = Self::Completes;
         for arm in arms {
             let (field, condition) = if arm.kind() == "else_clause" {
-                ("body", Some(true))
+                ("body", Condition::True)
             } else {
-                ("consequence", Self::literal_condition(arm))
+                ("consequence", Condition::at(parsed, arm))
             };
-            if condition != Some(false) {
-                let branch = Self::body(arm, field);
-                exits.normal |= branch.normal;
-                exits.breaks |= branch.breaks;
+            match condition {
+                Condition::False => continue,
+                Condition::Unknown => return exits.or(Self::Unknown),
+                // A bare name can select an explicit arm. Without an else,
+                // it does not prove that control bypasses a non-completing arm.
+                Condition::Either => implicit_exit = Self::Unknown,
+                Condition::True => {}
             }
-            if condition == Some(true) {
+            let branch = arm
+                .child_by_field_name(field)
+                .map_or(Self::Unknown, |body| Self::suite(parsed, body));
+            exits = exits.or(branch);
+            if exits == Self::Completes || condition == Condition::True {
                 return exits;
             }
         }
-        exits.normal = true; // No arm need be taken.
-        exits
+        exits.or(implicit_exit)
     }
 
-    fn body(statement: Node<'_>, field: &str) -> Self {
-        statement
-            .child_by_field_name(field)
-            .map_or_else(Self::default, Self::suite)
+    fn or(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Completes, _) | (_, Self::Completes) => Self::Completes,
+            (Self::Unknown, _) | (_, Self::Unknown) => Self::Unknown,
+            (Self::Never, Self::Never) => Self::Never,
+        }
     }
+}
 
-    fn literal_condition(statement: Node<'_>) -> Option<bool> {
-        match ungroup(statement.child_by_field_name("condition")?).kind() {
-            "true" => Some(true),
-            "false" | "none" => Some(false),
-            _ => None,
+impl Condition {
+    fn at(parsed: &ParsedFile, arm: Node<'_>) -> Self {
+        let Some(condition) = arm.child_by_field_name("condition").map(ungroup) else {
+            return Self::Unknown;
+        };
+        match condition.kind() {
+            "true" => Self::True,
+            "false" | "none" => Self::False,
+            "identifier" => Self::Either,
+            "integer" => {
+                let digits = match parsed.node_text(&condition).as_bytes() {
+                    [b'0', b'x' | b'X' | b'o' | b'O' | b'b' | b'B', digits @ ..] => digits,
+                    digits => digits,
+                };
+                if digits
+                    .iter()
+                    .any(|byte| !matches!(byte, b'0' | b'_' | b'j' | b'J'))
+                {
+                    Self::True
+                } else {
+                    Self::False
+                }
+            }
+            _ => Self::Unknown,
         }
     }
 }

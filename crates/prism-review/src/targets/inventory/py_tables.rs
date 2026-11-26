@@ -249,11 +249,23 @@ pub(super) fn class_object(path: &str) -> &str {
         | "_collections_abc.MutableMapping"
         | "os.MutableMapping"
         | "typing.MutableMapping" => "collections.abc.MutableMapping",
-        "_collections_abc.Mapping" | "os.Mapping" | "typing.Mapping" => "collections.abc.Mapping",
+        "_collections_abc.Mapping"
+        | "cgi.Mapping"
+        | "os.Mapping"
+        | "selectors.Mapping"
+        | "typing.Mapping" => "collections.abc.Mapping",
         "_collections_abc.Collection" => "collections.abc.Collection",
         "_collections_abc.Sized" => "collections.abc.Sized",
         "_collections_abc.Iterable" => "collections.abc.Iterable",
         "_collections_abc.Container" => "collections.abc.Container",
         _ => path,
     }
+}
+
+pub(super) fn typing_mapping_alias(path: &str) -> bool {
+    matches!(path, "typing.Mapping" | "typing.MutableMapping")
+}
+
+pub(super) fn stdlib_class_or_typing_alias(path: &str) -> bool {
+    stdlib_classes::contains(class_object(path))
 }

@@ -46,11 +46,12 @@ fn conditional_helpers_supply_implicit_none_when_an_arm_completes() {
         ("    if True: raise Error\n    marker = 1", 7),
         ("    raise Error\n    marker = 1", 7),
         ("    if flag: return opaque()\n    marker = 1", 7),
+        ("    if flag: raise Error", 6),
+        ("    if opaque(): raise Error\n    else: pass", 7),
     ] {
         check(&scan(&helper_source(body), &[]), &path_read(line), None);
     }
     for body in [
-        "    if flag: raise Error",
         "    if flag: raise Error\n    else: marker = 1",
         "    if flag: raise Error\n    elif other: marker = 1\n    else: raise Error",
         "    if False: raise Error\n    marker = 1",
@@ -60,7 +61,8 @@ fn conditional_helpers_supply_implicit_none_when_an_arm_completes() {
 }
 
 #[test]
-fn while_helpers_supply_implicit_none_only_with_a_completion_witness() {
+fn loops_are_outside_the_fallthrough_accept_list() {
+    check(&scan(&helper_source("    pass"), &[]), &[], Some(NONE));
     for (body, line) in [
         ("    while True:\n        pass", 7),
         ("    while (True):\n        pass\n    marker = 1", 8),
@@ -68,17 +70,61 @@ fn while_helpers_supply_implicit_none_only_with_a_completion_witness() {
         ("    while True:\n        if False: break", 7),
         ("    while True:\n        raise Error\n        break", 8),
         ("    while False: pass\n    else: raise Error", 7),
+        ("    while True: break", 6),
+        ("    while True:\n        if flag: break", 7),
+        ("    while True: break\n    else: raise Error", 7),
+        ("    while False: raise Error", 6),
     ] {
         check(&scan(&helper_source(body), &[]), &path_read(line), None);
     }
-    for body in [
-        "    while True: break",
-        "    while True:\n        if flag: break",
-        "    while True: break\n    else: raise Error",
-        "    while False: raise Error",
-    ] {
-        check(&scan(&helper_source(body), &[]), &[], Some(NONE));
-    }
+}
+
+#[test]
+fn integer_conditions_do_not_create_phantom_completion_paths() {
+    check(
+        &scan(&helper_source("    if 0: raise Error"), &[]),
+        &[],
+        Some(NONE),
+    );
+    check(
+        &scan(&helper_source("    if 1: pass"), &[]),
+        &[],
+        Some(NONE),
+    );
+    check(
+        &scan(&helper_source("    if 1: raise Error"), &[]),
+        &path_read(6),
+        None,
+    );
+    check(
+        &scan(&helper_source("    if 0: pass\n    else: raise Error"), &[]),
+        &path_read(7),
+        None,
+    );
+}
+
+#[test]
+fn a_loop_with_only_a_dead_break_keeps_the_declaration() {
+    check(&scan(&helper_source("    pass"), &[]), &[], Some(NONE));
+    check(
+        &scan(&helper_source("    while True:\n        if 0: break"), &[]),
+        &path_read(7),
+        None,
+    );
+}
+
+#[test]
+fn async_helpers_need_the_same_completion_witness() {
+    let source = |body| {
+        format!("from pathlib import Path\nasync def make() -> Path:\n    {body}\nasync def read():\n    p = await make()\n    return p.read_text()\n")
+    };
+    check(&scan(&source("marker = 1"), &[]), &[], Some(NONE));
+    check(&scan(&source("return None"), &[]), &[], Some(NONE));
+    check(
+        &scan(&source("if 1: raise Error"), &[]),
+        &path_read(6),
+        None,
+    );
 }
 
 #[test]
@@ -96,6 +142,36 @@ fn opaque_compound_statements_do_not_supply_a_completion_witness() {
         ("    with opaque():\n        pass\n    marker = 1", 8),
     ] {
         check(&scan(&helper_source(body), &[]), &path_read(line), None);
+    }
+}
+
+#[test]
+fn recovered_empty_suites_do_not_supply_implicit_none() {
+    check(&scan(&helper_source("    pass"), &[]), &[], Some(NONE));
+    for body in ["", "    # comment only"] {
+        check(&scan(&helper_source(body), &[]), &path_read(6), None);
+    }
+}
+
+#[test]
+fn unsupported_straight_line_statements_do_not_supply_implicit_none() {
+    check(&scan(&helper_source("    opaque()"), &[]), &[], Some(NONE));
+    check(
+        &scan(
+            &helper_source("    def inner(): return None\n    return Path()"),
+            &[],
+        ),
+        &path_read(7),
+        None,
+    );
+    for body in [
+        "    import os",
+        "    from os import path",
+        "    del value",
+        "    global value",
+        "    def inner(): return Path()",
+    ] {
+        check(&scan(&helper_source(body), &[]), &path_read(6), None);
     }
 }
 
@@ -136,6 +212,180 @@ fn environ_get_follows_os_mapping_reexports() {
 #[test]
 fn environ_get_follows_typing_mapping_reexports() {
     check_mapping_reexports("typing");
+}
+
+fn check_environ_write(setup: &str, write: &str, rebound: bool) {
+    let source = format!(
+        "import os\n{setup}{write}\ndef read(key):\n    os.environ.get(key)\n    os.getenv(key)\n"
+    );
+    let line = 4 + setup.lines().count() as u64;
+    let getenv = ("config", "os.getenv", "exact", line + 1);
+    if rebound {
+        check(&scan(&source, &[]), &[getenv], Some(REBOUND));
+    } else {
+        check(
+            &scan(&source, &[]),
+            &[("config", "os.environ.get", "exact", line), getenv],
+            None,
+        );
+    }
+}
+
+#[test]
+fn environ_get_ignores_vars_writes_to_typing_alias_wrappers() {
+    for (setup, owner) in [
+        ("import typing\n", "typing.Mapping"),
+        (
+            "from typing import MutableMapping as M\nAlias = M\n",
+            "Alias",
+        ),
+    ] {
+        check_environ_write(setup, &format!("{owner}.get = replacement"), true);
+        check_environ_write(setup, &format!("vars({owner})['get'] = replacement"), false);
+    }
+}
+
+#[test]
+fn environ_get_ignores_dict_writes_to_typing_alias_wrappers() {
+    let setup = "import typing\nAlias = typing.Mapping\n";
+    check_environ_write(setup, "setattr(Alias, 'get', replacement)", true);
+    check_environ_write(setup, "Alias.__dict__['get'] = replacement", false);
+}
+
+#[test]
+fn environ_get_ignores_dunder_writes_to_typing_alias_wrappers() {
+    let setup = "import typing\nfrom collections.abc import Mapping\n";
+    check_environ_write(setup, "Mapping.__getattribute__ = replacement", true);
+    check_environ_write(
+        setup,
+        "typing.Mapping.__getattribute__ = replacement",
+        false,
+    );
+    check_environ_write(
+        setup,
+        "setattr(typing.Mapping, '__getattribute__', replacement)",
+        false,
+    );
+}
+
+#[test]
+fn environ_get_ignores_attribute_deletes_on_typing_alias_wrappers() {
+    let setup = "import typing\nfrom collections.abc import Mapping\n";
+    check_environ_write(setup, "delattr(Mapping, 'get')", true);
+    check_environ_write(setup, "del typing.Mapping.get", false);
+    check_environ_write(setup, "delattr(typing.Mapping, 'get')", false);
+}
+
+#[test]
+fn environ_get_follows_selectors_mapping_reexport() {
+    let setup = "import selectors\n";
+    check_environ_write(setup, "selectors.Mapping.sibling = replacement", false);
+    check_environ_write(setup, "selectors.Mapping.get = replacement", true);
+}
+
+#[test]
+fn environ_get_follows_cgi_mapping_reexport() {
+    let setup = "from cgi import Mapping as Imported\nAlias = Imported\n";
+    check_environ_write(setup, "Alias.sibling = replacement", false);
+    check_environ_write(setup, "Alias.get = replacement", true);
+}
+
+#[test]
+fn environ_lookup_distinguishes_class_stores_from_namespace_entries() {
+    let setup = "import builtins\nfrom collections.abc import Mapping\n";
+    for write in [
+        "setattr(os._Environ, '__getattribute__', replacement)",
+        "setattr(os.environ, '__class__', replacement_type)",
+        "vars(os.environ)['get'] = replacement",
+    ] {
+        check_environ_write(setup, write, true);
+    }
+    for write in [
+        "vars(os._Environ)['__getattribute__'] = replacement",
+        "os._Environ.__dict__['__getattribute__'] = replacement",
+        "vars(os._Environ)['__class__'] = replacement_type",
+        "os._Environ.__dict__['__class__'] = replacement_type",
+        "vars(os.environ)['__class__'] = replacement_type",
+        "os.environ.__dict__['__class__'] = replacement_type",
+        "vars(Mapping)['get'] = replacement",
+        "Mapping.__dict__['get'] = replacement",
+        "setattr(builtins.object, '__getattribute__', replacement)",
+    ] {
+        check_environ_write(setup, write, false);
+    }
+}
+
+#[test]
+fn platform_module_namespace_preserves_class_but_can_rebind_members() {
+    for module in ["posixpath", "ntpath"] {
+        let source = |write| {
+            format!("import os\nimport {module} as platform\nAlias = platform\n{write}\ndef read(p):\n    return os.path.getsize(p)\n")
+        };
+        for write in [
+            "setattr(Alias, '__class__', replacement_type)",
+            "vars(Alias)['getsize'] = replacement",
+            "Alias.__dict__['getsize'] = replacement",
+        ] {
+            check(&scan(&source(write), &[]), &[], Some(REBOUND));
+        }
+        for write in [
+            "vars(Alias)['__class__'] = replacement_type",
+            "Alias.__dict__['__class__'] = replacement_type",
+        ] {
+            check(
+                &scan(&source(write), &[]),
+                &[("filesystem", "os.path.getsize", "exact", 6)],
+                None,
+            );
+        }
+    }
+}
+
+#[test]
+fn declarations_ignore_read_only_class_namespaces() {
+    for (member, context, line) in [
+        ("read_text", "", 4),
+        ("__enter__", "    with p: pass\n", 5),
+        ("__exit__", "    with p: pass\n", 5),
+    ] {
+        let source = |write: &str| {
+            format!("from pathlib import Path, PosixPath as Concrete\n{write}\ndef read(p: Path):\n{context}    return p.read_text()\n")
+        };
+        check(
+            &scan(
+                &source(&format!("setattr(Concrete, '{member}', replacement)")),
+                &[],
+            ),
+            &[],
+            Some(REBOUND),
+        );
+        for base in ["vars(Concrete)", "Concrete.__dict__"] {
+            check(
+                &scan(&source(&format!("{base}['{member}'] = replacement")), &[]),
+                &path_read(line),
+                None,
+            );
+        }
+    }
+}
+
+#[test]
+fn declared_config_instances_keep_their_member_vetoes() {
+    let source = |write: &str| {
+        format!("from configparser import ConfigParser\ndef read(p: ConfigParser):\n    {write}\n    return p.read('config')\n")
+    };
+    check(
+        &scan(&source("vars(p)['sibling'] = replacement"), &[]),
+        &[("parse", "configparser.ConfigParser.read", "nameonly", 4)],
+        None,
+    );
+    for write in [
+        "setattr(p, 'read', replacement)",
+        "vars(p)['read'] = replacement",
+        "p.__dict__['read'] = replacement",
+    ] {
+        check(&scan(&source(write), &[]), &[], Some(REBOUND));
+    }
 }
 
 #[test]

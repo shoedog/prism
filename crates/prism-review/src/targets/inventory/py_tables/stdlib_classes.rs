@@ -47,6 +47,12 @@ const ENVIRON_MRO: &[&str] = &[
     "builtins.object",
 ];
 
+pub(super) fn contains(class: &str) -> bool {
+    [POSIX_MRO, WINDOWS_MRO, CONFIG_MRO, ENVIRON_MRO]
+        .iter()
+        .any(|mro| mro.contains(&class))
+}
+
 pub(super) fn constructor(class: &str) -> bool {
     matches!(class, PATH | CONFIG | RAW_CONFIG)
 }

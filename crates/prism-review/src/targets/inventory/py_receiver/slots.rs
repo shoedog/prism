@@ -154,8 +154,14 @@ impl<'tree> Resolver<'_, 'tree> {
     }
 
     pub(super) fn instance_method_rebound_at(&self, class: &str, method: &str, read: Read) -> bool {
-        self.reads_instance_member_at(class, "__getattribute__", read, |_| true)
-            || self.reads_instance_member_at(class, method, read, |_| true)
+        let reaches = |write: &Write| {
+            // The _Environ route skips writes to the immutable root class.
+            class != "os._Environ"
+                || !matches!(&write.slot, Slot::Member { object: Some(owner), .. }
+                    if owner == "builtins.object")
+        };
+        self.reads_instance_member_at(class, "__getattribute__", read, reaches)
+            || self.reads_instance_member_at(class, method, read, reaches)
     }
 
     pub(super) fn reads_member(&self, object: &str, key: &str, read: Read) -> bool {
