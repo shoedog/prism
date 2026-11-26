@@ -159,7 +159,6 @@ impl<'r, 'a> Reader<'r, 'a> {
             .map(|shape| shape.field_type.clone())
             .unwrap_or(Property::Unknown);
         let feasible = minimum == 0 || child.feasible;
-        tree.item_type_stopped = child.type_stopped;
         tree.child(PointerToken::ListItem, child, edge.depth);
         tree.uncertain_presence |= !feasible;
         (feasible, item_type)

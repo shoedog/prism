@@ -209,6 +209,9 @@ def check_p1c_rows():
             check_file(fixtures, side["fixture"], label)
             if "media_proof" in side:
                 check_file(fixtures, side["media_proof"], label)
+            if row["class"] == "fold3":
+                for reference in side.get("references", []):
+                    check_file(fixtures, reference["fixture"], label)
         expected_ids = set()
         for change in entry["changes"]:
             for side in ("before", "after"):
@@ -247,11 +250,21 @@ def check_p1c_rows():
         "fold2-server-document-checked", "fold2-unproved-scalar-to-object",
     }:
         raise ValueError(f"p1c_rows: unexpected fold2 rows {sorted(fold2)}")
-    variants = sum(counts.values()) - counts["control"] - len(minimum) - len(fold1) - len(fold2)
+    fold3 = {row_id for row_id, (_, row) in rows.items() if row["class"] == "fold3"}
+    if len(fold3) != 70 or any(not row_id.startswith("fold3-") for row_id in fold3):
+        raise ValueError(f"p1c_rows: unexpected fold3 rows {sorted(fold3)}")
+    for row_id in fold3:
+        entry = expectations[row_id]
+        if (not entry.get("reverse") or entry.get("subset_limits")
+                or (entry["limits"] and not entry.get("controls"))):
+            raise ValueError(f"p1c_rows: {row_id} requires exact limits, a reverse run and an edit control for stops")
+    variants = (sum(counts.values()) - counts["control"] - len(minimum)
+                - len(fold1) - len(fold2) - len(fold3))
     print(f"p1c_rows: {counts['control']} controls, "
           f"{len(minimum)} minimum assertions and {variants} variants — OK")
     print(f"p1c_rows: {len(fold1)} fold1 rows — OK")
     print(f"p1c_rows: {len(fold2)} fold2 rows — OK")
+    print(f"p1c_rows: {len(fold3)} fold3 rows — OK")
 
 
 def main():

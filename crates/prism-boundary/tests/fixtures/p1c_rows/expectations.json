@@ -576,7 +576,9 @@
     "changes": [],
     "limits": [
       {"side": "Before", "scope": "root:req:POST /p", "claim": "FieldPresence", "reason": "scalar_feasibility_unchecked", "pointer": "/x/[]"},
-      {"side": "After", "scope": "root:req:POST /p", "claim": "FieldPresence", "reason": "scalar_feasibility_unchecked", "pointer": "/x/[]"}
+      {"side": "After", "scope": "root:req:POST /p", "claim": "FieldPresence", "reason": "scalar_feasibility_unchecked", "pointer": "/x/[]"},
+      {"side": "Before", "scope": "root:req:POST /p", "claim": "Property(ItemType)", "reason": "scalar_feasibility_unchecked", "pointer": "/x"},
+      {"side": "After", "scope": "root:req:POST /p", "claim": "Property(ItemType)", "reason": "scalar_feasibility_unchecked", "pointer": "/x"}
     ],
     "equal_content": true, "changed_bytes": true, "controls": ["control-field-items-only"]
   },
@@ -1025,5 +1027,628 @@
     "changes": [],
     "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "Property(Required)", "reason": "requiredness_missing", "pointer": "/x"}],
     "reverse": true, "controls": ["control-field-required-added"]
+  },
+  "fold3-checked": {
+    "case": "Both type edits have checked slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/checked.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}, {"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": "string"}}],
+    "limits": [],
+    "reverse": true
+  },
+  "fold3-checked-30": {
+    "case": "Both type edits have checked slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-30.json"}, {"fixture": "fold3/checked-30.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}, {"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": "string"}}],
+    "limits": [],
+    "reverse": true
+  },
+  "fold3-checked-swagger": {
+    "case": "Both type edits have checked slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-swagger.json"}, {"fixture": "fold3/checked-swagger.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}, {"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": "string"}}],
+    "limits": [],
+    "reverse": true
+  },
+  "fold3-a2-scalar-pattern": {
+    "case": "scalar_feasibility_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/a2-before.json", "slots": {"field:resp:GET /loom:200#/field": {"type": "integer"}, "field:resp:GET /loom:200#/list": {"item_type": "integer"}}}, {"fixture": "fold3/a2-scalar-pattern.json", "slots": {"field:resp:GET /loom:200#/field": {"type": "branch_dependent"}, "field:resp:GET /loom:200#/list": {"item_type": ["integer", "string"]}}}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-a2-checked"]
+  },
+  "fold3-a2-checked": {
+    "case": "Removing only the feasibility stop exposes the type set on both slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/a2-before.json", "slots": {"field:resp:GET /loom:200#/field": {"type": "integer"}, "field:resp:GET /loom:200#/list": {"item_type": "integer"}}}, {"fixture": "fold3/a2-checked.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": ["integer", "string"]}}, {"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": ["integer", "string"]}}],
+    "limits": [],
+    "reverse": true
+  },
+  "fold3-scalar-multiple": {
+    "case": "scalar_feasibility_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/scalar-multiple.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-scalar-interval": {
+    "case": "scalar_feasibility_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/scalar-interval.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-enum-pattern": {
+    "case": "scalar_feasibility_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/enum-pattern.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-enum-multiple": {
+    "case": "scalar_feasibility_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/enum-multiple.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "scalar_feasibility_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-duplicate-member": {
+    "case": "duplicate_member withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/duplicate-member.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-schema-form": {
+    "case": "schema_form_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/schema-form.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list", "presence": [["field:resp:GET /loom:200#/list", "Present"], [null, "Unknown"]], "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/list", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-malformed-items": {
+    "case": "schema_form_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/malformed-items.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-array-without-items": {
+    "case": "schema_form_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-30.json"}, {"fixture": "fold3/array-without-items.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "schema_form_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked-30"]
+  },
+  "fold3-dialect-schema": {
+    "case": "schema_dialect_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/dialect-schema.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "schema_dialect_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "schema_dialect_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "schema_dialect_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "schema_dialect_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-dialect-vocabulary": {
+    "case": "schema_dialect_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/dialect-vocabulary.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "schema_dialect_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "schema_dialect_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "schema_dialect_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "schema_dialect_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-direction-flags": {
+    "case": "direction_flags_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/direction-flags.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "direction_flags_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "direction_flags_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "direction_flags_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "direction_flags_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-direction-policy": {
+    "case": "direction_policy_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-required.json"}, {"fixture": "fold3/direction-policy.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "direction_policy_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "direction_policy_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list", "presence": [["field:resp:GET /loom:200#/list", "Present"], [null, "Unknown"]], "reason": "field_presence_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-required-unreadable": {
+    "case": "required_unreadable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/required-unreadable.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "required_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "required_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "required_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "required_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-indexed-tuple": {
+    "case": "indexed_tuple withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/indexed-tuple.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-indexed-tuple-legacy": {
+    "case": "indexed_tuple withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-30.json"}, {"fixture": "fold3/indexed-tuple-legacy.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "indexed_tuple", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked-30"]
+  },
+  "fold3-enum-unreadable": {
+    "case": "enum_unreadable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/enum-unreadable.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-enum-empty-swagger": {
+    "case": "enum_unreadable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-swagger.json"}, {"fixture": "fold3/enum-empty-swagger.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "enum_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked-swagger"]
+  },
+  "fold3-enum-compound": {
+    "case": "unsupported_schema_keyword withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/enum-compound.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-const-compound": {
+    "case": "unsupported_schema_keyword withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/const-compound.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-const-signature": {
+    "case": "const_signature_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/const-signature.json"}],
+    "changes": [{"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": "string"}}],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "const_signature_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "const_signature_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-nullable-scope": {
+    "case": "nullable_scope_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-30.json"}, {"fixture": "fold3/nullable-scope.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "nullable_scope_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "nullable_scope_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "nullable_scope_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "nullable_scope_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "nullable_scope_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked-30"]
+  },
+  "fold3-nullable-allof": {
+    "case": "nullable_composition_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-30.json"}, {"fixture": "fold3/nullable-allof.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "nullable_composition_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "nullable_composition_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "nullable_composition_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "nullable_composition_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked-30"]
+  },
+  "fold3-nullable-oneof": {
+    "case": "nullable_composition_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-30.json"}, {"fixture": "fold3/nullable-oneof.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "nullable_composition_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "nullable_composition_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "nullable_composition_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "nullable_composition_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked-30"]
+  },
+  "fold3-array-uniqueness": {
+    "case": "array_uniqueness_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/array-uniqueness.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "array_uniqueness_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "array_uniqueness_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "array_uniqueness_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "array_uniqueness_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-discriminator-notice": {
+    "case": "discriminator_inheritance withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-swagger.json"}, {"fixture": "fold3/discriminator-notice.json"}],
+    "changes": [],
+    "limits": [{"claim": "Property(Type)", "pointer": "/field", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Coverage", "pointer": "/field", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Coverage", "pointer": "/list/[]", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked-swagger"]
+  },
+  "fold3-discriminator-mapping": {
+    "case": "discriminator_inheritance withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/discriminator-mapping.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-extension": {
+    "case": "schema_extension_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/extension.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "schema_extension_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "schema_extension_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "schema_extension_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "schema_extension_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-keyword-unreadable": {
+    "case": "schema_keyword_unreadable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/keyword-unreadable.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "schema_keyword_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "schema_keyword_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "schema_keyword_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "schema_keyword_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-not": {
+    "case": "unsupported_schema_keyword withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/not.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-conditional": {
+    "case": "unsupported_schema_keyword withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/conditional.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-keyword-in-anyof": {
+    "case": "unsupported_schema_keyword withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/keyword-in-anyof.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-overlapping-oneof": {
+    "case": "unsupported_schema_keyword withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/overlapping-oneof.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-allof-unreadable": {
+    "case": "composition_unreadable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/allof-unreadable.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-anyof-unreadable": {
+    "case": "composition_unreadable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/anyof-unreadable.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-oneof-unreadable": {
+    "case": "composition_unreadable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/oneof-unreadable.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-composition-invalid-arm": {
+    "case": "composition_unreadable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/composition-invalid-arm.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "composition_unreadable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-composition-product-budget": {
+    "case": "composition_budget withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/composition-product-budget.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-composition-union-budget": {
+    "case": "composition_budget withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/composition-union-budget.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-composition-step-budget": {
+    "case": "composition_budget withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/composition-step-budget.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "composition_budget", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-scope": {
+    "case": "reference_scope withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-scope.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-anchor": {
+    "case": "reference_scope withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-anchor.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-unresolved": {
+    "case": "reference_unresolved withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-unresolved.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-target-form": {
+    "case": "reference_unresolved withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-target-form.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-pointer-invalid": {
+    "case": "reference_unresolved withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-pointer-invalid.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-uri-invalid": {
+    "case": "reference_unresolved withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-uri-invalid.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-base": {
+    "case": "retrieval_base_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-base.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "retrieval_base_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "retrieval_base_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "retrieval_base_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "retrieval_base_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "retrieval_base_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "retrieval_base_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "retrieval_base_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-unavailable": {
+    "case": "reference_blob_unavailable withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-unavailable.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "reference_blob_unavailable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_blob_unavailable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "reference_blob_unavailable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "reference_blob_unavailable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "reference_blob_unavailable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_blob_unavailable", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_blob_unavailable", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-ambiguous": {
+    "case": "reference_blob_ambiguous withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-ambiguous.json", "references": [{"fixture": "fold3/target-string.json", "uri": "https://example.invalid/schema"}, {"fixture": "fold3/target-integer.json", "uri": "https://example.invalid/schema"}]}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "reference_blob_ambiguous", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_blob_ambiguous", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "reference_blob_ambiguous", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "reference_blob_ambiguous", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "reference_blob_ambiguous", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_blob_ambiguous", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_blob_ambiguous", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-target-checked"]
+  },
+  "fold3-target-checked": {
+    "case": "A single admitted reference supplies both checked type edits",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/target-checked.json", "references": [{"fixture": "fold3/target-string.json", "uri": "https://example.invalid/schema"}]}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}, {"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": "string"}}],
+    "limits": [],
+    "reverse": true
+  },
+  "fold3-reference-duplicate-target": {
+    "case": "duplicate_member withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-duplicate-target.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "duplicate_member", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-cycle": {
+    "case": "recursive withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-cycle.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Format)", "pointer": "/field", "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Enum)", "pointer": "/field", "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-siblings": {
+    "case": "ref_siblings_unchecked withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-swagger.json"}, {"fixture": "fold3/reference-siblings.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "ref_siblings_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "ref_siblings_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "ref_siblings_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "ref_siblings_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-reference-siblings-checked"]
+  },
+  "fold3-reference-siblings-checked": {
+    "case": "Removing Swagger reference siblings restores both checked slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-swagger.json"}, {"fixture": "fold3/reference-siblings-checked.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}, {"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": "string"}}],
+    "limits": [],
+    "reverse": true
+  },
+  "fold3-branch-dependent": {
+    "case": "branch_dependent withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/branch-dependent.json"}],
+    "changes": [],
+    "limits": [{"claim": "Property(Type)", "pointer": "/field", "reason": "branch_dependent", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "branch_dependent", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-reference-stopped-in-anyof": {
+    "case": "reference_unresolved withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/reference-stopped-in-anyof.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]", "reason": "reference_unresolved", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-recursive-required": {
+    "case": "recursive withholds only the affected type slots",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-required.json"}, {"fixture": "fold3/recursive-required.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "recursive", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list", "presence": [["field:resp:GET /loom:200#/list", "Present"], [null, "Unknown"]], "reason": "field_presence_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-optional-child": {
+    "case": "An optional descendant stop does not withhold a checked ancestor slot",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/optional-child-before.json"}, {"fixture": "fold3/optional-child-after.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}, {"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "object"}, "after_slots": {"item_type": ["object", "string"]}}],
+    "limits": [{"claim": "FieldPresence", "pointer": "/list/[]/nested", "presence": [["field:resp:GET /loom:200#/list/[]/nested", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/list/[]/nested", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-required-object-witness": {
+    "case": "A required child stop withholds its parent's effective type set",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/required-object-witness-before.json"}, {"fixture": "fold3/required-object-witness.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "field_presence_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "field_presence_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/field/nested", "presence": [["field:resp:GET /loom:200#/field/nested", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field/nested", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "field_presence_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]/nested", "presence": [["field:resp:GET /loom:200#/list/[]/nested", "Present"], [null, "Unknown"]], "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/list/[]/nested", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-required-array-witness": {
+    "case": "A required child stop withholds its parent's effective type set",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/required-array-witness-before.json"}, {"fixture": "fold3/required-array-witness.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:resp:GET /loom:200#/field", "Present"], [null, "Unknown"]], "reason": "field_presence_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "field_presence_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/field", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/field/[]", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "field_presence_unchecked", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "FieldPresence", "pointer": "/list/[]/[]", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-depth": {
+    "case": "A depth notice and a collapsed item stop keep their respective slot authority",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/depth-before.json"}, {"fixture": "fold3/depth-after.json"}],
+    "changes": [],
+    "limits": [{"claim": "Property(Type)", "pointer": "/next/next/next/next/next/next/next/next/next/next/next/next/next/next/next/list", "reason": "depth_cut", "scope": "root:resp:GET /loom:200", "side": "Before"}, {"claim": "Property(ItemType)", "pointer": "/next/next/next/next/next/next/next/next/next/next/next/next/next/next/next/list", "reason": "depth_cut", "scope": "root:resp:GET /loom:200", "side": "Before"}, {"claim": "Coverage", "pointer": "/next/next/next/next/next/next/next/next/next/next/next/next/next/next/next/list", "reason": "depth_cut", "scope": "root:resp:GET /loom:200", "side": "Before"}, {"claim": "Property(Type)", "pointer": "/next/next/next/next/next/next/next/next/next/next/next/next/next/next/next/field", "reason": "depth_cut", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Coverage", "pointer": "/next/next/next/next/next/next/next/next/next/next/next/next/next/next/next/field", "reason": "depth_cut", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/next/next/next/next/next/next/next/next/next/next/next/next/next/next/next/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/next/next/next/next/next/next/next/next/next/next/next/next/next/next/next/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Coverage", "pointer": "/next/next/next/next/next/next/next/next/next/next/next/next/next/next/next/list", "reason": "unsupported_schema_keyword", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-notice-independent-item": {
+    "case": "A field stop leaves a different checked item slot reportable",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-swagger.json"}, {"fixture": "fold3/notice-independent-item.json"}],
+    "changes": [{"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": "string"}}],
+    "limits": [{"claim": "Property(Type)", "pointer": "/field", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Coverage", "pointer": "/field", "reason": "discriminator_inheritance", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked-swagger"]
+  },
+  "fold3-encoding-checked": {
+    "case": "Removing the field-local encoding stop restores the checked type edit",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/encoding-before.json"}, {"fixture": "fold3/encoding-checked.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:req:POST /loom#/field", "Present"], "after": ["field:req:POST /loom#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}],
+    "limits": [],
+    "reverse": true
+  },
+  "fold3-encoding": {
+    "case": "A media encoding stop at the field pointer withholds the type slot",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/encoding-before.json"}, {"fixture": "fold3/encoding-after.json"}],
+    "changes": [],
+    "limits": [{"claim": "FieldPresence", "pointer": "/field", "presence": [["field:req:POST /loom#/field", "Present"], [null, "Unknown"]], "reason": "media_encoding_unchecked", "scope": "root:req:POST /loom", "side": "After"}, {"claim": "Property(Type)", "pointer": "/field", "reason": "media_encoding_unchecked", "scope": "root:req:POST /loom", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-encoding-checked"]
+  },
+  "fold3-parent-scope": {
+    "case": "A field-local stop that skips array reading also withholds its item slot",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before.json"}, {"fixture": "fold3/parent-scope.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}],
+    "limits": [{"claim": "FieldPresence", "pointer": "/list", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(Type)", "pointer": "/list", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}, {"claim": "Property(ItemType)", "pointer": "/list", "reason": "reference_scope", "scope": "root:resp:GET /loom:200", "side": "After"}],
+    "reverse": true,
+    "controls": ["fold3-checked"]
+  },
+  "fold3-notice-same-field": {
+    "case": "A notice on an array field leaves its checked item edit independently reportable",
+    "clause": "DESIGN §§5.1 and 5.6 reader authority for signed type slots",
+    "inputs": [{"fixture": "fold3/before-swagger.json"}, {"fixture": "fold3/notice-same-field.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/field", "Present"], "after": ["field:resp:GET /loom:200#/field", "Present"], "before_slots": {"type": "integer"}, "after_slots": {"type": "string"}}, {"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/list", "Present"], "after": ["field:resp:GET /loom:200#/list", "Present"], "before_slots": {"item_type": "integer"}, "after_slots": {"item_type": "string"}}],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "discriminator_inheritance", "pointer": "/list"}, {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "discriminator_inheritance", "pointer": "/list"}],
+    "reverse": true,
+    "controls": ["fold3-checked-swagger"]
   }
 }

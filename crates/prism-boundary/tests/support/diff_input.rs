@@ -1,6 +1,8 @@
 use crate::{admission, matrix};
 use prism_boundary::element::{schema_path, OperationId};
-use prism_boundary::revision::{DependencyReceipt, Format, ProducerMediaEvidence, Snapshot};
+use prism_boundary::revision::{
+    Blob, DependencyReceipt, Format, ProducerMediaEvidence, ReferenceBlob, Snapshot,
+};
 use prism_boundary::{
     index_schema, AttributeValue, ComparisonScope, Coverage, DiffBasis, DiffSide, Fact,
     HandlerBody, HandlerEndpoint, HandlerReference, ProducerFact, ProducerInventory,
@@ -21,7 +23,33 @@ pub fn fixture(matrix_name: &str, name: &str) -> Vec<u8> {
 pub fn schema(bytes: &[u8], api: &str, config: &Value, side: usize) -> SchemaIndex {
     let tree = ["before-tree", "after-tree"][side];
     let blob = ["before-blob", "after-blob"][side];
-    let mut input = admission::admitted(bytes, Format::Json, api, None, &[]);
+    let dependencies: Vec<_> = config["references"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|reference| {
+            let name = reference["fixture"].as_str().unwrap();
+            (
+                name,
+                reference["uri"].as_str().unwrap(),
+                fixture("p1c_rows", name),
+            )
+        })
+        .collect();
+    let references: Vec<_> = dependencies
+        .iter()
+        .map(|(name, uri, bytes)| ReferenceBlob {
+            retrieval_uri: uri,
+            blob: Blob {
+                path: name,
+                tree,
+                oid: name,
+                bytes,
+                format: Format::Json,
+            },
+        })
+        .collect();
+    let mut input = admission::admitted(bytes, Format::Json, api, None, &references);
     input.authority = config["authority"].as_str().unwrap_or("schema");
     input.snapshot = Snapshot::ComputedTree {
         tree,

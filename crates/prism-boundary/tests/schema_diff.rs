@@ -67,6 +67,11 @@ fn review_fold2() {
 }
 
 #[test]
+fn review_fold3() {
+    diff_rows::run(&["fold3"]);
+}
+
+#[test]
 fn existing_diff_controls_and_neutral_edits() {
     diff_audit::audit_inputs();
     diff_rows::run(&["control", "neutral"]);
@@ -176,7 +181,7 @@ fn unsigned_union_const_and_item_edits_are_silent() {
         assert_eq!(diff.limit_counts.before, diff.limit_counts.after, "{row}");
     }
 
-    // Same fold-6 request fixture, with a signed change from number to integer.
+    // The signed change from number to integer still depends on the stopped before slot.
     let input = |row, name, side| {
         let bytes = diff_input::fixture("p1b_rows", &format!("{row}/{name}"));
         diff_input::schema(&bytes, "test-api", &Value::Null, side)
@@ -184,14 +189,10 @@ fn unsigned_union_const_and_item_edits_are_silent() {
     let before = input("fold6-item-value-bounds", "wide.json", 0);
     let after = input("control-fold6-item-value-bounds", "integer.json", 1);
     let diff = diff_schemas(&before, &after).unwrap();
-    let changes: Vec<_> = diff
-        .changes
-        .iter()
-        .flat_map(|row| row.kinds.iter().copied())
-        .collect();
-    assert_eq!(
-        changes,
-        [ChangeKind::FieldItemTypeChanged],
-        "signed item-type control"
-    );
+    assert!(diff.changes.is_empty(), "{:?}", diff.changes);
+    assert!(diff.limits.iter().any(|limit| {
+        limit.side == ComparisonSide::Before
+            && limit.claim == ComparisonClaim::Property(ShapeSlot::ItemType)
+            && limit.reason == "scalar_feasibility_unchecked"
+    }));
 }

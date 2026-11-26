@@ -240,13 +240,12 @@ struct Tree {
     feasible: bool,
     types: u8,
     shape: Option<FieldShape>,
-    type_stopped: bool,
-    item_type_stopped: bool,
     field_definitions: BTreeSet<DefinitionId>,
     declaration_only: bool,
     uncertain_presence: bool,
     sites: BTreeSet<Site>,
     stops: BTreeSet<Stop>,
+    item_slot_limits: BTreeSet<&'static str>,
     warnings: BTreeSet<&'static str>,
     definitions: BTreeSet<DefinitionId>,
     children: BTreeMap<PointerToken, Tree>,
@@ -268,8 +267,6 @@ impl Tree {
         self.sites.extend(other.sites);
         self.field_definitions.extend(other.field_definitions);
         self.types |= other.types;
-        self.type_stopped |= other.type_stopped;
-        self.item_type_stopped |= other.item_type_stopped;
         match (&mut self.shape, other.shape) {
             (Some(a), Some(b)) => {
                 merge_property(&mut a.field_type, b.field_type);
@@ -282,6 +279,7 @@ impl Tree {
             (_, None) => {}
         }
         self.stops.extend(other.stops);
+        self.item_slot_limits.extend(other.item_slot_limits);
         self.warnings.extend(other.warnings);
         self.definitions.extend(other.definitions);
         if alternative {
@@ -323,6 +321,13 @@ impl Tree {
         if depth < MAX_DEPTH {
             self.children.entry(token).or_default().merge(child);
         } else if child.has_limits() {
+            if token == PointerToken::ListItem {
+                self.item_slot_limits
+                    .extend(child.stops.iter().map(|Stop(reason, _)| *reason));
+                if child.uncertain_presence {
+                    self.item_slot_limits.insert("field_presence_unchecked");
+                }
+            }
             self.stops.extend(
                 child
                     .stops
@@ -331,6 +336,9 @@ impl Tree {
             );
         } else if depth == MAX_DEPTH && (child.feasible || child.shape.is_some()) {
             self.stops.insert(Stop("depth_cut", Effect::Notice));
+            if token == PointerToken::ListItem {
+                self.item_slot_limits.insert("depth_cut");
+            }
         }
     }
 
@@ -364,10 +372,23 @@ impl Tree {
                 effect,
             });
         }
+        if self.uncertain_presence {
+            result.evidence.slot_limits.push(RegionLimit {
+                pointer: pointer.clone(),
+                reason: "field_presence_unchecked".into(),
+            });
+        }
         if let Some(shape) = self.shape {
             if matches!(pointer.last(), Some(PointerToken::Property(_))) {
-                if self.item_type_stopped {
-                    result.evidence.stopped_item_types.insert(pointer.clone());
+                for reason in self.item_slot_limits {
+                    result.evidence.slot_limits.push(RegionLimit {
+                        pointer: pointer
+                            .iter()
+                            .cloned()
+                            .chain([PointerToken::ListItem])
+                            .collect(),
+                        reason: reason.into(),
+                    });
                 }
                 let field = Field {
                     id: FieldId::new(root.clone(), pointer.clone()),
@@ -442,12 +463,11 @@ impl<'r, 'a> Reader<'r, 'a> {
         if edge.overlap {
             result.warnings.insert("allof_overlap");
         }
-        let observed = result.stops.iter().any(|stop| stop.1 != Effect::Notice);
         let mut alternatives = Tree::default();
         let mut impossible = Tree::default();
         let mut has_alternative = false;
         for branch in expansion.branches {
-            let branch = self.branch(&branch, edge, observed);
+            let branch = self.branch(&branch, edge, &result.stops);
             if branch.feasible || branch.has_limits() {
                 alternatives.merge_tree(branch, has_alternative);
                 has_alternative = true;
@@ -462,8 +482,6 @@ impl<'r, 'a> Reader<'r, 'a> {
             .retain(|token, _| !result.children.contains_key(token));
         if result.shape.is_some() {
             impossible.shape = None;
-            impossible.type_stopped = false;
-            impossible.item_type_stopped = false;
             impossible.declaration_only = false;
         }
         result.merge(impossible);
@@ -485,7 +503,7 @@ impl<'r, 'a> Reader<'r, 'a> {
         result
     }
 
-    fn branch(&self, nodes: &[Node<'r, 'a>], edge: Edge, observed: bool) -> Tree {
+    fn branch(&self, nodes: &[Node<'r, 'a>], edge: Edge, expanded_stops: &BTreeSet<Stop>) -> Tree {
         let mut tree = Tree::default();
         for node in nodes {
             tree.definitions.extend(node.definitions.iter().cloned());
@@ -500,8 +518,16 @@ impl<'r, 'a> Reader<'r, 'a> {
         }
         let (mut types, mut field_type) = constraints::types(nodes, self.dialect);
         let multi_type = matches!(&field_type, Property::Known(names) if names.len() > 1);
-        let blocked = observed || tree.stops.iter().any(|stop| stop.1 != Effect::Notice);
-        tree.type_stopped = edge.list_item && blocked;
+        let blocking_stops = expanded_stops
+            .iter()
+            .chain(&tree.stops)
+            .filter(|stop| stop.1 != Effect::Notice);
+        let blocked = blocking_stops.clone().next().is_some();
+        // A blocking stop can skip array reading before the item gets its own node.
+        if blocked && types & ARRAY != 0 {
+            tree.item_slot_limits
+                .extend(blocking_stops.map(|Stop(reason, _)| *reason));
+        }
         let feasibility = constraints::feasible(nodes, types, self.dialect);
         if !blocked && feasibility.unknown {
             tree.stops

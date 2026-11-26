@@ -309,10 +309,11 @@ unestablished comparison basis returns `DiffError`.
   enum, and immediate list-item type. A readable empty enum retains its
   declaration even when the field has no feasible value. Member deltas
   require two readable lists. Checked empty or absent bodies can establish
-  field presence changes at retained roots. If the reader stops at an item
-  schema, a differing item-type slot yields a side-local `ItemType` limit
-  whether it signs `Known` or `Missing`. Independently comparable slots still
-  report edits.
+  field presence changes at retained roots. A type or item-type change is
+  claimed only when both sides have no reader limit at the slot's typed
+  pointer. The diff withholds every other type or item-type comparison and
+  counts a side-local `Type` or `ItemType` limit. Independently comparable
+  slots still report edits.
 - An authored request excluded by its dialect carries a side-local
   `request_dialect_excluded` coverage limit, including when both revisions
   have no projected request message.
@@ -341,6 +342,11 @@ Known limit `fold1-server-document-gap` records that a malformed document-level
 server list gaps every method, including operations with their own server
 lists. This only costs recall by withholding operation absence or suppressing
 otherwise supported status and field edits.
+
+Depth cuts, unsupported assertions, unproved scalar feasibility, and stopped
+references still bound reader coverage. A whole-message refusal or an opaque
+ancestor may leave descendants without a signed slot. The enclosing coverage
+or field-presence limit records those gaps.
 
 The following P1c rows use `subset_limits`. They assert the listed limits
 and leave extra limits unasserted.

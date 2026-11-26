@@ -101,9 +101,13 @@ impl<'r, 'a> Root<'r, 'a> {
             .is_some_and(|wire| wire.declaration_only.contains(pointer))
     }
 
-    pub(super) fn item_type_stopped(&self, pointer: &[PointerToken]) -> bool {
-        self.wire
-            .is_some_and(|wire| wire.stopped_item_types.contains(pointer))
+    pub(super) fn slot_unchecked(&self, pointer: &[PointerToken]) -> Option<&str> {
+        self.message
+            .into_iter()
+            .flat_map(|message| &message.limits)
+            .chain(self.wire.into_iter().flat_map(|wire| &wire.slot_limits))
+            .find(|limit| limit.pointer == pointer)
+            .map(|limit| limit.reason.as_str())
     }
 
     pub(in crate::diff) fn empty_projection_with_unproved_media(&self) -> bool {
@@ -176,13 +180,9 @@ impl<'r, 'a> Root<'r, 'a> {
                 );
             }
         }
-        for entry in self
-            .paths
-            .into_iter()
-            .flat_map(BTreeMap::values)
-            .filter(|entry| entry.comparable && self.authority_reason().is_none())
-        {
-            shape_limits(self, entry.field, side, ledger);
+        for entry in self.paths.into_iter().flat_map(BTreeMap::values) {
+            let comparable = entry.comparable && self.authority_reason().is_none();
+            shape_limits(self, entry.field, comparable, side, ledger);
         }
     }
 

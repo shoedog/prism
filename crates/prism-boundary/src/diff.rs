@@ -7,7 +7,9 @@
 //! Require proved media or checked body absence for a retained root to establish named field absence.
 //! Record side-local coverage for authored requests excluded by their dialect.
 //! Compare named JSON field presence on checked evidence and compare all five signed shape slots.
-//! Limit a differing item-type slot when a stop leaves it signed from the declaration instead of the effective type set.
+//! Claim a type or item-type change only for slots with no reader limit at their typed pointers.
+//! Withhold every other type or item-type comparison and count a side-local slot limit.
+//! Whole-message refusals and opaque ancestors can leave descendants without signed slots.
 //! Keep declaration and member deltas independently for readable enum evidence.
 //! Preserve side-local unknowns, scope, reasons, evidence, and deduplicated limit counts.
 //! Report independently proved producer fact changes through typed revision-local inputs.

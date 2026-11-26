@@ -65,6 +65,76 @@ fold2-item-type-missing-stop	fixtures/fold2/items-integer.json		unsupported_sche
 fold2-json-scalar-to-object	fixtures/fold1/json-scalar-200.json	field:resp:GET /loom:200#/x		rule	fold2
 fold2-server-document-checked	fixtures/fold2/server-checked-before.json			rule	fold2
 fold2-unproved-scalar-to-object	fixtures/fold1/scalar-200.json		media_unverified	rule	fold2
+fold3-a2-checked	fixtures/fold3/a2-before.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list		rule	fold3
+fold3-a2-scalar-pattern	fixtures/fold3/a2-before.json	field:resp:GET /loom:200#/field	scalar_feasibility_unchecked	rule	fold3
+fold3-allof-unreadable	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	composition_unreadable	rule	fold3
+fold3-anyof-unreadable	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	composition_unreadable	rule	fold3
+fold3-array-uniqueness	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	array_uniqueness_unchecked	rule	fold3
+fold3-array-without-items	fixtures/fold3/before-30.json	field:resp:GET /loom:200#/field	schema_form_unchecked	rule	fold3
+fold3-branch-dependent	fixtures/fold3/before.json		branch_dependent	rule	fold3
+fold3-checked	fixtures/fold3/before.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list		rule	fold3
+fold3-checked-30	fixtures/fold3/before-30.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list		rule	fold3
+fold3-checked-swagger	fixtures/fold3/before-swagger.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list		rule	fold3
+fold3-composition-invalid-arm	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	composition_unreadable	rule	fold3
+fold3-composition-product-budget	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	composition_budget	rule	fold3
+fold3-composition-step-budget	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	composition_budget	rule	fold3
+fold3-composition-union-budget	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	composition_budget	rule	fold3
+fold3-conditional	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	unsupported_schema_keyword	rule	fold3
+fold3-const-compound	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	unsupported_schema_keyword	rule	fold3
+fold3-const-signature	fixtures/fold3/before.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list	const_signature_unchecked	rule	fold3
+fold3-depth	fixtures/fold3/depth-before.json		depth_cut;unsupported_schema_keyword	rule	fold3
+fold3-dialect-schema	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	schema_dialect_unchecked	rule	fold3
+fold3-dialect-vocabulary	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	schema_dialect_unchecked	rule	fold3
+fold3-direction-flags	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	direction_flags_unchecked	rule	fold3
+fold3-direction-policy	fixtures/fold3/before-required.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list	direction_policy_unchecked;field_presence_unchecked	rule	fold3
+fold3-discriminator-mapping	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	discriminator_inheritance	rule	fold3
+fold3-discriminator-notice	fixtures/fold3/before-swagger.json		discriminator_inheritance	rule	fold3
+fold3-duplicate-member	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	duplicate_member	rule	fold3
+fold3-encoding	fixtures/fold3/encoding-before.json	field:req:POST /loom#/field	media_encoding_unchecked	rule	fold3
+fold3-encoding-checked	fixtures/fold3/encoding-before.json	field:req:POST /loom#/field		rule	fold3
+fold3-enum-compound	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	unsupported_schema_keyword	rule	fold3
+fold3-enum-empty-swagger	fixtures/fold3/before-swagger.json	field:resp:GET /loom:200#/field	enum_unreadable	rule	fold3
+fold3-enum-multiple	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	scalar_feasibility_unchecked	rule	fold3
+fold3-enum-pattern	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	scalar_feasibility_unchecked	rule	fold3
+fold3-enum-unreadable	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	enum_unreadable	rule	fold3
+fold3-extension	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	schema_extension_unchecked	rule	fold3
+fold3-indexed-tuple	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	indexed_tuple	rule	fold3
+fold3-indexed-tuple-legacy	fixtures/fold3/before-30.json	field:resp:GET /loom:200#/field	indexed_tuple	rule	fold3
+fold3-keyword-in-anyof	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	unsupported_schema_keyword	rule	fold3
+fold3-keyword-unreadable	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	schema_keyword_unreadable	rule	fold3
+fold3-malformed-items	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	schema_form_unchecked	rule	fold3
+fold3-not	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	unsupported_schema_keyword	rule	fold3
+fold3-notice-independent-item	fixtures/fold3/before-swagger.json	field:resp:GET /loom:200#/list	discriminator_inheritance	rule	fold3
+fold3-notice-same-field	fixtures/fold3/before-swagger.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list	discriminator_inheritance	rule	fold3
+fold3-nullable-allof	fixtures/fold3/before-30.json	field:resp:GET /loom:200#/field	nullable_composition_unchecked	rule	fold3
+fold3-nullable-oneof	fixtures/fold3/before-30.json	field:resp:GET /loom:200#/field	nullable_composition_unchecked	rule	fold3
+fold3-nullable-scope	fixtures/fold3/before-30.json	field:resp:GET /loom:200#/field	nullable_scope_unchecked	rule	fold3
+fold3-oneof-unreadable	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	composition_unreadable	rule	fold3
+fold3-optional-child	fixtures/fold3/optional-child-before.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list;field:resp:GET /loom:200#/list/[]/nested	unsupported_schema_keyword	rule	fold3
+fold3-overlapping-oneof	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	unsupported_schema_keyword	rule	fold3
+fold3-parent-scope	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	reference_scope	rule	fold3
+fold3-recursive-required	fixtures/fold3/before-required.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list	field_presence_unchecked;recursive	rule	fold3
+fold3-reference-ambiguous	fixtures/fold3/before.json		reference_blob_ambiguous	rule	fold3
+fold3-reference-anchor	fixtures/fold3/before.json		reference_scope	rule	fold3
+fold3-reference-base	fixtures/fold3/before.json		retrieval_base_unchecked	rule	fold3
+fold3-reference-cycle	fixtures/fold3/before.json		recursive	rule	fold3
+fold3-reference-duplicate-target	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	duplicate_member	rule	fold3
+fold3-reference-pointer-invalid	fixtures/fold3/before.json		reference_unresolved	rule	fold3
+fold3-reference-scope	fixtures/fold3/before.json		reference_scope	rule	fold3
+fold3-reference-siblings	fixtures/fold3/before-swagger.json	field:resp:GET /loom:200#/field	ref_siblings_unchecked	rule	fold3
+fold3-reference-siblings-checked	fixtures/fold3/before-swagger.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list		rule	fold3
+fold3-reference-stopped-in-anyof	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	reference_unresolved	rule	fold3
+fold3-reference-target-form	fixtures/fold3/before.json		reference_unresolved	rule	fold3
+fold3-reference-unavailable	fixtures/fold3/before.json		reference_blob_unavailable	rule	fold3
+fold3-reference-unresolved	fixtures/fold3/before.json		reference_unresolved	rule	fold3
+fold3-reference-uri-invalid	fixtures/fold3/before.json		reference_unresolved	rule	fold3
+fold3-required-array-witness	fixtures/fold3/required-array-witness-before.json	field:resp:GET /loom:200#/field	field_presence_unchecked;unsupported_schema_keyword	rule	fold3
+fold3-required-object-witness	fixtures/fold3/required-object-witness-before.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/field/nested;field:resp:GET /loom:200#/list/[]/nested	field_presence_unchecked;unsupported_schema_keyword	rule	fold3
+fold3-required-unreadable	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	required_unreadable	rule	fold3
+fold3-scalar-interval	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	scalar_feasibility_unchecked	rule	fold3
+fold3-scalar-multiple	fixtures/fold3/before.json	field:resp:GET /loom:200#/field	scalar_feasibility_unchecked	rule	fold3
+fold3-schema-form	fixtures/fold3/before.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list	schema_form_unchecked	rule	fold3
+fold3-target-checked	fixtures/fold3/before.json	field:resp:GET /loom:200#/field;field:resp:GET /loom:200#/list		rule	fold3
 formatting-only	fixtures/control-formatting-only/before.json			rule	control
 n1	fixtures/control-definition-rename/before.json			rule	neutral
 n2	fixtures/neutral/union-before.json			rule	neutral

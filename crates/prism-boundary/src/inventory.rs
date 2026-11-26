@@ -146,7 +146,8 @@ pub struct MessageCoverage {
 pub(crate) struct WireEvidence {
     pub blocks: Vec<FieldBlock>,
     pub declaration_only: BTreeSet<Vec<PointerToken>>,
-    pub stopped_item_types: BTreeSet<Vec<PointerToken>>,
+    // Slot-local limits whose public region is recorded elsewhere.
+    pub slot_limits: Vec<RegionLimit>,
     pub empty_projection_with_unproved_media: bool,
 }
 

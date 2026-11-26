@@ -15,6 +15,7 @@ fn unavailable<T>(property: &Property<T>) -> Option<&'static str> {
 pub(super) fn shape_limits(
     root: &Root<'_, '_>,
     field: &Field,
+    comparable: bool,
     side: ComparisonSide,
     ledger: &mut Ledger,
 ) {
@@ -25,9 +26,14 @@ pub(super) fn shape_limits(
         enum_values,
         item_type,
     } = &field.shape;
-    for (slot, reason) in [
-        (ShapeSlot::Type, unavailable(field_type)),
-        (ShapeSlot::Format, unavailable(format)),
+    let pointer = &field.id.pointer;
+    for (slot, reason, stop) in [
+        (
+            ShapeSlot::Type,
+            unavailable(field_type),
+            root.slot_unchecked(pointer),
+        ),
+        (ShapeSlot::Format, unavailable(format), None),
         (
             ShapeSlot::Required,
             if *required == Property::Missing {
@@ -35,12 +41,16 @@ pub(super) fn shape_limits(
             } else {
                 unavailable(required)
             },
+            None,
         ),
-        (ShapeSlot::Enum, unavailable(enum_values)),
-        (ShapeSlot::ItemType, unavailable(item_type)),
+        (ShapeSlot::Enum, unavailable(enum_values), None),
+        (
+            ShapeSlot::ItemType,
+            unavailable(item_type),
+            root.slot_unchecked(&item_pointer(pointer)),
+        ),
     ] {
-        if let Some(reason) = reason {
-            let pointer = &field.id.pointer;
+        if let Some(reason) = stop.or(reason.filter(|_| comparable)) {
             let reason = if reason == "unknown" {
                 stop_reason(root, pointer, slot).unwrap_or(reason)
             } else {
@@ -56,6 +66,14 @@ pub(super) fn shape_limits(
             );
         }
     }
+}
+
+fn item_pointer(pointer: &[PointerToken]) -> Vec<PointerToken> {
+    pointer
+        .iter()
+        .cloned()
+        .chain([PointerToken::ListItem])
+        .collect()
 }
 
 fn stop_reason<'a>(
@@ -76,7 +94,6 @@ fn stop_reason<'a>(
 
 pub(super) fn shape_changes(
     kinds: &mut Vec<ChangeKind>,
-    ledger: &mut Ledger,
     roots: &[Root<'_, '_>; 2],
     fields: [&Field; 2],
 ) {
@@ -92,34 +109,25 @@ pub(super) fn shape_changes(
         }
     }
     let [b, a] = fields.map(|field| &field.shape);
-    let mut item_type_changed = types_differ(&b.item_type, &a.item_type);
-    if item_type_changed {
-        let pointer = &fields[0].id.pointer;
-        for (root, side) in roots.iter().zip(SIDES) {
-            if root.item_type_stopped(pointer) {
-                root.limit(
-                    side,
-                    ledger,
-                    pointer,
-                    ComparisonClaim::Property(ShapeSlot::ItemType),
-                    stop_reason(root, pointer, ShapeSlot::ItemType)
-                        .unwrap_or("item_type_unchecked"),
-                    None,
-                );
-                item_type_changed = false;
-            }
-        }
-    }
+    let pointer = &fields[0].id.pointer;
+    let checked = |pointer| {
+        roots
+            .iter()
+            .all(|root| root.slot_unchecked(pointer).is_none())
+    };
     for (changed, kind) in [
         (
-            types_differ(&b.field_type, &a.field_type),
+            types_differ(&b.field_type, &a.field_type) && checked(pointer),
             ChangeKind::FieldTypeChanged,
         ),
         (
             different(&b.format, &a.format),
             ChangeKind::FieldFormatChanged,
         ),
-        (item_type_changed, ChangeKind::FieldItemTypeChanged),
+        (
+            types_differ(&b.item_type, &a.item_type) && checked(&item_pointer(pointer)),
+            ChangeKind::FieldItemTypeChanged,
+        ),
         (
             (&b.required, &a.required) == (&Property::Known(false), &Property::Known(true)),
             ChangeKind::FieldRequiredAdded,

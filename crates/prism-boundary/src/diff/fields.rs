@@ -61,6 +61,18 @@ pub(super) fn compare<'a>(
         if reasons.iter().any(Option::is_some) {
             for i in 0..2 {
                 if let Some(reason) = reasons[i] {
+                    if [before, after][i].is_none() && states[1 - i] == Presence::Present {
+                        if let Some(stop) = roots[i].slot_unchecked(pointer) {
+                            roots[i].limit(
+                                SIDES[i],
+                                ledger,
+                                pointer,
+                                ComparisonClaim::Property(ShapeSlot::Type),
+                                stop,
+                                None,
+                            );
+                        }
+                    }
                     // A standing region record already covers paths blocked on both sides.
                     if states[1 - i] == Presence::Present || reason == "field_presence_unchecked" {
                         roots[i].limit(
@@ -98,7 +110,7 @@ pub(super) fn compare<'a>(
                         after: a.id.clone(),
                     });
                 }
-                shape_changes(&mut change.kinds, ledger, &roots, [b, a]);
+                shape_changes(&mut change.kinds, &roots, [b, a]);
             }
             enums(&mut change, &b.shape.enum_values, &a.shape.enum_values);
         }
