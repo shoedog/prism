@@ -4,7 +4,7 @@ use crate::element::{FieldId, OperationId, PointerToken, SuccessKey};
 use crate::revision::AdmittedSchemaInput;
 pub use crate::schema::site::{Diagnostic as SchemaDiagnostic, Site as SchemaSite};
 use crate::schema::SchemaError;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Default)]
 pub struct SchemaIndex {
@@ -21,6 +21,7 @@ pub struct SchemaIndex {
     pub(crate) reached: BTreeMap<OperationId, (bool, Vec<DefinitionId>)>,
     pub(crate) inverse: BTreeMap<DefinitionId, Vec<OperationId>>,
     pub(crate) operation_coverage_incomplete: bool,
+    pub(crate) operation_gaps: Vec<OperationGap>,
     pub(crate) public_fields: Vec<String>,
 }
 
@@ -43,6 +44,17 @@ pub struct Operation {
     pub operation_id: Option<String>,
     pub declarations: Vec<OperationSite>,
     pub(crate) ranged_responses: bool,
+    pub(crate) request_eligible: bool,
+    pub(crate) request_authored_but_excluded: bool,
+    pub(crate) status_refusals: BTreeMap<SchemaSite, &'static str>,
+    pub(crate) wire_evidence: BTreeMap<RootKey, WireEvidence>,
+}
+
+#[derive(Debug)]
+pub(crate) struct OperationGap {
+    pub method: Option<String>,
+    pub paths: Option<Vec<crate::element::CanonicalPath>>,
+    pub diagnostic: SchemaDiagnostic,
 }
 
 #[derive(Debug)]
@@ -53,6 +65,27 @@ pub struct OperationSite {
     pub site: SchemaSite,
     pub referring_site: SchemaSite,
     pub reference_chain: Vec<SchemaSite>,
+    pub status_inventory: StatusInventory,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum StatusInventory {
+    /// All readable response keys, including non-success keys and the fallback.
+    /// A repeated explicit key retains membership while its message is withheld.
+    Readable(Vec<String>),
+    Withheld,
+}
+
+pub(crate) fn success_key(key: &str, ranged: bool) -> Option<SuccessKey> {
+    match key.as_bytes() {
+        b"2XX" if ranged => Some(SuccessKey::Range),
+        [b'2', b'0'..=b'9', b'0'..=b'9'] => key.parse().ok().map(SuccessKey::Exact),
+        _ => None,
+    }
+}
+
+pub(crate) fn can_have_body(id: &OperationId, code: u16) -> bool {
+    id.method() != "HEAD" && !matches!(code, 100..=199 | 204 | 205 | 304)
 }
 
 impl Operation {
@@ -84,7 +117,7 @@ pub struct Field {
     pub sites: Vec<SchemaSite>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RootKey {
     Request,
     Response(SuccessKey),
@@ -107,6 +140,28 @@ pub struct MessageCoverage {
     pub feasible: Option<bool>,
     pub declared_media: Vec<String>,
     pub json_source: Option<JsonMediaSource>,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct WireEvidence {
+    pub blocks: Vec<FieldBlock>,
+    pub declaration_only: BTreeSet<Vec<PointerToken>>,
+    // Slot-local limits whose public region is recorded elsewhere.
+    pub slot_limits: Vec<RegionLimit>,
+    pub empty_projection_with_unproved_media: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BlockEffect {
+    Children,
+    Field,
+}
+
+#[derive(Debug)]
+pub(crate) struct FieldBlock {
+    pub pointer: Vec<PointerToken>,
+    pub reason: String,
+    pub effect: BlockEffect,
 }
 
 #[derive(Debug, PartialEq, Eq)]

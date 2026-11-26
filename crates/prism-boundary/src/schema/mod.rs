@@ -2,7 +2,7 @@ mod messages;
 mod openapi;
 mod references;
 mod servers;
-mod signature;
+pub(crate) mod signature;
 pub(crate) mod site;
 mod status;
 mod wire;
@@ -34,6 +34,7 @@ pub(super) struct Inventory {
     pub info_version: Option<String>,
     pub operations: BTreeMap<OperationId, Operation>,
     pub unprojected: Vec<Declaration>,
+    pub operation_gaps: Vec<crate::inventory::OperationGap>,
     pub diagnostics: Vec<Diagnostic>,
 }
 

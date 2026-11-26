@@ -1,0 +1,59 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Amber Anvil",
+    "version": "1"
+  },
+  "paths": {
+    "/forge": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Record"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Record": {
+        "type": "object",
+        "required": [
+          "serial",
+          "secret"
+        ],
+        "properties": {
+          "serial": {
+            "type": "string",
+            "readOnly": true
+          },
+          "secret": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "maxProperties": 2
+      }
+    }
+  }
+}

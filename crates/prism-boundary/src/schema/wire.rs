@@ -22,6 +22,7 @@ use self::constraints::{ARRAY, NULL, OBJECT};
 use super::references::{Document, Documents, Located};
 use super::{Dialect, Site};
 use crate::element::{FieldId, MessageRoot, PointerToken};
+use crate::inventory::{BlockEffect, FieldBlock, WireEvidence};
 use crate::inventory::{DefinitionId, Field, FieldShape, Property, RegionLimit};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -164,6 +165,7 @@ pub(super) fn reference_reason(reason: &str) -> &'static str {
 pub(super) struct ResultTree {
     pub fields: Vec<(Field, bool)>,
     pub limits: Vec<RegionLimit>,
+    pub evidence: WireEvidence,
     pub warnings: Vec<String>,
     pub definitions: BTreeSet<DefinitionId>,
     pub feasible: Option<bool>,
@@ -190,6 +192,7 @@ pub(super) fn read<'r, 'a>(
     let mut result = ResultTree {
         fields: Vec::new(),
         limits: Vec::new(),
+        evidence: WireEvidence::default(),
         warnings: Vec::new(),
         definitions: BTreeSet::new(),
         feasible: (!tree.has_limits()).then_some(tree.feasible),
@@ -242,6 +245,7 @@ struct Tree {
     uncertain_presence: bool,
     sites: BTreeSet<Site>,
     stops: BTreeSet<Stop>,
+    item_slot_limits: BTreeSet<&'static str>,
     warnings: BTreeSet<&'static str>,
     definitions: BTreeSet<DefinitionId>,
     children: BTreeMap<PointerToken, Tree>,
@@ -275,6 +279,7 @@ impl Tree {
             (_, None) => {}
         }
         self.stops.extend(other.stops);
+        self.item_slot_limits.extend(other.item_slot_limits);
         self.warnings.extend(other.warnings);
         self.definitions.extend(other.definitions);
         if alternative {
@@ -316,6 +321,13 @@ impl Tree {
         if depth < MAX_DEPTH {
             self.children.entry(token).or_default().merge(child);
         } else if child.has_limits() {
+            if token == PointerToken::ListItem {
+                self.item_slot_limits
+                    .extend(child.stops.iter().map(|Stop(reason, _)| *reason));
+                if child.uncertain_presence {
+                    self.item_slot_limits.insert("field_presence_unchecked");
+                }
+            }
             self.stops.extend(
                 child
                     .stops
@@ -324,6 +336,9 @@ impl Tree {
             );
         } else if depth == MAX_DEPTH && (child.feasible || child.shape.is_some()) {
             self.stops.insert(Stop("depth_cut", Effect::Notice));
+            if token == PointerToken::ListItem {
+                self.item_slot_limits.insert("depth_cut");
+            }
         }
     }
 
@@ -339,27 +354,57 @@ impl Tree {
             .warnings
             .extend(self.warnings.iter().map(|warning| (*warning).into()));
         let mut reasons = BTreeSet::new();
-        for Stop(reason, _) in &self.stops {
+        for Stop(reason, effect) in &self.stops {
             if reasons.insert(*reason) {
                 result.limits.push(RegionLimit {
                     pointer: pointer.clone(),
                     reason: (*reason).into(),
                 });
             }
+            let effect = match effect {
+                Effect::Field => BlockEffect::Field,
+                Effect::Children => BlockEffect::Children,
+                Effect::Notice => continue,
+            };
+            result.evidence.blocks.push(FieldBlock {
+                pointer: pointer.clone(),
+                reason: (*reason).into(),
+                effect,
+            });
+        }
+        if self.uncertain_presence {
+            result.evidence.slot_limits.push(RegionLimit {
+                pointer: pointer.clone(),
+                reason: "field_presence_unchecked".into(),
+            });
         }
         if let Some(shape) = self.shape {
             if matches!(pointer.last(), Some(PointerToken::Property(_))) {
+                for reason in self.item_slot_limits {
+                    result.evidence.slot_limits.push(RegionLimit {
+                        pointer: pointer
+                            .iter()
+                            .cloned()
+                            .chain([PointerToken::ListItem])
+                            .collect(),
+                        reason: reason.into(),
+                    });
+                }
                 let field = Field {
                     id: FieldId::new(root.clone(), pointer.clone()),
                     shape,
                     definitions: self.field_definitions.into_iter().collect(),
                     sites: self.sites.into_iter().collect(),
                 };
-                let own = comparable
-                    && !self.declaration_only
+                let readable = comparable
                     && !self.uncertain_presence
                     && !self.stops.iter().any(|stop| stop.1 == Effect::Field);
-                result.fields.push((field, own));
+                if readable && self.declaration_only {
+                    result.evidence.declaration_only.insert(pointer.clone());
+                }
+                result
+                    .fields
+                    .push((field, readable && !self.declaration_only));
             }
         }
         let descend = comparable
@@ -418,12 +463,11 @@ impl<'r, 'a> Reader<'r, 'a> {
         if edge.overlap {
             result.warnings.insert("allof_overlap");
         }
-        let observed = result.stops.iter().any(|stop| stop.1 != Effect::Notice);
         let mut alternatives = Tree::default();
         let mut impossible = Tree::default();
         let mut has_alternative = false;
         for branch in expansion.branches {
-            let branch = self.branch(&branch, edge, observed);
+            let branch = self.branch(&branch, edge, &result.stops);
             if branch.feasible || branch.has_limits() {
                 alternatives.merge_tree(branch, has_alternative);
                 has_alternative = true;
@@ -459,7 +503,7 @@ impl<'r, 'a> Reader<'r, 'a> {
         result
     }
 
-    fn branch(&self, nodes: &[Node<'r, 'a>], edge: Edge, observed: bool) -> Tree {
+    fn branch(&self, nodes: &[Node<'r, 'a>], edge: Edge, expanded_stops: &BTreeSet<Stop>) -> Tree {
         let mut tree = Tree::default();
         for node in nodes {
             tree.definitions.extend(node.definitions.iter().cloned());
@@ -474,7 +518,16 @@ impl<'r, 'a> Reader<'r, 'a> {
         }
         let (mut types, mut field_type) = constraints::types(nodes, self.dialect);
         let multi_type = matches!(&field_type, Property::Known(names) if names.len() > 1);
-        let blocked = observed || tree.stops.iter().any(|stop| stop.1 != Effect::Notice);
+        let blocking_stops = expanded_stops
+            .iter()
+            .chain(&tree.stops)
+            .filter(|stop| stop.1 != Effect::Notice);
+        let blocked = blocking_stops.clone().next().is_some();
+        // A blocking stop can skip array reading before the item gets its own node.
+        if blocked && types & ARRAY != 0 {
+            tree.item_slot_limits
+                .extend(blocking_stops.map(|Stop(reason, _)| *reason));
+        }
         let feasibility = constraints::feasible(nodes, types, self.dialect);
         if !blocked && feasibility.unknown {
             tree.stops

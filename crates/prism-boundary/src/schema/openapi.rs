@@ -5,6 +5,7 @@ use super::references::{parse_json, Documents, Field, Located, Parsed, PathItem}
 use super::status::read_statuses;
 use super::{servers, Declaration, Diagnostic, Dialect, Inventory, Operation, SchemaError, Site};
 use crate::element::{schema_path, OperationId};
+use crate::inventory::OperationGap;
 use crate::revision::AdmittedSchemaInput;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -29,6 +30,7 @@ pub(super) fn scan_operations(
         info_version: document["info"]["version"].as_str().map(str::to_owned),
         operations: BTreeMap::new(),
         unprojected: Vec::new(),
+        operation_gaps: Vec::new(),
         diagnostics: Vec::new(),
     };
     if ["openapi", "swagger", "paths"]
@@ -96,11 +98,28 @@ pub(super) fn scan_operations(
                 continue;
             };
             if !location.value.is_object() {
-                inventory.diagnostics.push(Diagnostic::new(
-                    "operation_unreadable",
-                    "operation",
-                    location.site.clone(),
-                ));
+                let diagnostic =
+                    Diagnostic::new("operation_unreadable", "operation", location.site.clone());
+                let mut server_diagnostics = Vec::new();
+                let deployments =
+                    deployments(documents, &item, location, dialect, &mut server_diagnostics);
+                let paths = (!deployments.is_empty()
+                    && schema_path(path, "", &[]).captures().next().is_none()
+                    && server_diagnostics
+                        .iter()
+                        .all(|entry| entry.scope == "origin"))
+                .then(|| {
+                    deployments
+                        .iter()
+                        .map(|base| schema_path(path, &base.path, &[]))
+                        .collect()
+                });
+                inventory.operation_gaps.push(OperationGap {
+                    method: Some(method.to_ascii_uppercase()),
+                    paths,
+                    diagnostic: diagnostic.clone(),
+                });
+                inventory.diagnostics.push(diagnostic);
                 continue;
             }
             index_declaration(
@@ -152,6 +171,7 @@ fn index_declaration(
     } else {
         read_statuses(value, site, dialect, &mut inventory.diagnostics)
     };
+    let diagnostic_start = inventory.diagnostics.len();
     let deployments = deployments(
         documents,
         item,
@@ -206,6 +226,25 @@ fn index_declaration(
         value: (*value).clone(),
     };
     if deployments.is_empty() || label_names.is_none() {
+        let mut causes: Vec<_> = inventory.diagnostics[diagnostic_start..]
+            .iter()
+            .filter(|diagnostic| matches!(diagnostic.scope, "path_parameters" | "server"))
+            .cloned()
+            .collect();
+        if causes.is_empty() {
+            causes.push(Diagnostic::new(
+                "operation_unprojected",
+                "operation",
+                site.clone(),
+            ));
+        }
+        inventory
+            .operation_gaps
+            .extend(causes.into_iter().map(|diagnostic| OperationGap {
+                method: Some(method.to_ascii_uppercase()),
+                paths: None,
+                diagnostic,
+            }));
         inventory.unprojected.push(Declaration {
             deployments,
             ..declaration
