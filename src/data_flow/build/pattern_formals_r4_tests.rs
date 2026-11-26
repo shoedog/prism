@@ -220,6 +220,19 @@ fn arithmetic_and_bitwise_compound_key_writes_replace_the_entry() {
 }
 
 #[test]
+fn a_compound_write_in_a_skipped_nested_destructuring_key_keeps_the_entry() {
+    let source = "function C({o}, t, flag, {[(flag && ({[(o += 5)]: t} = {}), \"x\")]: y}) {\n  return o;\n}\nC({o:7}, 0, false, {});";
+    let receipt = evidence(source, Language::JavaScript);
+    let at = source.find("return o").unwrap() + "return ".len();
+    let read = receipt.files["test"]
+        .attempts
+        .iter()
+        .find(|attempt| attempt.key.operand == [at, at + 1])
+        .unwrap();
+    assert_eq!(read.disposition.as_str(), "emitted", "{source}");
+}
+
+#[test]
 fn logical_or_key_keeps_the_entry_when_truthy() {
     check_logical_key("||=", "7", "0");
 }

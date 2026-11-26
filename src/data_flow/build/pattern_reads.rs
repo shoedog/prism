@@ -56,7 +56,7 @@ pub(super) fn unconditional_key_write(parsed: &ParsedFile, site: &Site) -> bool 
             "computed_property_name" => {
                 return parent
                     .parent()
-                    .is_some_and(|pair| pair.kind() == "pair_pattern");
+                    .is_some_and(|pair| pair.kind() == "pair_pattern" && in_formal_pattern(pair));
             }
             kind if transparent(kind) => {}
             "assignment_expression" => {
@@ -73,6 +73,27 @@ pub(super) fn unconditional_key_write(parsed: &ParsedFile, site: &Site) -> bool 
                 }
             }
             "sequence_expression" => {}
+            _ => return false,
+        }
+        node = parent;
+    }
+    false
+}
+
+/// The key's pair belongs to a binding pattern of the owner's formal list, not to a
+/// destructuring assignment expression nested in another key (which may be skipped).
+fn in_formal_pattern(pair: Node<'_>) -> bool {
+    let mut node = pair;
+    while let Some(parent) = node.parent() {
+        match parent.kind() {
+            "formal_parameters" => return true,
+            "object_pattern"
+            | "pair_pattern"
+            | "assignment_pattern"
+            | "required_parameter"
+            | "optional_parameter"
+            | "object_assignment_pattern"
+            | "array_pattern" => {}
             _ => return false,
         }
         node = parent;
