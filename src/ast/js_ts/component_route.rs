@@ -2,10 +2,11 @@
 
 use crate::ast::js_binding::{JsBinding, JsBindingCache};
 use crate::ast::js_binding_walk::Walk;
-use crate::ast::{is_js_ts_function_like, ParsedFile};
+use crate::ast::ParsedFile;
 use std::collections::BTreeSet;
 use tree_sitter::Node;
 
+use super::component_route_timing::evaluated_after;
 use super::props_keys::{is_transparent_wrapper, strip_transparent_wrappers};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -21,6 +22,8 @@ pub(crate) enum Route {
     LocalHookOperand,
     JsxRenderOperand,
     UnknownWrapper,
+    /// The read precedes its lexical initializer and its delivery form is unlisted.
+    PreInitializerUnproved,
     UnprovedIdentity,
 }
 
@@ -173,9 +176,12 @@ impl<'a> Proof<'a> {
             "variable_declarator"
                 if decl
                     .child_by_field_name("name")
-                    .is_some_and(|node| node.kind() == "identifier")
-                    && evaluated_after(self.file, ident, decl, scope) =>
+                    .is_some_and(|node| node.kind() == "identifier") =>
             {
+                // Check 3 timing: before the initializer is accepted or followed.
+                if !evaluated_after(ident, decl, scope) {
+                    return Route::PreInitializerUnproved;
+                }
                 let Some(value) = decl
                     .child_by_field_name("value")
                     .and_then(strip_transparent_wrappers)
@@ -248,70 +254,6 @@ impl<'a> Proof<'a> {
             _ => Route::UnknownWrapper,
         }
     }
-}
-
-fn evaluated_after(file: &ParsedFile, mut site: Node<'_>, decl: Node<'_>, scope: Node<'_>) -> bool {
-    if site.start_byte() >= decl.end_byte() {
-        return true;
-    }
-    while site != scope {
-        let Some(parent) = site.parent() else {
-            break;
-        };
-        if parent != scope
-            && is_js_ts_function_like(parent.kind())
-            && !immediately_invoked(file, parent)
-            && ["body", "parameters", "parameter"]
-                .iter()
-                .any(|field| parent.child_by_field_name(field) == Some(site))
-        {
-            return true;
-        }
-        site = parent;
-    }
-    false
-}
-
-fn immediately_invoked(file: &ParsedFile, mut callable: Node<'_>) -> bool {
-    while let Some(parent) = callable.parent() {
-        if is_transparent_wrapper(parent.kind())
-            && strip_transparent_wrappers(parent) == strip_transparent_wrappers(callable)
-        {
-            callable = parent;
-            continue;
-        }
-        if parent.kind() == "member_expression"
-            && parent.child_by_field_name("object") == Some(callable)
-            && parent
-                .child_by_field_name("property")
-                .is_some_and(|property| matches!(file.node_text(&property), "call" | "apply"))
-        {
-            callable = parent;
-            continue;
-        }
-        // `f.bind(..)` yields a callable; it runs eagerly only when the bind
-        // call's own result is invoked, so keep walking from the bind call.
-        if parent.kind() == "member_expression"
-            && parent.child_by_field_name("object") == Some(callable)
-            && parent
-                .child_by_field_name("property")
-                .is_some_and(|property| file.node_text(&property) == "bind")
-        {
-            if let Some(bind_call) = parent.parent().filter(|node| {
-                node.kind() == "call_expression"
-                    && node.child_by_field_name("function") == Some(parent)
-            }) {
-                callable = bind_call;
-                continue;
-            }
-        }
-        return match parent.kind() {
-            "call_expression" => parent.child_by_field_name("function") == Some(callable),
-            "new_expression" => parent.child_by_field_name("constructor") == Some(callable),
-            _ => false,
-        };
-    }
-    false
 }
 
 fn at_program_scope(mut declaration: Node<'_>) -> bool {

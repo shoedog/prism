@@ -17,8 +17,18 @@ fn visit<'a>(node: Node<'a>, predicate: &impl Fn(Node<'a>) -> bool) -> Option<No
 }
 
 fn classify(declarations: &str, caller: &str, kind: SiteKind) -> Route {
+    classify_in("route.tsx", Language::Tsx, declarations, caller, kind)
+}
+
+fn classify_in(
+    name: &str,
+    language: Language,
+    declarations: &str,
+    caller: &str,
+    kind: SiteKind,
+) -> Route {
     let source = format!("{declarations}\n{caller}\n");
-    let file = ParsedFile::parse("route.tsx", &source, Language::Tsx).unwrap();
+    let file = ParsedFile::parse(name, &source, language).unwrap();
     assert!(!file.tree.root_node().has_error(), "{source}");
     let candidates: Vec<_> = file
         .all_functions()
@@ -50,16 +60,12 @@ fn component_route_direct_hoisted_deferred_alias_and_private_self() {
             "function App(x) { return D({a: x}); }",
         ),
         (
-            "const keep = (function Later(x) { return D({a: x}); }).bind(null);",
+            "const keep = (function Later(x) { return D({a: x}); });",
             "const D = ({a}) => a;",
         ),
         (
             "function D({a}) { return a; } const Alias = D;",
             "function App(x) { return Alias({a: x}); }",
-        ),
-        (
-            "function App(x) { return D({a: x}); }",
-            "const D = ({a}) => a;",
         ),
         ("const D = function Self({a}) { return Self({a: x}); };", ""),
         (
@@ -95,26 +101,8 @@ fn component_route_refuses_unproved_lexical_value() {
             "function App(x) { return Alias({a: x}); }",
         ),
         (
-            "function D({a}) { return a; } const A = B; const B = A;",
-            "function App(x) { return A({a: x}); }",
-        ),
-        (
             "function F() { function D({a}) { return a; } }",
             "function App(x) { return D({a: x}); }",
-        ),
-        ("const premature = D({a: x});", "const D = ({a}) => a;"),
-        (
-            "(function Run(x) { D({a: x}); })(1);",
-            "const D = ({a}) => a;",
-        ),
-        ("((x) => D({a: x})).call(null, 1);", "const D = ({a}) => a;"),
-        (
-            "(function Invoke(x) { return D({a: x}); }).bind(null)(1);",
-            "const D = ({a}) => a;",
-        ),
-        (
-            "((x) => D({a: x})).bind(null).call(null, 1);",
-            "const D = ({a}) => a;",
         ),
         (
             "function D({a}) { return a; } const Pick = factory(D);",
@@ -273,4 +261,254 @@ fn component_route_literal_wrapper_attempt_has_zero_f9_weight() {
         wrapper_census_counts(&[literal, not_exact, jsx_identity, jsx_wrapper]),
         (1, 2)
     );
+}
+
+const LITERAL: &str = "((x) => D({a: x}))";
+const LATER_D: &str = "const D = ({a}) => a;";
+const STORED: &str = "const stored = #F#;";
+const RETURNED: &str = "function make() { return #F#; }";
+const JSX_ATTRIBUTE: &str = "const view = <Widget render={#F#}/>;";
+
+fn literal_route(template: &str, kind: SiteKind) -> Route {
+    classify(&template.replace("#F#", LITERAL), LATER_D, kind)
+}
+
+/// Each refusal reports the timing reason and is paired with a deferred control
+/// whose route proves `D` independently.
+fn assert_timing_rows(rows: &[(&str, &str)]) {
+    let mut failures = Vec::new();
+    for (prefix, control) in rows {
+        let refused = literal_route(prefix, SiteKind::Literal);
+        if refused != Route::PreInitializerUnproved {
+            failures.push(format!("refusal {prefix}: {refused:?}"));
+        }
+        let kept = literal_route(control, SiteKind::Literal);
+        if kept != Route::Direct {
+            failures.push(format!("control {control} for {prefix}: {kept:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+#[test]
+fn component_route_timing_refuses_every_unlisted_delivery_form() {
+    assert_timing_rows(&[
+        ("(#F#.bind)(null)(1);", STORED),
+        ("Reflect.apply(#F#, null, [1]);", RETURNED),
+        ("Function.prototype.call.call(#F#, null, 1);", RETURNED),
+        (
+            "const bound = #F#.bind(null, 1); const alias = bound; alias();",
+            STORED,
+        ),
+        ("[1].forEach(#F#);", JSX_ATTRIBUTE),
+        ("new Promise(#F#);", STORED),
+        ("#F#.call(null, 1);", STORED),
+        ("#F#.apply(null, [1]);", RETURNED),
+        ("#F#.bind(null)(1);", STORED),
+        ("#F#.bind(null).call(null, 1);", STORED),
+        ("const keep = #F#.bind(null);", STORED),
+        ("const outer = () => #F#(1);", RETURNED),
+        ("function App(x) { return D({a: x}); }", STORED),
+    ]);
+}
+
+#[test]
+fn component_route_timing_refuses_assignment_property_comma_and_statement_uses() {
+    assert_timing_rows(&[
+        ("let held; held = #F#;", STORED),
+        ("const holder = { render: #F# };", STORED),
+        ("const holder = { render() { return D({a: x}); } };", STORED),
+        ("const pair = (0, #F#);", RETURNED),
+        ("#F#;", STORED),
+        ("(#F#)(1);", STORED),
+        ("new (#F#)();", RETURNED),
+        ("const [first] = [#F#];", STORED),
+        ("const picked = cond ? #F# : null;", STORED),
+    ]);
+}
+
+#[test]
+fn component_route_timing_refuses_member_access_through_wrappers_and_brackets() {
+    assert_timing_rows(&[
+        ("(#F# as any).bind(null)(1);", STORED),
+        ("#F#!.call(null, 1);", STORED),
+        ("(#F# satisfies unknown).apply(null, [1]);", RETURNED),
+        ("#F#['call'](null, 1);", STORED),
+        ("#F#['bind'](null);", STORED),
+        ("const keep = #F#['bind'](null);", STORED),
+        ("#F#?.call(null, 1);", RETURNED),
+        ("#F#?.['apply'](null, [1]);", STORED),
+        ("const keep = (#F#)?.bind(null);", STORED),
+        ("const keep = ((#F# as any)!)[`bind`](null);", RETURNED),
+        ("const member = #F#.name;", STORED),
+    ]);
+    let angle = |template: &str| {
+        classify_in(
+            "route.ts",
+            Language::TypeScript,
+            &template.replace("#F#", LITERAL),
+            LATER_D,
+            SiteKind::Literal,
+        )
+    };
+    assert_eq!(
+        angle("(<any>#F#).bind(null)(1);"),
+        Route::PreInitializerUnproved
+    );
+    assert_eq!(angle("const kept = <any>#F#;"), Route::Direct);
+    assert_eq!(angle("function make() { return <any>#F#; }"), Route::Direct);
+}
+
+#[test]
+fn component_route_timing_admits_exactly_the_three_delivery_forms() {
+    let mut failures = Vec::new();
+    for (name, prefix, kind) in [
+        ("stored", "const later = #F#;", SiteKind::Literal),
+        ("let", "let later = #F#;", SiteKind::Literal),
+        ("var", "var later = #F#;", SiteKind::Literal),
+        ("returned", RETURNED, SiteKind::Literal),
+        (
+            "returned in nested make",
+            "function make(x) { return () => D({a: x}); }",
+            SiteKind::Literal,
+        ),
+        (
+            "concise arrow return",
+            "const make = x => () => D({a: x});",
+            SiteKind::Literal,
+        ),
+        (
+            "concise arrow body",
+            "const make = () => #F#;",
+            SiteKind::Literal,
+        ),
+        ("jsx attribute", JSX_ATTRIBUTE, SiteKind::Literal),
+        (
+            "jsx attribute inside a call argument",
+            "render(<Widget render={#F#}/>);",
+            SiteKind::Literal,
+        ),
+        (
+            "as wrapper",
+            "const later = (#F# as any);",
+            SiteKind::Literal,
+        ),
+        ("non-null wrapper", "const later = #F#!;", SiteKind::Literal),
+        (
+            "satisfies wrapper",
+            "const later = (#F# satisfies unknown);",
+            SiteKind::Literal,
+        ),
+        (
+            "wrapped return",
+            "function make() { return (#F# as any)!; }",
+            SiteKind::Literal,
+        ),
+        (
+            "wrapped jsx attribute",
+            "const view = <Widget render={#F# as any}/>;",
+            SiteKind::Literal,
+        ),
+        (
+            "async arrow",
+            "const later = async (x) => D({a: x});",
+            SiteKind::Literal,
+        ),
+        (
+            "function expression",
+            "const later = function (x) { return D({a: x}); };",
+            SiteKind::Literal,
+        ),
+        (
+            "generator function expression",
+            "const later = function* (x) { yield D({a: x}); };",
+            SiteKind::Literal,
+        ),
+        (
+            "parameter default of a stored arrow",
+            "const later = (x, y = D({a: x})) => y;",
+            SiteKind::Literal,
+        ),
+        (
+            "jsx site in a jsx attribute arrow",
+            "const view = <Widget render={x => <D a={x}/>}/>;",
+            SiteKind::Jsx,
+        ),
+        (
+            "jsx site in a stored arrow",
+            "const later = x => <D a={x}/>;",
+            SiteKind::Jsx,
+        ),
+    ] {
+        let got = classify(&prefix.replace("#F#", LITERAL), LATER_D, kind);
+        if got != Route::Direct {
+            failures.push(format!("{name}: {got:?}"));
+        }
+    }
+    let jsx_refused = classify("[1].forEach(x => <D a={x}/>);", LATER_D, SiteKind::Jsx);
+    assert_eq!(jsx_refused, Route::PreInitializerUnproved);
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+#[test]
+fn component_route_timing_checks_reads_inside_alias_initializers() {
+    let alias_use = "function App(x) { return Alias({a: x}); }";
+    for (prefix, want) in [
+        ("const Alias = D;", Route::PreInitializerUnproved),
+        ("const Alias = (D);", Route::PreInitializerUnproved),
+        ("const Alias = (y) => D(y);", Route::UnprovedIdentity),
+    ] {
+        assert_eq!(
+            classify(
+                prefix,
+                &format!("{LATER_D}\n{alias_use}"),
+                SiteKind::Literal
+            ),
+            want,
+            "{prefix}"
+        );
+    }
+    // Every const cycle reads one binding before its declarator ends, so the
+    // timing reason is reported before the cycle is reached.
+    assert_eq!(
+        classify(
+            "function D({a}) { return a; } const A = B; const B = A;",
+            "function App(x) { return A({a: x}); }",
+            SiteKind::Literal
+        ),
+        Route::PreInitializerUnproved
+    );
+    assert_eq!(
+        classify(
+            &format!("{LATER_D}\nconst Alias = D;"),
+            alias_use,
+            SiteKind::Literal
+        ),
+        Route::Direct
+    );
+}
+
+#[test]
+fn component_route_timing_gates_the_result_binding_of_a_proved_local_hook() {
+    let hook = "import {useCallback as cb} from 'react';";
+    for (caller, want) in [
+        (
+            "function App(x) { D({a: x}); const D = cb(({a}) => a, []); }",
+            Route::PreInitializerUnproved,
+        ),
+        (
+            "function App(x) { const D = cb(({a}) => a, []); D({a: x}); }",
+            Route::LocalHookOperand,
+        ),
+        (
+            "function App(x) { const later = () => D({a: x}); const D = cb(({a}) => a, []); }",
+            Route::LocalHookOperand,
+        ),
+        (
+            "function App(x) { (() => D({a: x}))(); const D = cb(({a}) => a, []); }",
+            Route::PreInitializerUnproved,
+        ),
+    ] {
+        assert_eq!(classify(hook, caller, SiteKind::Literal), want, "{caller}");
+    }
 }

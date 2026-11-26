@@ -146,6 +146,8 @@ const PROP_COUNTER_KEYS: &[&str] = &[
     "refused_member_not_export",
     "refused_target_identity",
     "refused_unknown_wrapper",
+    "refused_pre_initializer_unproved",
+    "refused_bare_formal_skipped",
     "refused_no_props_formal",
     "refused_alias_pattern",
     "refused_argument_after_spread",

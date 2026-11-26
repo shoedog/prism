@@ -225,6 +225,7 @@ A call through a followed alias is filed under the alias's spelling. The resolve
   - a `const` object or array that the hook uses anywhere but as the whole value of a `return` (a property write, `Object.assign`, an argument, a spread, a closure capture);
   - a hook with an explicit `return undefined` (`return;` and `return null` are fine), or one that spells any name with a unicode escape;
   - a hook that returns an object or array literal of more than 512 members.
+- Follow-up candidate, pre-initializer function literals (lane 3 S2b): a literal call into an object-pattern formal whose callee is a same-file `const`/`let` declared after the read is admitted only when the function literal holding the read is stored in a single-identifier declarator, returned (or a concise arrow body), or the braced value of a named JSX attribute, and is not reached through a member access (`.bind`, `.call`, `.apply`). The strict list refuses these corpus sites, whose delivery form is not on it: a JSX attribute arrow nested in a call argument, three function expressions that are direct call arguments, two arrows as object-pair values and one object method. Priced at its strictest on the pinned corpora: Excalidraw 1 site / 2 edges, cal.com 5 sites / 20 edges, TypeScript 0. Each refusal counts `refused_pre_initializer_unproved` in `dfg_props`. A later slice can admit a delivery form (for example a function expression passed to a call whose callee is proved to store, not run, it) with its own proof.
 
 ## 5. Parsing
 

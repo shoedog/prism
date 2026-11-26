@@ -365,6 +365,7 @@ fn pattern_admission(
     match route {
         Route::Direct | Route::LocalHookOperand => Ok(route),
         Route::UnknownWrapper | Route::JsxRenderOperand => Err((3, "refused_unknown_wrapper")),
+        Route::PreInitializerUnproved => Err((3, "refused_pre_initializer_unproved")),
         Route::UnprovedIdentity => Err((3, "refused_target_identity")),
     }
 }
@@ -405,6 +406,11 @@ pub(super) fn collect<T, P, F>(
         let target = if let Some(param) = plain {
             let bare = bare_slot(param);
             if !admission.literal(bare) {
+                // The incoming bare-formal admission skips this position; the
+                // site still counts one reason (check 3).
+                if bare.is_some() {
+                    refusals.push((position, true, 3, "refused_bare_formal_skipped"));
+                }
                 continue;
             }
             let Some(def) = resolve(param) else {

@@ -4,6 +4,7 @@
 pub(crate) mod component_route;
 #[cfg(test)]
 mod component_route_tests;
+mod component_route_timing;
 mod exact_reads;
 mod export_facts;
 pub mod exports;

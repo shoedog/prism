@@ -332,7 +332,8 @@ function literalOutcome(argument, formal, span, sourceOf, defOf, alias = false, 
   const prefix = (a, b) => a.length <= b.length && a.every((segment, i) => segment === b[i]);
   const survivors = [];
   for (const terminal of fold(argument, [])) {
-    if (terminal.kind === 'opaque') add('refused_value_not_data');
+    // A surviving numeric-key writer terminal supplies no leaf: counted as opaque.
+    if (terminal.kind === 'opaque' || terminal.kind === 'numeric') add('refused_value_not_data');
     if (terminal.kind !== 'leaf') continue;
     const { path, from } = terminal;
     survivors.push({ path, from });

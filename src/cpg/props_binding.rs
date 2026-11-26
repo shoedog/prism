@@ -175,15 +175,15 @@ fn fold_writers(
                     PropsValue::Object(entries) => {
                         fold_writers(entries, prefix, counters.as_deref_mut())
                     }
-                    PropsValue::Numeric => Projection {
-                        terminals: 1,
-                        ..Projection::default()
-                    },
-                    _ => Projection {
-                        terminals: 1,
-                        opaque: 1,
-                        ..Projection::default()
-                    },
+                    // A numeric-key writer supplies no leaf, and no static read
+                    // names its key, so a surviving terminal counts as opaque.
+                    PropsValue::Numeric | PropsValue::Opaque | PropsValue::Operand { .. } => {
+                        Projection {
+                            terminals: 1,
+                            opaque: 1,
+                            ..Projection::default()
+                        }
+                    }
                 };
                 prefix.pop();
                 if let Some(prior) = last.insert(&writer.key, position) {

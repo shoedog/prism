@@ -215,7 +215,9 @@ fn props_s2_pattern_entries_and_writer_displacements_are_counted_once() {
         ("displaced-subtree-telemetry", "function D({box, keep}) {\n use(box, keep);\n}\nfunction App(x, y, z, w, obj) {\n D({box: {...obj, a: x, b: y}, box: {}, box: 1, keep: z});\n}\n",
             &["App:z@5 -> D:keep@1(def)"], &[("spread_sources_unbound", 1), ("refused_overwritten", 2), ("refused_value_not_data", 1)]),
         ("numeric-known-and-noncanonical", "function D({'1': v, keep}) {\n use(v, keep);\n}\nfunction App(x, y, z) {\n D({'1': x, Infinity: y, 1e0: x, 1: y, keep: z});\n}\n",
-            &["App:z@5 -> D:keep@1(def)"], &[("refused_value_not_data", 0), ("refused_overwritten", 2)]),
+            &["App:z@5 -> D:keep@1(def)"], &[("refused_value_not_data", 1), ("refused_overwritten", 2)]),
+        ("numeric-terminal-survives", "function D({'1': v, keep}) {\n use(v, keep);\n}\nfunction App(x, z) {\n D({1: x, keep: z});\n}\n",
+            &["App:z@5 -> D:keep@1(def)"], &[("refused_value_not_data", 1), ("refused_overwritten", 0)]),
         ("opaque-numeric-terminal-overwritten", "function D({'1': v, keep}) {\n use(v, keep);\n}\nfunction App(x, z) {\n D({1: 0, '1': x, keep: z});\n}\n",
             &["App:x@5 -> D:v@1(def)", "App:z@5 -> D:keep@1(def)"], &[("refused_overwritten", 1), ("refused_value_not_data", 0)]),
         ("accessor-final", "function D({a, keep}) {\n use(a, keep);\n}\nfunction App(x, y) {\n D({a: x, get a() { return x; }, keep: y});\n}\n",
@@ -445,4 +447,151 @@ fn props_s2_recovered_literal_contributes_only_inventory() {
         }
     }
     assert!(failures.is_empty(), "{failures:?}");
+}
+
+const TIMING_D: &str = "const D = ({a}) => {\n use(a);\n};\n";
+
+#[test]
+fn props_s2_pre_initializer_timing_counts_one_refusal_per_site() {
+    let timing = |count: u64, edges: u64| {
+        vec![
+            ("sites_literal", 1),
+            ("refused_pre_initializer_unproved", count),
+            ("edges_to_def", edges),
+        ]
+    };
+    let mut failures = Vec::new();
+    for (name, head, tail, refused) in [
+        (
+            "bind-stored",
+            "const keep = (function App(x) {\n return D({a: x});\n})",
+            ".bind(null);",
+            true,
+        ),
+        (
+            "stored",
+            "const keep = (function App(x) {\n return D({a: x});\n})",
+            ";",
+            false,
+        ),
+        ("iife", "(function App(x) {\n D({a: x});\n})", "(1);", true),
+        (
+            "returned",
+            "function make() {\n return function App(x) {\n D({a: x});\n };\n}\n//",
+            "",
+            false,
+        ),
+        (
+            "call-argument",
+            "[1].forEach(function App(x) {\n D({a: x});\n})",
+            ";",
+            true,
+        ),
+        (
+            "jsx-attribute",
+            "const view = <Widget render={function App(x) {\n D({a: x});\n }}/>",
+            ";",
+            false,
+        ),
+    ] {
+        let source = format!("{head}{tail}\n{TIMING_D}");
+        let built = graph("js", &source);
+        let sites = recorded(&built, "App", "D");
+        assert_eq!(sites.len(), 1, "{name}");
+        let want_edge = format!(
+            "App:x@{} -> D:a@{}(def)",
+            source[..source.find("D({a: x})").unwrap()]
+                .matches('\n')
+                .count()
+                + 1,
+            source[..source.find("const D").unwrap()]
+                .matches('\n')
+                .count()
+                + 1
+        );
+        let edges: Vec<&str> = if refused { vec![] } else { vec![&want_edge] };
+        if let Err(error) = check(
+            &built,
+            &edges,
+            &timing(u64::from(refused), u64::from(!refused)),
+        ) {
+            failures.push(format!("{name}: {error}"));
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+#[test]
+fn props_s2_pre_initializer_timing_keeps_plain_positions_and_counts_a_mixed_site_once() {
+    let plain_pattern = "const D = (q, {a}) => {\n use(q.b);\n use(a);\n};\n";
+    let both_patterns = "const D = ({a}, {b}) => {\n use(a, b);\n};\n";
+    for (name, caller, target, edges, counts) in [
+        (
+            "plain-binds-pattern-refused",
+            "const keep = (function App(x, y) {\n D({b: y}, {a: x});\n}).bind(null);\n",
+            plain_pattern,
+            &["App:y@2 -> D:q.b@5(use)"][..],
+            &[
+                ("edges_to_use", 1),
+                ("edges_to_def", 0),
+                ("refused_pre_initializer_unproved", 1),
+            ][..],
+        ),
+        (
+            "two-refused-positions-count-one",
+            "const keep = (function App(x, y) {\n D({a: x}, {b: y});\n}).bind(null);\n",
+            both_patterns,
+            &[][..],
+            &[("edges_to_def", 0), ("refused_pre_initializer_unproved", 1)][..],
+        ),
+        (
+            "control-binds-both",
+            "const keep = (function App(x, y) {\n D({a: x}, {b: y});\n});\n",
+            both_patterns,
+            &["App:x@2 -> D:a@4(def)", "App:y@2 -> D:b@4(def)"][..],
+            &[("edges_to_def", 2), ("refused_pre_initializer_unproved", 0)][..],
+        ),
+    ] {
+        let built = graph("js", &format!("{caller}{target}"));
+        let result = check(&built, edges, counts);
+        assert_eq!(result, Ok(()), "{name}");
+    }
+}
+
+#[test]
+fn props_s2_every_recorded_literal_site_without_a_binding_counts_one_reason() {
+    let lib = "export const take = p => {\n use(p.a);\n};\n";
+    for (name, caller, edges, skipped) in [
+        (
+            "cross-file-free-single-bare-formal",
+            "export function loose(v) {\n take({a: v});\n}\n",
+            0,
+            1,
+        ),
+        (
+            "proved-import-control",
+            "import { take } from './lib';\nexport function loose(v) {\n take({a: v});\n}\n",
+            1,
+            0,
+        ),
+    ] {
+        let built = build(
+            Language::JavaScript,
+            &[("lib", lib), ("loose", caller)],
+            "js",
+        );
+        let stats = serde_json::to_value(&built.dfg_label_stats).unwrap();
+        for (key, count) in [
+            ("sites_literal", 1),
+            ("refused_bare_formal_skipped", skipped),
+            ("refused_not_exact_singleton", 0),
+        ] {
+            assert_eq!(check_counter(&stats, key, count), Ok(()), "{name}");
+        }
+        assert_eq!(
+            super::object_literal_arg_tests::literal_edges(&built).len(),
+            edges,
+            "{name}"
+        );
+    }
 }
