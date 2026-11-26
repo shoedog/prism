@@ -95,12 +95,23 @@ class Parent:
 
     def reaches(self, w_node, r_node, owner, lines, root):
         """Whether a value feeding W's statement already reaches R by other data-flow edges.
+
+        `True`/`False` when the search finished; `None` (unknown) when it ran out of budget. The walk is the
+        production one (`dfg_forward_reachable`): data-flow edges, plus a Use feeds the Defs on its own line
+        of the same owner (`d = {"old": t}; d["new"] = t; return d` carries `t` through the same-line Def of
+        `d`). W itself is never entered: it is the route being asked about.
         Uses of the container's own root are not the stored value and seed nothing."""
         seeds = {pred for line in lines for use in self.at_line.get((owner, "use", line), ())
                  if use[5][0] != root for pred in self.pred.get(use, ())}
         seen, todo = set(seeds), deque(seeds)
-        while todo and len(seen) <= ROUTE_BUDGET:
-            for nxt in self.succ.get(todo.popleft(), ()):
+        while todo:
+            if len(seen) > ROUTE_BUDGET:
+                return None
+            node = todo.popleft()
+            nexts = list(self.succ.get(node, ()))
+            if node[4] == "use":
+                nexts += self.at_line.get((node[:3], "def", node[3]), ())
+            for nxt in nexts:
                 if nxt == r_node:
                     return True
                 if nxt != w_node and nxt not in seen:

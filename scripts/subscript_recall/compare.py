@@ -5,7 +5,8 @@
 --edges`, cold `dfg-stats` and `call-stats` JSON, and the typed graph reader, all on the same unchanged
 source tree, and writes a manifest binding binary, reader, source tree, version and options. A partial run
 (any nonzero exit, truncated stream, version mismatch, a trace record with the trace off) is refused even when
-every exit status was zero. `zero` compares the `base`, `off` and `on` runs of each corpus: byte-mode DataFlow
+every exit status was zero. `zero` compares the `base`, `off` and `on` runs of each corpus, after binding the base arm to an expected base revision
+and a binary and reader of its own (`--expect-base`, `--expect-head`; `--allow-same-binary` is for smoke runs only): byte-mode DataFlow
 bags, typed input/node/edge bags, DFG stats and call-stats must be equal (an empty allowance for stats
 deltas). The `on` arm's stderr trace records are stored apart and never enter a comparison.
 """
@@ -478,12 +479,52 @@ def compare_runs(base, other):
     return problems
 
 
-def zero_corpus(runs_dir, corpus):
+REV_RE = re.compile(r"[0-9a-f]{7,40}")
+
+
+def same_revision(a, b):
+    a, b = a.lower(), b.lower()
+    return a.startswith(b) or b.startswith(a)
+
+
+def binding_problems(ms, bind):
+    """Whether base is a different executable (and reader) of a different revision than the head arms.
+
+    `bind` holds `expect_base`, `expect_head` (revisions, at least 7 hex digits) and `allow_same_binary`
+    (a smoke run whose three arms share one executable). Without the flag, both revisions must be named,
+    must differ, must be the ones the arms' `--version` reported, and the base arm's binary and reader must
+    be different files (by sha256) from the head arms'."""
+    if bind["allow_same_binary"]:
+        return []
+    problems = []
+    want = {"base": bind.get("expect_base"), "head": bind.get("expect_head")}
+    for side, rev in want.items():
+        if not rev or not REV_RE.fullmatch(rev.lower()):
+            problems.append(f"expected {side} revision missing or too short (--expect-{side}, 7+ hex digits)")
+    if not problems and same_revision(want["base"], want["head"]):
+        problems.append("expected base and head revisions are the same")
+    identity = {arm: ms[arm]["version"]["identity"] for arm in TRACE_BY_ARM}
+    if same_revision(identity["base"], identity["off"]) or same_revision(identity["base"], identity["on"]):
+        problems.append(f"base arm has the head's version identity {identity['base']}")
+    if not problems:
+        if not same_revision(identity["base"], want["base"]):
+            problems.append(f"base arm identity {identity['base']} is not the expected base {want['base']}")
+        for arm in ("off", "on"):
+            if not same_revision(identity[arm], want["head"]):
+                problems.append(f"{arm} arm identity {identity[arm]} is not the expected head {want['head']}")
+    for what, pick in (("executable", lambda m: m["binary"]["sha256"]),
+                       ("reader executable", lambda m: m["reader"]["sha256"])):
+        if pick(ms["base"]) == pick(ms["off"]):
+            problems.append(f"base arm used the same {what} as the head arms (sha256 {pick(ms['base'])[:12]})")
+    return problems
+
+
+def zero_corpus(runs_dir, corpus, bind):
     with Scratch() as scratch:
-        return zero_runs(runs_dir, corpus, scratch)
+        return zero_runs(runs_dir, corpus, scratch, bind)
 
 
-def zero_runs(runs_dir, corpus, scratch):
+def zero_runs(runs_dir, corpus, scratch, bind):
     runs = {arm: load_run(Path(runs_dir) / corpus / arm, corpus, arm, scratch) for arm in TRACE_BY_ARM}
     ms = {arm: r["manifest"] for arm, r in runs.items()}
     problems = []
@@ -498,23 +539,26 @@ def zero_runs(runs_dir, corpus, scratch):
             problems.append(f"off and on arms used different {what}")
     if ms["base"]["reader"]["schema"] != ms["on"]["reader"]["schema"]:
         problems.append("arms used different reader schemas")
+    problems += binding_problems(ms, bind)
     for arm in ("off", "on"):
         problems += [f"base vs {arm}: {p}" for p in compare_runs(runs["base"], runs[arm])]
     return problems
 
 
 def cmd_zero(a):
+    bind = dict(expect_base=a.expect_base, expect_head=a.expect_head, allow_same_binary=a.allow_same_binary)
     failed = 0
     for corpus in a.corpora:
         try:
-            problems = zero_corpus(a.runs, corpus)
+            problems = zero_corpus(a.runs, corpus, bind)
         except (Refused, OSError, KeyError, ValueError) as e:
             problems = [f"refused: {e}"]
         print(f"{corpus}: {'FAIL' if problems else 'PASS'}")
         for p in problems:
             print(f"  {p}", file=sys.stderr)
         failed += bool(problems)
-    print(f"zero: {'FAIL' if failed else 'PASS'} ({len(a.corpora)} corpora, {failed} failed)")
+    note = " (smoke: base, off and on may share one executable)" if a.allow_same_binary else ""
+    print(f"zero: {'FAIL' if failed else 'PASS'} ({len(a.corpora)} corpora, {failed} failed){note}")
     return 1 if failed else 0
 
 
@@ -542,6 +586,10 @@ def main(argv=None):
     z = sub.add_parser("zero", help="require base, off and on arms equal per corpus")
     z.add_argument("--runs", required=True)
     z.add_argument("--corpora", nargs="+", required=True)
+    z.add_argument("--expect-base", help="revision (7+ hex digits) the base arm's binary must report")
+    z.add_argument("--expect-head", help="revision (7+ hex digits) the off and on arms' binary must report")
+    z.add_argument("--allow-same-binary", action="store_true",
+                   help="smoke runs only: let base, off and on share one executable")
     z.set_defaults(fn=cmd_zero)
     v = sub.add_parser("verify", help="re-verify one run's artifacts and bags against its manifest")
     v.add_argument("--run", required=True)

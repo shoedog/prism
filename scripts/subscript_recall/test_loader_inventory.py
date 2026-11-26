@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import loader_inventory as li
 
@@ -138,6 +139,40 @@ class LoaderInventoryTests(unittest.TestCase):
         got = {tuple(p["w"]): p["parent_route"] for p in predictions(rows_of(run))
                if p["outcome"] == "predicted"}
         self.assertEqual(got, {span(src, b'd["b"]'): False, span(src, b'd["a"]'): True})
+
+    def test_same_line_def_carries_the_value_to_an_existing_parent_route(self):
+        """`d = {"old": t}; d["new"] = t; return d`: the initializer Use feeds the same-line Def of `d`."""
+        src = b'def f(d, t):\n    d = {"old": t}\n    d["new"] = t\n    return d\n'
+        w = var("a.py", "f", 1, src, "def", b'd["new"]', ("d", "[]"))
+        r = var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d")
+        feed = var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t")
+        init_use = var("a.py", "f", 1, src, "use", b'"old": t', ("t",), b"t")
+        rhs_use = var("a.py", "f", 1, src, "use", b'"new"] = t', ("t",), b"t")
+        rebind = var("a.py", "f", 1, src, "def", b"d = {", ("d",), b"d")
+        edges = [(feed, init_use), (feed, rhs_use), (rebind, r)]
+        pair, = predictions(rows_of(self.run_of({"a.py": src}, nodes=[w, r, feed, init_use, rhs_use, rebind],
+                                                edges=edges)))
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", True))
+        # control: without the edge out of the same-line Def there is no parent route
+        pair, = predictions(rows_of(self.fresh_run(
+            "T10", {"a.py": src}, [w, r, feed, init_use, rhs_use, rebind], edges[:2])))
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", False))
+
+    def test_exhausted_route_search_is_unknown_not_false(self):
+        src = b'def f(d, t):\n    d["k"] = t\n    return d\n'
+        w, r = standard_nodes(src)
+        feed = var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t")
+        use = var("a.py", "f", 1, src, "use", b"= t", ("t",), b"t")
+        junk = [dict(use, start_byte=900 + i, end_byte=901 + i) for i in range(8)]
+        run = self.run_of({"a.py": src}, nodes=[w, r, feed, use], edges=[(feed, use)] + [(feed, j) for j in junk])
+        with mock.patch.object(li, "ROUTE_BUDGET", 4):
+            pair, = predictions(rows_of(run))
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", None))
+        pair, = predictions(rows_of(run))  # the default budget finishes the search: no route
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", False))
+
+    def fresh_run(self, corpus, files, nodes, edges):
+        return write_run(self.dir.name, corpus, files, nodes=nodes, edges=edges)
 
     def test_container_root_uses_are_not_the_stored_value(self):
         w, r = standard_nodes()

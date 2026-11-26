@@ -6,7 +6,15 @@ full-loader stream of `loader_inventory.py`, reconciles their predictions per ow
 qualifying pairs. `report` joins the witness judgments (`witnesses.jsonl`, bound to frozen pair keys) and
 prints A against the gate. An owner counts once when a pair that BOTH sides predict, with no parent edge and
 no equivalent parent value route, reaches a recorded C3 read (owner, exact r_start:r_end, role) in an owner
-with an empty reconciliation residual and a feasible witness. Conservative readings are marked CHOICE.
+with an empty reconciliation residual and a feasible witness bound to the prepared digest. Conservative
+readings are marked CHOICE.
+
+I2 is admitted only when A passes, every owner reconciles, the flood bound holds for every full-loader corpus
+given (not only the frame's) and a prospective precision receipt (`report --precision precision.json`, schema
+`admission_precision/1`, the DESIGN section 7 result) passes: `{schema, prepared_sha256, n, valid, stale,
+unknown, exhaustive, roles: {role: {n, witnessed}}}` with no stale or unknown judgment, Wilson lower bound of
+valid/n at least .85 (every judgment valid when `exhaustive`) and each populated role at least
+max(1, n - max(1, floor(n/10))) witnessed.
 """
 
 import argparse
@@ -22,12 +30,16 @@ from audit import digest, key as frame_key
 
 GATE = 100
 FROZEN = dict(sha="6c1c0998f4f1afa06b95b2dad84f220e71c784d3d1b8ec82e6606029bb05b818", owners=787,
-              corpora=dict(P1=517, P2=270), rows=1137)
+              corpora=dict(P1=517, P2=270), rows=1137,
+              census=dict(P1="bbff78baaf6161cc6b7038d1315c18f45fef1b3d9c2efca6b1ac84572e8512bd",
+                          P2="1f3c4c01d0c2828b247fab6970e85f852bb2acde316be48cbfa65785717d6599"))
+PRECISION_FLOOR = 0.85
 ROLE = dict(Argument="arg", Keyword="arg", Return="return", AssignmentRhs="assign_rhs")
 STAGES = ("admitted", "joined", "bound", "routed", "unoccupied", "distinct", "after_fanin", "published")
 RECON = ("rd", "raw_pairs", "raw_overflow", "raw_capped", "reads_over_fanin", "omitted_fanin_pairs",
          "over_edge_cap", "omitted_cap_pairs")
 FLOOD_CAPS = (256, 4)
+PRECISION_SCHEMA = "admission_precision/1"
 
 
 def jsonl(path):
@@ -49,8 +61,12 @@ def wilson_lower(k, n, z=1.96):
     return (p + z * z / (2 * n) - z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / (1 + z * z / n)
 
 
-def load_frame(draw_path, census_dir):
-    """Frozen frame keys with their C3 `whole` rows; the draw's hashes and sizes must match."""
+def load_frame(draw_path, census_dir, frozen=FROZEN):
+    """Frozen frame keys with their C3 `whole` rows; the draw's hashes and sizes must match.
+
+    `frozen` is the recorded frame (digest, 787 owners, 517/270, 1,137 rows, census file digests); the
+    production entry point always passes it, and a substitute frame or census input is refused. A test
+    injects another frame, or `None` for only the draw's own consistency checks (never from the CLI)."""
     draw = json.loads(Path(draw_path).read_text())
     spec = draw["families"]["python"]
     frame, census_files = defaultdict(list), defaultdict(set)
@@ -69,10 +85,12 @@ def load_frame(draw_path, census_dir):
             or dict(by_corpus) != spec["by_corpus"] or any(k not in frame for k in sample)
             or digest(json.dumps(sample).encode()) != spec["sample_sha256"]):
         raise ValueError("census frame disagrees with the frozen draw")
-    if spec["frame_sha256"] == FROZEN["sha"] and (
-            len(frame) != FROZEN["owners"] or dict(by_corpus) != FROZEN["corpora"]
-            or sum(map(len, frame.values())) != FROZEN["rows"]):
-        raise ValueError("frozen frame sizes disagree with the recorded 787/517/270/1,137")
+    if frozen is not None and (
+            spec["frame_sha256"] != frozen["sha"] or len(frame) != frozen["owners"]
+            or dict(by_corpus) != frozen["corpora"] or sum(map(len, frame.values())) != frozen["rows"]):
+        raise ValueError("not the frozen frame (digest, owners, per-corpus owners and C3 rows are pinned)")
+    if frozen is not None and census_sha != frozen["census"]:
+        raise ValueError("census inputs are not the frozen ones (per-corpus digests are pinned)")
     return dict(frame=dict(frame), files=dict(census_files), sample=sample, sha=spec["frame_sha256"],
                 census_sha=census_sha, draw_sha=digest(Path(draw_path).read_bytes()))
 
@@ -166,7 +184,12 @@ def load_independent(path, problems):
 
 
 def survivors(preds, role_of):
-    return {(tuple(p["w"]), tuple(p["r"]), role_of(p)): p for p in preds if p["outcome"] == "predicted"}
+    """`(W bytes, R bytes, role) -> [prediction rows]`: a multiset, so a repeated pair stays visible."""
+    out = defaultdict(list)
+    for p in preds:
+        if p["outcome"] == "predicted":
+            out[(tuple(p["w"]), tuple(p["r"]), role_of(p))].append(p)
+    return out
 
 
 def identity_matches(rec, span, end_max):
@@ -217,9 +240,14 @@ def residual(prod, ind, ind_preds):
     """Differences between the product's and the independent owner's predictions and totals."""
     p = survivors(prod.preds, lambda x: ROLE.get(x["role"], x["role"]))
     i = survivors(ind_preds, lambda x: x["role"])
-    out = [dict(field="pair", side="product_only", w=w, r=r, role=role) for (w, r, role) in sorted(set(p) - set(i))]
-    out += [dict(field="pair", side="independent_only", w=w, r=r, role=role)
-            for (w, r, role) in sorted(set(i) - set(p))]
+    out = []
+    for key in sorted(set(p) | set(i)):
+        # multiplicities, not sets: two product copies against one independent copy leave one residual
+        for side, more, less in (("product_only", p, i), ("independent_only", i, p)):
+            extra = len(more.get(key, ())) - len(less.get(key, ()))
+            if extra > 0:
+                w, r, role = key
+                out.append(dict(field="pair", side=side, w=w, r=r, role=role, count=extra))
     for field in RECON:
         a, b = prod.rec.get(field), ind.get(field)
         if field == "raw_pairs" and a is not None and b is not None:
@@ -230,6 +258,11 @@ def residual(prod, ind, ind_preds):
         elif a != b:
             out.append(dict(field=field, product=a, independent=b))
     return out, p, i
+
+
+def duplicate_pair_keys(survivor_sets):
+    """Pair keys that one side predicts more than once (a problem before reconciliation)."""
+    return [(side, key) for side, items in survivor_sets for key, rows in sorted(items.items()) if len(rows) > 1]
 
 
 def flood(agreed):
@@ -253,7 +286,9 @@ def corpus_pass(corpus, fr, ind, product, problems, acc):
     paired = {id(p) for p, _ in matched}
     for p, i in matched:
         res, prod_set, ind_set = residual(p, i, ind["preds"][(i["file"], i["owner"])])
-        agreed = {k: ind_set[k] for k in prod_set if k in ind_set}
+        problems += [f"{corpus}: duplicate pair key on the {side} side of {i['file']} {i['owner']}: {key[0]} {key[1]}"
+                     f" {key[2]}" for side, key in duplicate_pair_keys((("product", prod_set), ("independent", ind_set)))]
+        agreed = {k: ind_set[k][0] for k in prod_set if k in ind_set}
         fk = (corpus, i["file"], i["owner"], "python")
         c3 = defaultdict(list)
         for r in fr["frame"].get(fk, ()):
@@ -262,13 +297,14 @@ def corpus_pass(corpus, fr, ind, product, problems, acc):
             if fk in fr["frame"]:
                 where = "c3" if (r[0], r[1], role) in c3 else "frame_other_read"
             else:
-                where = "other_in_filter" if i["file"] in fr["files"][corpus] else "outside_filter"
+                where = "other_in_filter" if i["file"] in fr["files"].get(corpus, ()) else "outside_filter"
             cat = acc["categories"][(corpus, role, where)]
             cat["pairs"] += 1
             cat["by_owner"][(i["file"], i["owner"])] += 1
             acc["agreed"][corpus].append(dict(file=i["file"], owner=i["owner"], r=r, raw=i["raw_pairs"]))
             # CHOICE: an owner with any residual earns nothing, even for a pair both sides predict.
-            if where == "c3" and not res and not pred["occupied"] and not pred["parent_route"]:
+            # An unknown parent route (`None`: the search ran out of budget) is no proof of absence: no credit.
+            if where == "c3" and not res and not pred["occupied"] and pred.get("parent_route") is False:
                 acc["candidates"].append(dict(
                     key=pair_key(corpus, i["file"], i["owner"], w, r, role), corpus=corpus, file=i["file"],
                     owner=i["owner"], w=list(w), r=list(r), role=role, recorded_w=sorted(c3[(r[0], r[1], role)]),
@@ -326,8 +362,8 @@ def status_rows(fr, m, independent, acc, dups, problems):
     return rows
 
 
-def prepare(a):
-    fr = load_frame(a.draw, a.census_dir)
+def prepare(a, frozen=FROZEN):
+    fr = load_frame(a.draw, a.census_dir, frozen)
     m = load_m_audit(a.m_audit)
     if m["owners"] != set(fr["frame"]):
         raise ValueError("M's frame owners disagree with the census frame")
@@ -336,7 +372,8 @@ def prepare(a):
     acc = dict(categories=defaultdict(lambda: dict(pairs=0, by_owner=Counter())), owners={}, candidates=[],
                residuals=[], stats=defaultdict(Counter), agreed=defaultdict(list))
     runs, dups = {}, set()
-    for corpus in sorted(fr["census_sha"]):
+    # A is the frame's (P1, P2); flood accounting covers every full-loader corpus the independent stream holds.
+    for corpus in sorted(set(fr["census_sha"]) | set(independent)):
         ind = independent.get(corpus)
         if ind is None:
             problems.append(f"{corpus}: no independent records")
@@ -378,7 +415,9 @@ def prepare(a):
 
 
 def witnessed(candidates, witnesses, prepared_sha):
-    """`key -> verdict` over the frozen candidates; stale, unknown, conflicting and absent earn nothing."""
+    """`key -> verdict` over the frozen candidates. Every witness row must carry the exact prepared digest:
+    a missing digest is `unbound` and a different one `stale`; stale, unbound, unknown, conflicting and absent
+    earn nothing."""
     by_key = defaultdict(list)
     for w in witnesses:
         by_key[w.get("key")].append(w)
@@ -388,8 +427,10 @@ def witnessed(candidates, witnesses, prepared_sha):
         rows = by_key.get(key)
         if not rows:
             verdicts[key] = "unverified"
-        elif any(r.get("prepared_sha256", prepared_sha) != prepared_sha or r.get("verdict") == "stale" for r in rows):
+        elif any(r.get("prepared_sha256") not in (None, prepared_sha) or r.get("verdict") == "stale" for r in rows):
             verdicts[key] = "stale"
+        elif any(r.get("prepared_sha256") is None for r in rows):
+            verdicts[key] = "unbound"
         elif all(r.get("verdict") == "feasible" for r in rows):
             verdicts[key] = "feasible"
         else:
@@ -399,6 +440,33 @@ def witnessed(candidates, witnesses, prepared_sha):
     return verdicts, counts
 
 
+def precision_problems(receipt, prepared_sha):
+    """Why a section 7 precision receipt does not clear I2 (empty: it does)."""
+    if not isinstance(receipt, dict) or receipt.get("schema") != PRECISION_SCHEMA:
+        return ["precision receipt is not an admission_precision/1 document"]
+    out = []
+    if receipt.get("prepared_sha256") != prepared_sha:
+        out.append("precision receipt is not bound to this prepared digest")
+    n, valid = receipt.get("n"), receipt.get("valid")
+    if not (isinstance(n, int) and isinstance(valid, int) and 0 < n and 0 <= valid <= n):
+        return out + ["precision receipt lacks a judged sample (n, valid)"]
+    for what in ("stale", "unknown"):
+        if receipt.get(what) != 0:
+            out.append(f"precision draw has {receipt.get(what)!r} {what} judgments (any {what} fails)")
+    if receipt.get("exhaustive") is True:
+        if valid != n:
+            out.append(f"exhaustive family: {valid}/{n} judgments valid, every one must be")
+    elif wilson_lower(valid, n) < PRECISION_FLOOR:
+        out.append(f"Wilson lower bound {wilson_lower(valid, n):.4f} of {valid}/{n} is below {PRECISION_FLOOR}")
+    for role, row in sorted((receipt.get("roles") or {}).items()):
+        k, w = (row or {}).get("n"), (row or {}).get("witnessed")
+        if not (isinstance(k, int) and isinstance(w, int)):
+            out.append(f"role {role}: n and witnessed are required")
+        elif k > 0 and w < max(1, k - max(1, k // 10)):
+            out.append(f"role {role}: {w} of {k} witnessed, needs {max(1, k - max(1, k // 10))}")
+    return out
+
+
 def report(a):
     prep = Path(a.prepared)
     meta = json.loads((prep / "prepared.json").read_text())
@@ -406,6 +474,12 @@ def report(a):
     if digest((prep / "candidates.jsonl").read_bytes()) != meta["candidates_sha256"]:
         raise ValueError("candidates.jsonl does not match prepared.json")
     witnesses = jsonl(a.witnesses) if a.witnesses and Path(a.witnesses).exists() else []
+    receipt, receipt_problem = None, "no precision receipt (pass --precision precision.json)"
+    if a.precision:
+        try:
+            receipt, receipt_problem = json.loads(Path(a.precision).read_text(encoding="utf-8")), None
+        except (OSError, ValueError) as e:
+            receipt_problem = f"precision receipt unreadable: {e}"
     verdicts, counts = witnessed(candidates, witnesses, meta["prepared_sha256"])
     owners = jsonl(prep / "owners.jsonl")
     total = len(owners)
@@ -450,12 +524,18 @@ def report(a):
         print(f"  M {name}: valid {r['valid']}/{r['n']} L(a)={wilson_lower(r['valid'], r['n']):.4f}, "
               f"addressable {r['addressable']}/{r['n']} floor({total}*L(b))={math.floor(total * lo)}")
     print(f"GATE A >= {GATE} of {total}: {verdict} (A={A})")
-    blocked = verdict == "PASS" and not clean
-    print(f"I2: {'BLOCKED by unreconciled predictions' if blocked else 'ADMITTED' if verdict == 'PASS' else 'NOT ADMITTED'}")
-    return 4 if blocked else {"PASS": 0, "STOP": 1, "INVALID": 2}[verdict]
+    flood_failed = sorted(c for c, f in meta["flood"].items() if not f["ok"])
+    reasons = [f"flood bound failed in {', '.join(flood_failed)}"] if flood_failed else []
+    if verdict == "PASS":
+        reasons += [] if clean else ["unreconciled predictions"]
+        reasons += [receipt_problem] if receipt_problem else precision_problems(receipt, meta["prepared_sha256"])
+    blocked = bool(reasons)
+    print(f"I2: {'BLOCKED by ' + '; '.join(reasons) if blocked else 'ADMITTED' if verdict == 'PASS' else 'NOT ADMITTED'}")
+    return 2 if verdict == "INVALID" else 4 if blocked else {"PASS": 0, "STOP": 1}[verdict]
 
 
-def main(argv=None):
+def main(argv=None, frozen=FROZEN):
+    """`frozen` is the production frame; only a test passes another (or None) to `prepare`."""
     cli = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = cli.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prepare")
@@ -465,10 +545,11 @@ def main(argv=None):
     r = sub.add_parser("report")
     r.add_argument("--prepared", required=True)
     r.add_argument("--witnesses")
+    r.add_argument("--precision")
     r.set_defaults(fn=report)
     args = cli.parse_args(argv)
     try:
-        return args.fn(args)
+        return args.fn(args, frozen) if args.cmd == "prepare" else args.fn(args)
     except (ValueError, KeyError, OSError, compare.Refused) as e:
         print(f"admission {args.cmd} refused: {e}", file=sys.stderr)
         return 3

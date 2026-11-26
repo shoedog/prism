@@ -14,6 +14,7 @@ from test_loader_inventory import SRC, span, standard_nodes, var, write_run
 
 TAG = {"arg": "Argument", "return": "Return", "assign_rhs": "AssignmentRhs"}
 TWO = b'def f(d, v):\n    d["a"] = v\n    d["b"] = v\n    sink(d)\n    return d\n'
+FIVE = b'def f(d, v):\n' + b"".join(b'    d["%d"] = v\n' % i for i in range(5)) + b"    return d\n"
 CAPS = b'def f(d, v):\n' + b"".join(b'    d["%d"] = v\n' % i for i in range(3)) + b"    return d\n"
 sha = lambda data: hashlib.sha256(data).hexdigest()
 
@@ -48,6 +49,8 @@ class World:
         self.files, self.nodes, self.edges, self.skips, self.frame = {}, [], [], [], {}
         self.limits = li.LIMITS
         self.witness_all = True
+        self.extra = {}
+        self.frozen = None
 
     def function(self, file="a.py", src=SRC, nodes=None, owner="f", line=1, def_line=1):
         """One function owner; its recorded C3 read is `return d` and its W the first store.
@@ -58,23 +61,31 @@ class World:
         first = b'd["k"]' if b'd["k"]' in src else b'd["a"]' if b'd["a"]' in src else b'd["0"]'
         self.frame[(file, f"{owner}@{def_line}")] = [(span(src, first)[0], span(src, b"return d", b"d"), "return")]
 
-    def build(self, mutate_ind=None, mutate_trace=None):
-        r, files = self.root, {}
-        run = write_run(r, "P1", self.files, self.skips, self.nodes, self.edges)
-        rows = li.corpus_records("P1", run, self.limits)
+    def emit(self, corpus, files, skips, nodes, edges, limits, mutate_ind=None, mutate_trace=None):
+        """One corpus's base run, independent rows and `on` trace; returns the independent rows."""
+        r = self.root
+        run = write_run(r, corpus, files, skips, nodes, edges)
+        rows = li.corpus_records(corpus, run, limits)
         records = product_records(rows)
         if mutate_ind:
             mutate_ind(rows)
         if mutate_trace:
             mutate_trace(records)
-        (r / "ind.jsonl").write_text(dump_lines(rows))
-        on = r / "OUT" / "P1" / "on"
+        on = r / "OUT" / corpus / "on"
         on.mkdir()
         text = "".join(compare.TRACE_PREFIX + json.dumps(x) + "\n" for x in records)
         (on / "trace.txt").write_text(text)
         (on / "manifest.json").write_text(json.dumps(dict(
-            complete=True, trace=1, run_id="on-P1", source=dict(digest="digest-P1"),
+            complete=True, trace=1, run_id=f"on-{corpus}", source=dict(digest=f"digest-{corpus}"),
             artifacts={"trace.txt": sha(text.encode())})))
+        return rows
+
+    def build(self, mutate_ind=None, mutate_trace=None):
+        r = self.root
+        rows = self.emit("P1", self.files, self.skips, self.nodes, self.edges, self.limits, mutate_ind, mutate_trace)
+        for corpus, (files, nodes) in self.extra.items():  # full-loader corpora outside the frame
+            rows += self.emit(corpus, files, [], nodes, [], self.limits)
+        (r / "ind.jsonl").write_text(dump_lines(rows))
         census = [dict(kind="owner", corpus="P1", file=f, owner=o, lang="python") for (f, o) in self.frame]
         for (f, o), items in self.frame.items():
             census += [dict(kind="whole", corpus="P1", file=f, owner=o, lang="python", consumer=role,
@@ -87,20 +98,36 @@ class World:
             frame_size=len(keys), frame_sha256=sha(json.dumps(keys).encode()), by_corpus=dict(P1=len(keys)),
             by_lang=dict(python=len(keys)), sample=sample, sample_sha256=sha(json.dumps(sample).encode()))))
         (r / "draw.json").write_text(json.dumps(draw))
+        self.frozen_of = lambda: dict(
+            sha=draw["families"]["python"]["frame_sha256"], owners=len(keys), corpora=dict(P1=len(keys)),
+            rows=sum(map(len, self.frame.values())), census=dict(P1=sha((r / "census" / "P1.jsonl").read_bytes())))
         (r / "maud").mkdir()
         owners = [dict(family="python", corpus="P1", file=f, owner=o, lang="python") for f, o in self.frame]
         (r / "maud" / "frame-counts.json").write_text(json.dumps(dict(owners=owners)))
         (r / "maud" / "sample-inventory.jsonl").write_text(dump_lines([
             dict(owners[0], counts=dict(would_add_at_c3=1))]))
 
+    def argv(self, out="adm"):
+        r = self.root
+        return ["prepare", "--draw", r / "draw.json", "--census-dir", r / "census", "--m-audit", r / "maud",
+                "--runs", r / "OUT", "--independent", r / "ind.jsonl", "--out", r / out]
+
     def prepare(self, **kw):
         self.build(**kw)
-        r = self.root
-        return run_cli(["prepare", "--draw", r / "draw.json", "--census-dir", r / "census",
-                        "--m-audit", r / "maud", "--runs", r / "OUT", "--independent", r / "ind.jsonl",
-                        "--out", r / "adm"])
+        return run_cli(self.argv())
 
-    def report(self, witnesses="all"):
+    def precision(self, **over):
+        """A passing section 7 receipt bound to the prepared digest (fields overridden by `over`)."""
+        meta = json.loads((self.root / "adm" / "prepared.json").read_text())
+        receipt = dict(schema=ad.PRECISION_SCHEMA, prepared_sha256=meta["prepared_sha256"], n=100, valid=100,
+                       stale=0, unknown=0, exhaustive=False, roles=dict(arg=dict(n=50, witnessed=50),
+                                                                       **{"return": dict(n=50, witnessed=50)}))
+        receipt.update(over)
+        path = self.root / "precision.json"
+        path.write_text(json.dumps(receipt))
+        return path
+
+    def report(self, witnesses="all", precision="good"):
         meta = json.loads((self.root / "adm" / "prepared.json").read_text())
         cands = ad.jsonl(self.root / "adm" / "candidates.jsonl")
         rows = witnesses
@@ -108,13 +135,19 @@ class World:
             rows = [dict(key=c["key"], verdict="feasible", prepared_sha256=meta["prepared_sha256"]) for c in cands]
         path = self.root / "witnesses.jsonl"
         path.write_text(dump_lines(rows or []))
-        return run_cli(["report", "--prepared", self.root / "adm", "--witnesses", path])
+        argv = ["report", "--prepared", self.root / "adm", "--witnesses", path]
+        if precision == "good":
+            precision = self.precision()
+        if precision:
+            argv += ["--precision", precision]
+        return run_cli(argv)
 
 
-def run_cli(argv):
+def run_cli(argv, **kw):
+    """The CLI with the test frame (`frozen=None`: only the draw's own consistency is checked)."""
     out, err = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-        code = ad.main([str(a) for a in argv])
+        code = ad.main([str(a) for a in argv], **dict(dict(frozen=None), **kw))
     return code, out.getvalue(), err.getvalue()
 
 
@@ -448,18 +481,23 @@ class AdmissionTests(unittest.TestCase):
         key = ad.jsonl(w.root / "adm" / "candidates.jsonl")[0]["key"]
         sha_ = json.loads((w.root / "adm" / "prepared.json").read_text())["prepared_sha256"]
         cases = {
-            "feasible": ([dict(key=key, verdict="feasible")], 1),
-            "feasible-twice": ([dict(key=key, verdict="feasible"), dict(key=key, verdict="feasible")], 1),
-            "unknown": ([dict(key=key, verdict="unknown")], 0),
-            "infeasible": ([dict(key=key, verdict="infeasible")], 0),
+            "feasible": ([dict(key=key, verdict="feasible", prepared_sha256=sha_)], 1),
+            "feasible-twice": ([dict(key=key, verdict="feasible", prepared_sha256=sha_)] * 2, 1),
+            "unknown": ([dict(key=key, verdict="unknown", prepared_sha256=sha_)], 0),
+            "infeasible": ([dict(key=key, verdict="infeasible", prepared_sha256=sha_)], 0),
             "stale-hash": ([dict(key=key, verdict="feasible", prepared_sha256="0" * 64)], 0),
-            "stale-verdict": ([dict(key=key, verdict="stale")], 0),
-            "conflict": ([dict(key=key, verdict="feasible"), dict(key=key, verdict="infeasible")], 0),
-            "unknown-key": ([dict(key=key + "x", verdict="feasible")], 0),
+            "stale-verdict": ([dict(key=key, verdict="stale", prepared_sha256=sha_)], 0),
+            "conflict": ([dict(key=key, verdict="feasible", prepared_sha256=sha_),
+                          dict(key=key, verdict="infeasible", prepared_sha256=sha_)], 0),
+            "unknown-key": ([dict(key=key + "x", verdict="feasible", prepared_sha256=sha_)], 0),
+            "unbound": ([dict(key=key, verdict="feasible")], 0),
+            "one-row-unbound": ([dict(key=key, verdict="feasible", prepared_sha256=sha_),
+                                 dict(key=key, verdict="feasible")], 0),
             "none": ([], 0),
         }
         for name, (rows, want) in cases.items():
             self.assertEqual(self.a_of(w.report(rows)[1]), want, name)
+        self.assertIn("'unbound': 1", w.report([dict(key=key, verdict="feasible")])[1])
         out = w.report([dict(key=key, verdict="feasible", prepared_sha256=sha_, public_stop=True)])[1]
         self.assertIn("A=1 of 1", out)
         self.assertIn("zero public recovery: 1", out)
@@ -476,6 +514,29 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(w.prepare()[0], 0)
         self.assertEqual(ad.jsonl(w.root / "adm" / "candidates.jsonl"), [])
 
+    def test_exhausted_parent_route_search_is_unknown_and_earns_no_candidate(self):
+        src = b'def f(d, t):\n    d["k"] = t\n    return d\n'
+        nodes = [var("a.py", "f", 1, src, "def", b'd["k"]', ("d", "[]")),
+                 var("a.py", "f", 1, src, "use", b"return d", ("d",), b"d"),
+                 var("a.py", "f", 1, src, "def", b"d, t", ("t",), b"t"),
+                 var("a.py", "f", 1, src, "use", b"= t", ("t",), b"t")]
+        junk = [dict(nodes[3], start_byte=900 + i, end_byte=901 + i) for i in range(8)]
+        self.world.function("a.py", src, nodes=nodes)
+        self.world.edges = [(nodes[2], nodes[3])] + [(nodes[2], j) for j in junk]
+        with mock.patch.object(li, "ROUTE_BUDGET", 4):
+            self.assertEqual(self.world.prepare()[0], 0)
+        pair, = [r for r in ad.jsonl(self.world.root / "ind.jsonl") if r["kind"] == "prediction"]
+        self.assertEqual((pair["outcome"], pair["parent_route"]), ("predicted", None))
+        self.assertEqual(ad.jsonl(self.world.root / "adm" / "candidates.jsonl"), [])
+        row, = ad.jsonl(self.world.root / "adm" / "owners.jsonl")
+        self.assertEqual(row["status"], "ok")  # unknown is not a reconciliation residual
+        with tempfile.TemporaryDirectory() as tmp:  # control: the finished search leaves the candidate
+            other = World(tmp)
+            other.function("a.py", src, nodes=nodes)
+            other.edges = self.world.edges
+            self.assertEqual(other.prepare()[0], 0)
+            self.assertEqual(len(ad.jsonl(Path(tmp, "adm", "candidates.jsonl"))), 1)
+
     def test_earlier_w_differing_from_the_recorded_w_earns_the_owner(self):
         w = self.world
         w.function("a.py", TWO, nodes=[
@@ -487,7 +548,8 @@ class AdmissionTests(unittest.TestCase):
         cands = {c["w"][0]: c for c in ad.jsonl(w.root / "adm" / "candidates.jsonl")}
         early, late = span(TWO, b'd["a"]')[0], span(TWO, b'd["b"]')[0]
         self.assertEqual(cands[early]["recorded_w"], [early])
-        witness = [dict(key=cands[late]["key"], verdict="feasible")]
+        sha_ = json.loads((w.root / "adm" / "prepared.json").read_text())["prepared_sha256"]
+        witness = [dict(key=cands[late]["key"], verdict="feasible", prepared_sha256=sha_)]
         self.assertEqual(self.a_of(w.report(witness)[1]), 1)
 
     def test_frame_or_m_audit_disagreement_is_refused(self):
@@ -501,6 +563,133 @@ class AdmissionTests(unittest.TestCase):
         argv = ["prepare", "--draw", r / "draw.json", "--census-dir", r / "census", "--m-audit", r / "maud",
                 "--runs", r / "OUT", "--independent", r / "ind.jsonl", "--out", r / "adm2"]
         self.assertEqual(run_cli(argv)[0], 3)
+
+    def five_stores(self, world):
+        nodes = [var("a.py", "f", 1, FIVE, "def", b'd["%d"]' % i, ("d", "[]")) for i in range(5)]
+        nodes.append(var("a.py", "f", 1, FIVE, "use", b"return d", ("d",), b"d"))
+        world.function("a.py", FIVE, nodes=nodes)
+        return nodes
+
+    def test_failed_flood_gate_blocks_i2_and_exits_nonzero(self):
+        w = self.world
+        self.five_stores(w)
+        self.assertEqual(w.prepare()[0], 0)
+        self.assertFalse(json.loads((w.root / "adm" / "prepared.json").read_text())["flood"]["P1"]["ok"])
+        with mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report()
+        self.assertEqual(self.a_of(out), 1, out)
+        self.assertIn("5 <= 4: FAIL", out)
+        self.assertIn("I2: BLOCKED", out)
+        self.assertIn("flood", out.split("I2: BLOCKED")[1])
+        self.assertNotEqual(code, 0)
+        self.assertNotIn("ADMITTED", out)
+
+    def test_flood_accounting_covers_every_full_loader_corpus_not_only_the_frame(self):
+        w = self.world
+        w.function()
+        other = World(self.world.root / "other")
+        (self.world.root / "other").mkdir()
+        self.five_stores(other)
+        w.extra = {"X1": (other.files, other.nodes)}
+        self.assertEqual(w.prepare()[0], 0)
+        meta = json.loads((w.root / "adm" / "prepared.json").read_text())
+        self.assertEqual({c: f["ok"] for c, f in meta["flood"].items()}, {"P1": True, "X1": False})
+        self.assertEqual(meta["frame_by_corpus"], {"P1": 1})  # A still counts the frame corpora only
+        self.assertEqual({r["corpus"] for r in ad.jsonl(w.root / "adm" / "candidates.jsonl")}, {"P1"})
+        with mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report()
+        self.assertEqual(self.a_of(out), 1, out)
+        self.assertIn("flood X1: predicted_edges 5 <= 4: FAIL", out)
+        self.assertIn("I2: BLOCKED", out)
+        self.assertEqual(code, 4)
+
+    def test_i2_needs_a_passing_prospective_precision_receipt(self):
+        w = self.world
+        w.function()
+        self.assertEqual(w.prepare()[0], 0)
+        roles = lambda a, b: {"arg": dict(n=a, witnessed=b), "return": dict(n=10, witnessed=10)}
+        cases = {
+            "absent": (None, "no precision receipt"),
+            "missing file": (str(w.root / "nope.json"), "precision"),
+            "other digest": (dict(prepared_sha256="0" * 64), "prepared"),
+            "wilson below .85": (dict(n=100, valid=85), "Wilson"),
+            "stale in the draw": (dict(stale=1), "stale"),
+            "unknown in the draw": (dict(unknown=1), "unknown"),
+            "role short": (dict(roles=roles(20, 17)), "role"),
+            "role missing counts": (dict(roles={"arg": dict(n=3)}), "role"),
+        }
+        for name, (receipt, needle) in cases.items():
+            with self.subTest(name), mock.patch.object(ad, "GATE", 1):
+                if receipt is None:
+                    code, out, _ = w.report(precision=None)
+                elif isinstance(receipt, str):
+                    code, out, _ = w.report(precision=receipt)
+                else:
+                    code, out, _ = w.report(precision=w.precision(**receipt))
+                self.assertEqual(code, 4, out)
+                self.assertIn("I2: BLOCKED", out)
+                self.assertIn(needle, out.split("I2: BLOCKED")[1])
+        with self.subTest("passes"), mock.patch.object(ad, "GATE", 1):
+            for good in (dict(), dict(n=100, valid=94), dict(roles=roles(20, 18)),
+                         dict(exhaustive=True, n=7, valid=7, roles=roles(1, 1))):
+                code, out, _ = w.report(precision=w.precision(**good))
+                self.assertEqual((code, "I2: ADMITTED" in out), (0, True), (good, out))
+        with self.subTest("exhaustive family needs every judgment valid"), mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report(precision=w.precision(exhaustive=True, n=7, valid=6, roles=roles(1, 1)))
+            self.assertEqual(code, 4, out)
+
+    def test_duplicate_pair_keys_are_residuals_and_invalidate_the_run(self):
+        def dup_product(records):
+            o = next(r for r in records if r["kind"] == "owner")
+            o["pairs"].append(dict(o["pairs"][0]))
+            records.append(dict(next(r for r in records if r["kind"] == "prediction")))
+
+        def dup_independent(rows):
+            rows.insert(-1, dict(next(r for r in rows if r["kind"] == "prediction")))
+            rows[-1]["predictions"] += 1
+
+        for name, hooks in (("product only", dict(mutate_trace=dup_product)),
+                            ("independent only", dict(mutate_ind=dup_independent)),
+                            ("both sides", dict(mutate_trace=dup_product, mutate_ind=dup_independent))):
+            with tempfile.TemporaryDirectory() as tmp:
+                w = World(tmp)
+                w.function()
+                code, _, err = w.prepare(**hooks)
+                meta = json.loads(Path(tmp, "adm", "prepared.json").read_text())
+                self.assertEqual(code, 1, name)
+                self.assertFalse(meta["valid"], name)
+                self.assertTrue(any("duplicate pair key" in p for p in meta["problems"]), (name, meta["problems"]))
+                if name != "both sides":  # unequal multiplicity is a pair residual, not erased by a set
+                    residual, = ad.jsonl(Path(tmp, "adm", "residuals.jsonl"))
+                    self.assertEqual(residual["residual"][0]["side"],
+                                     "product_only" if name == "product only" else "independent_only")
+
+    def test_production_prepare_requires_the_frozen_frame_and_census_inputs(self):
+        w = self.world
+        w.function()
+        w.build()
+        # the CLI's own default: the self-consistent test frame is a substitute and is refused
+        code, _, err = run_cli(w.argv("adm-prod"), frozen=ad.FROZEN)
+        self.assertEqual(code, 3, err)
+        self.assertIn("frozen", err)
+        self.assertFalse((w.root / "adm-prod" / "prepared.json").exists())
+        out, errs = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(errs):
+            self.assertEqual(ad.main([str(a) for a in w.argv("adm-default")]), 3)
+        self.assertEqual(ad.FROZEN["sha"], "6c1c0998f4f1afa06b95b2dad84f220e71c784d3d1b8ec82e6606029bb05b818")
+        self.assertEqual((ad.FROZEN["owners"], ad.FROZEN["corpora"], ad.FROZEN["rows"]),
+                         (787, dict(P1=517, P2=270), 1137))
+        self.assertEqual(set(ad.FROZEN["census"]), {"P1", "P2"})
+        # an injected frame (test-only parameter) that matches the inputs is accepted ...
+        self.assertEqual(run_cli(w.argv("adm-inj"), frozen=w.frozen_of())[0], 0)
+        # ... and each pinned property refuses on its own
+        for name, over in (("sha", dict(sha="0" * 64)), ("owners", dict(owners=2)),
+                           ("corpora", dict(corpora=dict(P1=2))), ("rows", dict(rows=9)),
+                           ("census", dict(census=dict(P1="0" * 64)))):
+            with self.subTest(name):
+                code, _, err = run_cli(w.argv("adm-" + name), frozen=dict(w.frozen_of(), **over))
+                self.assertEqual(code, 3, err)
+                self.assertIn("frozen", err)
 
     def test_wilson_lower_matches_the_recorded_m_bounds(self):
         self.assertAlmostEqual(ad.wilson_lower(58, 60), 0.8864, places=4)

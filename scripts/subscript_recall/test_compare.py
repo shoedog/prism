@@ -17,6 +17,8 @@ import compare
 SRC = b"def f(d, v):\n    d['k'] = v\n    return d\n"
 VERSION = "slicing 4.0.0 (abcdef012345)"
 EXPECT = "abcdef0123456789abcdef0123456789abcdef01"
+BASE_VERSION = "slicing 4.0.0 (123456789abc)"
+BASE_EXPECT = "123456789abcdef0123456789abcdef012345678"
 TRACE = compare.TRACE_PREFIX + json.dumps({"kind": "owner", "file": "a.py"})
 F = dict(type="function", name="f", file="a.py", start_line=1, end_line=3, start_byte=0, end_byte=40)
 
@@ -89,6 +91,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 D = json.load(open(os.path.join(here, "data-" + os.environ["FAKE_ARM"] + ".json")))
 [print(json.dumps(r)) for r in D["graph"]]
 sys.exit(D["reader_exit"])
+# {salt}
 """
 
 
@@ -130,11 +133,25 @@ class Harness(unittest.TestCase):
             self.assertEqual(self.run_arm(runs, arm, tool)[0], 0)
         return runs
 
-    def zero(self, runs, corpora=("C",)):
+    def zero(self, runs, corpora=("C",), extra=("--allow-same-binary",)):
+        """The smoke form by default: the fake arms share one executable."""
         err = io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
-            code = compare.main(["zero", "--runs", str(runs), "--corpora", *corpora])
+            code = compare.main(["zero", "--runs", str(runs), "--corpora", *corpora, *extra])
         return code, err.getvalue()
+
+    def bound_runs(self, base_tool=None, head_tool=None, base_expect=BASE_EXPECT):
+        """base from one executable (version BASE_VERSION), off and on from another."""
+        self.n = getattr(self, "n", 0) + 1
+        runs = self.tmp / f"bound{self.n}"
+        base = base_tool or self.tool(f"base{self.n}", salt="base build", base=dict(version=BASE_VERSION))
+        head = head_tool or self.tool(f"head{self.n}", salt="head build")
+        self.assertEqual(self.run_arm(runs, "base", base, expect=base_expect)[0], 0)
+        for arm in ("off", "on"):
+            self.assertEqual(self.run_arm(runs, arm, head)[0], 0)
+        return runs
+
+    STRICT = ("--expect-base", BASE_EXPECT, "--expect-head", EXPECT)
 
     def assertRejected(self, needles, **per_arm):
         code, err = self.zero(self.three(**per_arm))
@@ -299,6 +316,77 @@ class ZeroTests(Harness):
         self.assertEqual(code, 1)
         self.assertIn("different source trees", err)
         self.assertIn("off and on arms used different binary", err)
+
+
+class BaseBindingTests(Harness):
+    def test_distinct_base_and_head_executables_pass_when_bound_to_their_revisions(self):
+        runs = self.bound_runs()
+        self.assertEqual(self.zero(runs, extra=self.STRICT), (0, ""))
+        m = {arm: json.loads((runs / "C" / arm / "manifest.json").read_text()) for arm in compare.TRACE_BY_ARM}
+        self.assertNotEqual(m["base"]["reader"]["sha256"], m["on"]["reader"]["sha256"])
+        self.assertNotEqual(m["base"]["binary"]["sha256"], m["on"]["binary"]["sha256"])
+
+    def test_three_runs_of_one_executable_are_refused_without_the_smoke_flag(self):
+        runs = self.three()
+        code, err = self.zero(runs, extra=())
+        self.assertEqual(code, 1, err)
+        self.assertIn("same executable", err)
+        self.assertEqual(self.zero(runs, extra=("--allow-same-binary",)), (0, ""))
+        # naming revisions does not make one executable two
+        code, err = self.zero(runs, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("same executable", err)
+
+    def test_base_must_have_a_different_version_identity_from_the_head(self):
+        runs = self.tmp / "same-identity"
+        base, head = self.tool("b", salt="base build"), self.tool("h", salt="head build")  # distinct hashes
+        for arm, tool in (("base", base), ("off", head), ("on", head)):
+            self.assertEqual(self.run_arm(runs, arm, tool)[0], 0)  # all report abcdef012345
+        code, err = self.zero(runs, extra=("--expect-base", EXPECT, "--expect-head", EXPECT))
+        self.assertEqual(code, 1, err)
+        self.assertIn("identity", err)
+        code, err = self.zero(runs, extra=())  # no expectations at all: refused as well
+        self.assertEqual(code, 1, err)
+
+    def test_head_reader_supplied_for_the_base_arm_is_refused(self):
+        runs = self.tmp / "reader-swap"
+        base = self.tool("b", salt="base build", base=dict(version=BASE_VERSION))
+        head = self.tool("h", salt="head build")
+        self.assertEqual(self.run_arm(runs, "base", base, expect=BASE_EXPECT)[0], 0)
+        for arm in ("off", "on"):
+            self.assertEqual(self.run_arm(runs, arm, head)[0], 0)
+        # re-capture the base arm with the base binary but the head reader
+        shutil.rmtree(runs / "C" / "base")
+        mixed = self.tmp / "mixed"
+        shutil.copytree(base, mixed)
+        shutil.copy(head / "reader", mixed / "reader")
+        self.assertEqual(self.run_arm(runs, "base", mixed, expect=BASE_EXPECT)[0], 0)
+        code, err = self.zero(runs, extra=self.STRICT)
+        self.assertEqual(code, 1, err)
+        self.assertIn("reader", err)
+        self.assertEqual(self.zero(runs, extra=self.STRICT + ("--allow-same-binary",))[0], 0)
+
+    def test_arms_are_bound_to_the_expected_revisions(self):
+        runs = self.bound_runs()
+        for name, extra in (("wrong base", ("--expect-base", "fedcba987654", "--expect-head", EXPECT)),
+                            ("wrong head", ("--expect-base", BASE_EXPECT, "--expect-head", "fedcba987654")),
+                            ("base only", ("--expect-base", BASE_EXPECT)),
+                            ("head only", ("--expect-head", EXPECT)),
+                            ("short", ("--expect-base", "abc", "--expect-head", EXPECT))):
+            with self.subTest(name):
+                code, err = self.zero(runs, extra=extra)
+                self.assertEqual(code, 1, err)
+        # swapped roles: the head executable as base is not the expected base
+        code, err = self.zero(runs, extra=("--expect-base", EXPECT, "--expect-head", BASE_EXPECT))
+        self.assertEqual(code, 1, err)
+
+    def test_manifest_without_reader_hash_is_unbound(self):
+        runs = self.bound_runs()
+        path = runs / "C" / "base" / "manifest.json"
+        m = json.loads(path.read_text())
+        del m["reader"]["sha256"]
+        path.write_text(json.dumps(m))
+        self.assertEqual(self.zero(runs, extra=self.STRICT)[0], 1)
 
 
 class StreamingTests(Harness):
