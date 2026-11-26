@@ -58,7 +58,7 @@ function* multiline() {
         const source = target + template.replace('SLOT', contexts.element('self', value));
         const conflict = ['shadow', 'version'].includes(program) ? program : null;
         yield { grammar, dimensions: { program, operand }, source, multiline: true, conflict,
-          refusal: conflict ? 'refused_source_ambiguous' : null };
+          refusal: conflict || program === 'version-moved' ? 'refused_source_ambiguous' : null };
       }
 }
 
@@ -248,7 +248,7 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
           write: span(fieldWrite), conflict: input.conflict,
         };
         assert.equal(fullDeclaration === declaration, input.conflict === 'version', id);
-      } else {
+      } else if (!input.refusal) {
         const from = program === 'full'
           ? fullKey : base;
         sourceInputs.set(JSON.stringify(from), program === 'full'

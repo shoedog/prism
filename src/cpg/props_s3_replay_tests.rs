@@ -146,7 +146,13 @@ pub(super) fn compare_replay(
     let untouched = replay(&pre.live_lookup, false);
     let hidden_full = replay(&masked, false);
     let mutant = replay(&pre.live_lookup, true);
-    let expected = [(base, dest, CpgEdge::DataFlow(FlowConfidence::Exact))];
+    // Hiding or ignoring the competing full candidate cannot certify a representative
+    // when the owner writes its binding. Hiding a shadow still leaves a proved base.
+    let expected = if want.conflict == "version" {
+        vec![]
+    } else {
+        vec![(base, dest, CpgEdge::DataFlow(FlowConfidence::Exact))]
+    };
     let refusal = graph
         .dfg_label_stats
         .dfg_props
@@ -251,6 +257,16 @@ fn props_s3_live_lookup_pinned_multiline_replays() {
 }
 
 fn fold_row(source: &str, ext: &str, path: &str, refusal: Option<&str>) -> Result<(), String> {
+    fold_source_row(source, ext, path, false, refusal)
+}
+
+fn fold_source_row(
+    source: &str,
+    ext: &str,
+    path: &str,
+    own_occurrence: bool,
+    refusal: Option<&str>,
+) -> Result<(), String> {
     let file_name = format!("m.{ext}");
     let files =
         super::props_generated_tests::parse(&BTreeMap::from([(file_name.clone(), source.into())]));
@@ -292,12 +308,14 @@ fn fold_row(source: &str, ext: &str, path: &str, refusal: Option<&str>) -> Resul
         .ok_or_else(|| format!("UNMET: missing masked lookup for {want:?}"))?;
     let use_site = endpoint(&pre.graph[use_id]).unwrap();
     let [use_start, use_end] = use_site.bytes;
-    if use_end > start
-        || &source[use_start..use_end] != path
-        || !source[..use_start].ends_with("observe(")
-    {
+    let expected_bytes = if own_occurrence {
+        use_start == start + "<D a={".len()
+    } else {
+        use_end <= start && source[..use_start].ends_with("observe(")
+    };
+    if !expected_bytes || &source[use_start..use_end] != path {
         return Err(format!(
-            "UNMET: lookup did not select the earlier read {use_site:?}"
+            "UNMET: lookup selected unexpected bytes {use_site:?} (own={own_occurrence})"
         ));
     }
     let connected = pre
@@ -332,7 +350,20 @@ fn fold_row(source: &str, ext: &str, path: &str, refusal: Option<&str>) -> Resul
     let observed = |key: &str| stats.get(key).copied().unwrap_or(0);
     let expected_edge = CpgEdge::DataFlow(FlowConfidence::Exact);
     let expected = match refusal {
-        Some(key) => pending.is_empty() && live.is_empty() && observed(key) == 1,
+        Some(key) => {
+            use petgraph::visit::EdgeRef;
+            pending.is_empty()
+                && !graph
+                    .graph
+                    .edges_directed(dest, petgraph::Incoming)
+                    .any(|edge| {
+                        edge.weight().is_data_flow()
+                            && endpoint(&graph.graph[edge.source()]).is_some_and(|source| {
+                                source.owner == want.owner && source.owner_line == want.owner_line
+                            })
+                    })
+                && observed(key) == 1
+        }
         None => {
             pending == [(use_id, dest, expected_edge.clone())]
                 && live == [expected_edge]
@@ -392,17 +423,33 @@ fn props_s3_fold_class_receivers() {
                     refusal,
                 );
             }
-            check("method", &format!("observe({path}); return {jsx};"), None);
+            let ambiguous = Some("refused_source_ambiguous");
+            check(
+                "method",
+                &format!("observe({path}); return {jsx};"),
+                ambiguous,
+            );
             check(
                 "key",
                 &format!("observe({path}); class C {{ [observe({jsx})] = 0; }}"),
-                None,
+                ambiguous,
             );
             check(
                 "heritage",
                 &format!("observe({path}); class C extends observe({jsx}) {{}}"),
-                None,
+                ambiguous,
             );
+            for body in [
+                format!("return {jsx};"),
+                format!("class C {{ [observe({jsx})] = 0; }}"),
+                format!("class C extends observe({jsx}) {{}}"),
+            ] {
+                let result = fold_source_row(&make(&body), ext, &path, true, None);
+                println!("S3_FOLD own-receiver/{body}/{ext} {result:?}");
+                if let Err(error) = result {
+                    errors.push(format!("own-receiver/{body}/{ext}: {error}"));
+                }
+            }
         }
     }
     assert!(errors.is_empty(), "{}", errors.join("\n"));
@@ -435,11 +482,229 @@ fn props_s3_fold_destructuring_order() {
                 "function D({{ a }}) {{ return use(a); }}\nfunction App(x, box) {{\n let y, z;\n observe(x); {assignment}\n return y;\n}}\n"
             );
             let case = format!("{name}/{ext}");
-            let refusal = (index < 4).then_some("refused_source_ambiguous");
+            let refusal = (name != "disjoint").then_some("refused_source_ambiguous");
             let result = fold_row(&source, ext, "x", refusal);
             println!("S3_FOLD {case} {result:?}");
             if let Err(error) = result {
                 errors.push(format!("{case}: {error}"));
+            }
+            let own_source = source
+                .replace("observe(x); ", "")
+                .replace("<D a={x} />", "keep(<D a={x} />)");
+            let refusal = (index < 4).then_some("refused_source_ambiguous");
+            let result = fold_source_row(&own_source, ext, "x", true, refusal);
+            println!("S3_FOLD own-{case} {result:?}");
+            if let Err(error) = result {
+                errors.push(format!("own-{case}: {error}"));
+            }
+        }
+    }
+    assert!(errors.is_empty(), "{}", errors.join("\n"));
+}
+
+#[test]
+fn props_s3_fold_owner_write_review_cases() {
+    let forms = [
+        (
+            "array-default",
+            "x",
+            "observe(x); [x = 0] = [5]; return JSX;",
+        ),
+        (
+            "array-taken-default",
+            "x",
+            "observe(x); [x = 0] = [undefined]; return JSX;",
+        ),
+        (
+            "object-shorthand-default",
+            "x",
+            "observe(x); ({ x = 0 } = { x: 5 }); return JSX;",
+        ),
+        (
+            "nested-array-default",
+            "x",
+            "observe(x); [[x = 0]] = [[5]]; return JSX;",
+        ),
+        (
+            "non-first-array-default",
+            "x",
+            "observe(x); [y, x = 0] = [1, 5]; return JSX;",
+        ),
+        (
+            "nested-object-default",
+            "x",
+            "observe(x); ({ k: [x = 0] } = { k: [5] }); return JSX;",
+        ),
+        (
+            "iteration-array-default",
+            "x",
+            "observe(x); for ([x = 0] of values) {} return JSX;",
+        ),
+        (
+            "iteration-object-default",
+            "x",
+            "observe(x); for ({ x = 0 } of values) {} return JSX;",
+        ),
+        (
+            "member-base",
+            "x",
+            "observe(x); [x.y] = [5]; return <D a={x.y} />;",
+        ),
+        (
+            "projected-member",
+            "x.y",
+            "observe(x.y); [x.y] = [0]; return JSX;",
+        ),
+        (
+            "bare-array-member",
+            "x",
+            "observe(x); [x.y] = [5]; return JSX;",
+        ),
+        ("direct-member", "x.y", "observe(x.y); x.y = 5; return JSX;"),
+        ("plain-array", "x", "observe(x); [x] = [5]; return JSX;"),
+        (
+            "object-shorthand",
+            "x",
+            "observe(x); return JSX; ({x} = values);",
+        ),
+        (
+            "pair-default",
+            "x",
+            "observe(x); ({k: x = 0} = {}); return JSX;",
+        ),
+        (
+            "assignment-rhs-first",
+            "x",
+            "observe(x); [y = JSX] = (x = 0, [undefined]);",
+        ),
+        (
+            "declaration-rhs-first",
+            "x",
+            "observe(x); const [z = JSX] = (x = 0, [undefined]);",
+        ),
+        (
+            "iteration-target-order",
+            "x",
+            "for ([r = observe(x), x, y = JSX] of [[undefined, 0, undefined]]) {}",
+        ),
+        (
+            "static-after-key",
+            "x",
+            "observe(x); class C { static slot = JSX; [x = 0]() {} }",
+        ),
+        (
+            "deferred-instance",
+            "x",
+            "observe(x); class C { slot = JSX; } x = 0; return new C().slot;",
+        ),
+        (
+            "disjoint-branch",
+            "x",
+            "if (flag) { observe(x); return JSX; } else { x = 0; }",
+        ),
+        (
+            "nested-capture-store",
+            "x",
+            "observe(x); const mutate = () => { x = 0; }; return JSX;",
+        ),
+        ("before-both-reads", "x", "x = 0; observe(x); return JSX;"),
+        ("compound", "x", "observe(x); return JSX; x += 1;"),
+        ("update", "x", "observe(x); return JSX; ++x;"),
+        (
+            "unknown-delete-target",
+            "x",
+            "observe(x); return JSX; delete get();",
+        ),
+        (
+            "delete",
+            "x",
+            "observe(x); return <D a={x.y} />; delete x.y;",
+        ),
+        (
+            "bracket-member",
+            "x",
+            "observe(x); return <D a={x.y} />; [x[k]] = [5];",
+        ),
+        (
+            "escaped-member",
+            "x",
+            r"observe(x); return <D a={x.y} />; [x.\u0079] = [5];",
+        ),
+        (
+            "rest-target",
+            "x",
+            "observe(x); return <D a={x.y} />; [...x.y] = values;",
+        ),
+        (
+            "for-in-target",
+            "x",
+            "observe(x); return <D a={x.y} />; for (x.y in values) {}",
+        ),
+    ];
+    let controls = [
+        ("no-write", "x", "observe(x); return JSX;"),
+        ("other-root", "x", "observe(x); return JSX; undefined = 0;"),
+        (
+            "other-member-root",
+            "x",
+            "observe(x); return JSX; undefined.y = 0;",
+        ),
+        (
+            "call-result-member",
+            "x",
+            "observe(x); return JSX; get().x = 0;",
+        ),
+        (
+            "declaring-iteration",
+            "x",
+            "observe(x); return JSX; for (let x of values) {}",
+        ),
+        (
+            "other-function",
+            "x",
+            "observe(x); return JSX;\n}\nfunction Other(x) { x = 0;",
+        ),
+        (
+            "nested-shadow",
+            "x",
+            "observe(x); const mutate = (x) => { x = 0; }; return JSX;",
+        ),
+        (
+            "same-phase",
+            "x",
+            "class C { static { observe(x); take(JSX); } }",
+        ),
+        (
+            "sibling-path",
+            "x",
+            "observe(x); [x.z] = [5]; return <D a={x.y} />;",
+        ),
+        (
+            "pattern-key-is-read",
+            "x",
+            "observe(x); ({ [x]: y = x } = {}); return JSX;",
+        ),
+    ];
+    let mut errors = Vec::new();
+    for ext in ["jsx", "tsx"] {
+        for (rows, refusal) in [
+            (forms.as_slice(), Some("refused_source_ambiguous")),
+            (controls.as_slice(), None),
+        ] {
+            for (name, path, body) in rows {
+                let body = body.replace("JSX", &format!("<D a={{{path}}} />"));
+                let caller = if *path == "x.y" {
+                    "function App(seed) {\n const x = make();\n x.y = seed;"
+                } else {
+                    "function App(x) {\n let r, y;"
+                };
+                let source =
+                    format!("function D({{ a }}) {{ return use(a); }}\n{caller}\n {body}\n}}\n");
+                let result = fold_row(&source, ext, path, refusal);
+                println!("S3_RULE_R {name}/{ext} {result:?}");
+                if let Err(error) = result {
+                    errors.push(format!("{name}/{ext}: {error}"));
+                }
             }
         }
     }

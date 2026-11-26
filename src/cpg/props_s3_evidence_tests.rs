@@ -215,14 +215,14 @@ fn the_base_use_on_a_later_operand_line_binds_when_the_root_line_has_none() {
         clean.edges(clean.opening.clone(), &[root]),
         vec![(later, dest)]
     );
-    // A write to `box` before that read conflicts with the operand: nothing binds.
+    // The root-line anchor and the later read are both representatives.
     let written = replay_of(&MULTILINE.replace("TAIL", "box = other(); see(box);"));
     let root = variable(&written.pre.graph, "App", "box", VarAccess::Use, Some(6));
-    let dest = variable(&written.pre.graph, "D", "a", VarAccess::Def, None);
-    assert_eq!(
-        written.edges(written.opening.clone(), &[]),
-        vec![(root, dest)]
+    assert!(
+        matches!(written.pre.graph[root], CpgNode::Variable { start_byte, end_byte, .. }
+        if start_byte == end_byte)
     );
+    assert_eq!(written.edges(written.opening.clone(), &[]), vec![]);
     assert_eq!(written.edges(written.opening.clone(), &[root]), vec![]);
 }
 

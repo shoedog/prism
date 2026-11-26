@@ -113,7 +113,12 @@ pub(super) fn operand_root(mut node: Node<'_>) -> Option<Node<'_>> {
     loop {
         node = crate::ast::js_ts::props_keys::strip_transparent_wrappers(node)?;
         match node.kind() {
-            "identifier" | "shorthand_property_identifier" | "this" | "super" => return Some(node),
+            "identifier"
+            | "shorthand_property_identifier"
+            | "shorthand_property_identifier_pattern"
+            | "undefined"
+            | "this"
+            | "super" => return Some(node),
             "member_expression" | "subscript_expression" => {
                 node = node.child_by_field_name("object")?;
             }

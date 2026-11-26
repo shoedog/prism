@@ -758,9 +758,11 @@ class. Proved reads that capture the formal inside a callable nested in the call
 can receive `cfg_incomplete` edges. A receiver inherited from a class field
 initializer or static block counts `refused_source_unconnected`. An overlapping
 destructuring store that can precede a left-side operand counts
-`refused_source_ambiguous`. The post-assembly guard still applies. A line anchor
-or earlier source representative outside the JSX opening leaves the graph edge
-present and stops trace descent at a boundary.
+`refused_source_ambiguous`. A representative Use counts once per leaf as
+`refused_source_ambiguous` if the owning callable, including its nested callables,
+writes the operand root or an overlapping path beyond its declaration or formal
+binding. The post-assembly guard still applies. An admitted representative outside
+the JSX opening leaves the graph edge present and stops trace descent at a boundary.
 
 ### MCP Adapter
 

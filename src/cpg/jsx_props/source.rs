@@ -5,6 +5,7 @@ use crate::js_write_census::{
     tables::Tables,
 };
 use petgraph::Direction;
+use std::cell::OnceCell;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(in crate::cpg::build) enum SourceRefusal {
@@ -36,6 +37,8 @@ struct Operand<'tree, 'path> {
     binding: Option<Node<'tree>>,
     owner: Node<'tree>,
     path: &'path AccessPath,
+    span: &'path Range<usize>,
+    owner_has_write: &'path OnceCell<bool>,
 }
 
 impl<'a, 'site> Sources<'a, 'site> {
@@ -59,11 +62,14 @@ impl<'a, 'site> Sources<'a, 'site> {
         {
             return Err(SourceRefusal::NotFound);
         }
+        let owner_has_write = OnceCell::new();
         let operand = Operand {
             root,
             binding: self.binding(root, &path.base),
             owner,
             path,
+            span: &leaf.span,
+            owner_has_write: &owner_has_write,
         };
         if matches!(root.kind(), "this" | "super")
             && operand
@@ -194,8 +200,19 @@ impl<'a, 'site> Sources<'a, 'site> {
             .filter(|root| {
                 syntax::is_value_read(parsed, *root) && parsed.node_text(root) == path.base
             });
+        let own_occurrence = actual == Some(operand.root)
+            && *start_byte < *end_byte
+            && operand.span.start <= *start_byte
+            && *end_byte <= operand.span.end;
+        if !own_occurrence
+            && *operand
+                .owner_has_write
+                .get_or_init(|| self.owner_has_write(operand))
+        {
+            return Err(SourceRefusal::Ambiguous);
+        }
         let represented = match actual {
-            Some(root) if root == operand.root => self.check_read(operand, root),
+            Some(root) if own_occurrence => self.check_read(operand, root),
             Some(root) => match self.check_read(operand, root) {
                 Err(SourceRefusal::Ambiguous) => return Err(SourceRefusal::Ambiguous),
                 result => {
@@ -281,9 +298,6 @@ impl<'a, 'site> Sources<'a, 'site> {
             (Some(_), Some(_)) => {}
             _ => return Err(SourceRefusal::Unconnected),
         }
-        if self.intervening_write(operand, read) {
-            return Err(SourceRefusal::Ambiguous);
-        }
         Ok(())
     }
 
@@ -334,7 +348,9 @@ impl<'a, 'site> Sources<'a, 'site> {
             if parent.kind() == "assignment_expression"
                 && matches!(current.kind(), "array_pattern" | "object_pattern")
                 && parent.child_by_field_name("left") == Some(current)
-                && self.pattern_store_can_precede(operand, current)
+                && target_writes(current, Some(operand.root), &mut |target| {
+                    self.overlaps_write(operand, target)
+                })
             {
                 return true;
             }
@@ -343,97 +359,77 @@ impl<'a, 'site> Sources<'a, 'site> {
         false
     }
 
-    fn pattern_store_can_precede(&mut self, operand: Operand<'a, '_>, target: Node<'a>) -> bool {
-        match target.kind() {
-            "array_pattern" | "object_pattern" | "rest_pattern" => target
-                .named_children(&mut target.walk())
-                .filter(|child| !child.is_extra())
-                .any(|child| self.pattern_store_can_precede(operand, child)),
-            "pair_pattern" => target
-                .child_by_field_name("value")
-                .is_some_and(|value| self.pattern_store_can_precede(operand, value)),
-            "assignment_pattern" | "object_assignment_pattern" => {
-                // Every store in this subpattern follows evaluation of its own default.
-                let in_default = target.child_by_field_name("right").is_some_and(|default| {
-                    default.start_byte() <= operand.root.start_byte()
-                        && operand.root.end_byte() <= default.end_byte()
-                });
-                !in_default
-                    && target
-                        .child_by_field_name("left")
-                        .is_some_and(|left| self.pattern_store_can_precede(operand, left))
-            }
-            // Sibling targets are visited in source order. A member target
-            // resolves its receiver and computed key before storing.
-            _ => {
-                target.end_byte() <= operand.root.start_byte()
-                    && self.overlaps_write(operand, target)
-            }
-        }
-    }
-
-    fn intervening_write(&mut self, operand: Operand<'a, '_>, read: Node<'a>) -> bool {
-        if read == operand.root {
-            return false;
-        }
+    fn owner_has_write(&mut self, operand: Operand<'a, '_>) -> bool {
         let parsed = self.site.caller;
-        let earlier = read.start_byte().min(operand.root.start_byte());
-        let later = read.start_byte().max(operand.root.start_byte());
+        let roots = ["body", "parameters", "parameter"]
+            .into_iter()
+            .filter_map(|field| operand.owner.child_by_field_name(field))
+            .collect();
         let mut conflict = false;
-        syntax::walk(vec![operand.owner], |node| {
-            if conflict || node.end_byte() <= earlier || node.start_byte() >= later {
+        syntax::walk(roots, |node| {
+            if conflict || Tables::shared().order_class(node.kind()) == Some("none") {
                 return false;
             }
-            if let Some(target) = parsed.js_ts_write_target(node) {
-                // An iteration target is written after evaluating the iterable,
-                // before executing that iteration's body.
-                let moment = if node.kind() == "for_in_statement" {
-                    node.child_by_field_name("right")
-                        .map_or(node.start_byte(), |right| right.end_byte())
-                } else {
-                    node.end_byte()
+            let for_kind = (node.kind() == "for_in_statement")
+                .then(|| node.child_by_field_name("kind"))
+                .flatten();
+            let initialized_var = for_kind.is_some_and(|kind| kind.kind() == "var")
+                || (node.kind() == "variable_declarator"
+                    && node.child_by_field_name("value").is_some()
+                    && node
+                        .parent()
+                        .is_some_and(|p| p.kind() == "variable_declaration"));
+            conflict = if initialized_var {
+                parsed.js_ts_var_redeclares_binding(
+                    operand.root,
+                    &operand.path.base,
+                    node,
+                    &mut self.bindings,
+                )
+            } else {
+                let target = match node.kind() {
+                    "catch_clause" => node.child_by_field_name("parameter"),
+                    "for_in_statement" if for_kind.is_some() => None,
+                    "assignment_expression"
+                        if node
+                            .children(&mut node.walk())
+                            .any(|c| c.kind() == "using" && !c.is_named()) =>
+                    {
+                        None
+                    }
+                    _ => parsed.js_ts_write_target(node),
                 };
-                if (earlier < moment && moment <= later
-                    || (target.start_byte() > earlier
-                        && target.start_byte() < later
-                        && moment > later
-                        && node.kind() == "for_in_statement"))
-                    && syntax::execution_owner(parsed, target) == Some(operand.owner)
-                {
-                    conflict = self.overlaps_write(operand, target);
-                }
-            }
-            true
+                target.is_some_and(|target| {
+                    target_writes(target, None, &mut |leaf| self.overlaps_write(operand, leaf))
+                })
+            };
+            !conflict
         });
         conflict
     }
 
     fn overlaps_write(&mut self, operand: Operand<'a, '_>, target: Node<'a>) -> bool {
         let parsed = self.site.caller;
-        if let Some(root) = syntax::operand_root(target) {
-            if parsed.node_text(&root) != operand.path.base {
-                return false;
-            }
-            let path = ident(Tables::shared(), parsed.source.as_bytes(), target, true);
-            let overlaps =
-                match path {
-                    Ident::Path(path) => path.comps.iter().zip(&operand.path.fields).all(
-                        |(left, right)| match left {
-                            Comp::Name(name) => name == right,
-                            Comp::Index => true,
-                        },
-                    ),
-                    Ident::NoWrite => false,
-                    Ident::Refuse(_) => true,
-                };
-            return overlaps
-                && self
-                    .binding(root, &operand.path.base)
-                    .is_none_or(|binding| Some(binding) == operand.binding);
-        }
-        parsed.recorded_write_paths(target).iter().any(|path| {
-            path.base == operand.path.base && comparable(&path.fields, &operand.path.fields)
-        })
+        let write = match ident(Tables::shared(), parsed.source.as_bytes(), target, true) {
+            Ident::Path(path) => path,
+            Ident::NoWrite => return false,
+            Ident::Refuse(_) => return true,
+        };
+        let Some(root) = syntax::operand_root(target) else {
+            return true;
+        };
+        same_name(parsed.node_text(&root), &operand.path.base)
+            && write
+                .comps
+                .iter()
+                .zip(&operand.path.fields)
+                .all(|(left, right)| match left {
+                    Comp::Name(name) => same_name(name, right),
+                    Comp::Index => true,
+                })
+            && self
+                .binding(root, &operand.path.base)
+                .is_none_or(|binding| Some(binding) == operand.binding)
     }
 
     fn enclosing(&mut self, operand: Operand<'a, '_>, lines: &[usize], base: &AccessPath) -> bool {
@@ -479,6 +475,44 @@ impl<'a, 'site> Sources<'a, 'site> {
             }
         }
         false
+    }
+}
+
+fn same_name(left: &str, right: &str) -> bool {
+    left == right
+        || ((left.contains('\\') || right.contains('\\'))
+            && ParsedFile::js_ts_decode_identifier_text(left)
+                .zip(ParsedFile::js_ts_decode_identifier_text(right))
+                .is_some_and(|(left, right)| left == right))
+}
+
+fn target_writes<'tree>(
+    target: Node<'tree>,
+    before: Option<Node<'tree>>,
+    writes: &mut impl FnMut(Node<'tree>) -> bool,
+) -> bool {
+    match target.kind() {
+        "array_pattern" | "object_pattern" | "rest_pattern" => target
+            .named_children(&mut target.walk())
+            .filter(|child| !child.is_extra())
+            .any(|child| target_writes(child, before, writes)),
+        "pair_pattern" => target
+            .child_by_field_name("value")
+            .is_none_or(|value| target_writes(value, before, writes)),
+        "assignment_pattern" | "object_assignment_pattern" => {
+            // Every store in this subpattern follows evaluation of its own default.
+            let in_default = before.is_some_and(|read| {
+                target.child_by_field_name("right").is_some_and(|default| {
+                    default.start_byte() <= read.start_byte()
+                        && read.end_byte() <= default.end_byte()
+                })
+            });
+            !in_default
+                && target
+                    .child_by_field_name("left")
+                    .is_none_or(|left| target_writes(left, before, writes))
+        }
+        _ => before.is_none_or(|read| target.end_byte() <= read.start_byte()) && writes(target),
     }
 }
 

@@ -93,8 +93,8 @@ function* region() {
           const conflict = field && compact && layout === 'own';
           const disconnected = name === 'catch-default' && compact && layout === 'earlier';
           const missing = name === 'catch-default' || (name === 'formal-default' && compact);
-          const refusal = conflict ? 'refused_source_ambiguous' :
-            disconnected ? 'refused_source_unconnected' : missing ? 'refused_source_not_found' : null;
+          const refusal = conflict || disconnected ? 'refused_source_ambiguous' :
+            missing ? 'refused_source_not_found' : null;
           yield {
             grammar: 'tsx', dimensions: { region: name, layout, operand, tag },
             source: target + (module ? inner : `function App(x) {\n  ${inner}\n}\n`),

@@ -169,14 +169,14 @@ fn a_source_with_no_declaration_is_unconnected_and_a_declared_one_binds() {
         expect(
             &app("", "for (g of arr) { see(g); }\n  const out = <P a={g}/>;"),
             ext,
-            &refused,
+            &[("sites_jsx", 1), ("refused_source_ambiguous", 1)],
             0,
         );
-        // A `var` that redeclares the formal leaves the spelling without one declaration.
+        // An initialized redeclaration of the formal is a write under Rule R.
         expect(
             &app("x", "var x = f(); const out = <P a={x}/>;"),
             ext,
-            &refused,
+            &[("sites_jsx", 1), ("refused_source_ambiguous", 1)],
             0,
         );
         // Controls: a parameter, and a block-scoped redeclaration, are single declarations.
@@ -234,6 +234,88 @@ fn a_zero_width_anchor_is_judged_by_the_reads_on_its_line() {
             ext,
             &[("sites_jsx", 1), ("edges_to_use", 1)],
             1,
+        );
+    }
+}
+
+#[test]
+fn props_s3_owner_write_declarations_and_own_sources() {
+    for ext in EXTS {
+        let ambiguous = [("sites_jsx", 1), ("refused_source_ambiguous", 1)];
+        let bound = [("sites_jsx", 1), ("edges_to_use", 1)];
+        expect(
+            &app("x", "see(x); const out = <P a={x}/>; var x = f();"),
+            ext,
+            &ambiguous,
+            0,
+        );
+        expect(
+            &app("", "var x;\n  see(x); const out = <P a={x}/>; var x = f();"),
+            ext,
+            &ambiguous,
+            0,
+        );
+        expect(
+            &app(
+                "x",
+                "see(x); const out = <P a={x}/>; for (var x of items) {}",
+            ),
+            ext,
+            &ambiguous,
+            0,
+        );
+        expect(
+            &app("", "var x = f();\n  see(x); const out = <P a={x}/>;"),
+            ext,
+            &bound,
+            1,
+        );
+        expect(
+            &app("x", "try { f(); } catch (x) { see(x); take(<P a={x}/>); }"),
+            ext,
+            &ambiguous,
+            0,
+        );
+        expect(
+            &app(
+                "x",
+                "try { f(); } catch (x) {}\n  see(x); take(<P a={x}/>);",
+            ),
+            ext,
+            &bound,
+            1,
+        );
+        expect(&app("x", "x = f();\n  return <P a={x}/>;"), ext, &bound, 1);
+    }
+    expect(
+        &app("x", "see(x); const out = <P a={x}/>; using other = f();"),
+        "tsx",
+        &[("sites_jsx", 1), ("edges_to_use", 1)],
+        1,
+    );
+}
+
+#[test]
+fn props_s3_owner_write_counts_once_for_each_refused_leaf() {
+    for ext in EXTS {
+        let source = |writes: &str| {
+            format!("function P({{a, b, c}}) {{ return use(a, b, c); }}\nfunction App(x, y) {{\n  see(x, y); const out = <P a={{x}} b={{x}} c={{y}}/>; {writes}\n  return out;\n}}\n")
+        };
+        expect(
+            &source("[x = 0] = values; ++x;"),
+            ext,
+            &[
+                ("sites_jsx", 1),
+                ("refused_source_ambiguous", 2),
+                ("edges_to_def", 1),
+            ],
+            1,
+        );
+        expect(
+            &source(""),
+            ext,
+            &[("sites_jsx", 1), ("edges_to_def", 3)],
+            3,
         );
     }
 }
