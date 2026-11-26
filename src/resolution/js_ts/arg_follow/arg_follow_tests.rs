@@ -160,17 +160,23 @@ fn refuses_unknown_spread_slot() {
 
 #[test]
 fn refuses_dynamic_binding_environment() {
-    let fixture = direct_case(
-        "function holder(cb) { eval('cb = fallback'); cb('refusal'); }",
-        "holder(stale);",
-        Language::JavaScript,
-    );
-    fixture.refuses("cb('refusal')", "dynamic_binding");
+    for evaluation in [
+        "eval('cb = fallback');",
+        "function nested() { eval('cb = fallback'); }",
+    ] {
+        let fixture = direct_case(
+            &format!("function holder(cb) {{ {evaluation} cb('refusal'); }}"),
+            "holder(stale);",
+            Language::JavaScript,
+        );
+        fixture.refuses("cb('refusal')", "dynamic_binding");
+    }
     for evaluation in [
         "function eval(code) {} eval('ignored');",
         "eval?.('ignored');",
         "(0, eval)('ignored');",
         "function disjoint(cb) { eval('cb = fallback'); }",
+        "function disjoint() { function eval(code) {} eval('cb = fallback'); }",
     ] {
         let fixture = direct_case(
             &format!("function holder(cb) {{ {evaluation} cb('kept'); }}"),
@@ -178,6 +184,59 @@ fn refuses_dynamic_binding_environment() {
             Language::JavaScript,
         );
         fixture.targets("cb('kept')", &["stale"]);
+    }
+}
+
+#[test]
+fn self_import_reuses_existing_binding_proofs() {
+    for (mutation, target) in [("", Some("chosen")), ("chosen = fallback;", None)] {
+        let fixture = Fixture::build(
+            format!(
+                "import {{ chosen as callback }} from './m.js';\n\
+                 export function chosen(value) {{}}\n\
+                 function fallback(value) {{}}\n\
+                 function holder(cb) {{ cb('bound'); }}\n\
+                 {mutation}\n\
+                 holder(callback);"
+            ),
+            Language::JavaScript,
+        );
+        if let Some(target) = target {
+            fixture.targets("cb('bound')", &[target]);
+        } else {
+            fixture.refuses("cb('bound')", "stale_terminal");
+        }
+    }
+}
+
+#[test]
+fn reciprocal_imports_ground_both_holders() {
+    let files: BTreeMap<_, _> = [
+        ("left.js", "import { right } from './right.js'; export function left(cb) { cb(); } function leftCallback() {} right(leftCallback);"),
+        ("right.js", "import { left } from './left.js'; export function right(cb) { cb(); } function rightCallback() {} left(rightCallback);"),
+    ]
+    .into_iter()
+    .map(|(file, source)| {
+        (
+            file.to_owned(),
+            ParsedFile::parse(file, source, Language::JavaScript).unwrap(),
+        )
+    })
+    .collect();
+    let graph = CallGraph::build(&files);
+    for (holder, callback) in [("left", "rightCallback"), ("right", "leftCallback")] {
+        let site = graph
+            .calls
+            .values()
+            .flatten()
+            .find(|site| site.caller.name == holder && site.callee_name == "cb")
+            .unwrap();
+        let outcome = graph.js_anonymous.arg_follow.lookup(site);
+        assert!(
+            matches!(outcome, Some(ArgOutcome::Targets(targets))
+            if targets.len() == 1 && targets.first().unwrap().name == callback),
+            "{holder}: {outcome:?}"
+        );
     }
 }
 

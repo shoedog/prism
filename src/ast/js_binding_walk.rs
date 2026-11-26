@@ -36,6 +36,9 @@ pub(crate) enum Walk<'a> {
     Unchecked(&'static str),
 }
 
+type WalkStep<'a> = Option<(Node<'a>, Option<Pos>)>;
+pub(super) type WalkSteps<'a> = hashbrown::HashMap<usize, WalkStep<'a>>;
+
 /// The evaluation-context table (SPEC §3.1a). `probes/grammar_closure.py` derives every
 /// `(kind, field)` of every Σ′ kind from the pinned grammars and checks this table against it;
 /// "children" names the unfielded named children.
@@ -157,6 +160,18 @@ pub(super) fn field_of(parent: Node<'_>, child: Node<'_>) -> &'static str {
     "children"
 }
 
+fn walk_step<'a>(child: Node<'a>, steps: &mut Option<WalkSteps<'a>>) -> WalkStep<'a> {
+    let step = || {
+        let parent = child.parent()?;
+        Some((parent, e_rule(parent.kind(), field_of(parent, child))))
+    };
+    match steps {
+        // Only ancestry and the evaluation position are independent of the name.
+        Some(steps) => *steps.entry(child.id()).or_insert_with(step),
+        None => step(),
+    }
+}
+
 impl ParsedFile {
     /// The nearest environment enclosing `site` that declares `name` (SPEC §3.1a).
     pub(crate) fn js_ts_binding_walk<'a>(
@@ -169,12 +184,10 @@ impl ParsedFile {
             trace.push(site);
         }
         let mut child = site;
-        let mut current = site.parent();
-        while let Some(node) = current {
+        while let Some((node, position)) = walk_step(child, &mut cache.walk_steps) {
             let kind = node.kind();
-            let field = field_of(node, child);
             let mut next = node;
-            match e_rule(kind, field) {
+            match position {
                 None | Some(Pos::Param) | Some(Pos::Outside) => {}
                 Some(Pos::Unlisted) => return Walk::Unchecked("unproven_position"),
                 Some(Pos::WithBody) => return Walk::Found(node, Some(node)),
@@ -197,7 +210,6 @@ impl ParsedFile {
                             return Walk::Unchecked("unproven_position");
                         };
                         child = body;
-                        current = body.parent();
                         continue;
                     }
                 }
@@ -237,7 +249,6 @@ impl ParsedFile {
                 }
             }
             child = next;
-            current = next.parent();
         }
         Walk::Unbound
     }

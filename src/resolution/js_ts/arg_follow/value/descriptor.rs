@@ -114,7 +114,7 @@ impl<'a> Evaluation<'a, '_> {
                             node,
                             read.key,
                             read.remaining,
-                            &mut self.context.bindings[file].borrow_mut(),
+                            &mut self.context.bindings[file].cache(),
                         ) {
                             return Err("stale_path");
                         }
@@ -224,7 +224,7 @@ impl<'a> Evaluation<'a, '_> {
         };
         let node = param_slot::peel(node)?;
         if node.kind() == "undefined" {
-            let mut cache = self.context.bindings[file].borrow_mut();
+            let mut cache = self.context.bindings[file].cache();
             if !matches!(
                 self.context.files[file].js_ts_binding_walk(node, "undefined", &mut cache),
                 Walk::Unbound
@@ -242,7 +242,7 @@ impl<'a> Evaluation<'a, '_> {
             return Some(node);
         }
         let name = param_slot::name(parsed, node)?;
-        let mut cache = self.context.bindings[file].borrow_mut();
+        let mut cache = self.context.bindings[file].cache();
         let (scope, declaration) = parsed.js_ts_site_declaration(node, &name, &mut cache)?;
         if !param_slot::is_const(declaration)
             || !initialized_at(parsed, declaration, node)

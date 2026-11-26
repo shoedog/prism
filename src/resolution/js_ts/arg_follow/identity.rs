@@ -8,6 +8,13 @@ pub(super) enum Terminal<'a> {
     Parameter(&'a str, Parameter<'a>),
 }
 
+enum CallableReference {
+    Local(FunctionId, (usize, usize)),
+    Import { module: String, member: String },
+}
+
+pub(super) type EvalSites<'a> = BTreeMap<usize, Vec<(Node<'a>, Node<'a>)>>;
+
 impl<'a> Context<'a> {
     pub(super) fn index_escapes(&mut self, candidates: &[Candidate<'a>]) {
         let mut names: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
@@ -50,13 +57,25 @@ impl<'a> Context<'a> {
     }
 
     pub(super) fn index_owners(&mut self) {
-        for file in self.bindings.keys().copied() {
-            let parsed = &self.files[file];
-            for node in crate::anon_owner::candidate_nodes(parsed, true) {
-                if let Some(id) = crate::anon_owner::identity(parsed, &node, file) {
-                    self.owners.entry(id).or_default().push(node);
-                }
-            }
+        let files = self.files;
+        let owners: Vec<_> = self
+            .bindings
+            .keys()
+            .copied()
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .map(|file| {
+                let parsed = &files[file];
+                crate::anon_owner::candidate_nodes(parsed, true)
+                    .into_iter()
+                    .filter_map(|node| {
+                        crate::anon_owner::identity(parsed, &node, file).map(|id| (id, node))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        for (id, node) in owners.into_iter().flatten() {
+            self.owners.entry(id).or_default().push(node);
         }
         for export in self
             .cg
@@ -76,48 +95,74 @@ impl<'a> Context<'a> {
     }
 
     pub(super) fn index_callers(&mut self) {
-        for call in self.cg.calls.values().flatten() {
-            let file = call.caller.file.as_str();
-            if !self.bindings.contains_key(file) {
-                continue;
-            }
-            let hint = match &call.local_binding {
-                JsLocalBinding::Callable(terminal) | JsLocalBinding::AliasCallable(terminal) => {
-                    Some(terminal.local.as_str())
+        let context: &Self = self;
+        // Indexed collection preserves the graph's caller order for each holder.
+        let calls: Vec<_> = self.cg.calls.iter().collect();
+        let batches: Vec<_> = calls
+            .chunk_by(|(left, _), (right, _)| left.file == right.file)
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .map(|owners| {
+                let mut batch = Vec::new();
+                for (_, sites) in owners {
+                    for call in *sites {
+                        context.append_caller_holders(call, &mut batch);
+                    }
                 }
-                JsLocalBinding::AliasImport { local } => Some(local.as_str()),
-                _ => None,
-            };
-            let name = hint.unwrap_or(&call.callee_name);
-            let names = self.cg.functions.get(name);
-            let imported = self
-                .cg
-                .import_bindings
-                .get(file)
-                .is_some_and(|bindings| bindings.iter().any(|binding| binding.local == name));
-            #[cfg(test)]
-            let supplied = self.supplied_call(call).is_some();
-            #[cfg(not(test))]
-            let supplied = false;
-            if names.is_none() && !imported && !supplied {
-                continue;
-            }
-            let parsed = &self.files[file];
-            let lexical = call_node(parsed, call)
-                .and_then(|node| self.holder_at(node, call).ok())
-                .map(|(holder, _)| holder);
-            let resolved = self.resolve_caller(call);
-            let mut possible: BTreeSet<&FunctionId> = lexical.iter().collect();
-            possible.extend(resolved.resolved.iter().map(|target| target.target));
-            if possible.is_empty() {
-                possible.extend(names.into_iter().flatten().filter(|id| id.file == file));
-            }
-            for holder in possible {
-                if self.owners.contains_key(holder) {
-                    self.callers.entry(holder.clone()).or_default().push(call);
-                }
-            }
+                batch
+            })
+            .collect();
+        for (holder, call) in batches.into_iter().flatten() {
+            self.callers.entry(holder).or_default().push(call);
         }
+    }
+
+    fn append_caller_holders(
+        &self,
+        call: &'a CallSite,
+        batch: &mut Vec<(FunctionId, &'a CallSite)>,
+    ) {
+        let file = call.caller.file.as_str();
+        if !self.bindings.contains_key(file) {
+            return;
+        }
+        let hint = match &call.local_binding {
+            JsLocalBinding::Callable(terminal) | JsLocalBinding::AliasCallable(terminal) => {
+                Some(terminal.local.as_str())
+            }
+            JsLocalBinding::AliasImport { local } => Some(local.as_str()),
+            _ => None,
+        };
+        let name = hint.unwrap_or(&call.callee_name);
+        let names = self.cg.functions.get(name);
+        let imported = self
+            .cg
+            .import_bindings
+            .get(file)
+            .is_some_and(|bindings| bindings.iter().any(|binding| binding.local == name));
+        #[cfg(test)]
+        let supplied = self.supplied_call(call).is_some();
+        #[cfg(not(test))]
+        let supplied = false;
+        if names.is_none() && !imported && !supplied {
+            return;
+        }
+        let parsed = &self.files[file];
+        let lexical = call_node(parsed, call)
+            .and_then(|node| self.holder_at(node, call).ok())
+            .map(|(holder, _)| holder);
+        let resolved = self.resolve_caller(call);
+        let mut possible: BTreeSet<&FunctionId> = lexical.iter().collect();
+        possible.extend(resolved.resolved.iter().map(|target| target.target));
+        if possible.is_empty() {
+            possible.extend(names.into_iter().flatten().filter(|id| id.file == file));
+        }
+        batch.extend(
+            possible
+                .into_iter()
+                .filter(|holder| self.owners.contains_key(*holder))
+                .map(|holder| (holder.clone(), call)),
+        );
     }
 
     #[cfg(test)]
@@ -128,12 +173,12 @@ impl<'a> Context<'a> {
     ) -> Option<(FunctionId, (usize, usize))> {
         let parsed = &self.files[file];
         let name = param_slot::name(parsed, callee)?;
-        let mut cache = self.bindings[file].borrow_mut();
+        let mut cache = self.bindings[file].cache();
         let (scope, class) = parsed.js_ts_site_declaration(callee, &name, &mut cache)?;
         if class.kind() != "class_declaration"
             || class.end_byte() > callee.start_byte()
             || parsed.js_ts_scoped_written(scope, &name, &mut cache)
-            || dynamic_for(parsed, scope, &name, &mut cache)
+            || self.dynamic_for(file, scope, &name, &mut cache)
         {
             return None;
         }
@@ -178,7 +223,7 @@ impl<'a> Context<'a> {
         let node = param_slot::peel(node).ok_or("opaque_terminal")?;
         if param_slot::name(parsed, node).is_some() {
             if let Some(parameter) =
-                param_slot::parameter(parsed, node, &mut self.bindings[file].borrow_mut())
+                param_slot::parameter(parsed, node, &mut self.bindings[file].cache())
             {
                 return Ok(Terminal::Parameter(file, parameter));
             }
@@ -200,10 +245,28 @@ impl<'a> Context<'a> {
         ) {
             return self.witnessed(file, node);
         }
+        let mut cache = self.bindings[file].cache();
+        let reference = self.callable_reference(file, node, jsx, &mut cache)?;
+        // An import may point to this file or be part of a cycle. Hold one file at a time.
+        drop(cache);
+        match reference {
+            CallableReference::Local(id, span) => Ok((id, span)),
+            CallableReference::Import { module, member } => {
+                self.imported(file, &module, &member, jsx)
+            }
+        }
+    }
+
+    fn callable_reference(
+        &self,
+        file: &str,
+        node: Node<'a>,
+        jsx: bool,
+        cache: &mut JsBindingCache<'a>,
+    ) -> Result<CallableReference, &'static str> {
         let parsed = &self.files[file];
-        let mut cache = self.bindings[file].borrow_mut();
         if let Some(name) = param_slot::name(parsed, node) {
-            return self.callable_identifier(file, node, name, jsx, &mut cache);
+            return self.callable_identifier(file, node, name, jsx, cache);
         }
         if node.kind() == "member_expression" {
             let qualifier = node
@@ -215,9 +278,9 @@ impl<'a> Context<'a> {
                 .and_then(|n| param_slot::property_key(parsed, n))
                 .ok_or("opaque_terminal")?;
             if let Some((JsBinding::Import, Some(module))) =
-                parsed.js_ts_namespace_binding(qualifier, &mut cache)
+                parsed.js_ts_namespace_binding(qualifier, cache)
             {
-                return self.imported(file, &module, &member, jsx);
+                return Ok(CallableReference::Import { module, member });
             }
         }
         Err("opaque_terminal")
@@ -230,19 +293,20 @@ impl<'a> Context<'a> {
         mut name: String,
         jsx: bool,
         cache: &mut JsBindingCache<'a>,
-    ) -> Result<(FunctionId, (usize, usize)), &'static str> {
+    ) -> Result<CallableReference, &'static str> {
         let parsed = &self.files[file];
-        let followed = parsed.js_ts_follow_alias(node, &name, cache);
+        let mut followed = None;
         for _ in 0..=8 {
-            let binding = parsed.js_ts_site_binding(node, &name, cache);
-            let (scope, declaration) = match parsed.js_ts_site_declaration(node, &name, cache) {
+            let (binding, declaration) =
+                parsed.js_ts_site_binding_and_declaration(node, &name, cache);
+            let (scope, declaration) = match declaration {
                 Some(declaration) => declaration,
                 None if matches!(binding, JsBinding::Refused("unbound")) => {
                     return Err("opaque_terminal")
                 }
                 None => return Err("stale_terminal"),
             };
-            if dynamic_for(parsed, scope, &name, cache) {
+            if self.dynamic_for(file, scope, &name, cache) {
                 return Err("stale_terminal");
             }
             match binding {
@@ -287,7 +351,8 @@ impl<'a> Context<'a> {
                     {
                         return Err("stale_terminal");
                     }
-                    return self.witnessed(file, function);
+                    let (id, span) = self.witnessed(file, function)?;
+                    return Ok(CallableReference::Local(id, span));
                 }
                 JsBinding::Import if scope.kind() == "program" => {
                     let mut imports = self
@@ -305,18 +370,23 @@ impl<'a> Context<'a> {
                         .next()
                         .filter(|_| imports.next().is_none())
                         .ok_or("stale_terminal")?;
-                    return self.imported(
-                        file,
-                        &binding.module_path,
-                        binding.member.as_deref().ok_or("stale_terminal")?,
-                        jsx,
-                    );
+                    return Ok(CallableReference::Import {
+                        module: binding.module_path.clone(),
+                        member: binding.member.clone().ok_or("stale_terminal")?,
+                    });
                 }
-                JsBinding::Alias
-                    if followed.is_some()
-                        && param_slot::is_const(declaration)
-                        && initialized_at(parsed, declaration, node) =>
-                {
+                JsBinding::Alias => {
+                    if !param_slot::is_const(declaration)
+                        || !initialized_at(parsed, declaration, node)
+                    {
+                        return Err("stale_terminal");
+                    }
+                    // Keep the proof from the original occurrence for every alias link.
+                    let Some(followed) = followed
+                        .get_or_insert_with(|| parsed.js_ts_follow_alias(node, &name, cache))
+                    else {
+                        return Err("stale_terminal");
+                    };
                     let initializer = declaration
                         .child_by_field_name("value")
                         .and_then(param_slot::peel)
@@ -326,18 +396,19 @@ impl<'a> Context<'a> {
                         name = next;
                         continue;
                     }
-                    if let Some(JsFollow::NamespaceMember {
+                    if let JsFollow::NamespaceMember {
                         module_path,
                         member,
-                    }) = followed.as_ref()
+                    } = followed
                     {
-                        return self.imported(file, module_path, member, jsx);
+                        return Ok(CallableReference::Import {
+                            module: module_path.clone(),
+                            member: member.clone(),
+                        });
                     }
                     return Err("opaque_terminal");
                 }
-                JsBinding::Alias | JsBinding::MayCall | JsBinding::Unchecked(_) => {
-                    return Err("stale_terminal")
-                }
+                JsBinding::MayCall | JsBinding::Unchecked(_) => return Err("stale_terminal"),
                 _ => return Err("opaque_terminal"),
             }
         }
@@ -393,15 +464,47 @@ impl<'a> Context<'a> {
         let parsed = &self.files[&id.file];
         if let Some(binding) = node.child_by_field_name("name") {
             let name = parsed.node_text(&binding);
-            let mut cache = JsBindingCache::for_sites();
+            let mut cache = self.bindings[id.file.as_str()].cache();
             let scope = parsed.tree.root_node();
             if parsed.js_ts_scoped_written(scope, name, &mut cache)
-                || dynamic_for(parsed, scope, name, &mut cache)
+                || self.dynamic_for(&id.file, scope, name, &mut cache)
             {
                 return Err("stale_terminal");
             }
         }
         Ok((id, bytes(*node)))
+    }
+
+    pub(super) fn dynamic_for(
+        &self,
+        file: &str,
+        scope: Node<'a>,
+        name: &str,
+        cache: &mut JsBindingCache<'a>,
+    ) -> bool {
+        let parsed = &self.files[file];
+        let sites = self.bindings[file]
+            .eval_sites
+            .get_or_init(|| index_eval_sites(parsed));
+        let bound_to_scope = |candidate: Node<'a>| {
+            candidate == scope
+                || candidate.kind() == "formal_parameters" && candidate.parent() == Some(scope)
+                || scope.kind() == "formal_parameters" && scope.parent() == Some(candidate)
+        };
+        sites
+            .get(&scope.id())
+            .into_iter()
+            .flatten()
+            .any(|&(call, callee)| {
+                matches!(
+                    parsed.js_ts_binding_walk(callee, "eval", cache),
+                    Walk::Unbound | Walk::Found(_, Some(_))
+                ) && matches!(
+                    parsed.js_ts_binding_walk(callee, name, cache),
+                    Walk::Found(binding_scope, _)
+                        if bound_to_scope(binding_scope) || binding_scope.kind() == "with_statement"
+                ) && eval_may_write(parsed, call, callee, name, cache)
+            })
     }
 }
 
@@ -456,50 +559,46 @@ pub(super) fn initialized_at(
     false
 }
 
-pub(super) fn dynamic_for<'a>(
-    parsed: &'a ParsedFile,
-    scope: Node<'a>,
-    name: &str,
-    cache: &mut JsBindingCache<'a>,
-) -> bool {
-    if !parsed.source[scope.byte_range()].contains("eval")
-        && !parsed.source[scope.byte_range()].contains('\\')
-    {
-        return false;
+fn index_eval_sites(parsed: &ParsedFile) -> EvalSites<'_> {
+    let mut sites = EvalSites::new();
+    if !parsed.source.contains("eval") && !parsed.source.contains('\\') {
+        return sites;
     }
-    let bound_to_scope = |candidate: Node<'a>| {
-        candidate == scope
-            || candidate.kind() == "formal_parameters" && candidate.parent() == Some(scope)
-            || scope.kind() == "formal_parameters" && scope.parent() == Some(candidate)
-    };
-    let mut stack = vec![scope];
-    while let Some(node) = stack.pop() {
-        if node.kind() == "call_expression" {
-            let mut cursor = node.walk();
-            let optional = node
-                .children(&mut cursor)
-                .any(|part| matches!(part.kind(), "optional_chain" | "?."));
-            if !optional {
-                if let Some(callee) = node
-                    .child_by_field_name("function")
-                    .and_then(param_slot::peel)
-                {
-                    if param_slot::name(parsed, callee).as_deref() == Some("eval")
-                        && matches!(
-                            parsed.js_ts_binding_walk(callee, "eval", cache),
-                            Walk::Unbound | Walk::Found(_, Some(_))
-                        )
-                        && matches!(parsed.js_ts_binding_walk(callee, name, cache), Walk::Found(binding_scope, _) if bound_to_scope(binding_scope) || binding_scope.kind() == "with_statement")
-                        && eval_may_write(parsed, node, callee, name, cache)
-                    {
-                        return true;
-                    }
-                }
+    let mut stack = vec![(parsed.tree.root_node(), 0)];
+    let mut ancestors = Vec::new();
+    while let Some((node, depth)) = stack.pop() {
+        ancestors.truncate(depth);
+        ancestors.push(node.id());
+        if let Some(callee) = direct_eval_callee(parsed, node) {
+            // Match the original scope walk's node set and reverse child order.
+            for &ancestor in &ancestors {
+                sites.entry(ancestor).or_default().push((node, callee));
             }
         }
-        stack.extend(param_slot::children(node));
+        stack.extend(
+            node.named_children(&mut node.walk())
+                .filter(|child| !child.is_extra())
+                .map(|child| (child, depth + 1)),
+        );
     }
-    false
+    sites
+}
+
+fn direct_eval_callee<'a>(parsed: &ParsedFile, node: Node<'a>) -> Option<Node<'a>> {
+    if node.kind() != "call_expression" {
+        return None;
+    }
+    let callee = node
+        .child_by_field_name("function")
+        .and_then(param_slot::peel)?;
+    if param_slot::name(parsed, callee).as_deref() != Some("eval")
+        || node
+            .children(&mut node.walk())
+            .any(|part| matches!(part.kind(), "optional_chain" | "?."))
+    {
+        return None;
+    }
+    Some(callee)
 }
 
 fn eval_may_write<'a>(
@@ -544,4 +643,29 @@ fn eval_may_write<'a>(
             parsed.js_ts_site_binding(callee, right, cache),
             JsBinding::Callable(_)
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::Language;
+
+    #[test]
+    fn indexes_escaped_direct_eval_by_ancestry() {
+        let source =
+            r"function holder() { (ev\u0061l)('inside'); eval?.('optional'); } eval('outside');";
+        let parsed = ParsedFile::parse("m.js", source, Language::JavaScript).unwrap();
+        assert_eq!(parsed.parse_error_count, 0);
+        let root = parsed.tree.root_node();
+        let holder = root.named_child(0).unwrap();
+        let sites = index_eval_sites(&parsed);
+        let calls = |scope: Node<'_>| {
+            sites[&scope.id()]
+                .iter()
+                .map(|(call, _)| parsed.node_text(call))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(calls(root), ["eval('outside')", r"(ev\u0061l)('inside')"]);
+        assert_eq!(calls(holder), [r"(ev\u0061l)('inside')"]);
+    }
 }

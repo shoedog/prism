@@ -131,7 +131,31 @@ impl ParsedFile {
         name: &str,
         cache: &mut JsBindingCache<'a>,
     ) -> JsBinding {
-        match self.js_ts_binding_walk(ident, name, cache) {
+        let walk = self.js_ts_binding_walk(ident, name, cache);
+        self.js_ts_classify_site_walk(ident, name, &walk, cache)
+    }
+
+    /// Classify the same lexical occurrence for readers that also need its declaration.
+    pub(crate) fn js_ts_site_binding_and_declaration<'a>(
+        &'a self,
+        ident: Node<'a>,
+        name: &str,
+        cache: &mut JsBindingCache<'a>,
+    ) -> (JsBinding, Option<(Node<'a>, Node<'a>)>) {
+        let walk = self.js_ts_binding_walk(ident, name, cache);
+        let binding = self.js_ts_classify_site_walk(ident, name, &walk, cache);
+        let declaration = self.js_ts_declaration_from_walk(name, walk, cache);
+        (binding, declaration)
+    }
+
+    fn js_ts_classify_site_walk<'a>(
+        &'a self,
+        ident: Node<'a>,
+        name: &str,
+        walk: &Walk<'a>,
+        cache: &mut JsBindingCache<'a>,
+    ) -> JsBinding {
+        match *walk {
             Walk::Found(scope, explicit) => {
                 // A call-site lookup is the local route (SPEC §3.7): `useCallback` admits.
                 self.js_ts_scope_binding(scope, explicit, name, ident, cache, true)
@@ -149,7 +173,17 @@ impl ParsedFile {
         name: &str,
         cache: &mut JsBindingCache<'a>,
     ) -> Option<(Node<'a>, Node<'a>)> {
-        let Walk::Found(scope, None) = self.js_ts_binding_walk(ident, name, cache) else {
+        let walk = self.js_ts_binding_walk(ident, name, cache);
+        self.js_ts_declaration_from_walk(name, walk, cache)
+    }
+
+    fn js_ts_declaration_from_walk<'a>(
+        &'a self,
+        name: &str,
+        walk: Walk<'a>,
+        cache: &mut JsBindingCache<'a>,
+    ) -> Option<(Node<'a>, Node<'a>)> {
+        let Walk::Found(scope, None) = walk else {
             return None;
         };
         let (declarations, annex_b) = self.js_ts_scope_lookup(scope, name, cache);

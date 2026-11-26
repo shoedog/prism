@@ -13,9 +13,10 @@ use crate::call_graph::{
     CallGraph, CallKind, CallSite, CallSiteOrigin, FunctionId, JsLocalBinding,
 };
 use crate::resolution::{ResolutionConfidence, ResolutionOutcome};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use tree_sitter::Node;
 
 #[cfg(test)]
@@ -111,13 +112,24 @@ impl ArgIndex {
 struct Context<'a> {
     cg: &'a CallGraph,
     files: &'a BTreeMap<String, ParsedFile>,
-    bindings: BTreeMap<&'a str, RefCell<JsBindingCache<'a>>>,
+    bindings: BTreeMap<&'a str, FileBindings<'a>>,
     owners: BTreeMap<FunctionId, Vec<Node<'a>>>,
     callers: BTreeMap<FunctionId, Vec<&'a CallSite>>,
     exports: BTreeSet<FunctionId>,
     escapes: BTreeSet<FunctionId>,
     #[cfg(test)]
     supplied: Option<SuppliedCall<'a>>,
+}
+
+struct FileBindings<'a> {
+    cache: Mutex<JsBindingCache<'a>>,
+    eval_sites: OnceLock<identity::EvalSites<'a>>,
+}
+
+impl<'a> FileBindings<'a> {
+    fn cache(&self) -> MutexGuard<'_, JsBindingCache<'a>> {
+        self.cache.lock().expect("argument-follow binding cache")
+    }
 }
 
 #[cfg(test)]
@@ -154,14 +166,62 @@ fn compute_index<'a>(
     files: &'a BTreeMap<String, ParsedFile>,
     #[cfg(test)] supplied: Option<SuppliedCall<'a>>,
 ) -> ArgIndex {
+    let mut by_file: BTreeMap<_, _> = files
+        .iter()
+        .filter(|(_, parsed)| parsed.language.is_js_family())
+        .map(|(file, parsed)| (file.as_str(), (parsed, Vec::new())))
+        .collect();
+    if by_file.is_empty() {
+        return ArgIndex::default();
+    }
+    for (order, site) in cg.calls.values().flatten().enumerate() {
+        if source(site) && site.qualifier.is_none() {
+            if let Some((_, sites)) = by_file.get_mut(site.caller.file.as_str()) {
+                sites.push((order, site));
+            }
+        }
+    }
+
+    let discoveries: Vec<_> = by_file
+        .into_par_iter()
+        .map(|(file, (parsed, sites))| {
+            let mut cache = JsBindingCache::for_arg_follow();
+            let candidates: Vec<_> = sites
+                .into_iter()
+                .filter_map(|(order, site)| {
+                    discover_candidate(parsed, file, site, &mut cache)
+                        .map(|candidate| (order, candidate))
+                })
+                .collect();
+            (file, cache, candidates)
+        })
+        .collect();
+    let mut bindings = BTreeMap::new();
+    let mut ordered_candidates = Vec::new();
+    for (file, cache, candidates) in discoveries {
+        bindings.insert(
+            file,
+            FileBindings {
+                cache: Mutex::new(cache),
+                eval_sites: OnceLock::new(),
+            },
+        );
+        ordered_candidates.extend(candidates);
+    }
+    if ordered_candidates.is_empty() {
+        return ArgIndex::default();
+    }
+    // Preserve which occurrence wins when multiple candidates share a SiteKey.
+    ordered_candidates.sort_unstable_by_key(|(order, _)| *order);
+    let candidates: Vec<_> = ordered_candidates
+        .into_iter()
+        .map(|(_, candidate)| candidate)
+        .collect();
+
     let mut context = Context {
         cg,
         files,
-        bindings: files
-            .iter()
-            .filter(|(_, parsed)| parsed.language.is_js_family())
-            .map(|(file, _)| (file.as_str(), RefCell::new(JsBindingCache::for_sites())))
-            .collect(),
+        bindings,
         owners: BTreeMap::new(),
         callers: BTreeMap::new(),
         exports: BTreeSet::new(),
@@ -169,50 +229,6 @@ fn compute_index<'a>(
         #[cfg(test)]
         supplied,
     };
-    if context.bindings.is_empty() {
-        return ArgIndex::default();
-    }
-    let mut candidates = Vec::new();
-    for site in cg.calls.values().flatten() {
-        let file = site.caller.file.as_str();
-        let Some(cache) = context.bindings.get(file) else {
-            continue;
-        };
-        if !source(site) || site.qualifier.is_some() {
-            continue;
-        }
-        let parsed = &files[file];
-        let Some(node) = call_node(parsed, site) else {
-            continue;
-        };
-        let Some(callee) = invocation(node, site).and_then(param_slot::peel) else {
-            continue;
-        };
-        if site.jsx_element
-            && parsed
-                .node_text(&callee)
-                .chars()
-                .next()
-                .is_some_and(char::is_lowercase)
-        {
-            continue;
-        }
-        let Some(parameter) = param_slot::parameter(parsed, callee, &mut cache.borrow_mut()) else {
-            continue;
-        };
-        let Some(slot) = slot(parsed, file, &parameter) else {
-            continue;
-        };
-        candidates.push(Candidate {
-            site,
-            parameter,
-            slot,
-        });
-    }
-    if candidates.is_empty() {
-        return ArgIndex::default();
-    }
-
     context.index_owners();
     context.index_callers();
     context.index_escapes(&candidates);
@@ -239,6 +255,31 @@ fn compute_index<'a>(
         index.record(key, candidate, &context, result);
     }
     index
+}
+
+fn discover_candidate<'a>(
+    parsed: &'a ParsedFile,
+    file: &str,
+    site: &'a CallSite,
+    cache: &mut JsBindingCache<'a>,
+) -> Option<Candidate<'a>> {
+    let callee = param_slot::peel(invocation(call_node(parsed, site)?, site)?)?;
+    if site.jsx_element
+        && parsed
+            .node_text(&callee)
+            .chars()
+            .next()
+            .is_some_and(char::is_lowercase)
+    {
+        return None;
+    }
+    let parameter = param_slot::parameter(parsed, callee, cache)?;
+    let slot = slot(parsed, file, &parameter)?;
+    Some(Candidate {
+        site,
+        parameter,
+        slot,
+    })
 }
 
 impl ArgIndex {

@@ -51,12 +51,12 @@ impl<'a> Context<'a> {
         file: &str,
         parameter: &Parameter<'a>,
     ) -> Option<&'static str> {
-        let mut cache = self.bindings[file].borrow_mut();
+        let mut cache = self.bindings[file].cache();
         let name = param_slot::name(parsed, parameter.binding)?;
         if parameter.replaced || parsed.js_ts_scoped_written(parameter.scope, &name, &mut cache) {
             return Some("entry_write");
         }
-        if identity::dynamic_for(parsed, parameter.scope, &name, &mut cache) {
+        if self.dynamic_for(file, parameter.scope, &name, &mut cache) {
             return Some("dynamic_binding");
         }
         if let Some(read) = parameter.body_read {
@@ -84,7 +84,7 @@ impl<'a> Evaluation<'a, '_> {
                 parsed,
                 parameter.owner,
                 parameter.position,
-                &mut self.context.bindings[self.holder].borrow_mut(),
+                &mut self.context.bindings[self.holder].cache(),
             ) {
                 return vec![Err("mapped_arguments")];
             }
@@ -131,7 +131,7 @@ impl<'a> Evaluation<'a, '_> {
         let parameter = param_slot::parameter(
             parsed,
             occurrence,
-            &mut self.context.bindings[self.holder].borrow_mut(),
+            &mut self.context.bindings[self.holder].cache(),
         )?;
         if parameter.replaced || !parameter.selected.is_empty() {
             return None;
@@ -162,7 +162,7 @@ impl<'a> Evaluation<'a, '_> {
         let parameter = param_slot::parameter(
             parsed,
             node,
-            &mut self.context.bindings[self.holder].borrow_mut(),
+            &mut self.context.bindings[self.holder].cache(),
         );
         if let Some(parameter) = parameter {
             if parameter.binding.end_byte() <= node.start_byte() && !parameter.replaced {
@@ -260,7 +260,7 @@ impl<'a> Evaluation<'a, '_> {
             "undefined" | "identifier"
                 if param_slot::name(parsed, node).as_deref() == Some("undefined") =>
             {
-                let mut cache = self.context.bindings[file].borrow_mut();
+                let mut cache = self.context.bindings[file].cache();
                 if matches!(
                     parsed.js_ts_binding_walk(node, "undefined", &mut cache),
                     Walk::Unbound
