@@ -68,6 +68,7 @@ impl DataFlowGraph {
         from: &VarLocation,
         to: &VarLocation,
     ) -> Option<crate::cpg::FlowConfidence> {
+        super::compact::assembly::legacy_label_probe();
         self.storage.legacy_label(from, to)
     }
     pub fn labels(&self) -> impl Iterator<Item = (FlowEdgeRef<'_>, crate::cpg::FlowConfidence)> {

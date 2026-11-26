@@ -46,10 +46,9 @@ impl CodePropertyGraph {
             NodeIndex,
         > = BTreeMap::new();
 
-        for (caller_id, facts) in callers {
-            for facts in facts {
+        for (caller_id, facts, trace_sites) in callers {
+            for (index, facts) in facts.into_iter().enumerate() {
                 let facts::SiteFacts {
-                    site,
                     lvalues,
                     resolved: candidates,
                     rhs_uses,
@@ -276,7 +275,7 @@ impl CodePropertyGraph {
                 let certified = complete_returns && all_rhs_uses_bound && !modeled.is_empty();
                 if trace {
                     crate::cpg::s1_trace::suppression(
-                        site,
+                        trace_sites[index],
                         resolved.target,
                         certified,
                         complete_returns,
