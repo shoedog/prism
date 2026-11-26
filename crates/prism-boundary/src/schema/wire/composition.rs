@@ -82,7 +82,7 @@ impl<'r, 'a> Reader<'r, 'a> {
         if steps == EXPANSION_STEPS {
             return Expansion::stopped("composition_budget", Effect::Field);
         }
-        if super::keywords::dialect_unchecked(&node) {
+        if node.duplicate_members() || super::keywords::dialect_unchecked(&node) {
             return Expansion::single(vec![node]);
         }
         if let Some(reference) = node.get("$ref") {
@@ -213,6 +213,9 @@ impl<'r, 'a> Reader<'r, 'a> {
         let target = match self.documents.reference_target(node.document, reference) {
             Ok(target) if target.value.is_object() || target.value.is_boolean() => target,
             Ok(_) => return Expansion::stopped("reference_unresolved", Effect::Children),
+            Err("duplicate_member") => {
+                return Expansion::stopped("duplicate_member", Effect::Field)
+            }
             Err(reason) => {
                 return Expansion::stopped(super::reference_reason(reason), Effect::Children)
             }

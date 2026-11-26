@@ -1,8 +1,10 @@
 mod document;
 mod path_item;
+mod raw;
 
 pub(super) use document::{contains_member, Document};
 pub(super) use path_item::{Field, PathItem};
+pub(super) use raw::{parse as parse_json, Parsed};
 
 use super::servers::Uri;
 use super::Site;
@@ -30,6 +32,14 @@ impl<'r, 'a> Located<'r, 'a> {
             site: self.site.child(key),
         })
     }
+
+    pub fn duplicate(&self, member: &str) -> bool {
+        self.document.duplicate(&self.site.pointer, member)
+    }
+
+    pub fn has_duplicates(&self) -> bool {
+        self.document.has_duplicates(&self.site.pointer)
+    }
 }
 
 pub(super) struct ReferenceFailure {
@@ -39,10 +49,10 @@ pub(super) struct ReferenceFailure {
 }
 
 impl<'a> Documents<'a> {
-    pub fn new(input: &AdmittedSchemaInput<'a>, value: Value) -> Self {
+    pub fn new(input: &AdmittedSchemaInput<'a>, parsed: Parsed) -> Self {
         let entry = Document::new(
             input.entry,
-            value,
+            parsed,
             input.retrieval_uri.and_then(Uri::absolute),
         );
         let mut admitted: BTreeMap<String, Vec<Document<'a>>> = BTreeMap::new();
@@ -55,13 +65,13 @@ impl<'a> Documents<'a> {
                 continue;
             }
             // Keep unread blobs in the URI inventory so a conflicting receipt cannot be ignored.
-            let value = if record.blob.format == Format::Json {
-                serde_json::from_slice(record.blob.bytes).ok()
+            let parsed = if record.blob.format == Format::Json {
+                parse_json(record.blob.bytes).ok()
             } else {
                 None
             };
-            let readable = value.is_some();
-            let mut document = Document::new(record.blob, value.unwrap_or(Value::Null), Some(base));
+            let readable = parsed.is_some();
+            let mut document = Document::new(record.blob, parsed.unwrap_or_default(), Some(base));
             document.readable = readable;
             entries.push(document);
         }
@@ -105,6 +115,9 @@ impl<'a> Documents<'a> {
             if !current.value.is_object() {
                 break ("declaration_unreadable", current.site);
             }
+            if current.duplicate("$ref") {
+                break ("duplicate_member", current.site);
+            }
             let target = current
                 .value
                 .get("$ref")
@@ -133,6 +146,9 @@ impl<'a> Documents<'a> {
         let pointer =
             decode_fragment_pointer(fragment).map_err(|_| "reference_pointer_unchecked")?;
         let document = self.document_for(document, address)?;
+        if document.ambiguous_path(&pointer) {
+            return Err("duplicate_member");
+        }
         let value = lookup(&document.value, &pointer).ok_or("reference_pointer_unchecked")?;
         let site = document.site(pointer);
         Ok(Located {

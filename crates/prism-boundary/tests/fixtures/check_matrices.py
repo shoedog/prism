@@ -134,11 +134,17 @@ def check_p1b_rows():
     controls = {row_id for row_id, (_, row) in rows.items() if row_id.startswith("control-")}
     if used_controls != controls:
         raise ValueError("p1b_rows: known_limits controls do not match their rows")
-    new = len(rows) - len(controls)
+    fold = {row_id for row_id in rows if row_id.removeprefix("control-").startswith("fold1-")}
+    fold_counts = Counter(rows[row_id][1]["class"] for row_id in fold)
+    if fold_counts != {"fold1": 8, "known_limits": 3, "known_limits_control": 3}:
+        raise ValueError(f"p1b_rows: fold1 class counts differ: {fold_counts}")
+    new = len(rows.keys() - fold) - len(controls - fold)
     if new != 76:
         raise ValueError(f"p1b_rows: counted {new} NEW rows, expected 76")
-    print(f"p1b_rows: {new} NEW rows, {counts['known_limits']} known_limits, "
-          f"{len(controls)} supported control rows — OK")
+    print(f"p1b_rows: {new} NEW rows, {counts['known_limits'] - fold_counts['known_limits']} known_limits, "
+          f"{len(controls - fold)} supported control rows — OK")
+    print(f"p1b_rows: fold1 {fold_counts['fold1']} rule rows and "
+          f"{fold_counts['known_limits']} known limits with controls — OK")
 
 
 def main():

@@ -12,7 +12,7 @@ const INTEGER: u8 = 8;
 const FRACTION: u8 = 16;
 const NUMBER: u8 = INTEGER | FRACTION;
 const BOOLEAN: u8 = 32;
-const NULL: u8 = 64;
+pub(super) const NULL: u8 = 64;
 pub(super) const ALL: u8 = OBJECT | ARRAY | STRING | NUMBER | BOOLEAN | NULL;
 
 pub(super) fn type_bits(name: &str) -> Option<u8> {
@@ -158,6 +158,7 @@ pub(super) fn domain(nodes: &[Node<'_, '_>]) -> Option<BTreeMap<String, EnumValu
 
 pub(super) struct Feasibility {
     pub types: u8,
+    pub witnesses: u8,
     pub enum_values: Property<Vec<EnumValue>>,
     pub unknown: bool,
 }
@@ -169,7 +170,7 @@ pub(super) fn feasible(nodes: &[Node<'_, '_>], mut types: u8, dialect: Dialect) 
         types &= !STRING;
     }
     let (low, high) = bounds(nodes, dialect);
-    let mut unknown = false;
+    let mut unchecked = 0;
     if let (Some(low), Some(high)) = (&low, &high) {
         match compare(&low.value, &high.value) {
             Ordering::Greater => types &= !NUMBER,
@@ -179,7 +180,7 @@ pub(super) fn feasible(nodes: &[Node<'_, '_>], mut types: u8, dialect: Dialect) 
                 {
                     match integer_in_interval(low, high) {
                         Some(false) => types &= !INTEGER,
-                        None if types & INTEGER != 0 && types & FRACTION == 0 => unknown = true,
+                        None if types & FRACTION == 0 => unchecked |= INTEGER,
                         _ => {}
                     }
                 }
@@ -196,9 +197,13 @@ pub(super) fn feasible(nodes: &[Node<'_, '_>], mut types: u8, dialect: Dialect) 
         .map(|value| canonical_number(&value.to_string()))
         .collect();
     let mut enum_values = Property::Missing;
+    let witnesses;
     if let Some(mut values) = domain(nodes) {
         let mut types_in_domain = 0;
+        let mut proven = 0;
+        unchecked = 0;
         values.retain(|_, value| {
+            let mut uncertain = false;
             let bits = match value {
                 EnumValue::Null => NULL,
                 EnumValue::Boolean(_) => BOOLEAN,
@@ -210,7 +215,7 @@ pub(super) fn feasible(nodes: &[Node<'_, '_>], mut types: u8, dialect: Dialect) 
                     for pattern in &patterns {
                         match literal_pattern(pattern, s) {
                             Some(false) => return false,
-                            None if types & STRING != 0 => unknown = true,
+                            None => uncertain = true,
                             _ => {}
                         }
                     }
@@ -229,7 +234,7 @@ pub(super) fn feasible(nodes: &[Node<'_, '_>], mut types: u8, dialect: Dialect) 
                     for divisor in &multiples {
                         match divisible(value, divisor) {
                             Some(false) => return false,
-                            None if types & NUMBER != 0 => unknown = true,
+                            None => uncertain = true,
                             _ => {}
                         }
                     }
@@ -240,21 +245,34 @@ pub(super) fn feasible(nodes: &[Node<'_, '_>], mut types: u8, dialect: Dialect) 
                     }
                 }
             };
-            types_in_domain |= bits;
-            bits & types != 0
+            let admitted = bits & types;
+            types_in_domain |= admitted;
+            if uncertain {
+                unchecked |= admitted;
+            } else {
+                proven |= admitted;
+            }
+            admitted != 0
         });
         types &= types_in_domain;
+        witnesses = proven;
         if present {
             enum_values = Property::Known(values.into_values().collect());
         }
     } else {
-        unknown |= types & STRING != 0 && !patterns.is_empty();
-        unknown |= types & NUMBER != 0 && !multiples.is_empty();
+        if !patterns.is_empty() {
+            unchecked |= STRING;
+        }
+        if !multiples.is_empty() {
+            unchecked |= NUMBER;
+        }
+        witnesses = types & !unchecked;
     }
     Feasibility {
         types,
+        witnesses,
         enum_values,
-        unknown,
+        unknown: types & unchecked != 0,
     }
 }
 

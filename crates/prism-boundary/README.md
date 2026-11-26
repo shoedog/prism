@@ -66,6 +66,13 @@ that produces zero deployments.
 - Exact `application/json`, effective Swagger media lists, or admitted root-scoped Swagger omission proof.
 - Named property and required edges, homogeneous items, and schema-valued map remainders with typed pointers.
 - Feasible scalar, object, array, `allOf`, `anyOf`, and provably disjoint `oneOf` transitions within 16 edges.
+- Comparable fields use a supported schema dialect. Sibling comparison requires a feasible witness for each required value.
+- Union facts reflect agreement across every feasible arm within the 128-alternative budget. The signature uses `branch_dependent` for facts that vary by arm.
+- JSON admits exact numeric tokens and preserves object token kinds. Repeated members count as `duplicate_member` at the governing field or message boundary.
+- An empty enum retains its declaration. A 3.1 type array or a 3.0 `nullable` declaration with an effective null and non-null type uses `branch_dependent` in the signature's type slot.
+- Stopped references preserve edge requiredness and use `unknown` in the type, format, enum, and item type slots.
+- The reader checks object feasibility on the seventeenth edge and counts a depth cut when a feasible edge reaches the inventory boundary.
+- Swagger request omission proof establishes Content-Type selection. Explicit success keys use the canonical JSON string encoder in status records.
 
 The public `index_schema` inventory keeps comparable fields separate from
 structural observations, with typed pointers, declaration sites and counted
@@ -76,10 +83,12 @@ inventory hash are independent.
 Known limits include fallback success bodies, non-JSON representations,
 unproved Swagger media, nested schema resources and anchors, recurring
 references, tuples and evaluated tails, arbitrary assertion vocabularies,
-overlapping `oneOf` arms, and unknown scalar or container feasibility.
-Body-presence metadata is tracked separately from requiredness within a body.
-The wire reader retains up to 16 pointer edges and counts unavailable
-constraints at the affected boundary.
+overlapping `oneOf` arms, and unknown scalar or container feasibility. The
+`known_limits` rows also document these comparison boundaries.
+
+- Changing a `const` discriminant in a supported `oneOf` or `anyOf` can leave `content_hash` unchanged. The signature design is open. Options include a singleton enum encoding, a counted limit for union tags, and retaining the current encoding with disclosure.
+- Authored request-body `required: true` and `required: false` share the same comparison output and the standing `body_presence_unchecked` limit. Requiredness within the selected body is tracked separately.
+- The identity census exercises the internal operation reader. The `wire` and public golden targets exercise `index_schema`.
 
 Other inputs have counted partial or withheld coverage at the affected scope. The
 `wire` target reads the pinned ID matrix and the separate P1b enumeration. The

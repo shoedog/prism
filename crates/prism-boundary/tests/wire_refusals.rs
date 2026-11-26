@@ -1,6 +1,9 @@
 #[path = "support/admission.rs"]
 mod admission;
 
+#[path = "support/fold1_refusals.rs"]
+mod fold1;
+
 use prism_boundary::revision::{DependencyReceipt, Format, ProducerMediaEvidence};
 use prism_boundary::{index_schema, Coverage, SchemaIndex};
 use serde_json::{json, Value};
@@ -13,8 +16,12 @@ fn response(schema: Value) -> Value {
 
 fn index(document: Value) -> SchemaIndex {
     let bytes = serde_json::to_vec(&document).unwrap();
+    index_raw(&bytes)
+}
+
+fn index_raw(bytes: &[u8]) -> SchemaIndex {
     index_schema(&admission::admitted(
-        &bytes,
+        bytes,
         Format::Json,
         "test-api",
         None,
@@ -111,11 +118,25 @@ fn composition_refusals_keep_an_independent_field() {
         }))
     };
     for (schema, reason) in cases {
+        let union_guard = schema.get("anyOf").is_some();
         let limited = index(document(schema));
         assert_limit(&limited, reason);
         assert_eq!(fields(&limited), ["field:resp:POST /p:200#/stable"]);
+        if union_guard {
+            assert_eq!(
+                limited
+                    .observed_fields
+                    .iter()
+                    .map(|field| field.id.to_string())
+                    .collect::<Vec<_>>(),
+                ["field:resp:POST /p:200#/maybe"],
+                "the per-union guard preserves the observed field"
+            );
+        }
     }
-    let supported = index(document(json!({"allOf":[{"type":"string"}]})));
+    let supported = index(document(
+        json!({"anyOf":vec![json!({"type":"string"}); 128]}),
+    ));
     assert_eq!(fields(&supported).len(), 2);
 }
 

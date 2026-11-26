@@ -34,7 +34,8 @@ pub(super) fn content_hash(index: &SchemaIndex) -> String {
         let encoded = string(&id);
         records.push((id.clone(), format!(r#"["op",{encoded}]"#)));
         for key in &operation.success_keys {
-            records.push((id.clone(), format!(r#"["status",{encoded},"{key}"]"#)));
+            let key = string(&key.to_string());
+            records.push((id.clone(), format!(r#"["status",{encoded},{key}]"#)));
         }
     }
     for field in &index.fields {

@@ -206,3 +206,50 @@ fn empty_inventory_hashes_zero_bytes() {
         "empty inventory SHA-256 hashes zero bytes"
     );
 }
+
+#[test]
+fn explicit_nullable_types_change_the_effective_signature() {
+    let document = |version: &str, schema: serde_json::Value| {
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "openapi":version,"paths":{"/p":{"post":{"requestBody":{"content":{
+                "application/json":{"schema":{"properties":{"x":schema}}}
+            }}}}}
+        }))
+        .unwrap();
+        index(&bytes)
+    };
+    for (version, nullable) in [
+        ("3.1.0", serde_json::json!({"type":["string","null"]})),
+        (
+            "3.0.3",
+            serde_json::json!({"type":"string","nullable":true}),
+        ),
+    ] {
+        let plain = document(version, serde_json::json!({"type":"string"}));
+        let mut restricted = nullable.clone();
+        restricted["enum"] = serde_json::json!(["a"]);
+        let control = document(version, restricted);
+        assert_eq!(control.fields[0].shape.field_type, shape().field_type);
+        let mixed = document(version, nullable);
+        assert_ne!(
+            mixed.content_hash, plain.content_hash,
+            "{version}: an admitted null must change content_hash"
+        );
+        assert_eq!(mixed.fields[0].shape.field_type, Property::BranchDependent);
+    }
+}
+
+#[test]
+fn duplicate_success_key_has_the_canonical_status_record() {
+    let single = r#"{"openapi":"3.1.0","paths":{"/p":{"get":{"responses":{"2XX":{}}}}}}"#;
+    let duplicate = single.replace(r#""2XX":{}"#, r#""2XX":{},"2XX":{}"#);
+    let checked = index(single.as_bytes());
+    let withheld = index(duplicate.as_bytes());
+    let expected = digest(b"[\"op\",\"op:GET /p\"]\n[\"status\",\"op:GET /p\",\"2XX\"]\n");
+    assert_eq!(checked.content_hash, expected);
+    assert_eq!(withheld.content_hash, expected);
+    assert_eq!(
+        withheld.operations[0].messages[0].coverage,
+        prism_boundary::Coverage::Withheld
+    );
+}

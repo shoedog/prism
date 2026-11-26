@@ -71,6 +71,11 @@ impl<'r, 'a> Reader<'r, 'a> {
         }
         let required_count = required.len() as u64;
         if impossible_required || minimum > maximum || required_count > maximum {
+            for (name, child) in possible {
+                if required.contains(&name) && child.declaration_only {
+                    tree.child(PointerToken::Property(name), child, edge.depth);
+                }
+            }
             return false;
         }
         let mut map_nodes = Vec::new();

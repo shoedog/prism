@@ -3,7 +3,14 @@
 //! Exact application/json, effective Swagger media lists, or admitted root-scoped Swagger omission proof.
 //! Named property/required edges, homogeneous items, and schema-valued map remainders with typed pointers.
 //! Feasible scalar, object, array, allOf, anyOf, and provably disjoint oneOf transitions within 16 edges.
-//! Unsupported or unreadable inputs leave counted partial or withheld coverage at the affected scope.
+//! Comparable fields use supported dialects and feasible required-value witnesses.
+//! Union facts are shared across feasible arms within the per-union budget.
+//! Exact JSON numbers and structural token kinds are preserved; repeated members are counted at their declaration boundary.
+//! Empty enums retain their declarations. Effective nullable type sets use the branch-dependent tag when mixed.
+//! Stopped reference expansions retain edge requiredness and tag unreadable shape slots unknown.
+//! A feasible edge beyond the inventory depth earns a counted cut after object feasibility is checked.
+//! Swagger request omission proof establishes Content-Type selection. Status records use canonical JSON strings.
+//! Scoped limits distinguish partial and withheld coverage.
 
 mod composition;
 mod constraints;
@@ -11,7 +18,7 @@ mod keywords;
 mod object;
 
 use self::composition::{target_node, Effect, Stop};
-use self::constraints::{ARRAY, OBJECT};
+use self::constraints::{ARRAY, NULL, OBJECT};
 use super::references::{Document, Documents, Located};
 use super::{Dialect, Site};
 use crate::element::{FieldId, MessageRoot, PointerToken};
@@ -80,6 +87,18 @@ impl<'r, 'a> Node<'r, 'a> {
         }
         false
     }
+
+    fn duplicate_members(&self) -> bool {
+        self.document.has_duplicates(&self.site.pointer)
+            || self.document.ambiguous_path(&self.site.pointer)
+            || self.document.duplicate(&[], "jsonSchemaDialect")
+            || ["enum", "const", "discriminator"].iter().any(|key| {
+                self.get(key).is_some()
+                    && self
+                        .document
+                        .duplicates_under(&self.site.child(key).pointer)
+            })
+    }
 }
 
 fn resource(document: &Document<'_>) -> String {
@@ -133,6 +152,7 @@ pub(super) fn declared_definitions(document: &Document<'_>) -> Vec<DefinitionId>
 
 pub(super) fn reference_reason(reason: &str) -> &'static str {
     match reason {
+        "duplicate_member" => "duplicate_member",
         "recursive_reference" => "recursive",
         "retrieval_base_unchecked" => "retrieval_base_unchecked",
         "reference_blob_ambiguous" => "reference_blob_ambiguous",
@@ -230,6 +250,10 @@ impl Tree {
     }
 
     fn merge(&mut self, other: Tree) {
+        self.merge_tree(other, false);
+    }
+
+    fn merge_tree(&mut self, other: Tree, alternative: bool) {
         self.feasible |= other.feasible;
         self.declaration_only |= other.declaration_only;
         self.uncertain_presence |= other.uncertain_presence;
@@ -250,8 +274,38 @@ impl Tree {
         self.stops.extend(other.stops);
         self.warnings.extend(other.warnings);
         self.definitions.extend(other.definitions);
-        for (token, child) in other.children {
-            self.children.entry(token).or_default().merge(child);
+        if alternative {
+            for (token, child) in &mut self.children {
+                if !other.children.contains_key(token) {
+                    child.mark_branch_dependent();
+                }
+            }
+        }
+        for (token, mut child) in other.children {
+            match self.children.entry(token) {
+                std::collections::btree_map::Entry::Occupied(mut entry) => {
+                    entry.get_mut().merge_tree(child, alternative);
+                }
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    if alternative {
+                        child.mark_branch_dependent();
+                    }
+                    entry.insert(child);
+                }
+            }
+        }
+    }
+
+    fn mark_branch_dependent(&mut self) {
+        if let Some(shape) = &mut self.shape {
+            merge_property(&mut shape.field_type, Property::BranchDependent);
+            merge_property(&mut shape.format, Property::BranchDependent);
+            merge_property(&mut shape.required, Property::BranchDependent);
+            merge_property(&mut shape.enum_values, Property::BranchDependent);
+            merge_property(&mut shape.item_type, Property::BranchDependent);
+        }
+        for child in self.children.values_mut() {
+            child.mark_branch_dependent();
         }
     }
 
@@ -265,7 +319,7 @@ impl Tree {
                     .into_iter()
                     .map(|Stop(reason, _)| Stop(reason, Effect::Notice)),
             );
-        } else if child.feasible || child.shape.is_some() {
+        } else if depth == MAX_DEPTH && (child.feasible || child.shape.is_some()) {
             self.stops.insert(Stop("depth_cut", Effect::Notice));
         }
     }
@@ -335,6 +389,17 @@ impl<'r, 'a> Reader<'r, 'a> {
             .collect();
         let sites = nodes.iter().map(|node| node.site.clone()).collect();
         let expansion = self.expand(nodes);
+        let stopped_reference = expansion.stops.iter().any(|Stop(reason, _)| {
+            matches!(
+                *reason,
+                "reference_unresolved"
+                    | "reference_blob_unavailable"
+                    | "reference_blob_ambiguous"
+                    | "retrieval_base_unchecked"
+                    | "recursive"
+                    | "reference_scope"
+            )
+        });
         edge.union |= expansion
             .warnings
             .iter()
@@ -351,9 +416,33 @@ impl<'r, 'a> Reader<'r, 'a> {
             result.warnings.insert("allof_overlap");
         }
         let observed = result.stops.iter().any(|stop| stop.1 != Effect::Notice);
+        let mut alternatives = Tree::default();
+        let mut impossible = Tree::default();
+        let mut has_alternative = false;
         for branch in expansion.branches {
             let branch = self.branch(&branch, edge, observed);
-            result.merge(branch);
+            if branch.feasible || branch.has_limits() {
+                alternatives.merge_tree(branch, has_alternative);
+                has_alternative = true;
+            } else {
+                impossible.merge(branch);
+            }
+        }
+        result.merge(alternatives);
+        // Empty-enum declarations can survive an impossible arm as observations.
+        impossible
+            .children
+            .retain(|token, _| !result.children.contains_key(token));
+        if result.shape.is_some() {
+            impossible.shape = None;
+            impossible.declaration_only = false;
+        }
+        result.merge(impossible);
+        if stopped_reference && result.shape.is_some() {
+            result.shape = Some(FieldShape {
+                required: Property::Known(edge.required),
+                ..unknown_shape()
+            });
         }
         if edge.required
             && result
@@ -380,13 +469,15 @@ impl<'r, 'a> Reader<'r, 'a> {
                 edge.union,
             ));
         }
-        let (mut types, field_type) = constraints::types(nodes, self.dialect);
+        let (mut types, mut field_type) = constraints::types(nodes, self.dialect);
+        let mixed_null = types & NULL != 0
+            && types != NULL
+            && nodes.iter().any(|node| node.get("type").is_some());
         let blocked = observed || tree.stops.iter().any(|stop| stop.1 != Effect::Notice);
-        let mut feasibility = constraints::feasible(nodes, types, self.dialect);
+        let feasibility = constraints::feasible(nodes, types, self.dialect);
         if !blocked && feasibility.unknown {
             tree.stops
                 .insert(Stop("scalar_feasibility_unchecked", Effect::Field));
-            feasibility.types = types;
         }
         let mut item_type = Property::Missing;
         if blocked {
@@ -395,20 +486,28 @@ impl<'r, 'a> Reader<'r, 'a> {
             }
         } else {
             types = feasibility.types;
-            if edge.depth <= MAX_DEPTH {
-                if types & OBJECT != 0 && !self.object(nodes, edge, &mut tree) {
-                    types &= !OBJECT;
+            if edge.depth <= MAX_DEPTH + 1
+                && types & OBJECT != 0
+                && !self.object(nodes, edge, &mut tree)
+            {
+                types &= !OBJECT;
+            }
+            if edge.depth <= MAX_DEPTH && types & ARRAY != 0 {
+                let (feasible, item) = self.array(nodes, edge, &mut tree);
+                if !feasible {
+                    types &= !ARRAY;
                 }
-                if types & ARRAY != 0 {
-                    let (feasible, item) = self.array(nodes, edge, &mut tree);
-                    if !feasible {
-                        types &= !ARRAY;
-                    }
-                    item_type = item;
-                }
+                item_type = item;
             }
         }
-        tree.feasible = !blocked && types != 0;
+        if mixed_null && types & NULL != 0 {
+            field_type = if types == NULL {
+                Property::Known("null".into())
+            } else {
+                Property::BranchDependent
+            };
+        }
+        tree.feasible = !blocked && types & feasibility.witnesses != 0;
         tree.types = types;
         let empty_enum = nodes.iter().any(|node| {
             node.get("enum")

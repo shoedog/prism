@@ -1,5 +1,4 @@
 mod media;
-mod response_keys;
 
 use super::openapi::{entry_value, scan_operations};
 use super::references::{Documents, Located};
@@ -43,6 +42,9 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
         if matches!(diagnostic.code, "fallback_success" | "duplicate_operation") {
             continue;
         }
+        if diagnostic.code == "duplicate_member" && diagnostic.scope == "responses" {
+            continue;
+        }
         if diagnostic.scope == "origin" {
             continue;
         }
@@ -57,7 +59,6 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
             index.inverse.entry(definition).or_default();
         }
     }
-    let duplicate_keys = response_keys::DuplicateKeys::new();
     for (id, operation) in inventory.operations {
         let declaration = &operation.declarations[0];
         let location = documents
@@ -95,25 +96,33 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
         if let Some(message) = request(&documents, input, &operation, &location) {
             messages.push((RootKey::Request, message));
         }
+        let responses = location.child("responses");
         for key in operation.success_keys() {
             let spelling = key.to_string();
-            let message = if duplicate_keys.contains(&location, &spelling) {
-                Message::withheld("response_key_ambiguous")
+            let message = if responses
+                .as_ref()
+                .is_some_and(|value| value.duplicate(&spelling))
+            {
+                let mut message = Message::withheld("response_key_ambiguous");
+                message.limit(Vec::new(), "duplicate_member");
+                message
             } else if !(200..=299).any(|code| {
                 operation.can_have_body(code) && operation.response_key(code) == Some(&spelling)
             }) {
                 Message::empty()
             } else {
-                let raw = location
-                    .child("responses")
-                    .unwrap()
-                    .child(&spelling)
-                    .unwrap();
+                let raw = responses.as_ref().unwrap().child(&spelling).unwrap();
                 response(&documents, input, &operation, &location, *key, raw)
             };
             messages.push((RootKey::Response(*key), message));
         }
-        if operation.default_response().is_some() {
+        if location.duplicate("responses")
+            || responses
+                .as_ref()
+                .is_some_and(|value| value.duplicate("default"))
+        {
+            messages.push((RootKey::Fallback, Message::withheld("duplicate_member")));
+        } else if operation.default_response().is_some() {
             let message = if (200..=299).any(|code| operation.response_key(code) == Some("default"))
             {
                 Message::withheld("fallback_success")
@@ -236,6 +245,9 @@ fn request<'r, 'a>(
     {
         return None;
     }
+    if location.duplicate("requestBody") {
+        return Some(Message::withheld("duplicate_member"));
+    }
     let raw = location.child("requestBody")?;
     Some(
         match resolve_message(documents, dialect, raw, "request_body_unreadable") {
@@ -271,12 +283,18 @@ fn resolve_message<'r, 'a>(
     raw: Located<'r, 'a>,
     unreadable: &'static str,
 ) -> Result<Located<'r, 'a>, &'static str> {
+    if raw.has_duplicates() {
+        return Err("duplicate_member");
+    }
     if !raw.value.is_object() {
         return Err(unreadable);
     }
     let mut chain = documents
         .resolve(raw)
         .map_err(|failure| wire::reference_reason(failure.code))?;
+    if chain.iter().any(Located::has_duplicates) {
+        return Err("duplicate_member");
+    }
     if chain.len() > 1
         && unreadable == "request_body_unreadable"
         && chain.last().unwrap().value.get("content").is_none()
@@ -317,6 +335,9 @@ fn swagger_body<'r, 'a>(
         .and_then(|(uri, site)| documents.locate(uri.as_deref(), site));
     let mut effective = BTreeMap::new();
     for list in [path, operation.child("parameters")].into_iter().flatten() {
+        if list.document.ambiguous_path(&list.site.pointer) {
+            return Err("duplicate_member");
+        }
         let items = list.value.as_array().ok_or(UNREADABLE)?;
         let mut local = BTreeSet::new();
         for (i, value) in items.iter().enumerate() {
@@ -330,7 +351,13 @@ fn swagger_body<'r, 'a>(
                 },
                 UNREADABLE,
             )
-            .map_err(|_| UNREADABLE)?;
+            .map_err(|reason| {
+                if reason == "duplicate_member" {
+                    reason
+                } else {
+                    UNREADABLE
+                }
+            })?;
             let key = (
                 parameter.value["name"].as_str().ok_or(UNREADABLE)?,
                 parameter.value["in"].as_str().ok_or(UNREADABLE)?,

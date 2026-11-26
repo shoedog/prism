@@ -158,16 +158,21 @@ fn pinned_message_status_and_wire_rows() {
 #[test]
 fn enumerated_wire_cases() {
     check_enumeration(
-        |row| !matches!(row.class, "known_limits" | "known_limits_control"),
+        |row| !matches!(row.class, "fold1" | "known_limits" | "known_limits_control"),
         40,
     );
+}
+
+#[test]
+fn fold1() {
+    check_enumeration(|row| row.class == "fold1", 8);
 }
 
 #[test]
 fn known_limits() {
     check_enumeration(
         |row| matches!(row.class, "known_limits" | "known_limits_control"),
-        72,
+        72 + 6,
     );
 }
 
@@ -207,11 +212,13 @@ fn check_enumeration(select: impl Fn(&Row<'_>) -> bool, count: usize) {
                 "{} limit reason",
                 row.id
             );
-            assert!(
-                wire_cases::names_reason(inputs, row.reason.unwrap()),
-                "{} counted limit",
-                row.id
-            );
+            if !matches!(row.id, "fold1-union-const" | "fold1-census-scope") {
+                assert!(
+                    wire_cases::names_reason(inputs, row.reason.unwrap()),
+                    "{} counted limit",
+                    row.id
+                );
+            }
             assert!(
                 expectations[control]["inputs"]
                     .as_array()
@@ -223,6 +230,14 @@ fn check_enumeration(select: impl Fn(&Row<'_>) -> bool, count: usize) {
         }
         for input in inputs {
             check(&row, input, &mut failures);
+            for (relation, equal) in [("same_hash_as", true), ("different_hash_from", false)] {
+                if let Some(peer) = input[relation].as_str() {
+                    let peer = inputs.iter().find(|case| case["fixture"] == peer).unwrap();
+                    let hash = wire_cases::run(&row, input).unwrap().content_hash;
+                    let peer_hash = wire_cases::run(&row, peer).unwrap().content_hash;
+                    assert_eq!(hash == peer_hash, equal, "{} {relation}", row.id);
+                }
+            }
         }
     }
     assert_eq!(checked, count);

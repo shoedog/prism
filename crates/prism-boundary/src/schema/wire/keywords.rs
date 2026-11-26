@@ -25,6 +25,9 @@ pub(super) fn stops(
     request: bool,
     union: bool,
 ) -> Vec<Stop> {
+    if node.duplicate_members() {
+        return vec![Stop("duplicate_member", Effect::Field)];
+    }
     if node.value.is_boolean() {
         return if dialect == Dialect::OpenApi31 || node.policy {
             Vec::new()
@@ -37,7 +40,7 @@ pub(super) fn stops(
     };
     let mut stops = Vec::new();
     if dialect_unchecked(node) {
-        return vec![Stop("schema_dialect_unchecked", Effect::Children)];
+        return vec![Stop("schema_dialect_unchecked", Effect::Field)];
     }
     if reference_scope(node) {
         stops.push(Stop("reference_scope", Effect::Children));

@@ -61,6 +61,9 @@ pub(super) fn openapi<'r, 'a>(
             Message::empty()
         };
     };
+    if content.has_duplicates() {
+        return Message::withheld("duplicate_member");
+    }
     let Some(entries) = content
         .value
         .as_object()
@@ -74,6 +77,13 @@ pub(super) fn openapi<'r, 'a>(
     };
     let mut message = Message::empty();
     message.declared_media = entries.keys().cloned().collect();
+    if entries.keys().any(|key| {
+        content
+            .child(key)
+            .is_some_and(|entry| entry.has_duplicates())
+    }) {
+        return Message::withheld("duplicate_member");
+    }
     let matches: Vec<_> = entries.keys().filter(|key| json_media(key)).collect();
     let refusal = match matches.as_slice() {
         [] if entries
@@ -134,6 +144,18 @@ pub(super) fn openapi<'r, 'a>(
         if let Some(encoding) = entry.value.get("encoding") {
             if let Some(names) = encoding.as_object() {
                 for key in names.keys() {
+                    let encoding = entry.site.child("encoding");
+                    if entry.document.duplicate(&encoding.pointer, key)
+                        || entry
+                            .document
+                            .duplicates_under(&encoding.child(key).pointer)
+                    {
+                        message.partial(
+                            vec![PointerToken::property(key)],
+                            "duplicate_member",
+                            true,
+                        );
+                    }
                     message.partial(
                         vec![PointerToken::property(key)],
                         "media_encoding_unchecked",
@@ -167,6 +189,11 @@ pub(super) fn swagger<'r, 'a>(
     } else {
         "consumes"
     };
+    if location.duplicate(key)
+        || location.value.get(key).is_none() && location.document.duplicate(&[], key)
+    {
+        return Message::withheld("duplicate_member");
+    }
     let media = location
         .value
         .get(key)
