@@ -7,7 +7,9 @@ import os
 import shutil
 import sys
 import tempfile
+import tracemalloc
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import compare
@@ -297,6 +299,56 @@ class ZeroTests(Harness):
         self.assertEqual(code, 1)
         self.assertIn("different source trees", err)
         self.assertIn("off and on arms used different binary", err)
+
+
+class StreamingTests(Harness):
+    def test_spilled_bags_keep_multiplicity_owner_and_payload_detection(self):
+        # One digest per run file: every bag goes through the on-disk merge.
+        with mock.patch.object(compare, "SPILL", 1):
+            self.assertEqual(self.zero(self.three()), (0, ""))
+            self.assertRejected(["byte DataFlow bag"], on=dict(edges=[BYTES[0], BYTES[2], BYTES[2]]))
+            err = self.assertRejected(["typed edge bag", "-1x ", "+1x "],
+                                      on=dict(graph=render(NODES, [(D_F, U_G, DF)] + EDGES[1:])))
+            self.assertIn('-1x {"edge"', err)  # the sample text is recovered from the artifact, not the digest
+            self.assertRejected(["typed edge bag"], on=dict(graph=render(
+                NODES, [(D_F, U_F, dict(DF, doubt="alias_unstable"))] + EDGES[1:])))
+
+    def test_graph_bags_cover_every_node_and_hold_digests_not_records(self):
+        path = self.tmp / "graph.jsonl"
+        path.write_text("".join(json.dumps(r) + "\n" for r in render(NODES, EDGES)))
+        with compare.Scratch() as scratch:
+            graph = compare.load_graph(path, scratch)
+            self.assertEqual((graph["nodes"].total, graph["edges"].total, graph["inputs"].total), (8, 8, 1))
+            self.assertEqual(sum(c for _, c in graph["nodes"].runs()), 8)
+        with compare.Scratch() as scratch, self.assertRaises(compare.Refused):
+            compare.load_graph(path, scratch)  # scratch is gone only after the block; a second use is fine
+            raise compare.Refused("expected")
+
+    def test_peak_python_memory_does_not_grow_with_record_count(self):
+        n = 20000
+        nodes = [dict(F, name=f"f{i}" + "x" * 200, start_byte=i) for i in range(n)]
+        edges = [(nodes[i], nodes[i + 1], CONTAINS) for i in range(n - 1)]
+        path = self.tmp / "big.jsonl"
+        path.write_text("".join(json.dumps(r) + "\n" for r in render(nodes, edges)))
+        size = path.stat().st_size
+        tracemalloc.start()
+        try:
+            with compare.Scratch() as scratch, mock.patch.object(compare, "SPILL", 1000):
+                compare.load_graph(path, scratch)
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, size // 2, f"peak {peak} bytes for a {size} byte stream")
+
+    def test_verify_rederives_bags_from_artifact_bytes(self):
+        runs = self.three()
+        run = lambda arm: ["verify", "--run", str(runs / "C" / arm), "--corpus", "C", "--arm", arm]
+        with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(compare.main(run("on")), 0)
+            self.assertEqual(compare.main(run("off")[:-1] + ["on"]), 1)  # the off run is not the on arm
+            with open(runs / "C" / "on" / "graph.jsonl", "a") as f:
+                f.write("\n")
+            self.assertEqual(compare.main(run("on")), 1)
 
 
 if __name__ == "__main__":
