@@ -141,6 +141,9 @@ def _check_provenance(record):
     # Additive fields: validated when present.
     if "sha256" in guard and not is_digest(guard["sha256"]):
         raise ValueError("invalid guard digest")
+    if "quiet_helper_sha256" in guard and guard["quiet_helper_sha256"] is not None \
+            and not is_digest(guard["quiet_helper_sha256"]):
+        raise ValueError("invalid quiet helper digest")
     if "kit_dirty" in record and type(record["kit_dirty"]) is not bool:
         raise ValueError("invalid kit dirty flag")
     if (not isinstance(guard["path"], str) or not guard["path"]

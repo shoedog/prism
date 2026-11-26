@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
 import gzip
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -110,9 +111,34 @@ def guarded(guard, limit, argv, env, stdout, stderr):
 
 
 def kit_dirty(repo=REPO):
-    """True when tracked kit files differ from HEAD or kit files are untracked."""
-    return bool(git(repo, "--literal-pathspecs", "status", "--porcelain=v1", "-z",
-                    "--untracked-files=all", "--", *KIT_PATHS))
+    """True when kit files differ from HEAD, are untracked, or cannot be shown to match.
+
+    `git status` trusts `assume-unchanged` and `skip-worktree` index flags, so the
+    working files are also compared with the recorded commit's blobs.
+    """
+    if git(repo, "--literal-pathspecs", "status", "--porcelain=v1", "-z",
+           "--untracked-files=all", "--", *KIT_PATHS):
+        return True
+    for row in git(repo, "--literal-pathspecs", "ls-tree", "-rz", "HEAD", "--",
+                   *KIT_PATHS).split(b"\0"):
+        if not row:
+            continue
+        metadata, name = row.split(b"\t", 1)
+        mode, kind, oid = metadata.split()
+        path = repo / os.fsdecode(name)
+        try:
+            if mode == b"120000":
+                text = os.fsencode(os.readlink(path)) if path.is_symlink() else None
+                matches = (text is not None and len(oid) == 40 and hashlib.sha1(
+                    b"blob %d\0" % len(text) + text).hexdigest().encode() == oid)
+            else:
+                matches = (path.is_file() and not path.is_symlink()
+                           and git(repo, "hash-object", "--no-filters", "--", str(path)).strip() == oid)
+        except (OSError, PinError):
+            return True
+        if not matches:
+            return True
+    return False
 
 
 def executable_hash(path):
@@ -126,6 +152,17 @@ def executable_hash(path):
 def recheck_binary(path, expected):
     if executable_hash(path) != expected:
         raise OSError("executable changed during measurement")
+
+
+def quiet_helper_hash(guard):
+    """The host-quiet helper the stock guard runs from beside itself, or None if absent."""
+    helper = guard.parent.parent / "hostquiet" / "host_quiet.py"
+    return sha256_file(helper) if helper.is_file() else None
+
+
+def recheck_guard(guard, sha256, helper_sha256):
+    if executable_hash(guard) != sha256 or quiet_helper_hash(guard) != helper_sha256:
+        raise OSError("guard or its quiet helper changed during measurement")
 
 
 def guard_env(host, settings, guard):
@@ -203,6 +240,8 @@ def run(args, entry, trace, *, gate_sha256=None, gate_step_id=None, prediction_s
         binary = args.binary.resolve()
         binary_sha = executable_hash(binary)
         guard = args.memguard.resolve()
+        guard_sha = executable_hash(guard)
+        helper_sha = quiet_helper_hash(guard)
         host = {name: os.environ[name] for name in receipt.HOST_ENV if name in os.environ}
         host["LC_ALL"] = "C"
         record = {
@@ -217,7 +256,7 @@ def run(args, entry, trace, *, gate_sha256=None, gate_step_id=None, prediction_s
             "options": {"bytes": not args.no_bytes, "sites": args.sites, "cache": "no-cache",
                         "trace_env": trace},
             "guard": {"path": str(guard), "limit_gb": args.limit_gb,
-                      "sha256": sha256_file(guard)},
+                      "sha256": guard_sha, "quiet_helper_sha256": helper_sha},
             "host": {"platform": sys.platform, "cpus": os.cpu_count(), "env": host},
             "commands": [],
             "artifacts": {},
@@ -245,6 +284,8 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
         artifacts = record["artifacts"]
         expected_binary = record["binary"]["sha256"]
         recheck_binary(binary, expected_binary)
+        sealed = (guard, record["guard"]["sha256"], record["guard"]["quiet_helper_sha256"])
+        recheck_guard(*sealed)
         version_args = [str(binary), "--version"]
         version = guarded(guard, limit, version_args, guard_env(host, {}, guard),
                           stage / receipt.VERSION, stage / receipt.VERSION_STDERR)
@@ -258,6 +299,7 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
                                      "stdout_sha256": artifacts[receipt.VERSION]["sha256"],
                                      "stdout_bytes": artifacts[receipt.VERSION]["bytes"]}
         recheck_binary(binary, expected_binary)
+        recheck_guard(*sealed)
         try:
             display = (stage / receipt.VERSION).read_bytes().decode("utf-8").strip()
         except UnicodeError as error:
@@ -273,6 +315,7 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
         for definition in receipt.analysis_commands(binary, root, record["options"]):
             try:
                 recheck_binary(binary, expected_binary)
+                recheck_guard(*sealed)
             except OSError as error:
                 code = diagnostic(error, 4)
                 status = "failed"
@@ -293,7 +336,12 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
             return code
         status, code, final_digest, final_state = check_completion(
             corpus, root, binary, expected_binary, status, code)
-        status, code = check_artifacts(stage, artifacts, status, code)
+        try:
+            recheck_guard(*sealed)
+        except OSError as error:
+            diagnostic(error, 4)
+            status, code = "failed", 75 if code == 75 else 4
+        status, code = check_artifacts(stage, record, status, code)
         entry = corpus.entry
         record["corpus"] = {"key": corpus.key, "commit": entry["commit"], "root": str(root),
                             "pin_check": corpus.pin_check, "manifest_sha256": entry["manifest_sha256"],
@@ -312,16 +360,29 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
                 remove_tree(root)
 
 
-def check_artifacts(stage, artifacts, status, code):
-    """A later command may rewrite an earlier artifact; publish what is on disk."""
-    drifted = []
-    for name in artifacts:
-        actual = receipt.artifact(stage / name)
+def check_artifacts(stage, record, status, code):
+    """A later command may rewrite or delete an earlier artifact.
+
+    Publish what survives. `artifact_drift` records the captured digest beside
+    the retained one (None when the file is gone), so the command records and
+    the artifact map stay explicable.
+    """
+    artifacts = record["artifacts"]
+    drift = []
+    for name in list(artifacts):
+        try:
+            actual = receipt.artifact(stage / name)
+        except OSError:
+            actual = None
         if actual != artifacts[name]:
-            drifted.append(name)
-            artifacts[name] = actual
-    if drifted:
-        diagnostic(f"artifact changed after capture: {', '.join(drifted)}", 4)
+            drift.append({"name": name, "captured": artifacts[name], "retained": actual})
+            if actual is None:
+                del artifacts[name]
+            else:
+                artifacts[name] = actual
+    if drift:
+        record["artifact_drift"] = drift
+        diagnostic(f"artifact changed after capture: {', '.join(d['name'] for d in drift)}", 4)
         return ("failed" if status == "ok" else status), code or 4
     return status, code
 

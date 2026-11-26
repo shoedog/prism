@@ -26,7 +26,8 @@ select the same ripgrep registration. `GIN` selects gin and `G` selects guava.
 Register each `SB.<class>.<entry>` with the acquired package's own tree digest
 and package path. The registry ships the public Git pins only: it holds no `SB`
 entries, so `run --corpus SB.<class>.<entry>` against it exits 2 (unknown key)
-until S1b/S6b register digests computed from the authenticated acquired trees.
+until S6b registers digests computed from the authenticated acquired trees (S1 verifies any
+per-package registration now; default `SB` registration follows authenticated acquisition).
 A manifest supplied with `--manifest` can register them earlier. The source-only
 `R4B` fixture is registered in S2, and package and extraction registrations
 require digests from the actual acquired trees. An extracted tree with a
@@ -48,7 +49,16 @@ byte switch, `--sites` adds the call-site dump, and repeatable
 the version token or at least seven hex digits of the reported commit. A
 build whose commit token carries a `-dirty` suffix cannot match a commit pin;
 pin its version token or build from a clean tree. The receipt also records the
-guard's SHA-256 and `kit_dirty`, which marks a kit checkout with edits.
+guard's SHA-256, the SHA-256 of the host-quiet helper beside it (null when absent) and
+`kit_dirty`, which marks a kit checkout with edits, including edits that
+`assume-unchanged` or `skip-worktree` index flags hide from `git status` (working kit
+files are compared with the recorded commit's blobs). The guard and its helper
+are rechecked before each launch and after the last command; a change fails the
+run (exit 4) with a retained failed receipt. The guard must be a readable
+executable regular file. If a command changes or deletes an artifact after
+capture, the failed receipt lists `artifact_drift` entries with the captured and
+retained digests (retained is null when the file is gone) and publishes the
+surviving files.
 See `run --help` for the full interface.
 
 Successful runs return 0. Usage and occupied output errors return 2, corpus
@@ -61,7 +71,10 @@ measurement receipt. Once analysis starts, a failure retains partial
 artifacts and publishes the failed receipt last.
 
 A worker still running in the command's process group after the command exits is
-terminated and reported as `guard_error` (exit 1), never as completion.
+terminated and reported as `guard_error` (exit 1), never as completion. Standalone
+use has the same effect: the guard terminates the surviving group and exits 1
+even though the command itself succeeded, so a command that deliberately leaves
+a background worker behind must not be run under it.
 
 The guard also runs directly as `scripts/memguard/memguard.sh LIMIT COMMAND ...`
 from the repository root. `--status-fd FD` precedes the limit when a caller

@@ -259,6 +259,69 @@ class RunTests(Workbench):
         from measure.receipt import admit
         with self.assertRaises(ValueError):
             admit(self.out)
+        # Captured and retained bytes are recorded apart; the command keeps the captured hash.
+        [drift] = receipt["artifact_drift"]
+        self.assertEqual(drift["name"], "dfg-stats.json")
+        self.assertEqual(drift["captured"], {"sha256": receipt["commands"][0]["output_sha256"],
+                                             "bytes": receipt["commands"][0]["bytes"]})
+        self.assertEqual(drift["retained"], receipt["artifacts"]["dfg-stats.json"])
+        self.assertNotEqual(drift["captured"], drift["retained"])
+
+    def test_artifact_deletion_after_capture_publishes_survivors_and_failed_receipt(self):
+        self.make_fake({"edges": "(next(root.parent.glob('.stage-*')) / 'dfg-stats.json').unlink()"})
+        self.assert_exit(self.run_kit(), 4)
+        receipt = self.receipt()
+        self.assertIsNotNone(receipt)
+        self.assertEqual(receipt["status"], "failed")
+        self.assertNotIn("dfg-stats.json", receipt["artifacts"])
+        self.assertFalse((self.out / "dfg-stats.json").exists())
+        [drift] = receipt["artifact_drift"]
+        self.assertEqual((drift["name"], drift["retained"]), ("dfg-stats.json", None))
+        self.assertEqual(drift["captured"]["sha256"], receipt["commands"][0]["output_sha256"])
+        for name in ("call-stats.json", "edges.jsonl.gz", "version.stdout"):
+            self.assertEqual(receipt["artifacts"][name]["sha256"], sha256_of(self.out / name))
+
+    def test_guard_replaced_after_version_fails_before_the_next_launch(self):
+        original = sha256_of(self.guard)
+        replaced = self.guard.read_text() + "# replaced\n"
+        self.make_fake({"dfg-stats": f"Path({str(self.guard)!r}).write_text({replaced!r})"})
+        self.assert_exit(self.run_kit("--sites"), 4)
+        self.assertEqual([c["command"] for c in self.fake_log()], ["version", "dfg-stats"])
+        receipt = self.receipt()
+        self.assertEqual(receipt["status"], "failed")
+        self.assertEqual(receipt["guard"]["sha256"], original)
+
+    def test_guard_replaced_by_the_last_command_fails_at_completion(self):
+        replaced = self.guard.read_text() + "# replaced\n"
+        self.make_fake({"edges": f"Path({str(self.guard)!r}).write_text({replaced!r})"})
+        self.assert_exit(self.run_kit(), 4)
+        self.assertEqual(self.receipt()["status"], "failed")
+
+    def test_quiet_helper_is_bound_and_rechecked(self):
+        helper = self.work / "hostquiet" / "host_quiet.py"
+        helper.parent.mkdir()
+        helper.write_text("print('free')\n")
+        (self.work / "memguard").mkdir()
+        self.guard = self.work / "memguard" / "guard"
+        self.make_guard()
+        self.assert_exit(self.run_kit(out=self.work / "control"), 0)
+        record = json.loads((self.work / "control" / "receipt.json").read_bytes())
+        self.assertEqual(record["guard"]["quiet_helper_sha256"], sha256_of(helper))
+        self.make_fake({"call-stats": f"Path({str(helper)!r}).write_text('print(1)')"})
+        self.assert_exit(self.run_kit(), 4)
+        self.assertEqual(self.receipt()["status"], "failed")
+        # Only the control run reached the edges command.
+        self.assertEqual([c["command"] for c in self.fake_log()].count("edges"), 1)
+
+    def test_guard_must_be_a_readable_executable_regular_file(self):
+        for target in (Path("/dev/zero"), self.work, self.work / "missing"):
+            with self.subTest(guard=str(target)):
+                self.assert_exit(self.run_kit("--memguard", target), 4)
+                self.assertEqual(self.fake_log(), [])
+        self.guard.chmod(0o644)
+        self.assert_exit(self.run_kit(), 4)
+        self.assertEqual(self.fake_log(), [])
+        self.assertIsNone(self.receipt())
 
     def test_snapshot_cleanup_handles_unwritable_directories(self):
         self.fresh_tree(files={"a.ts": "a", "locked/inner/file": "x"})
@@ -284,6 +347,7 @@ class RunTests(Workbench):
         self.assertEqual(admit(self.out)["status"], "ok")
         path = self.out / "receipt.json"
         for mutate in (lambda r: r["guard"].update(sha256="short"),
+                       lambda r: r["guard"].update(quiet_helper_sha256="short"),
                        lambda r: r.update(kit_dirty="no")):
             record = json.loads(json.dumps(receipt))
             mutate(record)
@@ -306,6 +370,30 @@ class RunTests(Workbench):
         git("checkout", "--", "scripts")
         write_tree(repo, {"scripts/measure/new.py": "x"})
         self.assertTrue(kit_dirty(repo))
+
+    def test_kit_dirty_sees_edits_hidden_by_index_flags(self):
+        from measure.run import kit_dirty
+        repo = self.work / "kit"
+        write_tree(repo, {"scripts/measure/m.py": "a", "scripts/memguard/g.sh": "a"})
+        git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], env=self.env, check=True,
+                                        capture_output=True)
+        git("init", "-q")
+        git("add", "-A")
+        git("-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-qm", "x")
+        for flag, undo in (("--assume-unchanged", "--no-assume-unchanged"),
+                           ("--skip-worktree", "--no-skip-worktree")):
+            with self.subTest(flag=flag):
+                git("update-index", flag, "scripts/measure/m.py")
+                self.assertFalse(kit_dirty(repo))
+                write_tree(repo, {"scripts/measure/m.py": "edited"})
+                self.assertEqual(git("status", "--porcelain", "--", "scripts").stdout, b"")
+                self.assertTrue(kit_dirty(repo))
+                write_tree(repo, {"scripts/measure/m.py": "a"})
+                self.assertFalse(kit_dirty(repo))
+                (repo / "scripts/measure/m.py").unlink()
+                self.assertTrue(kit_dirty(repo))
+                write_tree(repo, {"scripts/measure/m.py": "a"})
+                git("update-index", undo, "scripts/measure/m.py")
 
     def test_link_state_is_bound_apart_from_directories_and_files(self):
         # Only the reported resolution differs; inventory, modes and bytes are equal.
@@ -392,3 +480,60 @@ class RunTests(Workbench):
                 path.write_bytes(data)
                 with self.assertRaises(ValueError):
                     list(jsonl_objects(path))
+
+
+class IsolatedLinkTargetTests(Workbench):
+    """Ledger run-022: a tracked directory link and a dangling link, both bound."""
+
+    FILES = {"pkg/brew/input": "a"}
+    LINKS = {"HomebrewFormula": "pkg/brew", ".env": "shared/.env"}
+
+    def pinned(self):
+        self.fresh_tree(files=dict(self.FILES), links=dict(self.LINKS))
+
+    def test_admitted_and_digest_binds_link_text_and_target_files(self):
+        self.pinned()
+        self.assert_exit(self.verify(), 0)
+        self.assert_exit(self.run_kit(), 0)
+        self.assertEqual(self.receipt()["corpus"]["input_sha256"], self.entry["tree_sha256"])
+
+    def test_target_file_edit_changes_the_digest(self):
+        from measure.inputs import bind_tree
+        self.pinned()
+        before = bind_tree(self.source).sha256
+        write_tree(self.source, {"pkg/brew/input": "edited"})
+        self.assertNotEqual(bind_tree(self.source).sha256, before)
+        self.assert_exit(self.verify(), 3)
+        self.assert_exit(self.run_kit(out=self.work / "stale"), 3)
+        self.assertEqual(self.fake_log(), [])
+
+    def test_target_file_edit_during_a_run_exits_four(self):
+        self.pinned()
+        self.make_fake({"edges": "(root / 'pkg/brew/input').write_text('edited')"})
+        self.assert_exit(self.run_kit(), 4)
+        corpus = self.receipt()["corpus"]
+        self.assertEqual(self.receipt()["status"], "input_changed")
+        self.assertNotEqual(corpus["input_sha256"], corpus["end_input_sha256"])
+
+    def test_dangling_link_text_change_changes_the_digest(self):
+        from measure.inputs import bind_tree
+        self.pinned()
+        before = bind_tree(self.source).sha256
+        (self.source / ".env").unlink()
+        (self.source / ".env").symlink_to("shared/other")
+        self.assertNotEqual(bind_tree(self.source).sha256, before)
+        self.assert_exit(self.verify(), 3)
+
+    def test_dangling_link_retarget_during_a_run_exits_four(self):
+        self.pinned()
+        self.make_fake({"edges": "p = root / '.env'; p.unlink(); p.symlink_to('shared/other')"})
+        self.assert_exit(self.run_kit(), 4)
+        corpus = self.receipt()["corpus"]
+        self.assertEqual(self.receipt()["status"], "input_changed")
+        self.assertNotEqual(corpus["input_sha256"], corpus["end_input_sha256"])
+
+    def test_escaping_dangling_text_refuses_before_version(self):
+        self.fresh_tree(files=dict(self.FILES), links={**self.LINKS, ".env": "../shared/.env"})
+        self.assert_exit(self.verify(), 3)
+        self.assert_exit(self.run_kit(), 3)
+        self.assertEqual(self.fake_log(), [])

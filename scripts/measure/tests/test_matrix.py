@@ -26,7 +26,17 @@ S1_TESTS = {
                 ("test_corpora", "CorporaTests", "test_git_blob_binding_ignores_index_flags"),
                 ("test_run", "RunTests", "test_snapshot_excludes_repository_metadata_and_sibling_sources")],
     "run-022": [("test_run", "RunTests", "test_link_resolution_change_invalidates_run"),
-                ("test_corpora", "CorporaTests", "test_link_hops_refuse_even_when_dangling")],
+                ("test_corpora", "CorporaTests", "test_link_hops_refuse_even_when_dangling"),
+                ("test_run", "IsolatedLinkTargetTests",
+                 "test_admitted_and_digest_binds_link_text_and_target_files"),
+                ("test_run", "IsolatedLinkTargetTests", "test_target_file_edit_changes_the_digest"),
+                ("test_run", "IsolatedLinkTargetTests", "test_target_file_edit_during_a_run_exits_four"),
+                ("test_run", "IsolatedLinkTargetTests",
+                 "test_dangling_link_text_change_changes_the_digest"),
+                ("test_run", "IsolatedLinkTargetTests",
+                 "test_dangling_link_retarget_during_a_run_exits_four"),
+                ("test_run", "IsolatedLinkTargetTests",
+                 "test_escaping_dangling_text_refuses_before_version")],
     "run-023": [("test_corpora", "CorporaTests", "test_link_cycles_and_ancestor_directories_refuse"),
                 ("test_corpora", "CorporaTests", "test_link_hops_refuse_even_when_dangling")],
 }
@@ -48,6 +58,7 @@ class MatrixLedgerTests(unittest.TestCase):
         self.assertIn("adds all eight IDs", handoff.split("**Handoff.**", 1)[1])
         # Every ID is executed here or assigned to a later slice, none dropped.
         self.assertEqual(set(ids), {i for i in S1_TESTS if i >= "run-021"} | set(LATER_SLICE_IDS))
+        self.assertTrue(all(S1_TESTS[i] for i in S1_TESTS), "every S1 ID needs a nonempty mapping")
 
     def test_every_run_materialize_id_is_a_matrix_row_or_a_named_test(self):
         ledger = self.ledger()
@@ -55,6 +66,8 @@ class MatrixLedgerTests(unittest.TestCase):
         rows = {row["id"] for row in read_jsonl(MATRIX / "rows.jsonl") if row["group"] == "run"}
         self.assertEqual(wanted - rows, set(S1_TESTS))
         for ident, tests in S1_TESTS.items():
+            # An empty mapping would leave the row without executable coverage.
+            self.assertTrue(tests, f"{ident} maps to no executable test")
             for module, name, method in tests:
                 with self.subTest(id=ident, test=method):
                     owner = getattr(importlib.import_module(f"measure.tests.{module}"), name)
