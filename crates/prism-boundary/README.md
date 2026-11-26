@@ -83,7 +83,7 @@ byte SHA-256 and the canonical inventory hash are independent.
 - Schema objects use the governing dialect. OpenAPI 3.1 accepts boolean schemas, the implicit and explicit 3.1 base dialect, and the supported JSON Schema 2020-12 dialect.
 - Named object properties contribute fields when capacity and required-value witnesses support their presence. Readable directional flags refine requiredness where the dialect defines it.
 - Homogeneous array items contribute descendant fields where an item can occur. A named array field signs its known item type or type set in the item slot.
-- Under an item-level stop or unknown feasibility, a readable declared item type set signs in the parent item slot while the item limit remains counted.
+- Under an item-level stop, the parent item slot signs the readable declared type set. When feasibility is unknown and pruning can proceed, it signs the surviving type set. The item limit remains counted in both cases.
 - Schema-valued object remainders contribute map-value fields when the object has capacity and the remainder is feasible.
 - Inventory paths retain typed property, item and map edges through depth 16. The reader checks object feasibility at edge 17 before recording a depth cut.
 - Recognized types, readable format labels, exact scalar enum members and established field requiredness contribute signature facts. An empty enum declaration can be retained as an observation where the edge survives capacity checks.

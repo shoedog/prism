@@ -502,9 +502,9 @@ impl<'r, 'a> Reader<'r, 'a> {
             }
         }
         let type_set_unchecked = blocked || feasibility.unknown;
-        // The parent item slot retains the declared set under item-level limits.
-        if multi_type && (!edge.list_item || !type_set_unchecked) {
-            field_type = if types == NULL || !type_set_unchecked {
+        // Items sign surviving types, or declared types when a stop blocks pruning.
+        if multi_type {
+            field_type = if types == NULL || !type_set_unchecked || edge.list_item {
                 constraints::type_set(types)
             } else {
                 Property::BranchDependent

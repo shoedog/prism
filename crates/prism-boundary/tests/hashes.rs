@@ -218,6 +218,54 @@ fn typed_field(version: &str, schema: serde_json::Value) -> SchemaIndex {
 }
 
 #[test]
+fn list_item_hashes_exclude_impossible_members_when_feasibility_is_unknown() {
+    use serde_json::json;
+
+    let mut failures = Vec::new();
+    for (label, items, widened, remaining) in [
+        (
+            "contradictory string lengths",
+            json!({"type":["string","number"],"minLength":2,"maxLength":1,"multipleOf":2}),
+            json!({"type":["string","number"]}),
+            "number",
+        ),
+        (
+            "fractional bounds exclude integers",
+            json!({"type":["string","integer"],"minimum":0.1,"maximum":0.9,"pattern":"^a"}),
+            json!({"type":["string","integer"]}),
+            "string",
+        ),
+        (
+            "string enum excludes integers",
+            json!({"type":["string","integer"],"enum":["a"],"pattern":"^(a|b)$"}),
+            json!({"type":["string","integer"]}),
+            "string",
+        ),
+    ] {
+        let restricted = typed_field("3.1.0", json!({"type":"array","items":items}));
+        let widened = typed_field("3.1.0", json!({"type":"array","items":widened}));
+        let ([restricted_field], [widened_field]) =
+            (restricted.fields.as_slice(), widened.fields.as_slice())
+        else {
+            panic!("{label}: both inventories must contain one comparable array field");
+        };
+        assert_eq!(restricted_field.id, widened_field.id, "{label}");
+        if restricted_field.shape.item_type != Property::Known(vec![remaining.to_owned()])
+            || restricted.content_hash == widened.content_hash
+        {
+            failures.push(format!(
+                "{label}: expected only {remaining} and distinct hashes, got {:?} -> {:?}, {} -> {}",
+                restricted_field.shape.item_type,
+                widened_field.shape.item_type,
+                restricted.content_hash,
+                widened.content_hash,
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn nullable_type_edits_change_the_signature_and_hash() {
     use serde_json::json;
 
