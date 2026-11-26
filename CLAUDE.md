@@ -681,6 +681,9 @@ accumulator when the caller proves it omitted the initializer. A read entry Def 
 parenthesized, or a rest identifier covering the role. Inline callables use their own bytes. A named
 value needs a live same-file declaration or a directly initialized immutable local binding.
 `PRISM_D_BUILTIN_TRACE=1` emits keyed admission and omission decisions on stderr.
+A receiver written after indentation has only a zero-width line-start Use, which matches no receiver
+representation, so it is a pinned loss (no edge); a receiver at column one, a full path or a
+projection Use binds.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

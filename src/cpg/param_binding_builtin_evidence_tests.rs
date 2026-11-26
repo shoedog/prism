@@ -291,6 +291,7 @@ fn diagnostic_records_join_role_outcomes_to_edges() {
     assert_eq!(named["role"], "element");
     assert_eq!(named["slot"], 0);
     assert_ne!(named["callback"], named["declaration"]);
+    direct_eval_in_the_declaration_scope_refuses_the_named_callback();
 }
 
 #[test]
@@ -490,4 +491,28 @@ fn sloppy_annex_b_and_with_do_not_reuse_an_outer_declaration() {
             "{source}"
         );
     }
+}
+
+// Called from the one test that owns the global capture sink: the sink's
+// enabled flag is process-wide, so a second capturing test would race the
+// `enabled()` assertions there.
+fn direct_eval_in_the_declaration_scope_refuses_the_named_callback() {
+    let build = |statement: &str| {
+        let source = format!(
+            "function visit(v) {{ use(v); }}\nfunction main() {{\nconst items = [1];\n{statement}\nitems.forEach(visit);\n}}"
+        );
+        let ((_, cpg), lines) = capture::run(|| fixture("e.js", &source, Language::JavaScript));
+        let reasons: Vec<String> = lines
+            .iter()
+            .filter_map(|line| {
+                let record: serde_json::Value =
+                    serde_json::from_str(line.strip_prefix("PRISM_D_BUILTIN_TRACE ")?).ok()?;
+                (record["callee"] == "forEach" && record["caller_file"] == "e.js")
+                    .then(|| record["reason"].as_str().unwrap().to_owned())
+            })
+            .collect();
+        (builtin_edges(&cpg).len(), reasons)
+    };
+    assert_eq!(build("use(0);"), (1, vec!["table_role".to_owned()]));
+    assert_eq!(build("eval('0');"), (0, vec!["dynamic_binding".to_owned()]));
 }
