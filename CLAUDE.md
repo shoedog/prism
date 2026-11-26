@@ -15,7 +15,7 @@ cargo fmt --all --check  # Check formatting of every workspace crate (must pass 
 cargo run -- --help  # Show CLI usage
 cargo run -- --list-algorithms  # List all 30 algorithms
 cargo build -p prism-mcp --bin prism-mcp    # Build the MCP stdio server
-cargo test --workspace                      # Run tests for prism, prism-review and prism-mcp
+cargo test --workspace                      # Run tests for all four workspace crates
 ```
 
 ### Mutation gate
@@ -120,6 +120,10 @@ cargo test --test integration coverage_test::      # Coverage matrix
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.
   `ReviewContextRound` builds a graph from the captured review and the admitted files.
 - `finding_confidence.rs` — Single source for per-finding confidence/tier/parse-quality classification (`classify`, `evidence_files`, `ParseQuality::min_over`), consumed by both prism-review's `output/sarif.rs` and `targets/`.
+
+### Boundary crate (`crates/prism-boundary/`)
+
+P1a adds typed operation and field IDs, route declaration projections, an internal Swagger 2.0 and OpenAPI 3 JSON operation and status reader, and a `prism-boundary` binary with `--help` and `--version`. YAML conversion belongs to the caller. Wire-field inventory, schema diffing, binding documents and source extraction are outside P1a.
 
 ### Review crate (`crates/prism-review/src/`)
 
@@ -889,9 +893,9 @@ Algorithms fall into two categories:
 
 ### Layering and file layout (#701)
 
-The workspace is three crates: `prism` (the core library, root `src/`), `crates/prism-review` (the review
-layer, library `prism_review` plus the `prism` binary) and `crates/prism-mcp`; `default-members` are the root
-and `prism-review` (`prism-mcp` is opt-in with `-p prism-mcp` or `--workspace`). The layering boundary is
+The four workspace crates are `prism` (the core library, root `src/`), `crates/prism-review` (the review
+layer, library `prism_review` plus the `prism` binary), `crates/prism-mcp` and `crates/prism-boundary`.
+The root and `prism-review` are the default members. The other crates join checks via `-p` or `--workspace`. The layering boundary is
 Cargo: the `prism` library cannot name `prism_review` (no dependency) or `algorithms` (the module is not there);
 its `#[cfg(test)]` code could name `prism_review` through the root's dev-dependency, which is what
 `tests/integration/layering_test.rs` closes: it fails on any non-comment line
