@@ -32,17 +32,24 @@ that produces zero deployments.
 
 ## Known limits
 
-- OpenAPI `simple` path captures use `{}` with an explicit or default style,
-  including for arrays. Scalar `label` captures use `.{}`. Array or object
-  `label`, all `matrix` forms, other or non-string styles, and malformed
-  `explode` on otherwise supported declarations withhold the operation with
-  `path_style_unsupported`.
-- A `label` requires an inline parameter and a reference-free inline schema
-  with one known non-null type. An unreadable override, schema resolution
-  keywords, a top-level `jsonSchemaDialect`, or any `$schema` can make the
-  effective declaration or type undeterminable. Withhold such operations with
-  `path_parameter_style_unchecked`. Both reasons appear in the diagnostics inventory.
-- Compared with `b359cfa8`, **0 of 1,165 pinned operations** and **0 of 199
+- An inline OpenAPI path parameter qualifies with a `schema` object or a
+  3.1 boolean schema, `content` absent, and `explode` omitted or boolean.
+  Default or explicit `simple` spells `{}`, including for arrays.
+  A determinably scalar `label` spells `.{}` and requires a reference-free
+  schema in the operation's document, readable parameter lists, and the
+  implicit schema dialect without schema resolution keywords. Readable lists
+  with no matching parameter still give `{}`.
+- Every other parameter object is withheld. The diagnostics inventory counts
+  `path_style_unsupported` for content-only parameters, unsupported styles,
+  and malformed `explode` on an otherwise supported declaration. It counts
+  `path_parameter_style_unchecked` for parameters with both `schema` and
+  `content` or neither, invalid schema forms, and undeterminable effective
+  declarations or label types.
+- An operation id identifies the path template and the capture positions with
+  their serialization form. It makes no claim about which values a capture
+  admits, the empty string included. Value admissibility belongs to consumer
+  matching in P3, which must not assume a capture is non-empty.
+- Compared with `c8708313`, **0 of 1,165 pinned operations** and **0 of 199
   public-pair operations** were withheld or changed.
 - Route projections record `raw_path`, `mount` and `api` without consulting them.
 - Policy values from `route-table.toml` carry no spec hash.

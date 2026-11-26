@@ -162,20 +162,28 @@ incomplete method coverage.
   of repeated parameter names and supported serialization/constraint facts as attributes for matching. A literal
   schema colon stays literal.
 
-  **Accept-list for OpenAPI path parameter serialization.** Select the effective parameter by `(name, in)`, with
-  operation declarations overriding Path Item declarations. Explicit or default `simple` uses `{}` for any schema
-  type, including arrays. A `label` with a known scalar type uses `.{}`. Either boolean `explode` value preserves
-  these spellings. Withhold the operation for array or object `label`, any `matrix` style, any other or non-string
-  style, or a malformed `explode` on an otherwise supported declaration. Count these as `path_style_unsupported`.
+  **OpenAPI path parameter serialization.** Select the effective parameter by `(name, in)`, with operation
+  declarations overriding Path Item declarations. An inline parameter must have a `schema` object or an
+  OpenAPI 3.1 boolean schema, with `content` absent. Explicit or default `simple` spells the capture `{}`, including
+  for arrays. A `label` with a determinably scalar schema spells it `.{}`. Both spellings require `explode` to be
+  omitted or boolean. When readable lists contain no matching parameter, spell the unbound capture `{}`.
 
   For `label`, both parameter lists must be readable, including shadowed entries, and any list references must
   resolve within admitted blobs. The effective parameter and its schema must be inline in the operation's document.
   The schema must contain no `$ref` and the document must contain no `$id`, `$anchor`, or `$dynamicRef`. A top-level
   `jsonSchemaDialect` or any `$schema` in the document also disqualifies the label because a different dialect can
   change whether `type` constrains values. Read a single recognized non-null type name, or in OpenAPI 3.1 an array with
-  one such name and optional `"null"`. Withhold the operation with `path_parameter_style_unchecked` when the label
-  type or effective declaration is undeterminable. Count both reasons in the diagnostics inventory and name the
-  capture in each diagnostic. Resolving parameter types through references and unresolved overrides is deferred.
+  one such name and optional `"null"`.
+
+  Every other parameter object is withheld. Count known unmodelled serialization, including `content` without
+  `schema` and unsupported styles, as `path_style_unsupported`. The same reason applies to a non-boolean `explode`
+  on an otherwise supported declaration. Count simultaneous `schema` and `content`, the absence of both, an invalid
+  schema form, or an undeterminable effective declaration or label type as `path_parameter_style_unchecked`. Count
+  both reasons in the diagnostics inventory and name the capture in each diagnostic.
+
+  An operation id identifies the path template and the capture positions with their serialization form. It makes
+  no claim about which values a capture admits, the empty string included. Value admissibility is a matching concern
+  of the consumer-side slice (P3), which must not assume a capture is non-empty.
 - `{}` matches one non-empty component when it occupies the whole segment. Within a mixed segment its capture
   must consume non-empty text between the fixed parts. An empty capture is admitted only by `{?}` or `{*0+}`.
   Model a whole-component string variable as a non-empty segment parameter (§5.4). Score a possible empty

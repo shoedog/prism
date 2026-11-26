@@ -6,6 +6,7 @@ use std::path::Path;
 use std::process::Command;
 
 const CAPTURE_PATH: &str = "/reed/{id}";
+const MIXED_CAPTURE_PATH: &str = "/reed/x{id}";
 const LABEL_ID: &str = "op:GET /reed/.{}";
 const PLAIN_ID: &str = "op:GET /reed/{}";
 const ENTRY_URI: &str = "https://example.test/openapi.json";
@@ -18,10 +19,14 @@ fn label(schema: Value) -> Value {
 }
 
 fn document(parameters: Value) -> Value {
+    document_at(CAPTURE_PATH, parameters)
+}
+
+fn document_at(path: &str, parameters: Value) -> Value {
     json!({
         "openapi": "3.1.0",
         "paths": {
-            (CAPTURE_PATH): {"get": {"parameters": parameters, "responses": {"201": {}}}},
+            (path): {"get": {"parameters": parameters, "responses": {"201": {}}}},
             "/control": {"get": {"responses": {"200": {}}}}
         }
     })
@@ -32,10 +37,10 @@ fn projection(document: &Value, expected: Option<&str>) {
 }
 
 fn assert_projection(inventory: &Inventory, expected: Option<&str>) {
-    assert_serialization(inventory, expected.ok_or(UNCHECKED));
+    assert_serialization(inventory, CAPTURE_PATH, expected.ok_or(UNCHECKED));
 }
 
-fn assert_serialization(inventory: &Inventory, expected: Result<&str, &str>) {
+fn assert_serialization(inventory: &Inventory, path: &str, expected: Result<&str, &str>) {
     assert_eq!(
         inventory
             .operations
@@ -59,7 +64,7 @@ fn assert_serialization(inventory: &Inventory, expected: Result<&str, &str>) {
                 inventory.unprojected
             );
         };
-        assert_eq!(declaration.source_path, CAPTURE_PATH);
+        assert_eq!(declaration.source_path, path);
         assert_eq!(declaration.source_method, "get");
         assert_eq!(declaration.responses.keys().collect::<Vec<_>>(), ["201"]);
         let [diagnostic] = diagnostics.as_slice() else {
@@ -70,7 +75,7 @@ fn assert_serialization(inventory: &Inventory, expected: Result<&str, &str>) {
         };
         assert_eq!(diagnostic.code, reason);
         assert_eq!(diagnostic.scope, "path_parameters");
-        assert_eq!(diagnostic.site.pointer, ["paths", CAPTURE_PATH]);
+        assert_eq!(diagnostic.site.pointer, ["paths", path]);
         assert_eq!(diagnostic.capture.as_deref(), Some("id"));
     } else {
         assert!(inventory.unprojected.is_empty());
@@ -79,8 +84,126 @@ fn assert_serialization(inventory: &Inventory, expected: Result<&str, &str>) {
 }
 
 fn check_parameter(parameter: Value, expected: Result<&str, &str>) {
-    let input = document(json!([parameter]));
-    assert_serialization(&json(&serde_json::to_vec(&input).unwrap()), expected);
+    check_parameter_at(CAPTURE_PATH, parameter, expected);
+}
+
+fn check_parameter_at(path: &str, parameter: Value, expected: Result<&str, &str>) {
+    let input = document_at(path, json!([parameter]));
+    assert_serialization(&json(&serde_json::to_vec(&input).unwrap()), path, expected);
+}
+
+#[test]
+fn path_serialization_withholds_json_content() {
+    check_parameter(
+        json!({
+            "in": "path", "name": "id", "required": true,
+            "content": {"application/json": {"schema": {"type": "string"}}}
+        }),
+        Err(UNSUPPORTED),
+    );
+}
+
+#[test]
+fn path_serialization_withholds_text_content_with_simple_style() {
+    check_parameter_at(
+        MIXED_CAPTURE_PATH,
+        json!({
+            "in": "path", "name": "id", "required": true, "style": "simple",
+            "content": {"text/plain": {"schema": {"type": "string", "enum": [""]}}}
+        }),
+        Err(UNSUPPORTED),
+    );
+}
+
+#[test]
+fn path_serialization_withholds_text_content_with_label_style() {
+    check_parameter_at(
+        MIXED_CAPTURE_PATH,
+        json!({
+            "in": "path", "name": "id", "required": true, "style": "label",
+            "content": {"text/plain": {"schema": {"type": "string", "enum": [""]}}}
+        }),
+        Err(UNSUPPORTED),
+    );
+}
+
+#[test]
+fn path_serialization_counts_null_content_as_present() {
+    check_parameter(
+        json!({"in": "path", "name": "id", "required": true, "content": null}),
+        Err(UNSUPPORTED),
+    );
+}
+
+#[test]
+fn path_serialization_leaves_content_with_schema_unchecked() {
+    let mut parameter = label(json!({"type": "string"}));
+    parameter["content"] = json!({"application/json": {"schema": {"type": "string"}}});
+    check_parameter(parameter, Err(UNCHECKED));
+}
+
+#[test]
+fn path_serialization_leaves_missing_schema_and_content_unchecked() {
+    check_parameter(
+        json!({"in": "path", "name": "id", "required": true, "style": "simple"}),
+        Err(UNCHECKED),
+    );
+}
+
+#[test]
+fn path_serialization_leaves_null_schema_unchecked() {
+    check_parameter(
+        json!({"in": "path", "name": "id", "required": true, "style": "simple", "schema": null}),
+        Err(UNCHECKED),
+    );
+}
+
+#[test]
+fn path_serialization_leaves_string_schema_unchecked() {
+    check_parameter(
+        json!({"in": "path", "name": "id", "required": true, "style": "simple", "schema": "string"}),
+        Err(UNCHECKED),
+    );
+}
+
+#[test]
+fn path_serialization_leaves_openapi_30_boolean_schema_unchecked() {
+    let mut input = document(json!([
+        {"in": "path", "name": "id", "required": true, "style": "simple", "schema": true}
+    ]));
+    input["openapi"] = json!("3.0.3");
+    projection(&input, None);
+}
+
+#[test]
+fn path_serialization_reads_openapi_31_boolean_schema_for_simple() {
+    for schema in [true, false] {
+        let mut parameter = label(json!(schema));
+        check_parameter(parameter.clone(), Err(UNCHECKED));
+        parameter["style"] = json!("simple");
+        check_parameter(parameter, Ok(PLAIN_ID));
+    }
+}
+
+#[test]
+fn path_serialization_keeps_unbound_capture() {
+    projection(&document(json!([])), Some(PLAIN_ID));
+}
+
+#[test]
+fn known_limit_empty_string_enum_preserves_capture_spelling() {
+    for (style, expected) in [
+        // KNOWN-LIMIT: The ID records the template and its simple capture, with no claim
+        // about which values the capture admits, the empty string included.
+        ("simple", "op:GET /reed/x{}"),
+        // KNOWN-LIMIT: The ID records the template and its label capture, with no claim
+        // about which values the capture admits, the empty string included.
+        ("label", "op:GET /reed/x.{}"),
+    ] {
+        let mut parameter = label(json!({"type": "string", "enum": [""]}));
+        parameter["style"] = json!(style);
+        check_parameter_at(MIXED_CAPTURE_PATH, parameter, Ok(expected));
+    }
 }
 
 #[test]
@@ -145,8 +268,9 @@ fn path_serialization_keeps_simple_and_scalar_label() {
     check_parameter(parameter.clone(), Ok(LABEL_ID));
     parameter["style"] = json!("simple");
     check_parameter(parameter.clone(), Ok(PLAIN_ID));
-    parameter["schema"] = json!({"type": "array", "items": {"type": "string"}});
-    check_parameter(parameter.clone(), Ok(PLAIN_ID));
+    let mut array_parameter = parameter.clone();
+    array_parameter["schema"] = json!({"type": "array", "items": {"type": "string"}});
+    check_parameter(array_parameter, Ok(PLAIN_ID));
     parameter.as_object_mut().unwrap().remove("style");
     check_parameter(parameter, Ok(PLAIN_ID));
 }

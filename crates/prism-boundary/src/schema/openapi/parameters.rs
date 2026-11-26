@@ -151,22 +151,32 @@ fn path_serialization(
     dialect: Dialect,
     both_lists_complete: bool,
 ) -> PathSerialization {
-    if parameter.value.get("$ref").is_some() {
+    let declaration = parameter.value;
+    if declaration.get("$ref").is_some() {
         return PathSerialization::Unchecked;
     }
-    let serialization = match parameter.value.get("style").map(Value::as_str) {
-        None | Some(Some("simple")) => PathSerialization::Simple,
-        Some(Some("label")) => match label_type(parameter, operation, dialect, both_lists_complete)
+    let schema = match (declaration.get("schema"), declaration.get("content")) {
+        (None, Some(_)) => return PathSerialization::Unsupported,
+        (Some(schema), None)
+            if schema.is_object() || (dialect == Dialect::OpenApi31 && schema.is_boolean()) =>
         {
-            Some("string" | "number" | "integer" | "boolean") => PathSerialization::ScalarLabel,
-            Some("array" | "object") => return PathSerialization::Unsupported,
-            _ => return PathSerialization::Unchecked,
-        },
+            schema
+        }
+        _ => return PathSerialization::Unchecked,
+    };
+    let serialization = match declaration.get("style").map(Value::as_str) {
+        None | Some(Some("simple")) => PathSerialization::Simple,
+        Some(Some("label")) => {
+            match label_type(schema, parameter, operation, dialect, both_lists_complete) {
+                Some("string" | "number" | "integer" | "boolean") => PathSerialization::ScalarLabel,
+                Some("array" | "object") => return PathSerialization::Unsupported,
+                _ => return PathSerialization::Unchecked,
+            }
+        }
         _ => return PathSerialization::Unsupported,
     };
     // Either boolean explode value preserves the capture spelling for these styles.
-    if parameter
-        .value
+    if declaration
         .get("explode")
         .is_some_and(|value| !value.is_boolean())
     {
@@ -176,7 +186,8 @@ fn path_serialization(
 }
 
 fn label_type<'r>(
-    parameter: &Located<'r, '_>,
+    schema: &'r Value,
+    parameter: &Located<'_, '_>,
     operation: &Located<'_, '_>,
     dialect: Dialect,
     both_lists_complete: bool,
@@ -193,7 +204,6 @@ fn label_type<'r>(
     {
         return None;
     }
-    let schema = parameter.value.get("schema")?;
     if contains_member(schema, &["$ref"]) {
         return None;
     }
