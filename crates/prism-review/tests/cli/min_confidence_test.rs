@@ -358,10 +358,12 @@ fn dfg_stats_output(repo: &std::path::Path, edges: bool) -> Output {
 }
 
 fn dfg_fixture(language: &str, case: &str) -> std::path::PathBuf {
-    std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
-        .join("eval/fixtures")
-        .join(language)
-        .join(case)
+    let root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+    // Lane 9 slice D: this case lives outside eval/fixtures, whose digest the Tier-A lock pins.
+    if case == "dfg_builtin_callback" {
+        return root.join("tests/fixtures").join(case);
+    }
+    root.join("eval/fixtures").join(language).join(case)
 }
 
 const DFG_CLASS_COUNTERS: [&str; 7] = [
