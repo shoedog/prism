@@ -104,6 +104,10 @@ mod props_s2_selected_tests;
 #[cfg(test)]
 mod props_s2_test_support;
 #[cfg(test)]
+mod props_s3_coverage_tests;
+#[cfg(test)]
+mod props_s3_evidence_tests;
+#[cfg(test)]
 mod props_s3_generated_tests;
 #[cfg(test)]
 mod props_s3_replay_tests;

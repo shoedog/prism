@@ -23,6 +23,10 @@ mod e5_trace;
 #[path = "jsx_props.rs"]
 mod jsx_props;
 
+#[cfg(test)]
+#[path = "jsx_plain_read_tests.rs"]
+mod jsx_plain_read_tests;
+
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
 
