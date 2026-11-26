@@ -55,6 +55,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         let constructor = self.initializer(collection)?;
         let native = field(constructor, "constructor").map(peel)?;
         if constructor.kind() != "new_expression" || self.text(native) != "WeakSet" {
+            self.refuse(atom, "unsupported_predicate");
             return None;
         }
         if !self.same_key(checked, input.receiver) {

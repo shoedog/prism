@@ -54,7 +54,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         edges: &[Edge<'a>],
     ) -> (bool, Option<GuardForm>) {
         let mut candidates = Vec::new();
-        for edge in edges.iter().filter(|edge| edge.complete) {
+        for edge in edges.iter() {
             self.true_atoms(*edge, &mut candidates);
         }
         for call in candidates {
@@ -376,9 +376,6 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         mut allowed_key: impl FnMut(&mut Self, Node<'a>) -> bool,
     ) -> Option<BTreeSet<&'a str>> {
         let mut allowed = BTreeSet::new();
-        if !edge.complete {
-            return None;
-        }
         let mut pending = vec![(edge.condition, edge.accepts)];
         while let Some((node, accepts)) = pending.pop() {
             if !self.spend(1) {

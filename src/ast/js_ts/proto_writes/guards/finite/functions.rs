@@ -59,6 +59,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             return false;
         };
         if statements.next().is_some() || field(check, "alternative").is_some() {
+            self.refuse(call, "unsupported_predicate");
             return false;
         }
         let Some(condition) = field(check, "condition") else {
@@ -68,12 +69,12 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             condition,
             guard: check,
             accepts: false,
-            complete: true,
         };
         if self
             .finite_strings(edge, |proof, value| proof.parameter_use(value, parameter))
             .is_none()
         {
+            self.refuse(call, "unsupported_predicate");
             return false;
         }
         let Some(exit) = field(check, "consequence").and_then(single_block_statement) else {
@@ -137,7 +138,15 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         false
     }
 
-    fn normalises(&self, helper: Node<'a>) -> bool {
+    fn normalises(&mut self, helper: Node<'a>) -> bool {
+        let admitted = self.normalising_shape(helper);
+        if !admitted {
+            self.refuse(helper, "unsupported_predicate");
+        }
+        admitted
+    }
+
+    fn normalising_shape(&self, helper: Node<'a>) -> bool {
         let Some(parameter) = self.single_parameter(helper) else {
             return false;
         };

@@ -276,8 +276,27 @@ target and selector spans come from the syntax tree. For the matrix case
 `keys.slice(0, -1).reduce((o, k) => (o[]`. It carries no selector identity. The
 listing identifies the outer member at bytes `[31, 114)` and the distinct
 callback store at `[67, 71)`. Captured-cursor transfer uses synchronous
-callback literals in supported iteration calls. Guard recognition, recursive
-descent and review-taint matching are later slices.
+callback literals in supported iteration calls. Guard classification shipped
+in slice S1b (`none`/`partial`/`sufficient`, a closed list of 12 forms; see
+CLAUDE.md). Recursive descent and review-taint matching are later slices.
+Known limits of guard states:
+
+- `header_scratch` and `deny_names` credit a two-level write as `sufficient`
+  under DESIGN's single-selection argument even when a reserved-adjacent name
+  such as `toString`, `valueOf` or `constructor` selects a shared builtin
+  (`out[name] || {}` with `constructor` installs `Object`, so the next level
+  writes `Object.keys`). No prototype object itself is written. Owner to
+  confirm that `sufficient` means "no write to a prototype object".
+- `shared_receiver` recognises only the obvious `Object`/`Function`/
+  `Array.prototype` spellings (and `globalThis.` forms). `x.constructor.prototype`,
+  `Object.getPrototypeOf(x)` and `x.__proto__` receivers are not recognised.
+- Helper deny functions (`denial_helper`) credit any strict string comparison
+  of the parameter, regardless of polarity or literal; they reach `partial` only.
+- The native-write inventory (`reflection()`) treats `Object.assign`,
+  `defineProperty`, `defineProperties`, `setPrototypeOf`, `Reflect.set` and
+  `Reflect.deleteProperty` as writes; other mutation routes are outside it.
+- `continue` as a guard exit is credited only inside the effect's own loop
+  body; pending cursor or key proofs are not attempted.
 
 Receiver exclusions require local source evidence. A completed own-slot
 installation can discharge the lookup in the next standalone assignment

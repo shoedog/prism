@@ -6,7 +6,6 @@ pub(super) struct Edge<'a> {
     pub(super) guard: Node<'a>,
     pub(super) condition: Node<'a>,
     pub(super) accepts: bool,
-    pub(super) complete: bool,
 }
 
 impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
@@ -33,7 +32,6 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                                 guard: parent,
                                 condition,
                                 accepts,
-                                complete: true,
                             });
                         }
                     }
@@ -47,7 +45,6 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                             guard: parent,
                             condition,
                             accepts: op == "&&",
-                            complete: true,
                         });
                     }
                 }
@@ -97,19 +94,8 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                                 guard: statement,
                                 condition,
                                 accepts,
-                                complete: true,
                             });
                         }
-                    }
-                }
-                "switch_statement" => {
-                    if let Some(condition) = field(statement, "value") {
-                        conditions.push(Edge {
-                            guard: statement,
-                            condition,
-                            accepts: false,
-                            complete: false,
-                        });
                     }
                 }
                 "try_statement" => {
@@ -122,6 +108,36 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                 _ => {}
             }
         }
+    }
+
+    /// Earlier `switch` statements that precede the effect in an enclosing
+    /// block. A switch value has no boolean polarity and never forms an
+    /// `Edge`; only the partial name check may read it.
+    pub(super) fn earlier_switches(&mut self, effect: Node<'a>) -> Vec<Node<'a>> {
+        let mut switches = Vec::new();
+        let mut live = effect;
+        while let Some(parent) = live.parent() {
+            if !self.spend(1) {
+                break;
+            }
+            if matches!(parent.kind(), "statement_block" | "program") {
+                let mut earlier = live.prev_named_sibling();
+                while let Some(statement) = earlier {
+                    if !self.spend(1) {
+                        return switches;
+                    }
+                    if statement.kind() == "switch_statement" {
+                        switches.push(statement);
+                    }
+                    earlier = statement.prev_named_sibling();
+                }
+            }
+            if is_owner(parent) {
+                break;
+            }
+            live = parent;
+        }
+        switches
     }
 
     fn guarded_try(&mut self, statement: Node<'a>) -> bool {

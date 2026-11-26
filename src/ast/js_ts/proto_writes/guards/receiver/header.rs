@@ -41,12 +41,15 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         }
         let check = field_check.guard;
         let Some(redirect) = field(check, "consequence").and_then(assignment) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         let Some(advance) = field(check, "alternative").and_then(assignment) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         let Some(scratch) = field(redirect, "right").map(peel) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         if !self
@@ -61,18 +64,23 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             .map(peel)
             .filter(|node| node.kind() == "assignment_expression")
         else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         let Some(slot) = field(install, "left").map(peel) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         let (Some(object), Some(key)) = (field(slot, "object"), field(slot, "index")) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         let Some(retrieved) = field(install, "right").map(peel) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         let Some([lookup, fallback]) = self.binary(retrieved) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         if operator(retrieved, self.file) != "||"
@@ -81,9 +89,11 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             || !self.same_key(key, step.key)
             || !self.same_key(object, step.object)
         {
+            self.refuse(check, "unsupported_predicate");
             return false;
         }
         let Some(skip) = check.next_named_sibling() else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         if skip.kind() != "continue_statement"
@@ -98,9 +108,11 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             return false;
         }
         let Some(redirected) = field(redirect, "left").filter(|node| identifier(*node)) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         let Some(advanced) = field(advance, "left").filter(|node| identifier(*node)) else {
+            self.refuse(check, "unsupported_predicate");
             return false;
         };
         let admitted = BTreeSet::from([

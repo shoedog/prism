@@ -378,8 +378,29 @@ with no top-level `import` or `export`, so a CommonJS file counts as a script
 and loses recall, not soundness) lack the local identity these proofs require,
 including for numeric record collections and their loop items.
 Private table children, null walks, shared-slot proofs, closed-data
-write-back and intrinsic-trusting key domains are deferred. Every fact has
-guard state `none`.
+write-back and intrinsic-trusting key domains are deferred.
+
+Each fact carries a guard state (slice S1b, `src/ast/js_ts/proto_writes/guards/`): `none`
+(no recognised check on the route), `partial` (a check was recognised but does not cover
+every step or name) or `sufficient`. `sufficient` comes only from a closed accept-list of
+12 forms, reported in JSON as `guard_forms` (omitted unless sufficient): `deny_names`,
+`allow_set`, `allow_exact_path`, `allow_literal_after_lookup`, `allow_assertion`,
+`normalise_allow_list`, `own_closed_slots`, `own_stable_diagonal`, `own_closed_clone`,
+`header_scratch`, `receiver_identity_set` and `receiver_private_brand`; open heuristics
+(`includes`/`has` on literal blocks, regexes, helper deny functions, `in Object.prototype`)
+earn `partial` at most. Only an earlier `if`/`?:`/`&&`/`||` predicate whose rejecting
+arm exits before the effect counts: a `switch` value has no boolean polarity and never
+credits a guard (it can only keep a reserved-name `switch` at `partial`), and a guard
+after the effect, in another binding or version, or across a catch or finalizer is
+ignored. Intrinsics (`String`, `Object.hasOwn`, `WeakSet.prototype.has`, ...) are trusted
+only when the file neither shadows nor writes them (assignment, delete, `Object.assign`,
+`defineProperty(ies)`, `setPrototypeOf`, `Reflect.set`/`deleteProperty`, a global alias).
+The listing adds `guard_counts` (fact totals per state), `discharged_by_form` (facts
+per form), `discharged_with_multiple_forms` and `guard_unrecognised:<reason>` counters
+(`unsupported_predicate`, `absent_domain`, `incomplete_coverage`, `wrong_exit`,
+`wrong_binding`, `wrong_version`, `wrong_owner`, `unproved_child`, `intrinsic_rebound`,
+`unproved_native_identity`, `unstable_key`, `unmodelled_flow`, `budget`); a refusal is counted only for a
+fact that stays below `sufficient`.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the

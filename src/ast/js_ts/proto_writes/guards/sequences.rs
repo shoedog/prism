@@ -10,9 +10,9 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         edges: &[Edge<'a>],
         input: &GuardInput<'a>,
     ) -> bool {
-        for edge in edges {
-            if edge.guard.kind() == "switch_statement" && self.switch_blocks_names(edge, step.key) {
-                self.refuse(edge.guard, "absent_domain");
+        for switch in self.earlier_switches(step.effect) {
+            if self.switch_blocks_names(switch, step.key) {
+                self.refuse(switch, "absent_domain");
                 return true;
             }
         }
@@ -38,7 +38,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             }
             let sources = self.sequence_chain(source, 0);
             for edge in edges {
-                if edge.complete && self.sequence_predicate(edge, &sources) {
+                if self.sequence_predicate(edge, &sources) {
                     self.refuse(edge.guard, "incomplete_coverage");
                     return true;
                 }
@@ -47,11 +47,11 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
         false
     }
 
-    fn switch_blocks_names(&mut self, edge: &Edge<'a>, key: Node<'a>) -> bool {
-        let Some(body) = field(edge.guard, "body") else {
+    fn switch_blocks_names(&mut self, switch: Node<'a>, key: Node<'a>) -> bool {
+        let (Some(body), Some(value)) = (field(switch, "body"), field(switch, "value")) else {
             return false;
         };
-        if !self.same_key(edge.condition, key) {
+        if !self.same_key(value, key) {
             return false;
         }
         let mut blocked = false;
@@ -78,7 +78,7 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             let mut body = children(case).filter(|node| *node != value);
             if let Some(jump) = body.next() {
                 if jump.kind() != "return_statement" || body.next().is_some() {
-                    self.refuse(edge.guard, "wrong_exit");
+                    self.refuse(switch, "wrong_exit");
                     return false;
                 }
                 blocked = true;
@@ -345,7 +345,6 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                     guard: next,
                     condition,
                     accepts: false,
-                    complete: true,
                 };
                 if self.sequence_predicate(&edge, sources) {
                     self.refuse(next, "incomplete_coverage");

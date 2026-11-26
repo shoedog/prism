@@ -93,8 +93,12 @@ impl<'a> Classifier<'a, '_> {
             });
             fact.guard = decision.state;
             fact.guard_forms = decision.forms;
-            for (_, reason) in decision.refusals {
-                *batch.guard_refusals.entry(reason).or_default() += 1;
+            // A refusal explains a fact that stays below sufficient; one a
+            // later form discharged is not an unrecognised guard.
+            if decision.state != GuardState::Sufficient {
+                for (_, reason) in decision.refusals {
+                    *batch.guard_refusals.entry(reason).or_default() += 1;
+                }
             }
             batch.facts.push(fact);
         }

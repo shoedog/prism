@@ -246,6 +246,8 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
             return None;
         }
         let slots = self.closed_slots(table)?;
+        // A fallback store is never a sufficient own-slot proof: the
+        // authored own-slot variant stays partial.
         if check.fallback.is_some() {
             self.refuse(check.call, "incomplete_coverage");
             return None;
@@ -255,7 +257,6 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                 is_string && matches!(slot, Slot::Symbol(_))
                     || self.private_child(*child, input, table)
             })
-            && self.fallback_is_private(table, check, *one)
         {
             return Some(GuardForm::OwnClosedSlots);
         }
@@ -310,29 +311,5 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                 || check.fallback.is_some_and(|store| inside(store, read))
                 || proof.terminal_value(read, input.owner)
         })
-    }
-
-    fn fallback_is_private(
-        &mut self,
-        table: Node<'a>,
-        check: Check<'a>,
-        step: Selection<'a>,
-    ) -> bool {
-        let Some(store) = check.fallback else {
-            return true;
-        };
-        let Some(target) = field(store, "left").map(peel) else {
-            return false;
-        };
-        let (Some(object), Some(key)) = (field(target, "object"), field(target, "index")) else {
-            return false;
-        };
-        self.same_key(object, step.object)
-            && self.same_key(key, step.key)
-            && children(table).any(|pair| {
-                self.pair_name(pair) == Some("__proto__")
-                    && field(pair, "value").is_some_and(|value| value.kind() == "null")
-            })
-            && field(store, "right").is_some_and(|value| self.fresh_empty(value))
     }
 }
