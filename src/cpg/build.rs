@@ -108,6 +108,10 @@ mod same_line_occurrence_tests;
 #[path = "exact_caller_read_tests.rs"]
 mod exact_caller_read_tests;
 
+#[cfg(test)]
+#[path = "props_binding_tests.rs"]
+mod props_binding_tests;
+
 #[path = "statement_calls.rs"]
 mod statement_calls;
 
