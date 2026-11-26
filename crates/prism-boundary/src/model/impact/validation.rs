@@ -1,5 +1,6 @@
 use super::input_validation::{input_refusals, slot_cutoff, validate_slots, validate_status};
 use super::*;
+use crate::model::decode::{matches_contract, Kind, MAX_PORTABLE_COUNT};
 use crate::revision::{ClaimDecision, Refusal, Role};
 use std::collections::BTreeSet;
 
@@ -8,6 +9,15 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
         mode: doc.mode,
         ..Default::default()
     };
+    if !serde_json::to_value(doc).is_ok_and(|wire| matches_contract(&wire, Kind::Impact)) {
+        report.insert(
+            "document-schema",
+            ClaimDecision::from_reasons(
+                None,
+                vec![Refusal::new("invalid_document", &doc.report_id)],
+            ),
+        );
+    }
     let mut inputs = BTreeMap::new();
     let mut duplicates = BTreeSet::new();
     for input in &doc.inputs {
@@ -41,6 +51,21 @@ pub(super) fn validate(doc: &ImpactDocument) -> AdmissionReport {
     }
     validate_slots(doc, &inputs, &mut report);
     validate_status(doc, &inputs, &mut report);
+    for (name, metric) in &doc.summary {
+        let reason = metric.reason.as_deref();
+        let valid_total = match metric.total {
+            Some(total) => {
+                metric.observed <= total && total as u64 <= MAX_PORTABLE_COUNT && reason.is_none()
+            }
+            None => reason.is_some_and(|reason| !reason.is_empty()),
+        };
+        if !valid_total || metric.observed as u64 > MAX_PORTABLE_COUNT {
+            report.insert(
+                &format!("metric:{name}"),
+                ClaimDecision::from_reasons(None, vec![Refusal::new("invalid_metric", name)]),
+            );
+        }
+    }
 
     let mut seen_comparisons = BTreeSet::new();
     for comparison in &doc.comparisons {

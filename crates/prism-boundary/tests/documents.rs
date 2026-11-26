@@ -234,7 +234,7 @@ fn historical_selection_requires_evidence_covering_the_cutoff() {
     let mut input = doc_cases::json_fixture("admission.json");
     input["mode"] = json!("historical_as_of");
     input["cutoff_at"] = json!("2026-11-25T12:00:00Z");
-    input["claims"][0]["requires_selection"] = json!(true);
+    input["inputs"][1]["selection"] = json!({"kind": "historical_pin", "branch": "main", "rev": "client-before-rev", "available_at": "2026-11-25T12:00:00Z", "evidence": "fixture-ref-archive"});
     let bytes = doc_admission::supplied_bytes(&serde_json::Value::Null);
     for (receipt, expected) in [
         (
@@ -273,3 +273,9 @@ mod fold_admission;
 mod fold_impact;
 #[path = "support/fold_saved.rs"]
 mod fold_saved;
+
+#[path = "support/fold2.rs"]
+mod fold2;
+
+#[path = "support/known_limits.rs"]
+mod known_limits;

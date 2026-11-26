@@ -1,4 +1,5 @@
 use super::*;
+use crate::revision::ServiceSide;
 use chrono::{DateTime, FixedOffset};
 
 pub(crate) fn instant(value: &str) -> Option<DateTime<FixedOffset>> {
@@ -10,17 +11,8 @@ pub(super) fn cutoff(request: &AdmissionRequest) -> Option<DateTime<FixedOffset>
     match request.mode {
         ReviewMode::Live => (instant(&request.report_time)? == cutoff).then_some(cutoff),
         ReviewMode::HistoricalAsOf => {
-            let id = request.subject_head_input_id.as_deref()?;
-            let subject = slots::unique(
-                request
-                    .inputs
-                    .iter()
-                    .filter(|input| input.binding.input_id == id),
-                id,
-                "missing_slot",
-            )
-            .ok()?;
-            slots::validate_input(request, subject).ok()?;
+            request.subject_head_input_id.as_ref()?;
+            let subject = subject(request)?;
             let SnapshotInput::Commit {
                 committed_at: Some(date),
                 ..
@@ -41,28 +33,70 @@ pub(super) fn cutoff(request: &AdmissionRequest) -> Option<DateTime<FixedOffset>
     }
 }
 
-pub(super) fn selection(request: &AdmissionRequest, input: &AdmissionInput) -> Result<(), Refusal> {
-    let id = &input.binding.input_id;
-    let missing = || Refusal::new("missing_cutoff", id);
-    let basis = input.binding.selection_basis;
-    let required = match basis {
-        Some(SelectionBasis::Snapshot) => false,
-        Some(SelectionBasis::Counterpart) => {
-            matches!(request.mode, ReviewMode::Live | ReviewMode::HistoricalAsOf)
-        }
-        Some(SelectionBasis::SelectedVersion) => request.mode == ReviewMode::VersionComparison,
-        None => input.binding.branch.is_some() || request.mode == ReviewMode::VersionComparison,
-        Some(SelectionBasis::Unsupported) => {
-            return Err(Refusal::new("unsupported_kind", id).dimension("selection_basis"))
-        }
-    };
-    if matches!(
-        basis,
-        Some(SelectionBasis::Counterpart | SelectionBasis::SelectedVersion)
-    ) && !required
+pub(crate) fn selection_required(
+    mode: ReviewMode,
+    side: Option<ServiceSide>,
+    role: Role,
+    repo: &str,
+    subject: Option<(Role, &str)>,
+    snapshot: &SnapshotInput,
+) -> bool {
+    mode == ReviewMode::VersionComparison
+        || !matches!(side, Some(ServiceSide::Before | ServiceSide::After))
+        || subject != Some((role, repo))
+        || !matches!(
+            snapshot,
+            SnapshotInput::Commit { .. } | SnapshotInput::ComputedTree { .. }
+        )
+}
+
+pub(super) fn subject(request: &AdmissionRequest) -> Option<&AdmissionInput> {
+    let mut candidates = request.inputs.iter().filter(|input| {
+        request.subject_head_input_id.as_ref().map_or_else(
+            || {
+                input.binding.role == Role::Producer
+                    && input.binding.service_side == Some(ServiceSide::After)
+            },
+            |id| *id == input.binding.input_id,
+        )
+    });
+    let head = candidates.next()?;
+    if candidates.any(|input| input != head)
+        || matches!(
+            head.binding.service_side,
+            Some(ServiceSide::Before | ServiceSide::Held)
+        )
+        || slots::validate_input(request, head).is_err()
     {
-        return Err(Refusal::new("slot_mismatch", id).dimension("selection_basis"));
+        return None;
     }
+    Some(head)
+}
+
+pub(super) fn selection(
+    request: &AdmissionRequest,
+    subject: Option<&AdmissionInput>,
+    input: &AdmissionInput,
+    side: Option<ServiceSide>,
+) -> Result<(), Refusal> {
+    let binding = &input.binding;
+    let id = &binding.input_id;
+    let missing = || Refusal::new("missing_cutoff", id);
+    let position = if side == Some(ServiceSide::Held) {
+        side
+    } else if subject.is_some_and(|head| head.binding.input_id == *id) {
+        Some(ServiceSide::After)
+    } else {
+        side
+    };
+    let required = selection_required(
+        request.mode,
+        position,
+        binding.role,
+        &binding.repo,
+        subject.map(|head| (head.binding.role, head.binding.repo.as_str())),
+        &input.snapshot,
+    );
     if !required && input.selection.is_none() {
         return Ok(());
     }

@@ -66,7 +66,7 @@ pub fn check(case: &Case<'_>) -> Result<(), String> {
     validate(&own, &opposite, &baseline, &input, cross, expected)
 }
 
-fn load(kind: &str) -> Result<Value, String> {
+pub(super) fn load(kind: &str) -> Result<Value, String> {
     let name = format!("boundary-{kind}.schema.json");
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("schemas")
@@ -80,7 +80,7 @@ fn load(kind: &str) -> Result<Value, String> {
     Ok(value)
 }
 
-fn validate(
+pub(super) fn validate(
     own: &Value,
     opposite: &Value,
     control: &Value,

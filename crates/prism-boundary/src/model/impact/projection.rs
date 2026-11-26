@@ -296,7 +296,6 @@ fn affected_changes(
     };
     let root_id = crate::element::FieldId::new(root.clone(), Vec::new()).to_string();
     let target = crate::element::FieldId::new(root, limit.pointer.clone()).to_string();
-    let operation_id = operation.to_string();
     changes
         .iter()
         .filter(|row| {
@@ -324,7 +323,6 @@ fn affected_changes(
                 .or(declaration.as_ref())
                 .is_some_and(|id| contains(id))
                 || details.iter().any(|field| contains(&field.field_id))
-                || limit.pointer.is_empty() && element.as_ref() == Some(&operation_id)
         })
         .map(|row| row.row_id.clone())
         .collect()

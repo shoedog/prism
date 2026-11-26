@@ -11,6 +11,7 @@ pub(super) enum Kind {
     Impact,
 }
 
+pub(super) const MAX_PORTABLE_COUNT: u64 = 9_007_199_254_740_991;
 const BINDINGS: &str = "urn:prism:boundary:bindings:0.1";
 static SCHEMAS: LazyLock<Contracts> = LazyLock::new(Contracts::load);
 
@@ -59,14 +60,18 @@ pub(super) fn document<T: DeserializeOwned>(bytes: &[u8], kind: Kind) -> Result<
         }
         _ => {}
     }
+    if !matches_contract(&value, kind) {
+        return Err(DocumentError::InvalidDocument);
+    }
+    serde_json::from_value(value).map_err(|_| DocumentError::InvalidDocument)
+}
+
+pub(super) fn matches_contract(value: &Value, kind: Kind) -> bool {
     let schema = match kind {
         Kind::Bindings => &SCHEMAS.bindings,
         Kind::Impact => &SCHEMAS.impact,
     };
-    if !SCHEMAS.check(&value, schema, schema) {
-        return Err(DocumentError::InvalidDocument);
-    }
-    serde_json::from_value(value).map_err(|_| DocumentError::InvalidDocument)
+    SCHEMAS.check(value, schema, schema)
 }
 
 struct Contracts {
@@ -160,6 +165,14 @@ impl Contracts {
                         .as_u64()
                         .zip(rule.as_u64())
                         .is_some_and(|(value, floor)| value >= floor),
+                    "maximum" => {
+                        value
+                            .as_u64()
+                            .zip(rule.as_u64())
+                            .is_some_and(|(value, ceiling)| {
+                                value <= ceiling && ceiling <= MAX_PORTABLE_COUNT
+                            })
+                    }
                     "minLength" => value
                         .as_str()
                         .zip(rule.as_u64())

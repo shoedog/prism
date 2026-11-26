@@ -1,0 +1,174 @@
+{
+  "known-limit-01": {
+    "finding": "Sol W12, projection provenance",
+    "fixture": "swagger.json",
+    "input": {
+      "method": "get",
+      "path": "/kiln",
+      "status": "200",
+      "media": "text/plain",
+      "locations": ["document", "operation"]
+    },
+    "observed": {
+      "declared_media": ["text/plain"],
+      "coverage": "withheld",
+      "reader_reason": "non_json_media",
+      "media_source": null
+    },
+    "outside_accept_list": "Non-JSON roots may establish a media limit. They do not establish the source level of a Swagger media declaration.",
+    "control": {
+      "fixture": "swagger.json",
+      "input": "Repeat with application/json.",
+      "observed": ["document_media", "operation_media"]
+    }
+  },
+  "known-limit-02": {
+    "finding": "Sol S1, seeded B27/B28 projection",
+    "fixture": "impact-wire-cases.json",
+    "input": {
+      "rows": ["B27", "B28"],
+      "path": "variants[].patches",
+      "operation": "Decode the seeded change, limit and affected_claims rows as impact wire records."
+    },
+    "observed": {
+      "comparison": "The affected_claims and change rows come from fixture patches.",
+      "scope": "The case verifies retained limits and links without deriving these rows from SchemaDiff."
+    },
+    "outside_accept_list": "A wire fixture is evidence of wire behavior only. It cannot certify production selection of affected claims.",
+    "control": {
+      "fixture": "operations-only.json",
+      "input": "Project a real empty-to-Swagger diff in fold_root_limit_preserves_unknown_field_details and fold2_operation_addition_without_fields_does_not_inherit_media_limit.",
+      "observed": "A root limit links to its unknown field detail and stands alone when the operation has no matching detail."
+    }
+  },
+  "known-limit-03": {
+    "finding": "Sol B, historical computed after-tree",
+    "fixture": "operations-only.json",
+    "input": {
+      "mode": "historical_as_of",
+      "cutoff_at": "2026-11-25T12:00:00Z",
+      "after_snapshot": {"snapshot_kind": "computed_tree", "tree": "service-after-tree", "computed_at": "2026-11-26T11:00:00Z", "merge_receipt": "merge-result"},
+      "after_origin": {"kind": "independent_cutoff", "evidence": "exact result at cutoff", "available_at": "2026-11-25T12:00:00Z", "covered_tree": "service-after-tree"},
+      "topic_head": {"input_id": "topic-head", "rev": "topic-head-rev", "tree": "topic-head-tree", "committed_at": "2026-11-25T12:00:00Z"},
+      "selection": {"subject_head_input_id": "topic-head", "merge_receipt": "merge-result"}
+    },
+    "observed": {"report-cutoff": "unchecked", "counts": {"missing_cutoff": 1}},
+    "outside_accept_list": "The frozen impact validator supports a historical cutoff whose subject head is the effective after commit. It cannot resolve a distinct topic head through merge evidence.",
+    "control": {
+      "fixture": "operations-only.json",
+      "input": "Make service-after the effective subject commit, timestamp it at cutoff and select it as subject_head_input_id.",
+      "observed": {"report-cutoff": "admitted", "counts": {}}
+    }
+  },
+  "known-limit-04": {
+    "finding": "Sol B, omitted comparison and usages",
+    "fixture": "mixed.json",
+    "input": {"remove_comparison": "service_first", "usages": []},
+    "observed": {"counts": {}, "service_first": null},
+    "outside_accept_list": "The validator checks comparisons and usages that are present. Completeness of the required pair population only comes from the admitted producer path.",
+    "control": {
+      "fixture": "mixed.json",
+      "input": "Keep all four comparisons and their usage references. Removing only the service_first usage link then yields a counted refusal.",
+      "observed": {"service_first": "admitted", "counts": {}}
+    }
+  },
+  "known-limit-05": {
+    "finding": "Sol B, frozen negative contradicting a saved match",
+    "fixture": "mixed.json",
+    "input": {
+      "scan_fixture": "scan.json",
+      "status": {"scan_id": "scan-1", "element_id": "op:GET /kiln", "selected_input_id": "service-before", "side": "before", "saved_location": null, "status": "no_saved_match", "reason": null, "selected_presence": "present"},
+      "match": {"location_id": "known-site", "element_id": "op:GET /kiln", "grade": "bound", "signature": []}
+    },
+    "observed": {"counts": {}, "frozen_status": "admitted"},
+    "outside_accept_list": "The validator checks local status invariants and resolved IDs. Frozen scan and status contents cannot certify a saved negative.",
+    "control": {
+      "fixture": "scan.json",
+      "input": "Run saved_binding_status on exact admitted selected and saved inventories with a complete segment and zero saved matches.",
+      "observed": "no_saved_match"
+    }
+  },
+  "known-limit-06": {
+    "finding": "Sol C, bindings attachment with different bytes",
+    "fixture": "producer.json",
+    "input": {
+      "index_fixture": "swagger.json",
+      "reader": {"api": "pilot-api", "authority": "schema", "rev": "service-before-rev", "tree": "service-before-tree", "path": "openapi.json", "blob": "schema-blob"}
+    },
+    "observed": {"sha256": "SHA256(swagger.json)", "added_operation": "op:GET /neighbor"},
+    "outside_accept_list": "Matching origin labels do not authorize replacement bytes. Supported attachments come from the same admitted digest and dependency closure.",
+    "control": {
+      "fixture": "inventory.json",
+      "input": "Build the index from the admitted entry for producer.json with its original digest.",
+      "observed": {"sha256": "SHA256(inventory.json)", "operation": "op:GET /kiln"}
+    }
+  },
+  "known-limit-07": {
+    "finding": "Sol C, saved inventory with an unadmitted reference",
+    "fixture": "admission.json",
+    "input": {
+      "entry_fixture": "external.json",
+      "reference_fixture": "parts.json",
+      "selected_fixture": "inventory.json",
+      "scan_fixture": "scan.json",
+      "entry_uri": "https://pilot.invalid/openapi.json",
+      "reference_uri": "https://pilot.invalid/parts.json",
+      "reference_blob": "unadmitted-parts-blob",
+      "query_element": "field:resp:GET /kiln:200#/stamp",
+      "scan_source_hash": "Taken from the substituted index",
+      "saved_signature": "Taken from the same index"
+    },
+    "observed": {"status": "binding_current", "admitted_saved_locations": ["saved-site"]},
+    "outside_accept_list": "Entry bytes and origin identity do not establish the bytes of a referenced document. The saved index must come from the scan's admitted dependency closure.",
+    "control": {
+      "fixture": "inventory.json",
+      "input": "Use self-contained admitted inventory bytes and their derived signature with otherwise identical saved and selected evidence.",
+      "observed": {"status": "binding_current", "admitted_saved_locations": ["saved-site"]}
+    }
+  },
+  "known-limit-08": {
+    "finding": "Sol D, unrelated complete membership region",
+    "fixture": "membership.json",
+    "input": {
+      "binding_fixture": "producer.json",
+      "query_path": "/kiln",
+      "expected_file": "openapi.json",
+      "file_status_scope": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "neighbor"}]]},
+      "file_status": "complete",
+      "input_scope": {"kind": "api"},
+      "operations": [],
+      "query_after_presence": "absent"
+    },
+    "observed": {"unobserved_count": 1, "coverage": []},
+    "outside_accept_list": "A membership negative needs complete evidence across every applicable region. A neighboring prefix supplies no negative evidence for the queried path.",
+    "control": {
+      "fixture": "producer.json",
+      "input": "Use the same empty operations and complete API-wide file_status.",
+      "observed": {"unobserved_count": 1, "coverage": []}
+    }
+  },
+  "known-limit-09": {
+    "finding": "Sol B/D, schema-only metric ordering",
+    "fixture": "mixed.json",
+    "input": {"path": "/summary/operation_count", "observed": 2, "total": 1, "reason": null},
+    "observed": {"draft_2020_12": "valid", "typed_counts": {"invalid_metric": 1}},
+    "outside_accept_list": "The standalone schema checks portable bounds and null rules. The inequality between sibling properties requires typed validation.",
+    "control": {
+      "fixture": "mixed.json",
+      "input": "Use observed=1, total=1, reason=null.",
+      "observed": {"draft_2020_12": "valid", "typed_counts": {}}
+    }
+  },
+  "known-limit-10": {
+    "finding": "Opus S1, per-receipt unknown-field recovery",
+    "fixture": "admission.json",
+    "input": {"path": "/receipts/0/misspelled", "value": true},
+    "observed": {"decode_error_field": "misspelled", "sibling_report": null},
+    "outside_accept_list": "Unknown keys invalidate the whole versioned admission envelope. Claim-local refusal and sibling preservation apply after successful decode.",
+    "control": {
+      "fixture": "admission.json",
+      "input": "Keep the key known and change /receipts/0/kind to future.",
+      "observed": {"schema-claim": "unchecked", "sibling": "admitted", "unsupported_kind": 1}
+    }
+  }
+}

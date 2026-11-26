@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 pub(in crate::revision) struct Ledger<'a> {
     pub request: &'a AdmissionRequest,
     pub bytes: &'a BTreeMap<String, Vec<u8>>,
+    subject: Option<&'a AdmissionInput>,
     inputs: BTreeMap<&'a str, Result<InputFacts<'a>, Refusal>>,
     receipts: BTreeMap<&'a str, Result<ReceiptFacts<'a>, Refusal>>,
 }
@@ -26,6 +27,7 @@ impl<'a> Ledger<'a> {
         let mut ledger = Self {
             request,
             bytes,
+            subject: selection::subject(request),
             inputs: BTreeMap::new(),
             receipts: BTreeMap::new(),
         };
@@ -46,7 +48,12 @@ impl<'a> Ledger<'a> {
                         slots::validate_input(request, input)?;
                         Ok(InputFacts {
                             input,
-                            selection: selection::selection(request, input),
+                            selection: selection::selection(
+                                request,
+                                ledger.subject,
+                                input,
+                                input.binding.service_side,
+                            ),
                             merge_cutoff: selection::merge(request, &input.snapshot)?,
                         })
                     })
@@ -156,31 +163,34 @@ impl<'a> Ledger<'a> {
                         .entry
                         .filter(|entry| *entry > 0)
                         .ok_or_else(|| fail("missing_receipt").dimension("config.entry"))?;
-                    if let Some(config) = &input.binding.config {
-                        for (dimension, expected, actual) in [
-                            ("config.tree", &config.tree, tree),
-                            ("config.path", &config.path, path),
-                            ("config.blob", &config.blob, blob),
-                        ] {
-                            if expected != actual {
-                                return Err(Refusal::mismatch(
-                                    id,
-                                    dimension,
-                                    Some(expected),
-                                    Some(actual),
-                                ));
-                            }
+                    let config = input
+                        .binding
+                        .config
+                        .as_ref()
+                        .ok_or_else(|| fail("slot_mismatch").dimension("config"))?;
+                    for (dimension, expected, actual) in [
+                        ("config.tree", &config.tree, tree),
+                        ("config.path", &config.path, path),
+                        ("config.blob", &config.blob, blob),
+                    ] {
+                        if expected != actual {
+                            return Err(Refusal::mismatch(
+                                id,
+                                dimension,
+                                Some(expected),
+                                Some(actual),
+                            ));
                         }
-                        if entry != config.entry {
-                            return Err(fail("slot_mismatch").dimension("config.entry"));
-                        }
-                        if let Some(missing) = config
-                            .dependencies
-                            .iter()
-                            .find(|key| !receipt.dependencies.contains(key))
-                        {
-                            return Err(Refusal::new("missing_dependency", missing));
-                        }
+                    }
+                    if entry != config.entry {
+                        return Err(fail("slot_mismatch").dimension("config.entry"));
+                    }
+                    if let Some(missing) = config
+                        .dependencies
+                        .iter()
+                        .find(|key| !receipt.dependencies.contains(key))
+                    {
+                        return Err(Refusal::new("missing_dependency", missing));
                     }
                 }
                 match availability {
@@ -354,8 +364,10 @@ impl<'a> Ledger<'a> {
             }
             None => ClaimPurpose::Metadata,
         };
-        if purpose == ClaimPurpose::Schema || !claim.receipt_ids.is_empty() {
+        if slot.service_side == input.binding.service_side {
             facts.selection.clone()?;
+        } else {
+            selection::selection(self.request, self.subject, input, slot.service_side)?;
         }
         if purpose == ClaimPurpose::Schema
             && self.request.mode == ReviewMode::HistoricalAsOf
@@ -381,8 +393,19 @@ impl<'a> Ledger<'a> {
         } else {
             BTreeSet::new()
         };
-        let (records, closure_refusals) = self.walk(roots, &isolated);
+        let (records, closure_refusals) = self.walk(roots.clone(), &isolated);
         reasons.extend(closure_refusals);
+        if !isolated.is_empty() && reasons.is_empty() {
+            let required: BTreeSet<_> = records.iter().map(|record| record.id.as_str()).collect();
+            let (_, attached_refusals) = self.closure(roots);
+            reasons.extend(attached_refusals.into_iter().filter(|refusal| {
+                refusal.code == "dependency_cycle"
+                    && refusal
+                        .evidence
+                        .iter()
+                        .any(|id| required.contains(id.as_str()))
+            }));
+        }
         for record in &records {
             if claim.receipt_ids.contains(&record.id) {
                 if let ReceiptOrigin::NamedTree { input_id, .. } = &record.origin {

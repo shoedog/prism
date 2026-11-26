@@ -281,7 +281,13 @@
     "producer_sites": [],
     "risks": [],
     "review_action": null,
-    "selection": null
+    "selection": {
+      "subject_head_input_id": "service-after",
+      "receipts": {
+        "client-before": {"kind": "live_ref", "branch": "main", "rev": "client-before-rev", "observed_at": "2026-11-26T12:00:00Z"},
+        "client-after": {"kind": "live_ref", "branch": "main", "rev": "client-after-rev", "observed_at": "2026-11-26T12:00:00Z"}
+      }
+    }
   },
   "impacts": [],
   "usages": [

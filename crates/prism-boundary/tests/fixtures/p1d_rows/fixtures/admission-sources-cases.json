@@ -57,7 +57,7 @@
             "hook": "usePilot",
             "delegate": "pilotClient"
           },
-          "branch": "main", "selection_basis": "snapshot"
+          "branch": "main"
         }
       },
       {
@@ -89,7 +89,7 @@
               "hook": "usePilot",
               "delegate": "pilotClient"
             },
-            "branch": "main", "selection_basis": "snapshot"
+            "branch": "main"
           },
           "snapshot": {
             "snapshot_kind": "commit",
@@ -99,7 +99,7 @@
             "committed_at": "2026-11-25T12:00:00Z"
           },
           "dirty": null,
-          "selection": null
+          "selection": {"kind": "live_ref", "branch": "main", "rev": "parts-rev", "observed_at": "2026-11-26T12:00:00Z"}
         }
       },
       {"path": "/receipts/0/retrieval_uri", "value": "https://pilot.invalid/schemas/openapi.json"},
@@ -160,7 +160,7 @@
                 "hook": "usePilot",
                 "delegate": "pilotClient"
               },
-              "branch": "main", "selection_basis": "snapshot"
+              "branch": "main"
             }
           },
           {
@@ -192,7 +192,7 @@
                   "hook": "usePilot",
                   "delegate": "pilotClient"
                 },
-                "branch": "main", "selection_basis": "snapshot"
+                "branch": "main"
               },
               "snapshot": {
                 "snapshot_kind": "commit",
@@ -202,7 +202,7 @@
                 "committed_at": "2026-11-25T12:00:00Z"
               },
               "dirty": null,
-              "selection": null
+              "selection": {"kind": "live_ref", "branch": "main", "rev": "parts-rev", "observed_at": "2026-11-26T12:00:00Z"}
             }
           },
           {"path": "/receipts/0/retrieval_uri", "value": "https://pilot.invalid/schemas/openapi.json"},
@@ -286,6 +286,7 @@
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
+        "expect": {"/counts": {"slot_mismatch": 1}},
         "admitted": true
       },
       {
@@ -299,6 +300,7 @@
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
+        "expect": {"/counts": {"slot_mismatch": 1}},
         "admitted": true
       },
       {
@@ -312,6 +314,7 @@
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
+        "expect": {"/counts": {"slot_mismatch": 1}},
         "admitted": true
       },
       {
@@ -325,6 +328,7 @@
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
+        "expect": {"/counts": {"slot_mismatch": 1}},
         "admitted": true
       },
       {
@@ -365,6 +369,7 @@
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
+        "expect": {"/counts": {"slot_mismatch": 1}},
         "admitted": true
       },
       {
@@ -378,6 +383,7 @@
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
+        "expect": {"/counts": {"slot_mismatch": 1}},
         "admitted": true
       }
     ],

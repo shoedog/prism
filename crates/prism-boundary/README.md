@@ -404,3 +404,51 @@ belong to later slices. The binary exposes `--help` and `--version`.
 The schema tests use Python with `jsonschema`. Set
 `PRISM_BOUNDARY_SCHEMA_PYTHON` to that interpreter when it differs from
 `python3`.
+
+## P1d supported forms and known limits
+
+The supported source of document claims is this library's admitted projection.
+Read schema indexes through `SchemaAdmission::index`, use those indexes for
+bindings and diffs, and keep each attachment tied to the same admitted entry
+bytes and dependency closure. Supported live and historical comparisons use
+the recorded subject snapshots and a mode-appropriate selection receipt for
+each held or cross-repository counterpart relative to one subject head.
+A joint report defaults to the producer after slot when it supplies no subject
+head. A frozen historical review uses
+the effective after commit as the subject head at cutoff. A version comparison
+records its selection time and a pin or first-parent date-rule receipt for
+each selected input in `change.selection.receipts`. The singular
+`change.selection.input_id` and `receipt` fields can record one input's proof.
+
+`ImpactDocument::validate()` certifies these internal checks on frozen records.
+
+1. Input, dependency, slot, reference and selection IDs resolve within the
+   document. Recorded snapshot, role, cutoff and receipt facts agree where
+   required by those slots.
+2. Supplied comparison maps belong to their slots and cover their recorded
+   client occurrence inventory. Each reported usage has the applicable match
+   links. Limit and warning links resolve to the recorded claims.
+3. Recorded status and presence agree with the selected side, required
+   evidence references and local status invariants.
+4. Metric counts fit the portable integer range. A known total is at least
+   the observed count and has a null reason. An unknown total has a reason.
+5. The impact DTO conforms to the closed wire schema. Use the matching
+   `from_json` entry point to check the original JSON, including duplicate
+   members and unknown keys, before validating the typed impact document.
+
+The checks apply equally to hand-edited or foreign documents. Authenticating
+source bytes, re-deriving changes and comparisons, and recomputing saved scans
+require the original inputs. Use `saved_binding_status` with the
+saved and selected inventories derived from their admitted dependencies for
+saved-status claims. Use `unobserved_elements` with admitted bindings and
+complete evidence for every applicable query region for membership claims.
+For a membership negative, the supported form uses API-wide file coverage.
+Use the original scan and query region for these checks, even when a frozen
+document already records a negative.
+
+Count each refused or withheld claim under its refusal reason, including claims
+withheld at the accept-list boundary. At ingress, count a decoder error as one
+envelope refusal. The [known-limit rows](tests/fixtures/p1d_rows/fixtures/known-limits.json)
+record where the current APIs can accept or refuse an unsupported input and
+pair each case with a supported control. The standalone Draft 2020-12 schema
+checks count bounds and nullability. The typed validator checks count ordering.

@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 pub(super) use messages::project;
+pub(crate) use messages::valid_media_proof;
 pub(super) use openapi::read_operations;
 use servers::Deployment;
 pub use signature::signature;

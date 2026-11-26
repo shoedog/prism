@@ -37,7 +37,6 @@
         "delegate": "pilotClient"
       },
       "branch": "main",
-      "selection_basis": "snapshot",
       "service_side": "before"
     },
     {
@@ -53,8 +52,7 @@
       "rev": "client-before-rev",
       "tree": "client-before-tree",
       "config": null,
-      "branch": "main",
-      "selection_basis": "snapshot"
+      "branch": "main"
     },
     {
       "slot": "service-after",
@@ -70,7 +68,6 @@
       "tree": "service-after-tree",
       "config": null,
       "branch": "main",
-      "selection_basis": "snapshot",
       "service_side": "after"
     },
     {
@@ -87,7 +84,6 @@
       "tree": "service-held-tree",
       "config": null,
       "branch": "main",
-      "selection_basis": "snapshot",
       "service_side": "held"
     }
   ],
@@ -124,7 +120,6 @@
           "delegate": "pilotClient"
         },
         "branch": "main",
-        "selection_basis": "snapshot",
         "service_side": "before"
       },
       "snapshot": {
@@ -151,8 +146,7 @@
         "rev": "client-before-rev",
         "tree": "client-before-tree",
         "config": null,
-        "branch": "main",
-        "selection_basis": "snapshot"
+        "branch": "main"
       },
       "snapshot": {
         "snapshot_kind": "commit",
@@ -162,7 +156,7 @@
         "committed_at": "2026-11-25T12:00:00Z"
       },
       "dirty": null,
-      "selection": null
+      "selection": {"kind": "live_ref", "branch": "main", "rev": "client-before-rev", "observed_at": "2026-11-26T12:00:00Z"}
     },
     {
       "binding": {
@@ -179,7 +173,6 @@
         "tree": "service-after-tree",
         "config": null,
         "branch": "main",
-        "selection_basis": "snapshot",
         "service_side": "after"
       },
       "snapshot": {
@@ -207,7 +200,6 @@
         "tree": "service-held-tree",
         "config": null,
         "branch": "main",
-        "selection_basis": "snapshot",
         "service_side": "held"
       },
       "snapshot": {

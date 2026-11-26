@@ -1,7 +1,9 @@
 use super::*;
 use crate::revision::{
-    instant, Availability, ClaimDecision, ReceiptOrigin, Refusal, Role, ServiceSide, SnapshotInput,
+    instant, selection_required, Availability, ClaimDecision, ReceiptOrigin, Refusal, Role,
+    ServiceSide, SnapshotInput,
 };
+use std::collections::BTreeSet;
 
 type Inputs<'a> = BTreeMap<&'a str, &'a DocumentInput>;
 
@@ -182,64 +184,102 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
         return missing();
     }
     let selection = doc.change.selection.as_ref();
-    if mode == ReviewMode::HistoricalAsOf {
-        let subject = selection
-            .and_then(|selection| selection.subject_head_input_id.as_deref())
-            .filter(|id| {
-                [
-                    (
-                        &doc.change.producer,
-                        matches!(doc.change.subject_role.as_str(), "service" | "both"),
-                    ),
-                    (
-                        &doc.change.consumer,
-                        matches!(doc.change.subject_role.as_str(), "client" | "both"),
-                    ),
-                ]
-                .into_iter()
-                .any(|(slots, applies)| {
-                    applies
-                        && slots
-                            .as_ref()
-                            .and_then(|slots| slots.after_input_id.as_deref())
-                            == Some(id)
-                })
-            })
-            .and_then(|id| inputs.get(id));
-        if !subject.is_some_and(|subject| {
+    let roles = [
+        (
+            &doc.change.producer,
+            matches!(doc.change.subject_role.as_str(), "service" | "both"),
+        ),
+        (
+            &doc.change.consumer,
+            matches!(doc.change.subject_role.as_str(), "client" | "both"),
+        ),
+    ];
+    let subject_id = selection.and_then(|selection| selection.subject_head_input_id.as_deref());
+    let subject_after_ids: Vec<_> = roles
+        .iter()
+        .filter(|(_, subject)| *subject)
+        .filter_map(|(slots, _)| slots.as_ref()?.after_input_id.as_deref())
+        .collect();
+    let subject = match subject_id {
+        Some(id) if subject_after_ids.contains(&id) => inputs.get(id),
+        _ if mode == ReviewMode::HistoricalAsOf => return missing(),
+        Some(id) if !inputs.contains_key(id) => {
+            return vec![Refusal::new("missing_slot", id).dimension("subject_head_input_id")];
+        }
+        Some(id) => {
+            return vec![Refusal::new("slot_mismatch", id).dimension("subject_head_input_id")];
+        }
+        None => subject_after_ids.first().and_then(|id| inputs.get(id)),
+    };
+    if mode == ReviewMode::HistoricalAsOf
+        && !subject.is_some_and(|subject| {
             matches!(&subject.snapshot,
-            SnapshotInput::Commit { committed_at: Some(date), .. } if instant(date) == Some(cutoff))
+                SnapshotInput::Commit { committed_at: Some(date), .. } if instant(date) == Some(cutoff))
+        })
+    {
+        return missing();
+    }
+    if mode == ReviewMode::VersionComparison
+        && selection
+            .and_then(|selection| selection.selection_time.as_deref())
+            .and_then(instant)
+            != Some(cutoff)
+    {
+        return missing();
+    }
+    let anchor = subject.map(|head| (head.role, head.repo.as_str()));
+    let mut required = BTreeSet::new();
+    for (slots, subject) in roles {
+        if let Some(slots) = slots {
+            for (id, side) in [
+                (&slots.before_input_id, ServiceSide::Before),
+                (&slots.after_input_id, ServiceSide::After),
+            ] {
+                if let Some(input) = id.as_deref().and_then(|id| inputs.get(id)) {
+                    let side = if subject { side } else { ServiceSide::Held };
+                    if selection_required(
+                        mode,
+                        Some(side),
+                        input.role,
+                        &input.repo,
+                        anchor,
+                        &input.snapshot,
+                    ) {
+                        required.insert(input.input_id.as_str());
+                    }
+                }
+            }
+        }
+    }
+    let mut reasons = Vec::new();
+    if let Some(selection) = selection {
+        reasons.extend(check_recorded_selection(selection, inputs, doc));
+        for (id, receipt) in &selection.receipts {
+            match inputs.get(id.as_str()) {
+                None => reasons.push(Refusal::new("missing_slot", id).dimension("selection")),
+                Some(_) if selection.input_id.as_deref() == Some(id) => {
+                    reasons.push(Refusal::new("receipt_conflict", id).dimension("selection"));
+                }
+                Some(input) => {
+                    let rev = input.snapshot.identity().and_then(|(_, rev)| rev);
+                    if !receipt
+                        .proof(mode, cutoff)
+                        .is_some_and(|(selected, _)| rev == Some(selected))
+                    {
+                        reasons.push(Refusal::new("missing_cutoff", id).dimension("selection"));
+                    }
+                }
+            }
+        }
+    }
+    for id in required {
+        if !selection.is_some_and(|selection| {
+            selection.receipts.contains_key(id) || selection.input_id.as_deref() == Some(id)
         }) {
-            return missing();
+            reasons.push(Refusal::new("missing_cutoff", id).dimension("selection"));
         }
     }
-    let counterpart = match doc.change.subject_role.as_str() {
-        "service" => (&doc.change.producer, &doc.change.consumer),
-        "client" => (&doc.change.consumer, &doc.change.producer),
-        _ => {
-            return selection.map_or_else(Vec::new, |selection| {
-                check_recorded_selection(selection, inputs, doc)
-            })
-        }
-    };
-    let after = |slots: &Option<RoleSlots>| {
-        slots
-            .as_ref()
-            .and_then(|slots| slots.after_input_id.as_ref())
-            .and_then(|id| inputs.get(id.as_str()))
-    };
-    let required_id = after(counterpart.0)
-        .zip(after(counterpart.1))
-        .filter(|(subject, held)| subject.repo != held.repo)
-        .map(|(_, held)| held.input_id.as_str());
-    if let Some(id) = required_id {
-        if selection.and_then(|selection| selection.input_id.as_deref()) != Some(id) {
-            return vec![Refusal::new("missing_cutoff", id)];
-        }
-    }
-    selection.map_or_else(Vec::new, |selection| {
-        check_recorded_selection(selection, inputs, doc)
-    })
+    reasons
 }
 
 fn check_recorded_selection(

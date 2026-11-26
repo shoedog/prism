@@ -104,3 +104,13 @@ control-document-side-presence	fixtures/mixed.json			rule	control
 control-document-tracked-dirtiness	fixtures/admission.json	op:GET /kiln		rule	control
 control-document-unbound-raw-call	fixtures/consumer.json			rule	control
 control-document-zero-saved-matches	fixtures/scan.json	op:GET /kiln		rule	control
+known-limit-01	fixtures/swagger.json			limit	known_limit
+known-limit-02	fixtures/impact-wire-cases.json			limit	known_limit
+known-limit-03	fixtures/operations-only.json			limit	known_limit
+known-limit-04	fixtures/mixed.json			limit	known_limit
+known-limit-05	fixtures/mixed.json			limit	known_limit
+known-limit-06	fixtures/producer.json			limit	known_limit
+known-limit-07	fixtures/admission.json			limit	known_limit
+known-limit-08	fixtures/membership.json			limit	known_limit
+known-limit-09	fixtures/mixed.json			limit	known_limit
+known-limit-10	fixtures/admission.json			limit	known_limit

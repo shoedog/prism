@@ -4,7 +4,6 @@
       {
         "name": "newer-live-tip",
         "patches": [
-          {"path": "/claims/0/requires_selection", "value": true},
           {
             "path": "/inputs/0/selection",
             "value": {"kind": "live_ref", "branch": "main", "rev": "service-before-rev", "observed_at": "2026-11-26T12:00:00Z"}
@@ -57,14 +56,14 @@
         "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
       }
     ],
-    "base_patches": [{"path": "/slots/0/selection_basis", "value": "counterpart"}, {"path": "/inputs/0/binding/selection_basis", "value": "counterpart"}]
+    "base_patches": [{"path": "/slots/0/service_side", "value": "held"}, {"path": "/inputs/0/binding/service_side", "value": "held"}]
   },
   "A33": {
     "variants": [
       {
         "name": "historical-pin",
         "patches": [
-          {"path": "/claims/0/requires_selection", "value": true},
+          {"path": "/inputs/1/selection", "value": {"kind": "historical_pin", "branch": "main", "rev": "client-before-rev", "available_at": "2026-11-25T12:00:00Z", "evidence": "fixture-ref-archive"}},
           {"path": "/mode", "value": "historical_as_of"},
           {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
           {
@@ -165,8 +164,9 @@
       }
     ],
     "base_patches": [
-      {"path": "/slots/0/selection_basis", "value": "counterpart"},
-      {"path": "/inputs/0/binding/selection_basis", "value": "counterpart"},
+      {"path": "/slots/0/service_side", "value": "held"},
+      {"path": "/inputs/0/binding/service_side", "value": "held"},
+      {"path": "/inputs/1/selection", "value": {"kind": "historical_pin", "branch": "main", "rev": "client-before-rev", "available_at": "2026-11-25T12:00:00Z", "evidence": "fixture-ref-archive"}},
       {"path": "/mode", "value": "historical_as_of"},
       {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"}
     ]
@@ -192,12 +192,14 @@
         "patches": [
           {"path": "/inputs/2/snapshot/committed_at", "value": null}
         ],
-        "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
+        "expect": {"/claims/sibling/status": "unchecked"},
+        "refusal": {"code": "missing_cutoff", "record_id": "service-before", "count": 2}
       }
     ],
     "base_patches": [
-      {"path": "/slots/0/selection_basis", "value": "counterpart"},
-      {"path": "/inputs/0/binding/selection_basis", "value": "counterpart"},
+      {"path": "/slots/0/service_side", "value": "held"},
+      {"path": "/inputs/0/binding/service_side", "value": "held"},
+      {"path": "/inputs/1/selection", "value": {"kind": "historical_pin", "branch": "main", "rev": "client-before-rev", "available_at": "2026-11-25T12:00:00Z", "evidence": "fixture-ref-archive"}},
       {"path": "/mode", "value": "historical_as_of"},
       {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
       {
@@ -256,7 +258,7 @@
       }
     ],
     "base_patches": [
-      {"path": "/claims/0/requires_selection", "value": true},
+      {"path": "/inputs/1/selection", "value": {"kind": "explicit_pin", "rev": "client-before-rev", "selection_time": "2026-11-26T12:00:00Z", "selected_by": "fixture-reviewer", "selection_reason": "release"}},
       {"path": "/mode", "value": "version_comparison"},
       {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"}
     ]
@@ -266,6 +268,7 @@
       {
         "name": "selected_by",
         "patches": [
+          {"path": "/inputs/1/selection", "value": {"kind": "explicit_pin", "rev": "client-before-rev", "selection_time": "2026-11-26T12:00:00Z", "selected_by": "fixture-reviewer", "selection_reason": "release"}},
           {"path": "/mode", "value": "version_comparison"},
           {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
           {
@@ -284,6 +287,7 @@
       {
         "name": "selection_time",
         "patches": [
+          {"path": "/inputs/1/selection", "value": {"kind": "explicit_pin", "rev": "client-before-rev", "selection_time": "2026-11-26T12:00:00Z", "selected_by": "fixture-reviewer", "selection_reason": "release"}},
           {"path": "/mode", "value": "version_comparison"},
           {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
           {
@@ -302,6 +306,7 @@
       {
         "name": "history_tip",
         "patches": [
+          {"path": "/inputs/1/selection", "value": {"kind": "explicit_pin", "rev": "client-before-rev", "selection_time": "2026-11-26T12:00:00Z", "selected_by": "fixture-reviewer", "selection_reason": "release"}},
           {"path": "/mode", "value": "version_comparison"},
           {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
           {
@@ -322,6 +327,7 @@
       {
         "name": "rule",
         "patches": [
+          {"path": "/inputs/1/selection", "value": {"kind": "explicit_pin", "rev": "client-before-rev", "selection_time": "2026-11-26T12:00:00Z", "selected_by": "fixture-reviewer", "selection_reason": "release"}},
           {"path": "/mode", "value": "version_comparison"},
           {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
           {
@@ -342,6 +348,7 @@
       {
         "name": "wrong-revision",
         "patches": [
+          {"path": "/inputs/1/selection", "value": {"kind": "explicit_pin", "rev": "client-before-rev", "selection_time": "2026-11-26T12:00:00Z", "selected_by": "fixture-reviewer", "selection_reason": "release"}},
           {"path": "/mode", "value": "version_comparison"},
           {"path": "/selection_time", "value": "2026-11-26T12:00:00Z"},
           {
@@ -376,6 +383,7 @@
       {
         "name": "historical-mislabel",
         "patches": [
+          {"path": "/inputs/1/selection", "value": {"kind": "historical_pin", "branch": "main", "rev": "client-before-rev", "available_at": "2026-11-25T12:00:00Z", "evidence": "fixture-ref-archive"}},
           {"path": "/mode", "value": "historical_as_of"},
           {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
           {
@@ -392,7 +400,7 @@
         "refusal": {"code": "missing_cutoff", "record_id": "service-before"}
       }
     ],
-    "base_patches": [{"path": "/claims/0/requires_selection", "value": true}]
+    "base_patches": []
   },
   "A41": {
     "variants": [
@@ -484,6 +492,7 @@
       {
         "name": "exact-historical-result",
         "patches": [
+          {"path": "/inputs/1/selection", "value": {"kind": "historical_pin", "branch": "main", "rev": "client-before-rev", "available_at": "2026-11-25T12:00:00Z", "evidence": "fixture-ref-archive"}},
           {"path": "/mode", "value": "historical_as_of"},
           {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
           {
@@ -506,6 +515,7 @@
       {
         "name": "historical-without-exact-result",
         "patches": [
+          {"path": "/inputs/1/selection", "value": {"kind": "historical_pin", "branch": "main", "rev": "client-before-rev", "available_at": "2026-11-25T12:00:00Z", "evidence": "fixture-ref-archive"}},
           {"path": "/mode", "value": "historical_as_of"},
           {"path": "/cutoff_at", "value": "2026-11-25T12:00:00Z"},
           {"path": "/merge/cutoff_evidence", "value": null}

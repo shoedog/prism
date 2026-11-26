@@ -147,10 +147,10 @@
                 "delegate": "pilotClient"
               },
               "branch": "main",
-              "selection_basis": "snapshot",
               "service_side": "held"
             }
           },
+          {"path": "/inputs/0/selection", "value": {"kind": "live_ref", "branch": "main", "rev": "service-before-rev", "observed_at": "2026-11-26T12:00:00Z"}},
           {"path": "/claims/0/slot", "value": "producer_held"}
         ],
         "admitted": true

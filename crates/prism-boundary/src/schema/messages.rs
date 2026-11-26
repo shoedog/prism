@@ -1,4 +1,5 @@
 mod media;
+pub(crate) use media::valid_media_proof;
 
 use super::openapi::{entry_value, scan_operations};
 use super::references::{Documents, Located};

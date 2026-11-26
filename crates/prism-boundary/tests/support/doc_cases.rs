@@ -23,7 +23,7 @@ pub fn run(scenarios: &[&str], check: fn(&Case<'_>) -> Result<(), String>) {
     }
     let mut failures = Vec::new();
     let mut count = 0;
-    for row in p1d_rows() {
+    for row in p1d_rows().filter(|row| row.class != "known_limit") {
         let entry = entries.get(row.id).expect("every TSV row has expectations");
         let scenario = entry["scenario"].as_str().expect("row scenario");
         if !scenarios.contains(&scenario) {

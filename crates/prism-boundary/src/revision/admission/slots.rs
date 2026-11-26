@@ -103,9 +103,6 @@ pub(super) fn compare_slot(expected: &InputSlot, actual: &InputSlot) -> Result<(
             mismatches.push(Refusal::mismatch(id, dimension, left, right));
         }
     }
-    if expected.selection_basis != actual.selection_basis {
-        mismatches.push(Refusal::new("slot_mismatch", id).dimension("selection_basis"));
-    }
     if expected.role != actual.role {
         mismatches.push(Refusal::new("slot_mismatch", id).dimension("role"));
     }

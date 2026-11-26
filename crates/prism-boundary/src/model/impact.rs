@@ -76,6 +76,10 @@ pub struct ChangeSelection {
     pub subject_head_input_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub receipt: Option<crate::revision::SelectionReceipt>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub receipts: BTreeMap<String, crate::revision::SelectionReceipt>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection_time: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub branch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

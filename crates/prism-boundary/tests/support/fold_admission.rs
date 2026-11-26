@@ -32,8 +32,8 @@ fn check(input: Value, bytes: &BTreeMap<String, Vec<u8>>, claim: &str, code: Opt
 fn fold_selection_comes_from_counterpart_slot() {
     let (mut input, bytes) = base();
     check(input.clone(), &bytes, "schema-claim", None);
-    input["slots"][0]["selection_basis"] = json!("counterpart");
-    input["inputs"][0]["binding"]["selection_basis"] = json!("counterpart");
+    input["slots"][0]["service_side"] = json!("held");
+    input["inputs"][0]["binding"]["service_side"] = json!("held");
     let mut proved = input.clone();
     proved["inputs"][0]["selection"] = json!({"kind":"live_ref","branch":"main",
         "rev":"service-before-rev","observed_at":"2026-11-26T12:00:00Z"});
@@ -47,12 +47,16 @@ fn fold_historical_clock_comes_from_subject_snapshot() {
     input["mode"] = json!("historical_as_of");
     input["subject_head_input_id"] = json!("service-after");
     input["cutoff_at"] = json!("2026-11-25T12:00:00Z");
-    input["claims"][0]["requires_selection"] = json!(true);
+    input["inputs"][1]["selection"] = json!({"kind": "historical_pin", "branch": "main", "rev": "client-before-rev", "available_at": "2026-11-25T12:00:00Z", "evidence": "fixture-ref-archive"});
     input["inputs"][0]["selection"] = json!({"kind":"historical_pin","branch":"main",
         "rev":"service-before-rev","available_at":"2026-11-25T12:00:00Z","evidence":"archive"});
     check(input.clone(), &bytes, "schema-claim", None);
     input["inputs"][2]["snapshot"]["committed_at"] = json!("2026-11-25T13:00:00Z");
-    check(input, &bytes, "schema-claim", Some("missing_cutoff"));
+    let request = serde_json::from_value(input).unwrap();
+    let report = admit_inputs(&request, &bytes);
+    assert_eq!(report.claims["schema-claim"].status, "unchecked");
+    assert_eq!(report.claims["sibling"].status, "unchecked");
+    assert_eq!(report.counts.get("missing_cutoff"), Some(&2));
 }
 
 #[test]

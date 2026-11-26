@@ -276,6 +276,12 @@ def check_p1d_rows():
             raise ValueError(f"{name}: duplicate P1d row IDs")
         expectations.update(records)
     rows = {row["id"]: (label, row) for label, row in read_rows(root, HEADERS["ids_matrix"])}
+    known_rows = {
+        row_id: (label, row) for row_id, (label, row) in rows.items()
+        if row["class"] == "known_limit"
+    }
+    check_p1d_known_limits(root, known_rows)
+    rows = {row_id: value for row_id, value in rows.items() if row_id not in known_rows}
     pinned_controls = {
         row["id"] for _, row in read_rows(ROOT / "ids_matrix", HEADERS["ids_matrix"])
         if row["id"].startswith("control-document-")
@@ -342,6 +348,31 @@ def check_p1d_rows():
             for name in files:
                 check_fixture(name, label)
     print(f"p1d_rows: {len(pinned_controls)} controls and {len(minimum)} minimum assertions — OK")
+
+
+def check_p1d_known_limits(root, rows):
+    fixtures = root / "fixtures"
+    cases = json.loads((fixtures / "known-limits.json").read_text(encoding="utf-8"))
+    if not rows or rows.keys() != cases.keys():
+        raise ValueError(f"p1d_rows: known-limit IDs differ {sorted(rows.keys() ^ cases.keys())}")
+    findings = set()
+    for row_id, (label, row) in rows.items():
+        case = cases[row_id]
+        control = case["control"]
+        if not (row_id.startswith("known-limit-") and row["truth"] == "limit"
+                and row["fixture"] == f"fixtures/{case['fixture']}"
+                and not row["expected_ids"] and not row["expected_warnings"]):
+            raise ValueError(f"{label}: invalid known-limit row")
+        if not all(case.get(key) for key in ("input", "observed", "outside_accept_list", "finding")):
+            raise ValueError(f"{label}: known limit needs input, observed output and scope")
+        if case["finding"] in findings or not control["input"] or not control["observed"]:
+            raise ValueError(f"{label}: duplicate finding or missing supported control")
+        findings.add(case["finding"])
+        for entry in (case, control, case["input"]):
+            for key, value in entry.items():
+                if key == "fixture" or key.endswith("_fixture"):
+                    check_file(fixtures, value, label)
+    print(f"p1d_rows: {len(rows)} paired known limits — OK")
 
 
 def main():

@@ -162,7 +162,7 @@ impl<'a> Ledger<'a> {
                     .as_ref()
                     .ok_or_else(|| Refusal::new("missing_receipt", id).dimension("entry"))
                     .and_then(|(proof, entry)| {
-                        self.media_proof(input, proofs[0], &proofs[1..], *proof, entry)
+                        self.media_proof(input, &output, proofs[0], &proofs[1..], *proof, entry)
                     });
                 match proof {
                     Ok(proof) => output.media_receipts.push(proof),
@@ -204,6 +204,7 @@ impl<'a> Ledger<'a> {
     fn media_proof(
         &self,
         input: &AdmissionInput,
+        projection: &Projection<'_>,
         record: &'a AdmissionReceipt,
         sources: &[&AdmissionReceipt],
         proof: ProducerMediaEvidence<'a>,
@@ -226,6 +227,9 @@ impl<'a> Ledger<'a> {
             })
         }) {
             return Err(fail("missing_dependency").dimension("media_source"));
+        }
+        if !crate::schema::valid_media_proof(&projection.input(), proof.receipt, entry) {
+            return Err(fail("slot_mismatch").dimension("media_proof"));
         }
         Ok(proof)
     }

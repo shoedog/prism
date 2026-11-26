@@ -15,7 +15,7 @@ mod slots;
 pub(super) use graph::Ledger;
 pub(super) use projection::Projection;
 pub use projection::{admit_schema_input, SchemaAdmission};
-pub(crate) use selection::instant;
+pub(crate) use selection::{instant, selection_required};
 
 use super::{ReviewMode, Role, SnapshotInput};
 use serde::{Deserialize, Serialize};
@@ -71,19 +71,7 @@ pub struct InputSlot {
     pub config: Option<ConfigSource>,
     pub branch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub selection_basis: Option<SelectionBasis>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub service_side: Option<super::ServiceSide>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum SelectionBasis {
-    Snapshot,
-    Counterpart,
-    SelectedVersion,
-    #[serde(other)]
-    Unsupported,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -244,8 +232,6 @@ pub struct AdmissionClaim {
     pub slot: Option<String>,
     pub receipt_ids: Vec<String>,
     pub projection: Option<ScopeProjection>,
-    #[serde(default)]
-    pub requires_selection: bool,
     pub purpose: Option<ClaimPurpose>,
 }
 

@@ -290,30 +290,7 @@ fn omission_proof(
         {
             continue;
         }
-        if receipt.tree.is_empty()
-            || receipt.input_id.is_empty()
-            || receipt.path.is_empty()
-            || receipt.blob.is_empty()
-            || record["api"] != input.api
-            || record["producer_tree"] != input.snapshot.tree()
-            || record["schema_blob"] != input.entry.oid
-            || record["cutoff_admitted"] != true
-            || !record["media_type"].as_str().is_some_and(json_media)
-            || !proof_paths(record, status.is_none())
-            || !match record["route"].as_str() {
-                Some("producer_source") => true,
-                Some("server_codec") => {
-                    let generator = &record["generator"];
-                    ["name", "version", "settings", "contract"]
-                        .iter()
-                        .all(|key| text(&generator[key]))
-                        && generator["input"] == input.entry.oid
-                        && generator["installed"] == true
-                        && generator["final_dispatch_json"] == true
-                }
-                _ => false,
-            }
-        {
+        if !valid_media_proof(input, receipt, record) {
             return None;
         }
         let source = JsonMediaSource::Producer {
@@ -326,6 +303,37 @@ fn omission_proof(
         verified = Some(source);
     }
     verified
+}
+
+pub(crate) fn valid_media_proof(
+    input: &AdmittedSchemaInput<'_>,
+    receipt: crate::revision::DependencyReceipt<'_>,
+    record: &Value,
+) -> bool {
+    let route_proved = match record["route"].as_str() {
+        Some("producer_source") => true,
+        Some("server_codec") => {
+            let generator = &record["generator"];
+            ["name", "version", "settings", "contract"]
+                .iter()
+                .all(|key| text(&generator[key]))
+                && generator["input"] == input.entry.oid
+                && generator["installed"] == true
+                && generator["final_dispatch_json"] == true
+        }
+        _ => false,
+    };
+    route_proved
+        && !receipt.tree.is_empty()
+        && !receipt.input_id.is_empty()
+        && !receipt.path.is_empty()
+        && !receipt.blob.is_empty()
+        && record["api"] == input.api
+        && record["producer_tree"] == input.snapshot.tree()
+        && record["schema_blob"] == input.entry.oid
+        && record["cutoff_admitted"] == true
+        && record["media_type"].as_str().is_some_and(json_media)
+        && proof_paths(record, record["direction"] == "request")
 }
 
 fn proof_paths(record: &Value, request: bool) -> bool {
