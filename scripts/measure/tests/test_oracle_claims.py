@@ -78,6 +78,103 @@ class Claims(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "selector: change stream does not reconcile"):
             select(forged, second)
 
+    def bound_streams(self, tag, base_rows, head_rows):
+        h = self.h
+        base = h.make_run(h.work / f"{tag}-base", base_rows)
+        head = h.make_run(h.work / f"{tag}-head", head_rows)
+        classifier = h.work / "classifier.py"
+        classifier.write_text("CLASSES = ['bound']\ndef classify(change, context): return 'bound'\n")
+        diff = h.work / f"{tag}-diff"
+        h.assert_exit(h.kit("diff-edges", base, head, "--classifier", classifier, "--out", diff), 0)
+        return base, head, diff
+
+    def restream(self, diff, changes, runs=None):
+        """Replace the change stream by `changes`, keeping the certificate digest-consistent."""
+        raw = b"".join(canonical(change) + b"\n" for change in changes)
+        (diff / "changes.jsonl").write_bytes(raw)
+        path = diff / "certificate.json"
+        certificate = json.loads(path.read_bytes())
+        certificate["changes_sha256"] = oracle_selection.digest(raw)
+        for arm, run in (runs or {}).items():
+            certificate["inputs"][arm] = dict(
+                run=os.path.relpath(run, diff),
+                receipt_sha256=oracle_selection.admit(run, load_manifest(self.h.manifest)).receipt_sha256)
+        path.write_bytes(canonical(certificate) + b"\n")
+
+    def select_added(self, diff, run, side="head"):
+        args = argparse_namespace(("ts-edges", "--run", run, "--changes", diff / "changes.jsonl",
+                                   "--kind", "added", "--side", side))
+        return oracle_selection.edge_population(args, load_manifest(self.h.manifest), None)[3]
+
+    def source_row(self):
+        h = self.h
+        case = CASES / "oracle-001"
+        h.fresh_tree(files={"cases.ts": (case / "repo/cases.ts").read_bytes()})
+        row, = read_jsonl(case / "input.jsonl")
+        return row
+
+    def test_identical_arms_with_an_added_and_a_removed_pair_do_not_reconcile(self):
+        row = self.source_row()
+        _, _, diff = self.bound_streams("honest", [row], [row, row])
+        added, = read_jsonl(diff / "changes.jsonl")
+        removed = dict(added, id=2, kind="removed", base_bag=added["head_bag"], head_bag=[])
+        first, second = (self.h.make_run(self.h.work / name, [row]) for name in ("same-a", "same-b"))
+        self.restream(diff, [added, removed], dict(base=first, head=second))
+        with self.assertRaisesRegex(ValueError, "selector: change stream does not reconcile"):
+            self.select_added(diff, second)
+        # The honest stream bound to its own unequal arms keeps its single selection.
+        base, head, honest = self.bound_streams("control", [row], [row, row])
+        self.assertEqual([c["arm"] for c in self.select_added(honest, head)], ["head"])
+
+    def test_a_stream_that_omits_a_real_residual_does_not_reconcile(self):
+        row = self.source_row()
+        near, far = (dict(row, to=dict(row["to"], line=row["to"]["line"] + step)) for step in (1, 2))
+        _, head, diff = self.bound_streams("omit", [row], [row, near, far])
+        changes = read_jsonl(diff / "changes.jsonl")
+        self.assertEqual(len(changes), 2)
+        self.assertEqual(len(self.select_added(diff, head)), 2)
+        kept = [dict(changes[0], id=1)]
+        self.restream(diff, kept)
+        with self.assertRaisesRegex(ValueError, "selector: change stream does not reconcile"):
+            self.select_added(diff, head)
+
+    def test_change_key_decoding_and_opposite_arm_errors_keep_their_wire_class(self):
+        row = self.source_row()
+        base, head, diff = self.bound_streams("wire", [row], [row, row])
+        change, = read_jsonl(diff / "changes.jsonl")
+        self.assertEqual(len(self.select_added(diff, head)), 1)
+        bad = copy.deepcopy(change)
+        bad["key"]["to"]["fields"] = [None]
+        self.restream(diff, [bad])
+        with self.assertRaisesRegex(ValueError, "^changes-wire: expected structured path"):
+            self.select_added(diff, head)
+        # An unsafe file in the opposite arm keeps its own class, not an `edge-wire` wrapper.
+        unsafe = copy.deepcopy(row)
+        unsafe["from"]["file"] = "../escape.ts"
+        other, head2, diff2 = self.bound_streams("unsafe", [unsafe], [row, row])
+        with self.assertRaisesRegex(ValueError, "^wire-coordinate: invalid file"):
+            self.select_added(diff2, head2)
+
+    def test_head_only_snapshot_mismatch_is_inadmissible_for_the_selected_claim_only(self):
+        h = self.h
+        setup = CASES / "oracle-021"
+        h.fresh_tree(files={"cases.ts": (setup / "repo/cases.ts").read_bytes()})
+        first, second = read_jsonl(setup / "input.jsonl")
+        second["resolved_targets"][0]["function_id"]["name"] = "sameB"
+        base = h.make_run(h.work / "base", [first], sites=True)
+        head = h.make_run(h.work / "head", [second], sites=True)
+        h.synthetic_qualification(base, head)
+        h.prepare()
+        control = h.work / "control"
+        h.assert_exit(h.oracle(("ts-calls", "--base", base, "--head", head), out=control), 0)
+        self.assertEqual([v["verdict"] for v in read_jsonl(control / "verdicts.jsonl")], ["CORRECT"])
+        root = Path(json.loads((head / "receipt.json").read_bytes())["corpus"]["root"])
+        (root / "cases.ts").write_bytes((root / "cases.ts").read_bytes() + b"\n")
+        result = h.oracle(("ts-calls", "--base", base, "--head", head))
+        h.assert_exit(result, 0)
+        verdict, = read_jsonl(h.out / "verdicts.jsonl")
+        self.assertEqual((verdict["verdict"], verdict["why"]), ("INADMISSIBLE", "source-digest-mismatch"))
+
     def census_run(self, name, text, caller_line, forms, *, caller="m"):
         h = self.h
         row = call_site(text, "g(1)", caller, caller_line, "g", 1)

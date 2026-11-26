@@ -13,6 +13,11 @@ from .receipt import is_digest
 
 KIT = Path(__file__).resolve().parent / "oracle"
 QUALIFICATIONS = KIT / "qualifications"
+PIN_SCHEMA = "prism.measure.qualification-pin/1"
+# The test injection seam. Production never sets it: evidence is the reviewed kit bundle that
+# `qualification-pin.json` pins. A test points it at a synthetic bundle outside the kit tree.
+INJECTED_QUALIFICATIONS = None
+UNPINNED = object()
 CHECKER = "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675"
 TREE = "7e02162c902e5c29ec19fefc573ad55b8ed15fcbda940e737f297c53e9c41f54"
 OPTIONS = dict(target="ES2022", module="CommonJS", moduleResolution="Node10", jsx="Preserve",
@@ -203,10 +208,38 @@ def provenance(record, form):
         raise ValueError(f"qualification evidence lacks builder provenance: {error}") from error
 
 
-def qualifications(directory):
+def kit_pin():
+    """The reviewed kit's pin of its qualification bundle: (bundle digest or None, pin bytes)."""
+    raw = regular(KIT / "qualification-pin.json")
+    pin = json_object(raw)
+    if not shape(pin, ("schema", "bundle_sha256")) or pin["schema"] != PIN_SCHEMA or not (
+            pin["bundle_sha256"] is None or is_digest(pin["bundle_sha256"])):
+        raise ValueError("qualification-pin: invalid pin")
+    return pin["bundle_sha256"], raw
+
+
+def qualification_source(explicit):
+    """Where the evidence is read and what it must hash to, or (test seam, no pin)."""
+    if INJECTED_QUALIFICATIONS is not None:
+        return Path(INJECTED_QUALIFICATIONS), UNPINNED
+    directory = Path(QUALIFICATIONS if explicit is None else explicit)
+    root = KIT.resolve()
+    if directory.is_symlink() or not directory.absolute().resolve().is_relative_to(root):
+        raise ValueError("qualification-provenance: evidence outside the kit tree")
+    return directory, kit_pin()[0]
+
+
+def qualifications(directory, pin=UNPINNED):
     if not directory.exists() and not directory.is_symlink():
+        if pin is not UNPINNED and pin is not None:
+            raise ValueError("qualification-pin: pinned bundle is not installed")
         return {}, None, {}
     files = file_tree(directory)
+    if pin is not UNPINNED:
+        if pin is None:
+            raise ValueError("qualification-pin: evidence is installed but the kit pins none")
+        if "bundle.json" not in files or digest(files["bundle.json"]) != pin:
+            raise ValueError("qualification-pin: bundle digest differs from the kit pin")
     bundle = json_object(files["bundle.json"])
     if (not shape(bundle, ("schema", "builds")) or bundle["schema"] != "prism.measure.qualification/1"
             or not isinstance(bundle["builds"], dict)):
@@ -242,8 +275,9 @@ def prepare_inputs(typescript=None, question=None, *, qualification_dir=None):
         built_ins = {"questions/" + key: value for key, value in file_tree(KIT / "questions").items()}
         question_files.update(built_ins)
         kit.update(built_ins)
-        qdir = QUALIFICATIONS if qualification_dir is None else qualification_dir
-        builds, qualification_sha256, evidence = qualifications(qdir)
+        qdir, pin = qualification_source(qualification_dir)
+        question_files["qualification-pin.json"] = kit_pin()[1]
+        builds, qualification_sha256, evidence = qualifications(qdir, pin)
         question_files.update({"qualifications/" + k: v for k, v in evidence.items()})
         fixtures_root = KIT / "selfcheck"
         fixtures = file_tree(fixtures_root)

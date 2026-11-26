@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from pathlib import Path
+import sqlite3
+from tempfile import TemporaryDirectory
 
 from . import edges, receipt
 from .diff_stats import Run, admit_pair
@@ -187,7 +189,10 @@ def validate_change(change, key_mode=None):
                 and (key_mode != "line" or endpoint["start_byte"] is endpoint["end_byte"] is None),
                 "changes-wire: invalid projected endpoint")
         coordinate(endpoint)
-        edges.path_fields(endpoint)
+        try:
+            edges.path_fields(endpoint)
+        except ValueError as error:
+            raise ValueError(f"changes-wire: {error}") from error
     bags = {a: Counter(map(project_attribute, change[a + "_bag"])) for a in ARMS}
     return key, bags
 
@@ -236,23 +241,42 @@ def edge_population(args, entries, gate):
                   certificate_result=cert["result"])
     wanted, residual = requests(args, cert, arm)
     candidates = defaultdict(list)
-    tally = {side: Counter() for side in ARMS}
 
     def decoded(arm_run):
         for ordinal, row in enumerate(read(arm_run, "edges")):
+            wire = edge(row)
             try:
-                key, attribute, _ = edges.decode_edge(edge(row), line_mode=cert["key_mode"] == "line")
+                key, attribute, _ = edges.decode_edge(wire, line_mode=cert["key_mode"] == "line")
             except (ValueError, KeyError, TypeError) as error:
                 raise ValueError(f"edge-wire: {error}") from error
             yield ordinal, row, (key, attribute)
 
-    for ordinal, row, identity in decoded(run):
-        tally[arm][identity] += identity in residual
-        if identity in wanted:
-            candidates[identity].append((ordinal, row))
+    def selected_identities():
+        for ordinal, row, identity in decoded(run):
+            if identity in wanted:
+                candidates[identity].append((ordinal, row))
+            yield identity
+
     other = ARMS[1 - ARMS.index(arm)]
-    for _, _, identity in decoded(pair[other]):
-        tally[other][identity] += identity in residual
+    sign = 1 if arm == ARMS[0] else -1
+    # Both arms' complete edge multisets, base minus head per identity, kept on disk.
+    expected = {}
+    with TemporaryDirectory(prefix=".tally-") as scratch:
+        try:
+            database = sqlite3.connect(str(Path(scratch) / "tally.db"))
+            database.executescript("PRAGMA journal_mode = OFF; PRAGMA synchronous = OFF; "
+                                   "CREATE TABLE tally (key BLOB, attr BLOB, n INTEGER, "
+                                   "PRIMARY KEY (key, attr)) WITHOUT ROWID;")
+            for identities, step in ((selected_identities(), sign),
+                                     ((i for _, _, i in decoded(pair[other])), -sign)):
+                database.executemany(
+                    "INSERT INTO tally VALUES (?, ?, ?) ON CONFLICT (key, attr) DO UPDATE SET n = n + excluded.n",
+                    ((key, attribute, step) for key, attribute in identities))
+            for key, attribute, balance in database.execute("SELECT key, attr, n FROM tally WHERE n != 0"):
+                expected[key, attribute] = dict(base=max(balance, 0), head=max(-balance, 0))
+            database.close()
+        except sqlite3.Error as error:
+            raise OSError(f"tally storage: {type(error).__name__}: {error}") from error
     occurrences = []
     for key, requests_for_key in wanted.items():
         group = candidates[key]
@@ -266,12 +290,11 @@ def edge_population(args, entries, gate):
             occurrences.extend(claim(row, ordinal, arm, change=change)
                                for ordinal, row in group[first:first + copies])
             first += copies
-    # The stream's residual bags must be the part of each arm that the other arm lacks. A
-    # stream bound to runs it does not describe has a surplus that no occurrence supports.
-    for identity, totals in residual.items():
-        common = tally[arm][identity] - totals[arm]
-        require(common >= 0 and common == tally[other][identity] - totals[other],
-                "selector: change stream does not reconcile with the bound runs")
+    # The stream's residual bags must be S2's residual of the two bound runs: per identity,
+    # what one arm holds beyond the other. They are recomputed over every edge of both arms,
+    # so an unlisted real residual and a listed pair over identical arms both fail.
+    require({identity: totals for identity, totals in residual.items() if any(totals.values())} == expected,
+            "selector: change stream does not reconcile with the bound runs")
     return pair, selection, hashes, occurrences
 
 

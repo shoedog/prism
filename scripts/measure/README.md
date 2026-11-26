@@ -328,9 +328,9 @@ validation apply.
 | Filters | Use `base\|head` and S2 kinds `added,removed,label_moved,ambiguous` only with `--changes`. A class name must occur in the certificate. Union repeated values within a filter and intersect filters. Census and call differential default to all kinds at exact confidence. Target kinds are nonblank original wire names. Request `name_only` only with a checked question and explicit relation. A relation is a declared question name, or a built-in name when there is no module. |
 | Question | Closed CommonJS exports with unique nonblank `relations` and synchronous `grade`. The callback receives the original row and a context with `ts,program,checker,relation,arm,target_index,change,identifier_at_bytes,declarations,enclosing_call,node_at_bytes,program_with_default_lib`. The closed result is `verdict,property,why`. Verdict must be CORRECT, WRONG, UNDECIDED or INADMISSIBLE, both strings must be nonblank, and the relation/property pair must occur in the goldens. Passing a different program or a node from another graph to a lookup is an execution error. |
 | Question closure | Recursively hash all regular files under the entry's parent. The entry must be JS or CJS. Computed CommonJS requires resolve only to in-set JS, CJS or JSON and load digest-checked bytes. The worker also provides the pinned checker, the built-ins `assert,assert/strict,buffer,path,path/posix,path/win32,querystring,string_decoder,url,util` and a read-only `node:fs` interface for declared data. `question-data.json` is a free-form map from logical relative names to digests. Its values authorize only those files at those digests. The module is reviewed trusted code subject to the input-closure rule, including any transitive helper and API access. |
-| Self-check | Per-case regular `repo/`, `input.jsonl`, `expected.jsonl`, with optional bound sibling fixtures. Raw wire rows use automatic dispatch. Closed envelopes use `relation,arm,row` and optional `target_index,change`. The change is null or an S2 change for a base/head envelope. The expected row is closed `key,relation,property,verdict` with optional `why`. The closed key is `{from,to}` with the projected edge endpoint keys above, or `{site,target}` with closed `{file,line,start_byte,end_byte}` and `{file,name,start_line,end_line}` projections. Omitted wire values stay omitted in the projection. Every row must agree in output order by canonical key bytes. Named built-in boundaries require the prescribed reason. Each tested grading property has all four verdicts within its own question set (kit or lane; a lane relation with several properties labels inadmissible claims `input-admission`, which needs no coverage, and its real properties need the three graded verdicts). |
+| Self-check | Per-case regular `repo/`, `input.jsonl`, `expected.jsonl`, with optional bound sibling fixtures. Raw wire rows use automatic dispatch. Closed envelopes use `relation,arm,row` and optional `target_index,change`. The change is null or an S2 change for a base/head envelope. The expected row is closed `key,relation,property,verdict` with optional `why`. The closed key is `{from,to}` with the projected edge endpoint keys above, or `{site,target}` with closed `{file,line,start_byte,end_byte}` and `{file,name,start_line,end_line}` projections. Omitted wire values stay omitted in the projection. Every row must agree in output order by canonical key bytes. Named built-in boundaries require the prescribed reason. Each tested grading property has all four verdicts within its own question set (kit or lane). `input-admission` is a reserved label of INADMISSIBLE lane claims: a golden under it must be INADMISSIBLE (else `selfcheck-schema`), a module result naming it refuses (`question-result`), and it counts toward no relation, property or coverage. A lane relation with several graded properties, or with a reserved golden, labels its inadmissible claims with it, and its real properties then need the three graded verdicts. |
 | Self-check receipt | Closed §4 receipt plus closed `runtime` with Node and Python versions. `components` is the closed five-member key object; `question_sha256` also frames the selected entry's name, so two entries of one directory have distinct keys. The worker executes a staged copy of the kit modules whose digests Python verified, so a built-in cannot change between hashing and loading. Compiler option records have the fixed §4 options. Check schema, key, components, counts, empty failures, and runtime before relying on the result. The worker independently checks the same current goldens. |
-| Qualification | Optional fixed `oracle/qualifications/bundle.json`. Closed bundle with `schema,builds`. The free-form builds map is keyed by executable digest. Each form map is closed to the supported form names, with closed `{path,sha256}` references. The evidence file is the builder's closed record: `binary_sha256,form` must match the reference, closed `controls` is `{match:"CORRECT",contradiction:"WRONG"}`, and it records the source tree, source state, declaration file, receipt and sites digests, the closed label below and the original call row, which must be a valid call site whose indexed exact target agrees with the label. A record without that provenance refuses as `qualification evidence lacks builder provenance`; synthetic records exist only as test injection. Both the bundle and all referenced evidence bytes enter the self-check key. |
+| Qualification | A reviewed kit artifact, not a caller input. Evidence is read only from `oracle/qualifications/` inside the kit tree and its `bundle.json` SHA-256 must equal the digest in the closed `oracle/qualification-pin.json` (`{schema:"prism.measure.qualification-pin/1",bundle_sha256}`; null pins no evidence, and installed evidence under a null pin, or a pin whose bundle is absent, refuses as `qualification-pin`). A caller-supplied evidence directory outside the kit tree refuses as `qualification-provenance`. The pin bytes enter the self-check key. Hand-written evidence is out of model: the pin authenticates the reviewed builder output, it does not re-derive it. Closed bundle with `schema,builds`. The free-form builds map is keyed by executable digest. Each form map is closed to the supported form names, with closed `{path,sha256}` references. The evidence file is the builder's closed record: `binary_sha256,form` must match the reference, closed `controls` is `{match:"CORRECT",contradiction:"WRONG"}`, and it records the source tree, source state, declaration file, receipt and sites digests, the closed label below and the original call row, which must be a valid call site whose indexed exact target agrees with the label. A record without that provenance refuses as `qualification evidence lacks builder provenance`; synthetic records exist only at the test injection seam (`oracle_inputs.INJECTED_QUALIFICATIONS`). Both the bundle and all referenced evidence bytes enter the self-check key. |
 
 The accept-list has 18 refusal classes. A refusal publishes no successful
 receipt or data files. INADMISSIBLE and UNDECIDED are completed grading
@@ -345,13 +345,13 @@ outcomes and can appear on exit 0.
 | 2 | edge-wire | Missing or malformed edge field, role, confidence, doubt or path. |
 | 2 | sites-wire | Missing or malformed site discriminator, caller, function ID, target confidence or kind. |
 | 2 | certificate | Wrong certificate schema, run reference, digest or gate binding. |
-| 2 | changes-wire | Wrong change, key, bag or attached-record shape. |
-| 2 | selector | Unsupported, unrelated, incomplete or impossible arm, relation, class, confidence, kind or residual selection, including a change stream whose residual bags do not reconcile with both bound arms' edge multiplicities. |
+| 2 | changes-wire | Wrong change, key (including its path fields), bag or attached-record shape. |
+| 2 | selector | Unsupported, unrelated, incomplete or impossible arm, relation, class, confidence, kind or residual selection, including a change stream whose residual bags differ from S2's residual recomputed over every edge of both bound runs (an unlisted real residual, or a listed pair over identical arms). |
 | 2 | ambiguous-occurrence | An unequal set of original contexts prevents a unique residual assignment. |
 | 2 | source-root | The recorded snapshot cannot be located and bound. |
-| 2 | cancelled-site-coordinate | A raw differential site with no emitted verdict fails source or qualified-caller admission, or belongs to a snapshot that does not match its receipt. |
+| 2 | cancelled-site-coordinate | A raw differential site with no emitted verdict fails source or qualified-caller admission, or belongs to a snapshot that does not match its receipt. A selected claim never refuses for this: on a snapshot that mismatches its receipt, or in a pair where either arm does, it is INADMISSIBLE `source-digest-mismatch`, while an unselected site of the valid arm is still checked. |
 | 3 | checker-pin | Checker path, bytes or tree differ from the pin. |
-| 3 | selfcheck-binding / selfcheck-receipt / selfcheck-runtime | Grading cannot establish a current prior receipt, its inputs or Python runtime. |
+| 3 | selfcheck-binding / selfcheck-receipt / selfcheck-runtime | Grading cannot establish a current prior receipt, its inputs or Python runtime. A `selfcheck-binding` also names `qualification-provenance` (evidence outside the kit tree) and `qualification-pin` (invalid pin, or bundle absent, unexpected or differing from the pin). |
 | 1 | selfcheck-schema / selfcheck-coverage / selfcheck-disagreement | Fixture shape, coverage, order, cardinality, expected verdict or cached counts fail. An invalid closure during self-check also exits 1. |
 | 1 | question-closure / question-interface / question-result | Unsupported load/read, module shape, unchecked relation/property pair, result or exception. |
 | 1 | checker-execution / bound-read / source-drift / qualification-control | Guard error, child error, Node runtime mismatch, input drift during execution or a failed qualification control. |
@@ -360,27 +360,58 @@ outcomes and can appear on exit 0.
 ### What can be graded
 
 Argument binding proves a whole identifier or primitive literal actual to a
-fixed implementation slot, including compatible overloads, named functions,
-direct functions and immutable arrows, explicit constructors, and proved
-methods and fields. Parentheses, type assertions, non-null assertions and
-`satisfies` preserve an entire actual. A member call needs a receiver proof:
-the receiver is `super`, a private name, a static member through its class or
-namespace, or the value of a fresh `new` or object literal (directly or as a
-unique unannotated `const`). Only parentheses, non-null and `satisfies` are
-transparent for that origin; a type assertion keeps it only when the asserted
-type is the inner expression's own type, because a base-typed assertion
-selects another static signature than the body that runs. Any assignment or
-`delete` of a member with the called name anywhere in the analysed sources
-(`x.m = ..`, `x['m'] = ..`) leaves the receiver unproved, and a parenthesized
-arrow bound by `let` or `var` is a replaceable value. A non-`readonly` field
-arrow is proved only on a fresh `new` receiver whose field has no annotation.
+fixed implementation slot. Parentheses, type assertions, non-null assertions
+and `satisfies` preserve an entire actual. Which body runs is decided by a
+positive value-origin certificate; anything outside it is UNDECIDED
+`ambiguous-dispatch` (closed world). Only parentheses, `!` and `satisfies`
+are stripped from a callee or receiver, uniformly, so `o.m(x)`, `(o).m(x)`,
+`o!.m(x)` and `(o satisfies C).m(x)` agree; `as` and `<T>` are never
+stripped. The call's body is credited only when the callee is
+(a) an identifier bound to the body's declaration (a function declaration
+with its overloads and one implementation) or to an unannotated `const`
+holding the body, or an alias chain of such consts (depth 8); the symbol must
+never be written; or `new X(..)` with `X` a certified class whose first
+constructor is the body;
+(b) a member access with a proved receiver: `super`, a private name, a
+namespace function, a static member through a certified class, an object
+literal that owns the member as one plain property (no spread, no computed
+key), or `new X()` (directly or as the only use of an unannotated `const`)
+with `X` a certified class. A certified class is a class declaration, or an
+unannotated `const` holding a class expression (alias chains allowed), never
+written, without class decorators, with every constructor of its `extends`
+chain returning no value, and an `extends` that is itself certified. The
+first class of the chain that declares the member must declare exactly the
+proved owner (a method with its overloads, or one field); a computed name,
+parameter property or accessor of that name leaves it unproved;
+(c) an immediately invoked body.
+Any assignment, update, `delete`, destructuring-assignment leaf or `for`
+head target naming a member of the called name anywhere in the analysed
+sources leaves the receiver unproved, and a non-`readonly` field arrow is
+proved only on a fresh `new` receiver whose field has no annotation.
 Computed-key writes, `Object.assign`, `defineProperty` and reflective writes
 are outside the model, as for `Exact`. A class `extends` expression and a
 shorthand destructuring default are reads; `implements` and interface
-`extends` stay type uses. Composite expressions, earlier
-spreads, rest slots and destructured formals lack a built-in fixed-slot
-proof. Annotated, ambient and declaration-only callables and unresolved
-or ambiguous receiver origins remain UNDECIDED.
+`extends` stay type uses. Composite expressions, earlier spreads, rest slots
+and destructured formals lack a built-in fixed-slot proof. Annotated, ambient
+and declaration-only callables and unresolved or ambiguous receiver origins
+remain UNDECIDED.
+
+Known limits of the callable certificate (accept-list line: only certificate
+forms are decided). Round 3 of the S3 review found the old deny-list open:
+each round added instances (aliases, casts, constructor return, destructured
+writes), so S3 decides only the forms above. Each of these is a self-check
+case with its UNDECIDED verdict beside a CORRECT control
+(`oracle/selfcheck/certificate-*`): a `let` or `var` callee reassigned
+(`let a = f; a = g; a(x)`), a conditional callee (`flag ? a : b`), a callee
+typed by a parameter (`cb: typeof a`), a whole-callee assertion
+(`(x as T)(a)`, `<T>x`), a constructor reached through a parameter, a call
+result or a reassigned `let K = class`, a constructor or base constructor
+that returns a value, a class decorator, a write to the member through
+`[this.m] = [..]`, `[C.prototype.m] = ..`, `({k: C.m} = ..)`,
+`[C.m = d] = []` or `for (C.m of ..)`, annotated, asserted or multiply-used
+receiver constants. `(x as C).m()` is UNDECIDED even when the assertion keeps
+the inner expression's own type. Hand-written qualification evidence is out
+of model (see Qualification above).
 
 Lexical binding proves a unique value declaration or write and a read of
 the same binding. Old-value reads in compound/logical assignments and
@@ -410,7 +441,8 @@ The closed `declaration` holds `file,name,start_byte,end_byte,line` for
 the source-labelled name token. Forms are `named-function`, `named-method`
 and `decorated-method`. The builder runs the guarded match and wrong-line
 controls before publishing the bundle. It launches no producer. Install
-the reviewed bundle at the fixed kit path and rerun self-check. Synthetic
+the reviewed bundle at `oracle/qualifications/`, record its `bundle.json`
+SHA-256 in `oracle/qualification-pin.json` and rerun self-check. Synthetic
 test fixture qualification does not qualify an actual product build.
 
 The receipt binds ordered `inputs.runs` entries `{arm,receipt_sha256}`,

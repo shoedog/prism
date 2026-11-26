@@ -54,13 +54,69 @@ class Custody(unittest.TestCase):
         inadmissible["property"] = "input-admission"
         golden.write_text(fixtures.json_lines(rows))
         h.assert_exit(self.selfcheck(question), 0)
-        # Relabelling a graded verdict of the real property leaves it uncovered and is refused.
+        # Relabelling a graded verdict is refused: the label is reserved for INADMISSIBLE.
         other = question.parent / "selfcheck/oracle-013/expected.jsonl"
         wrong, = fixtures.read_jsonl(other)
         other.write_text(fixtures.json_lines([dict(wrong, property="input-admission")]))
         refused = self.selfcheck(question)
         h.assert_exit(refused, 1)
-        self.assertIn("selfcheck-coverage: need all verdicts for custom/custom", refused.stderr)
+        self.assertIn("selfcheck-schema: reserved input-admission label", refused.stderr)
+
+    def relabel_inadmissible(self, question):
+        golden = question.parent / "selfcheck/oracle-004/expected.jsonl"
+        row, = fixtures.read_jsonl(golden)
+        golden.write_text(fixtures.json_lines([dict(row, property="input-admission")]))
+
+    def test_input_admission_is_reserved_for_inadmissible_goldens(self):
+        h = self.h
+        question = h.question(dict(verdict="CORRECT", property="custom", why="proof"))
+        self.relabel_inadmissible(question)
+        h.assert_exit(self.selfcheck(question), 0)
+        # A decided golden under the reserved label is refused, not counted as coverage.
+        decided = question.parent / "selfcheck/oracle-013/expected.jsonl"
+        original = decided.read_text()
+        row, = fixtures.read_jsonl(decided)
+        decided.write_text(fixtures.json_lines([dict(row, property="input-admission")]))
+        refused = self.selfcheck(question)
+        h.assert_exit(refused, 1)
+        self.assertIn("selfcheck-schema: reserved input-admission label", refused.stderr)
+        decided.write_text(original)
+        h.assert_exit(self.selfcheck(question), 0)
+        # Reserved goldens alone leave the relation without a graded property.
+        for case in ("oracle-001", "oracle-013", "oracle-003"):
+            shutil.rmtree(question.parent / "selfcheck" / case)
+        refused = self.selfcheck(question)
+        h.assert_exit(refused, 1)
+        self.assertIn("selfcheck-coverage: untested relation", refused.stderr)
+
+    def test_module_result_cannot_name_the_reserved_label(self):
+        h = self.h
+        args = h.load_case("oracle-001")
+        reserved = h.question(dict(verdict="CORRECT", property="input-admission", why="proof"))
+        self.relabel_inadmissible(reserved)
+        h.prepare(question=reserved)
+        refused = h.oracle(args, question=reserved, relation="custom")
+        h.assert_exit(refused, 1)
+        self.assertIn("question-result", refused.stderr)
+        self.assertFalse((h.out / "oracle-receipt.json").exists())
+        # The same module under its own graded property is credited.
+        control = h.question(dict(verdict="CORRECT", property="custom", why="proof"), name="control")
+        self.relabel_inadmissible(control)
+        h.prepare(question=control)
+        h.assert_exit(h.oracle(args, question=control, out=h.work / "control-out", relation="custom"), 0)
+
+    def test_certificate_cases_pin_each_undecided_instance_beside_a_control(self):
+        cases = sorted((fixtures.KIT / "selfcheck").glob("certificate-*"))
+        self.assertEqual([case.name for case in cases],
+                         ["certificate-callee-origin", "certificate-constructor",
+                          "certificate-member-writes", "certificate-receiver-wrappers"])
+        for case in cases:
+            rows = fixtures.read_jsonl(case / "expected.jsonl")
+            with self.subTest(case=case.name):
+                self.assertTrue(any(r["verdict"] == "CORRECT" for r in rows))
+                undecided = [r for r in rows if r["verdict"] == "UNDECIDED"]
+                self.assertTrue(undecided)
+                self.assertEqual({r["why"] for r in undecided}, {"ambiguous-dispatch"})
 
     def test_selfcheck_key_names_the_question_entry(self):
         h = self.h

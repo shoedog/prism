@@ -141,8 +141,7 @@ class OracleTests(Workbench):
         from subprocess import CompletedProcess
         stdout, stderr = io.StringIO(), io.StringIO()
         with patch.dict(os.environ, self.env, clear=True), redirect_stdout(stdout), redirect_stderr(stderr):
-            with patch.object(oracle_inputs, "QUALIFICATIONS", getattr(
-                    self, "qualification", oracle_inputs.QUALIFICATIONS)):
+            with patch.object(oracle_inputs, "INJECTED_QUALIFICATIONS", getattr(self, "qualification", None)):
                 try:
                     result = callback([*map(str, extra), *map(str, args)])
                 except SystemExit as error:
@@ -210,8 +209,10 @@ class OracleTests(Workbench):
     def fake_passing_receipt(self, question=None):
         from measure.oracle_inputs import cache_path, prepare_inputs
         ts = self.typescript()
-        with patch.dict(os.environ, self.env, clear=True):
-            request = prepare_inputs(ts, question, qualification_dir=getattr(self, "qualification", None))
+        from measure import oracle_inputs
+        with patch.dict(os.environ, self.env, clear=True), patch.object(
+                oracle_inputs, "INJECTED_QUALIFICATIONS", getattr(self, "qualification", None)):
+            request = prepare_inputs(ts, question)
             path = cache_path(request["key"])
             expected = sum(len(read_jsonl(Path(case["root"]) / "expected.jsonl"))
                            for case in request["cases"])

@@ -11,6 +11,7 @@ const calls = require('./questions/calls.cjs');
 const { bodyFor, identity } = require('./questions/callable.cjs');
 
 const fallback = 'relation-not-graded';
+const reserved = 'input-admission';
 const builtins = { argument_binding: argument, lexical_binding: lexical, call_target: calls,
   [fallback]: { property: fallback, grade: () => ({ verdict: 'UNDECIDED', property: fallback, why: fallback }) } };
 const forms = ['named-function', 'named-method', 'decorated-method'];
@@ -80,15 +81,17 @@ function admitSite(record, context, qualified) {
     (calls.callerContradicts(record, context, qualified) ? 'caller-identity-mismatch' : null);
 }
 
-function grade(claim, source, context, question, explicit, permitted, qualified, censusEdges) {
+function grade(claim, source, context, question, explicit, labels, qualified, censusEdges) {
   const { row, arm, index, change } = claim;
   const { relation, custom } = choose(row, index, explicit, question);
   const builtin = Object.hasOwn(builtins, relation) ? builtins[relation] : builtins[fallback];
-  const properties = permitted.get(relation);
-  const property = custom ? (properties?.size === 1 ? [...properties][0] : 'input-admission') : builtin.property;
+  const properties = labels.permitted.get(relation);
+  // Inadmissible lane claims carry the one graded property, else the reserved label.
+  const property = custom ? (properties?.size === 1 && !labels.admission.has(relation)
+    ? [...properties][0] : reserved) : builtin.property;
   const target = index !== null;
   let why = null;
-  if (!source.matches) why = 'source-digest-mismatch';
+  if (!source.matches || !source.pair) why = 'source-digest-mismatch';
   else if (target) why = admitSite(row, context, qualified);
   else {
     why = context.coordinate(row.from, row.from.access === 'def')
@@ -124,6 +127,7 @@ const namedBoundary = new Set(['structured-path', 'type-only-declaration', 'slot
 
 function selfcheck(job, ts, question) {
   const permitted = new Map();
+  const admission = new Set();
   const expectedPairs = new Map();
   const coverage = new Map();
   const fixtures = [];
@@ -133,7 +137,7 @@ function selfcheck(job, ts, question) {
     const expected = read('expected.jsonl');
     const inputs = read('input.jsonl');
     if (!expected.length || inputs.length !== expected.length) throw Error('selfcheck-cardinality: ' + test.id);
-    const source = { root: path.join(test.root, 'repo'), matches: true, files: object() };
+    const source = { root: path.join(test.root, 'repo'), matches: true, pair: true, files: object() };
     for (const [key, hash] of Object.entries(test.files)) {
       if (key.startsWith('repo/')) source.files[key.slice(5)] = hash;
     }
@@ -142,6 +146,10 @@ function selfcheck(job, ts, question) {
       if (!keys(golden, ['key', 'relation', 'property', 'verdict'], ['why'])
           || blank(golden.relation) || blank(golden.property) || !verdictVocabulary.includes(golden.verdict)
           || (golden.why !== undefined && blank(golden.why))) throw Error('selfcheck-schema: expected row');
+      // The label belongs to inadmissible lane claims; a decided golden cannot borrow it.
+      if (golden.property === reserved && golden.verdict !== 'INADMISSIBLE') {
+        throw Error('selfcheck-schema: reserved input-admission label');
+      }
       let properties = expectedPairs.get(golden.relation);
       if (!properties) expectedPairs.set(golden.relation, properties = new Set());
       properties.add(golden.property);
@@ -155,23 +163,24 @@ function selfcheck(job, ts, question) {
         if (!caseModule.relations.includes(golden.relation)) throw Error('selfcheck-schema: undeclared relation');
         let allowed = permitted.get(golden.relation);
         if (!allowed) permitted.set(golden.relation, allowed = new Set());
-        allowed.add(golden.property);
+        if (golden.property === reserved) admission.add(golden.relation);
+        else allowed.add(golden.property);
       }
     }
     fixtures.push({ test, inputs, expected, source, caseModule });
     expectedCount += expected.length;
   }
   for (const rel of question?.relations ?? []) {
-    if (!permitted.has(rel)) throw Error('selfcheck-coverage: untested relation');
+    if (!permitted.get(rel)?.size) throw Error('selfcheck-coverage: untested relation');
   }
   for (const [scope, { relation, property, verdicts }] of coverage) {
     // `input-admission` is the reserved label of inadmissible lane claims, never a graded
-    // property. A lane relation with several properties labels them with it, so its real
-    // properties need the three graded verdicts; otherwise all four.
+    // property. A lane relation with several properties, or any reserved golden, labels
+    // them with it, so its real properties need the three graded verdicts; otherwise all four.
     const lane = scope.startsWith('lane\0');
-    const shared = lane && permitted.get(relation)?.size > 1;
+    const shared = lane && (permitted.get(relation)?.size > 1 || admission.has(relation));
     const needed = shared ? verdictVocabulary.filter(verdict => verdict !== 'INADMISSIBLE') : verdictVocabulary;
-    if (relation !== fallback && property !== 'input-admission' && !needed.every(verdict => verdicts.has(verdict))) {
+    if (relation !== fallback && property !== reserved && !needed.every(verdict => verdicts.has(verdict))) {
       throw Error('selfcheck-coverage: need all verdicts for ' + relation + '/' + property);
     }
   }
@@ -197,7 +206,7 @@ function selfcheck(job, ts, question) {
       }
       const occurrence = { row, arm, index, change, ordinal };
       return grade(occurrence, source, context, caseModule, wrapped ? wrapper.relation : null,
-        permitted, test.prefix === 'kit' ? forms : [], false);
+        { permitted, admission }, test.prefix === 'kit' ? forms : [], false);
     }).sort((a, b) => order(canonical(a.key), canonical(b.key)) || order(a.arm, b.arm));
     for (let i = 0; i < observed.length; i++) {
       const { key, relation, property, verdict, why } = observed[i];
@@ -210,7 +219,7 @@ function selfcheck(job, ts, question) {
       }
     }
   }
-  return { permitted, expectedPairs, count: expectedCount };
+  return { permitted, admission, expectedPairs, count: expectedCount };
 }
 
 function grading(job, stage, ts, question, checks) {
@@ -266,7 +275,7 @@ function grading(job, stage, ts, question, checks) {
   }
   for (const claim of job.claims) {
     const source = job.sources[claim.arm];
-    const verdict = grade(claim, source, forArm(claim.arm), question, rel, checks.permitted,
+    const verdict = grade(claim, source, forArm(claim.arm), question, rel, checks,
       job.builds[source.binary] ?? [], denom.mode === 'edge-census');
     if (!verdict) {
       denom.out_of_scope++;

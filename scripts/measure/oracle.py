@@ -152,9 +152,10 @@ def run_oracle(args, entries, *, gate_sha256=None, gate_step_id=None):
             sources, states = {}, {}
             for arm, run in runs.items():
                 sources[arm], states[arm] = source(run)
-            if not all(item["matches"] for item in sources.values()):
-                for item in sources.values():
-                    item["matches"] = False
+            # Each arm keeps its own admission: only a selected claim is invalidated pair-wide.
+            paired = all(item["matches"] for item in sources.values())
+            for item in sources.values():
+                item["pair"] = paired
             inputs = prepare_inputs(args.typescript, args.question)
             prior = cached(inputs)
             if platform.python_version() != prior["runtime"]["python"]:
