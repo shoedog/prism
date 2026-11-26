@@ -207,7 +207,11 @@ incomplete method coverage.
   annotation cannot establish what serves the public address.
 - Group collisions by method **and** canonical path. Disjoint methods survive. For a duplicate schema key retain
   the lexically first original path as the deterministic index representative, all original declarations as
-  evidence and `duplicate_operation`. Do not combine the two wire trees or certify a unique producer. Distinct
+  evidence and `duplicate_operation`. Do not combine the two wire trees or certify a unique producer. A collision group proved to share a typed operation key establishes that key's presence, including against
+  checked absence. Certify a status present only when every possible declaration proves it present, and absent only when
+  every candidate is accounted for and proves it absent. Preserve disagreements and unavailable candidate inventories as
+  unknown. A repeated JSON member withholds the affected declaration, including a repeated explicit status key, while
+  independently readable siblings survive. A literal `{}` and a capture sharing printed text do not prove typed identity. Distinct
   sites on route-table entries remain individually visible. Repeated server alternatives of the same declaration
   deduplicate with their provenance.
 
@@ -314,10 +318,15 @@ rule cases.
 
 **Element diff.** Emit additions and removals for operations and named fields on established presence/absence at
 the stated authority and scope. Independently emit added and removed success keys at retained operations, even for
-bodyless responses. Compare like message roots. When exactly one outgoing and one incoming success root have
-comparable bodies of the same media and no range overlap, group their status rows and compare relative field paths
-while retaining both original IDs. Otherwise give the pairing limit and no inferred child edits from a root move.
-Fields of a whole operation addition/removal are detail. For retained comparable fields compare type, format,
+bodyless responses. Compare like message roots. Pair exactly one outgoing and one incoming root with proved equivalent JSON media after excluding proved bodyless or
+ineligible candidates. A possible extra candidate, overlapping changed range, or transfer of an affected body-eligible
+code to or from a retained range or `default` blocks pairing. Compare typed relative paths with both original IDs and
+limit only affected subtrees. Keep all established status rows and record the reason for an unpaired two-sided
+replacement whenever either side could carry a body. Fields of a whole operation addition/removal are detail. An
+unmatched explicit success-key change owns its side-local field detail, including the affected fields of a retained
+range that loses or regains its last body-eligible code. A request root excluded by a dialect change carries a
+side-local coverage limit. A checked empty or absent body at a comparable retained root can establish field additions
+or removals. For retained comparable fields compare type, format,
 required in parent (both directions), enum values added **and** removed, and list item type. Emit all applicable
 kinds and both values. Record `EnumDeclarationChanged` when the enum list changes between absent and declared, including
 absent ↔ empty with no member delta. Record member deltas independently for comparable sets. An unreadable side
