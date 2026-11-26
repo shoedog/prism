@@ -4,7 +4,7 @@ use crate::ast::ParsedFile;
 use crate::call_graph::CallSite;
 use std::ops::Range;
 
-type Argument = (String, Range<usize>);
+pub(super) type Argument = (String, Range<usize>);
 
 pub(super) struct Offsets {
     /// Exact slot for non-spread arguments with a known runtime offset.
@@ -55,7 +55,10 @@ pub(super) fn offsets(caller: &ParsedFile, args: &[Argument]) -> Offsets {
 }
 
 fn array_spread_length(caller: &ParsedFile, span: &Range<usize>) -> Option<usize> {
-    let array = caller.spread_argument_operand(span)?;
+    dense_array_length(caller.spread_argument_operand(span)?)
+}
+
+pub(super) fn dense_array_length(array: tree_sitter::Node<'_>) -> Option<usize> {
     if array.kind() != "array" {
         return None;
     }

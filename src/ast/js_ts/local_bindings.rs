@@ -74,43 +74,64 @@ impl ParsedFile {
         node: Node<'_>,
         out: &mut BTreeSet<String>,
     ) {
+        self.collect_js_ts_pattern_names(node, out, false);
+    }
+
+    pub(in crate::ast) fn collect_js_ts_write_names(
+        &self,
+        node: Node<'_>,
+        out: &mut BTreeSet<String>,
+    ) {
+        self.collect_js_ts_pattern_names(node, out, true);
+    }
+
+    fn collect_js_ts_pattern_names(
+        &self,
+        node: Node<'_>,
+        out: &mut BTreeSet<String>,
+        decode: bool,
+    ) {
         match node.kind() {
             "identifier" | "shorthand_property_identifier_pattern" => {
                 let name = self.node_text(&node);
                 // S1b-3 (spec r1 sol W1): the parser confirmed an ECMAScript IdentifierName, so
                 // any spelling without a `\` escape is a BoundName (`é` with U+0301, ZWNJ/ZWJ,
-                // `$`, S1b-1b); an escaped spelling stays out and B0 refuses its scope.
+                // `$`, S1b-1b). Decode escaped writes for scope comparison.
                 if !name.contains('\\') {
                     out.insert(name.to_string());
+                } else if decode {
+                    if let Some(name) = Self::js_ts_decoded_identifier(name) {
+                        out.insert(name);
+                    }
                 }
             }
             "pair_pattern" => {
                 if let Some(value) = node.child_by_field_name("value") {
-                    self.collect_js_ts_binding_pattern_names(value, out);
+                    self.collect_js_ts_pattern_names(value, out, decode);
                 }
             }
             "rest_pattern" => {
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    self.collect_js_ts_binding_pattern_names(child, out);
+                    self.collect_js_ts_pattern_names(child, out, decode);
                 }
             }
             // S1b F2: a `{ f = d }` destructuring default binds `f`, like `f = d`.
             "assignment_pattern" | "object_assignment_pattern" => {
                 if let Some(left) = node.child_by_field_name("left") {
-                    self.collect_js_ts_binding_pattern_names(left, out);
+                    self.collect_js_ts_pattern_names(left, out, decode);
                 }
             }
             // S1b F1: a TS assertion around a write target still writes its binding.
             "as_expression" | "satisfies_expression" | "non_null_expression" => {
                 if let Some(inner) = node.named_child(0) {
-                    self.collect_js_ts_binding_pattern_names(inner, out);
+                    self.collect_js_ts_pattern_names(inner, out, decode);
                 }
             }
             // `<T>x`: the asserted expression is the last named child.
             "type_assertion" => {
                 if let Some(inner) = node.named_child(node.named_child_count().saturating_sub(1)) {
-                    self.collect_js_ts_binding_pattern_names(inner, out);
+                    self.collect_js_ts_pattern_names(inner, out, decode);
                 }
             }
             "object_pattern"
@@ -119,7 +140,7 @@ impl ParsedFile {
             | "parenthesized_pattern" => {
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    self.collect_js_ts_binding_pattern_names(child, out);
+                    self.collect_js_ts_pattern_names(child, out, decode);
                 }
             }
             _ => {}
