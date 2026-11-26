@@ -497,7 +497,13 @@ fn props_s2_pre_initializer_timing_counts_one_refusal_per_site() {
         let source = format!("{head}{tail}\n{TIMING_D}");
         let built = graph("js", &source);
         let sites = recorded(&built, "App", "D");
-        assert_eq!(sites.len(), 1, "{name}");
+        if sites.len() != 1 {
+            failures.push(format!(
+                "{name}: expected one recorded site, observed {}",
+                sites.len()
+            ));
+            continue;
+        }
         let want_edge = format!(
             "App:x@{} -> D:a@{}(def)",
             source[..source.find("D({a: x})").unwrap()]
@@ -525,6 +531,7 @@ fn props_s2_pre_initializer_timing_counts_one_refusal_per_site() {
 fn props_s2_pre_initializer_timing_keeps_plain_positions_and_counts_a_mixed_site_once() {
     let plain_pattern = "const D = (q, {a}) => {\n use(q.b);\n use(a);\n};\n";
     let both_patterns = "const D = ({a}, {b}) => {\n use(a, b);\n};\n";
+    let mut failures = Vec::new();
     for (name, caller, target, edges, counts) in [
         (
             "plain-binds-pattern-refused",
@@ -553,14 +560,17 @@ fn props_s2_pre_initializer_timing_keeps_plain_positions_and_counts_a_mixed_site
         ),
     ] {
         let built = graph("js", &format!("{caller}{target}"));
-        let result = check(&built, edges, counts);
-        assert_eq!(result, Ok(()), "{name}");
+        if let Err(error) = check(&built, edges, counts) {
+            failures.push(format!("{name}: {error}"));
+        }
     }
+    assert!(failures.is_empty(), "{failures:#?}");
 }
 
 #[test]
 fn props_s2_every_recorded_literal_site_without_a_binding_counts_one_reason() {
     let lib = "export const take = p => {\n use(p.a);\n};\n";
+    let mut failures = Vec::new();
     for (name, caller, edges, skipped) in [
         (
             "cross-file-free-single-bare-formal",
@@ -586,12 +596,16 @@ fn props_s2_every_recorded_literal_site_without_a_binding_counts_one_reason() {
             ("refused_bare_formal_skipped", skipped),
             ("refused_not_exact_singleton", 0),
         ] {
-            assert_eq!(check_counter(&stats, key, count), Ok(()), "{name}");
+            if let Err(error) = check_counter(&stats, key, count) {
+                failures.push(format!("{name}: {error}"));
+            }
         }
-        assert_eq!(
-            super::object_literal_arg_tests::literal_edges(&built).len(),
-            edges,
-            "{name}"
-        );
+        let observed = super::object_literal_arg_tests::literal_edges(&built).len();
+        if observed != edges {
+            failures.push(format!(
+                "{name}: literal edges expected {edges}, observed {observed}"
+            ));
+        }
     }
+    assert!(failures.is_empty(), "{failures:#?}");
 }

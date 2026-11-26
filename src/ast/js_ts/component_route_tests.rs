@@ -275,7 +275,7 @@ fn literal_route(template: &str, kind: SiteKind) -> Route {
 
 /// Each refusal reports the timing reason and is paired with a deferred control
 /// whose route proves `D` independently.
-fn assert_timing_rows(rows: &[(&str, &str)]) {
+fn timing_failures(rows: &[(&str, &str)]) -> Vec<String> {
     let mut failures = Vec::new();
     for (prefix, control) in rows {
         let refused = literal_route(prefix, SiteKind::Literal);
@@ -287,6 +287,11 @@ fn assert_timing_rows(rows: &[(&str, &str)]) {
             failures.push(format!("control {control} for {prefix}: {kept:?}"));
         }
     }
+    failures
+}
+
+fn assert_timing_rows(rows: &[(&str, &str)]) {
+    let failures = timing_failures(rows);
     assert!(failures.is_empty(), "{failures:#?}");
 }
 
@@ -329,7 +334,7 @@ fn component_route_timing_refuses_assignment_property_comma_and_statement_uses()
 
 #[test]
 fn component_route_timing_refuses_member_access_through_wrappers_and_brackets() {
-    assert_timing_rows(&[
+    let mut failures = timing_failures(&[
         ("(#F# as any).bind(null)(1);", STORED),
         ("#F#!.call(null, 1);", STORED),
         ("(#F# satisfies unknown).apply(null, [1]);", RETURNED),
@@ -351,12 +356,17 @@ fn component_route_timing_refuses_member_access_through_wrappers_and_brackets() 
             SiteKind::Literal,
         )
     };
-    assert_eq!(
-        angle("(<any>#F#).bind(null)(1);"),
-        Route::PreInitializerUnproved
-    );
-    assert_eq!(angle("const kept = <any>#F#;"), Route::Direct);
-    assert_eq!(angle("function make() { return <any>#F#; }"), Route::Direct);
+    for (template, want) in [
+        ("(<any>#F#).bind(null)(1);", Route::PreInitializerUnproved),
+        ("const kept = <any>#F#;", Route::Direct),
+        ("function make() { return <any>#F#; }", Route::Direct),
+    ] {
+        let got = angle(template);
+        if got != want {
+            failures.push(format!("angle {template}: wanted {want:?}, got {got:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
 }
 
 #[test]
@@ -446,51 +456,63 @@ fn component_route_timing_admits_exactly_the_three_delivery_forms() {
         }
     }
     let jsx_refused = classify("[1].forEach(x => <D a={x}/>);", LATER_D, SiteKind::Jsx);
-    assert_eq!(jsx_refused, Route::PreInitializerUnproved);
+    if jsx_refused != Route::PreInitializerUnproved {
+        failures.push(format!("jsx call-argument refusal: {jsx_refused:?}"));
+    }
     assert!(failures.is_empty(), "{failures:#?}");
 }
 
 #[test]
 fn component_route_timing_checks_reads_inside_alias_initializers() {
     let alias_use = "function App(x) { return Alias({a: x}); }";
+    let mut failures = Vec::new();
+    let mut row = |label: String, got: Route, want: Route| {
+        if got != want {
+            failures.push(format!("{label}: wanted {want:?}, got {got:?}"));
+        }
+    };
     for (prefix, want) in [
         ("const Alias = D;", Route::PreInitializerUnproved),
         ("const Alias = (D);", Route::PreInitializerUnproved),
         ("const Alias = (y) => D(y);", Route::UnprovedIdentity),
     ] {
-        assert_eq!(
+        row(
+            prefix.to_owned(),
             classify(
                 prefix,
                 &format!("{LATER_D}\n{alias_use}"),
-                SiteKind::Literal
+                SiteKind::Literal,
             ),
             want,
-            "{prefix}"
         );
     }
     // Every const cycle reads one binding before its declarator ends, so the
     // timing reason is reported before the cycle is reached.
-    assert_eq!(
+    row(
+        "const cycle".to_owned(),
         classify(
             "function D({a}) { return a; } const A = B; const B = A;",
             "function App(x) { return A({a: x}); }",
-            SiteKind::Literal
+            SiteKind::Literal,
         ),
-        Route::PreInitializerUnproved
+        Route::PreInitializerUnproved,
     );
-    assert_eq!(
+    row(
+        "control: alias declared after D".to_owned(),
         classify(
             &format!("{LATER_D}\nconst Alias = D;"),
             alias_use,
-            SiteKind::Literal
+            SiteKind::Literal,
         ),
-        Route::Direct
+        Route::Direct,
     );
+    assert!(failures.is_empty(), "{failures:#?}");
 }
 
 #[test]
 fn component_route_timing_gates_the_result_binding_of_a_proved_local_hook() {
     let hook = "import {useCallback as cb} from 'react';";
+    let mut failures = Vec::new();
     for (caller, want) in [
         (
             "function App(x) { D({a: x}); const D = cb(({a}) => a, []); }",
@@ -509,6 +531,10 @@ fn component_route_timing_gates_the_result_binding_of_a_proved_local_hook() {
             Route::PreInitializerUnproved,
         ),
     ] {
-        assert_eq!(classify(hook, caller, SiteKind::Literal), want, "{caller}");
+        let got = classify(hook, caller, SiteKind::Literal);
+        if got != want {
+            failures.push(format!("{caller}: wanted {want:?}, got {got:?}"));
+        }
     }
+    assert!(failures.is_empty(), "{failures:#?}");
 }
