@@ -344,7 +344,7 @@ fn core_routes_text_json_and_explicit_refusals() {
     let root = fixture_root();
     for (id, selectors) in [
         ("e01", &["../outside.js", "app:bad(", ""][..]),
-        // S1a pins app:app as unproven. S2a deliberately changes it with Flask evidence.
+        // The source listing enables Flask while explicit root selection still refuses.
         ("e02", &["app:app", "app:factory()", "app.js#default"][..]),
     ] {
         let dir = root.join(id);
@@ -370,7 +370,7 @@ fn core_routes_text_json_and_explicit_refusals() {
         assert_eq!(
             serde_json::from_str::<Value>(&output).unwrap(),
             json!({
-                "summary": {"enabled_adapters": [], "registrations": 0, "proven": 0,
+                "summary": {"enabled_adapters": ["flask"], "registrations": 0, "proven": 0,
                     "unproven": 0, "candidates": 0, "mounts": 0, "diagnostics": [], "failed_roots": []}
             })
         );
@@ -381,7 +381,7 @@ fn core_routes_text_json_and_explicit_refusals() {
             String::from_utf8_lossy(&output.stderr)
         );
         assert_eq!(String::from_utf8(output.stdout).unwrap(),
-            "summary candidates=0 diagnostics=[] enabled_adapters=[] failed_roots=[] mounts=0 proven=0 registrations=0 unproven=0\n");
+            "summary candidates=0 diagnostics=[] enabled_adapters=[\"flask\"] failed_roots=[] mounts=0 proven=0 registrations=0 unproven=0\n");
         for entry in selectors {
             let output = run("json", Some(entry));
             assert!(!output.status.success(), "{id} {entry:?}");

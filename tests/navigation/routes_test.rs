@@ -85,7 +85,7 @@ fn session_infers_empty_and_refuses_explicit_entry() {
     let query = |entry| prism::navigation::routes::list(&session, entry);
     let table = query(None).unwrap();
     assert!(table.routes().is_empty());
-    assert!(table.summary().enabled_adapters.is_empty());
+    assert_eq!(table.summary().enabled_adapters, [Framework::Flask].into());
     let refusal = query(Some("app:app")).unwrap_err();
     assert_eq!(refusal.reason, Reason::EntryUnproven);
     assert_eq!(

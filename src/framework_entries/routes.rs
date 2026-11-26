@@ -1,5 +1,4 @@
 //! Source registrations and their query-local projection.
-// Checkpoint 2 connects the source facts to the route table.
 #[allow(dead_code)]
 mod handler;
 pub mod mounts;
@@ -570,14 +569,32 @@ pub struct Summary {
 
 /// Compute a listing from the current parsed sources and immutable repository facts.
 pub fn routes(
-    _files: &BTreeMap<String, ParsedFile>,
+    files: &BTreeMap<String, ParsedFile>,
     _call_graph: &CallGraph,
     _manifests: &ManifestSnapshot,
     entry: Option<RootSelector>,
 ) -> Result<RouteTable, EntryError> {
-    // Adapter availability is empty until a source extractor is wired in.
     if let Some(entry) = entry {
         entry.resolve(&[])?;
     }
-    Ok(RouteTable::new(vec![], vec![], vec![], vec![], []))
+
+    let bindings = receivers::index_python(files);
+    let context = receivers::SetupContext::default();
+    let registrations = bindings
+        .files
+        .keys()
+        .flat_map(|path| python::flask::flask_facts(&bindings, path, &context))
+        .filter_map(|event| match event {
+            python::flask::FlaskEvent::Rule(rule) => Some(rule.route),
+            _ => None,
+        })
+        .collect();
+
+    Ok(RouteTable::new(
+        registrations,
+        vec![],
+        vec![],
+        vec![],
+        [Framework::Flask],
+    ))
 }
