@@ -25,6 +25,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub enum Reason {
     ReceiverUnproven,
     ImportedUnproven,
+    TerminalReexport,
     MountChildUnproven,
     TableConsumerUnproven,
     NoKnownMount,

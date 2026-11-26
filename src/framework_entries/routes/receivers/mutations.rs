@@ -11,10 +11,12 @@ mod escapes;
 mod metadata;
 mod reach;
 mod values;
+mod view_map;
 use escapes::ViewArgument;
 use metadata::MetadataWrites;
 use reach::FileReach;
 use values::{possible_values, unbound_name};
+use view_map::ViewMapWrites;
 
 type Allocation<'a> = (&'a str, usize);
 type Mounts<'a> = BTreeMap<Allocation<'a>, BTreeSet<Allocation<'a>>>;
@@ -22,12 +24,14 @@ type Mounts<'a> = BTreeMap<Allocation<'a>, BTreeSet<Allocation<'a>>>;
 #[derive(Default)]
 pub(super) struct AttributeWrites<'a> {
     routers: BTreeSet<Allocation<'a>>,
+    escaped_mount_children: BTreeSet<Allocation<'a>>,
     converters: BTreeSet<Allocation<'a>>,
     replaced_configs: BTreeSet<Allocation<'a>>,
     router_belts: BTreeSet<&'a str>,
     converter_belts: BTreeSet<&'a str>,
     reach: FileReach<'a>,
     metadata: MetadataWrites<'a>,
+    view_map: ViewMapWrites<'a>,
     view_arguments: BTreeMap<Allocation<'a>, Vec<ViewArgument<'a>>>,
 }
 
@@ -60,6 +64,12 @@ impl<'a> AttributeWrites<'a> {
                         if let Some(container) = target.child_by_field_name("value") {
                             writes.container_write(bindings, file, container);
                         }
+                        if node.kind() == "assignment"
+                            && node.child_by_field_name("left") == Some(target)
+                            && node.child_by_field_name("right").is_some()
+                        {
+                            writes.view_map.record(bindings, file, target);
+                        }
                         stored = true;
                     }
                 }
@@ -84,6 +94,7 @@ impl<'a> AttributeWrites<'a> {
             if let Some(children) = mounts.remove(&parent) {
                 for child in children {
                     writes.routers.insert(child);
+                    writes.escaped_mount_children.insert(child);
                     pending.push(child);
                 }
             }
@@ -158,15 +169,6 @@ impl<'a> AttributeWrites<'a> {
             }
             self.converters.extend(maps);
         }
-        for (file, owner) in members_named(bindings, file, container, "view_functions") {
-            if !matches!(
-                possible_values(bindings, file, owner).first(),
-                Some(PythonValue::Router(_) | PythonValue::Module | PythonValue::Definition(_))
-            ) && !is_builtin_object(bindings, file, owner)
-            {
-                self.router_belts.insert(self.reach.component(&file.path));
-            }
-        }
     }
 
     fn call(
@@ -208,18 +210,25 @@ impl<'a> AttributeWrites<'a> {
                 && !args.unpacked()
             {
                 let context = SetupContext::default();
-                if let Some(child) = args.get(file, "blueprint", 0).written() {
-                    if let (PythonValue::Router(parent), PythonValue::Router(blueprint)) = (
-                        bindings.value_at(&file.path, object, &context),
-                        bindings.value_at(&file.path, child, &context),
-                    ) {
-                        if blueprint.kind == PythonKind::Blueprint {
-                            mounts
-                                .entry(allocation(&parent))
-                                .or_default()
-                                .insert(allocation(&blueprint));
-                            native_owner = Some(child);
+                let blueprint = args.get(file, "blueprint", 0).written().and_then(|child| {
+                    match bindings.value_at(&file.path, child, &context) {
+                        PythonValue::Router(router) if router.kind == PythonKind::Blueprint => {
+                            Some((child, allocation(&router)))
                         }
+                        _ => None,
+                    }
+                });
+                if let Some((child, child_allocation)) = blueprint {
+                    if let PythonValue::Router(parent) =
+                        bindings.value_at(&file.path, object, &context)
+                    {
+                        mounts
+                            .entry(allocation(&parent))
+                            .or_default()
+                            .insert(child_allocation);
+                        native_owner = Some(child);
+                    } else {
+                        self.escaped_mount_children.insert(child_allocation);
                     }
                 }
             }
@@ -425,6 +434,22 @@ fn members_named<'a>(
 }
 
 impl<'a> PythonBindings<'a> {
+    pub(crate) fn escaped_mount_child(
+        &self,
+        file: &'a ParsedFile,
+        expression: Node<'a>,
+        context: &SetupContext<'a>,
+    ) -> bool {
+        let PythonValue::Router(router) =
+            self.evaluate(file, expression, file.node_text(&expression), context, 24)
+        else {
+            return false;
+        };
+        self.mutations
+            .as_ref()
+            .is_some_and(|writes| writes.escaped_mount_children.contains(&allocation(&router)))
+    }
+
     pub(super) fn router_mutated(&self, router: &PythonRouter<'a>) -> bool {
         self.mutations
             .as_ref()

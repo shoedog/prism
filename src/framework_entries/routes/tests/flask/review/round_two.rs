@@ -180,7 +180,7 @@ fn route_api_name_belt_tracks_static_file_reach() {
             (true, false),
             (true, false),
             (true, false),
-            (false, false),
+            (true, true),
         ]
     );
     check(

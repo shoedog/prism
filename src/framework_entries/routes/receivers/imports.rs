@@ -11,6 +11,7 @@ use tree_sitter::Node;
 
 mod candidates;
 mod predicates;
+mod reexports;
 
 struct Step<'a> {
     name: String,
@@ -29,6 +30,7 @@ struct ImportPath<'a> {
 enum Selection<'a> {
     Module(String),
     Member(PythonMember<'a>, String),
+    Forwarded(PythonMember<'a>, String),
     Constructor(PythonKind),
     ObjectAttribute(PythonMember<'a>),
 }
@@ -362,7 +364,7 @@ impl<'a> PythonBindings<'a> {
                     _ => unknown,
                 }
             }
-            None => unknown,
+            Some(Selection::Forwarded(..)) | None => unknown,
         }
     }
 
@@ -454,6 +456,17 @@ impl<'a> PythonBindings<'a> {
                 }
                 if let Some(member) = declaration(owner, *node) {
                     proof.target = Some(Selection::Member(member, name.clone()));
+                    proof.established = true;
+                    return proof;
+                }
+                if !child_exists && node.kind() == "import_from_statement" {
+                    proof.target = Some(Selection::Forwarded(
+                        PythonMember {
+                            file: owner,
+                            node: *node,
+                        },
+                        name.clone(),
+                    ));
                     proof.established = true;
                     return proof;
                 }

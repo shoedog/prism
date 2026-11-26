@@ -1,5 +1,16 @@
 use super::*;
 
+impl FlaskViewMetadata {
+    pub(super) fn withheld(text: &str) -> Self {
+        Self {
+            methods: Some(MethodSet::unknown(text)),
+            required: Some(MethodSet::unknown(text)),
+            automatic: Some(Err(text.into())),
+            ..Self::default()
+        }
+    }
+}
+
 pub(super) fn view_metadata<'a>(
     bindings: &PythonBindings<'a>,
     file: &'a ParsedFile,
@@ -74,12 +85,7 @@ fn function_metadata<'a>(
     if let Some(call) = bindings.view_metadata_escape(member, context) {
         return (
             EffectiveEndpoint::Unknown,
-            FlaskViewMetadata {
-                methods: Some(MethodSet::unknown(call)),
-                required: Some(MethodSet::unknown(call)),
-                automatic: Some(Err(call.into())),
-                ..FlaskViewMetadata::default()
-            },
+            FlaskViewMetadata::withheld(call),
         );
     }
     let mut endpoint = EffectiveEndpoint::Known(name.into());

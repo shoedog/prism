@@ -13,6 +13,15 @@ pub(super) fn possible_values<'a>(
     file: &'a ParsedFile,
     expression: Node<'a>,
 ) -> Vec<PythonValue<'a>> {
+    mutation_candidates(bindings, file, expression, false)
+}
+
+pub(super) fn mutation_candidates<'a>(
+    bindings: &PythonBindings<'a>,
+    file: &'a ParsedFile,
+    expression: Node<'a>,
+    keep_refused_routers: bool,
+) -> Vec<PythonValue<'a>> {
     if !may_resolve(bindings, file, expression, 24) {
         return vec![];
     }
@@ -33,7 +42,12 @@ pub(super) fn possible_values<'a>(
         let refused = matches!(exact, PythonValue::Unknown(Reason::ImportedUnproven));
         values.push(exact);
         if refused {
-            values.extend(bindings.possible_imported_views(file, node, &context));
+            values.extend(bindings.possible_imported_values(
+                file,
+                node,
+                &context,
+                keep_refused_routers,
+            ));
         }
         if node.kind() != "identifier" {
             continue;

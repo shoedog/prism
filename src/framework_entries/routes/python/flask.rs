@@ -257,15 +257,10 @@ pub(crate) fn flask_facts<'a>(
         let owner = owner.unwrap_or_else(|| value(object));
         let default_converters =
             matches!(&owner, PythonValue::Router(router) if bindings.default_converters(router));
-        let parent = receiver(owner);
-        if matches!(parent, Receiver::Unproven { .. })
-            && !bindings.router_hint(file, object, context)
-        {
-            capture_registration_argument(file, &options, method, value);
-            continue;
-        }
+        let mut parent = receiver(owner);
         if !decorator && method == "register_blueprint" {
-            let child = match options.get(file, "blueprint", 0).written().map(value) {
+            let argument = options.get(file, "blueprint", 0).written();
+            let child = match argument.map(value) {
                 Some(PythonValue::Router(router)) if router.kind == PythonKind::Blueprint => {
                     receiver(PythonValue::Router(router))
                 }
@@ -273,7 +268,22 @@ pub(crate) fn flask_facts<'a>(
                     reason: Reason::MountChildUnproven,
                 },
             };
-            let prefix = prefix(file, &options);
+            let escaped = matches!(child, Receiver::Unproven { .. })
+                && argument.is_some_and(|child| bindings.escaped_mount_child(file, child, context));
+            if matches!(parent, Receiver::Unproven { .. })
+                && !escaped
+                && !bindings.router_hint(file, object, context)
+            {
+                continue;
+            }
+            let written_prefix = prefix(file, &options);
+            let prefix = if escaped && written_prefix == MountPrefix::Absent {
+                MountPrefix::Unevaluated {
+                    text: "unproved blueprint mount".into(),
+                }
+            } else {
+                written_prefix
+            };
             facts.push(FlaskEvent::Mount(FlaskMount {
                 site: site(file, origin),
                 origin,
@@ -283,6 +293,29 @@ pub(crate) fn flask_facts<'a>(
                 options,
             }));
         } else {
+            let retained_source = match parent {
+                Receiver::Unproven {
+                    reason: Reason::ReceiverUnproven,
+                } if method != "endpoint" => bindings.escaped_mount_child(file, object, context),
+                Receiver::Unproven {
+                    reason: Reason::ImportedUnproven,
+                } if method != "endpoint"
+                    && bindings.terminal_router_reexport(file, object, context) =>
+                {
+                    parent = Receiver::Unproven {
+                        reason: Reason::TerminalReexport,
+                    };
+                    true
+                }
+                _ => false,
+            };
+            if matches!(parent, Receiver::Unproven { .. })
+                && !retained_source
+                && !bindings.router_hint(file, object, context)
+            {
+                capture_registration_argument(file, &options, method, value);
+                continue;
+            }
             let def = origin
                 .parent()
                 .and_then(|p| p.child_by_field_name("definition"))
@@ -301,6 +334,7 @@ pub(crate) fn flask_facts<'a>(
                         parent,
                         record_once,
                         default_converters,
+                        retained_source,
                     },
                     method,
                     options,
@@ -495,6 +529,7 @@ struct RegistrationReceiver {
     parent: Receiver,
     record_once: bool,
     default_converters: bool,
+    retained_source: bool,
 }
 
 fn declaration<'a>(
@@ -509,6 +544,7 @@ fn declaration<'a>(
         parent,
         record_once,
         default_converters,
+        retained_source,
     } = receiver;
     let PythonUse {
         file,
@@ -620,28 +656,47 @@ fn declaration<'a>(
             reason: Reason::RuntimeGeneratedRegistration,
         }));
     }
-    let (native_name, mut metadata) = view_metadata(
-        bindings,
-        file,
-        context,
-        origin,
-        argument.written(),
-        def,
-        callbacks.first(),
-    );
-    if matches!(&parent, Receiver::Router { identity, .. } if bindings.config_replaced(identity)) {
-        metadata.app_automatic = Some(Err("unproved app.config".into()));
-    }
-    let shortcut = (route_method(method) && method != "route").then_some(method);
-    let (methods, default_methods, effective_methods) =
-        flask_methods(file, &options, &metadata, shortcut);
-    let effective_endpoint = match endpoint_arg {
+    let (native_name, mut metadata) = if retained_source {
+        (
+            EffectiveEndpoint::Unknown,
+            FlaskViewMetadata::withheld("unproved registration receiver"),
+        )
+    } else {
+        view_metadata(
+            bindings,
+            file,
+            context,
+            origin,
+            argument.written(),
+            def,
+            callbacks.first(),
+        )
+    };
+    let mut effective_endpoint = match endpoint_arg {
         PythonArg::Written(_) => endpoint
             .clone()
             .map_or(EffectiveEndpoint::Unknown, EffectiveEndpoint::Known),
         PythonArg::Unknown(_) => EffectiveEndpoint::Unknown,
         PythonArg::Absent => native_name,
     };
+    if let Receiver::Router { identity, .. } = &parent {
+        let key = match &effective_endpoint {
+            EffectiveEndpoint::Known(key) => Some(key.as_str()),
+            _ => None,
+        };
+        if bindings.view_map_written(identity, key) {
+            metadata = FlaskViewMetadata::withheld("view_functions write");
+            if matches!(endpoint_arg, PythonArg::Absent) {
+                effective_endpoint = EffectiveEndpoint::Unknown;
+            }
+        }
+        if bindings.config_replaced(identity) {
+            metadata.app_automatic = Some(Err("unproved app.config".into()));
+        }
+    }
+    let shortcut = (route_method(method) && method != "route").then_some(method);
+    let (methods, default_methods, effective_methods) =
+        flask_methods(file, &options, &metadata, shortcut);
     let candidate = matches!(parent, Receiver::Unproven { .. });
     let reason = match parent {
         Receiver::Unproven { reason } => Some(reason),

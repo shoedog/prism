@@ -2,11 +2,12 @@ use super::*;
 use std::collections::{BTreeSet, VecDeque};
 
 impl<'a> PythonBindings<'a> {
-    pub(in crate::framework_entries::routes::receivers) fn possible_imported_views(
+    pub(in crate::framework_entries::routes::receivers) fn possible_imported_values(
         &self,
         file: &'a ParsedFile,
         expression: Node<'a>,
         context: &SetupContext<'a>,
+        keep_routers: bool,
     ) -> Vec<PythonValue<'a>> {
         let Some(path) = self.trace_import(file, expression, context, 24) else {
             return Vec::new();
@@ -31,10 +32,10 @@ impl<'a> PythonBindings<'a> {
                     {
                         pending.extend(self.possible_members(&path));
                     }
-                    if let value @ PythonValue::Definition(_) =
-                        self.bound(member, &name, context, 23)
-                    {
-                        values.push(value);
+                    match self.bound(member, &name, context, 23) {
+                        value @ PythonValue::Definition(_) => values.push(value),
+                        value @ PythonValue::Router(_) if keep_routers => values.push(value),
+                        _ => {}
                     }
                 }
                 _ => {}
@@ -43,7 +44,7 @@ impl<'a> PythonBindings<'a> {
         values
     }
 
-    // Keep candidate view definitions for metadata checks even through a
+    // Keep candidate definitions and allocations for metadata checks even through a
     // refused hop or a re-export.
     fn possible_members(&self, path: &ImportPath<'a>) -> Vec<(PythonMember<'a>, String)> {
         let mut modules = BTreeSet::from([path.module.clone()]);
