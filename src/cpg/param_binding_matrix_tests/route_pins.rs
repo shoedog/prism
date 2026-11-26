@@ -379,6 +379,32 @@ fn param_binding_matrix_slice_c_routes() {
 }
 
 #[test]
+fn param_binding_matrix_s5_9_crossed_edges_are_nameonly() {
+    let rows = read_rows(ROWS).unwrap();
+    let row = rows.iter().find(|row| row.id == "s5-9").unwrap();
+    for ext in &row.langs {
+        let fixture = row.fixture(ext);
+        for ordinal in [5, 6] {
+            let assertion = &row.expect[ordinal - 1];
+            let Check::NoEdge {
+                from,
+                to: Some(to),
+                label: None,
+            } = &assertion.check
+            else {
+                panic!("s5-9 #{ordinal} must assert unconditional absence");
+            };
+            assert!(assertion.loss.is_some(), "s5-9 #{ordinal} must stay a loss");
+            assert_eq!(
+                fixture.edge_labels(Some(from), Some(to), true).unwrap(),
+                ["nameonly/call_nameonly"],
+                "s5-9/{ext} #{ordinal}"
+            );
+        }
+    }
+}
+
+#[test]
 fn param_binding_matrix_k08b_has_a_represented_surplus_use() {
     let rows = read_rows(ROWS).unwrap();
     let row = rows.iter().find(|row| row.id == "k08b").unwrap();

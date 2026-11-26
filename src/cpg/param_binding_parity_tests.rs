@@ -301,6 +301,67 @@ fn spread_and_rest_graph_is_identical_across_every_route() {
 mod bare;
 
 #[test]
+fn bare_literal_leaves_respect_outgoing_free_single_reachability() {
+    use crate::cpg::object_literal_arg_tests::{literal_edges, spell};
+
+    const MAIN: &str = "const take = p => {\n  parseInt(p.a);\n  observe(p.a);\n};\n\
+                       function main(v) {\n  take({ a: v });\n}\n";
+    const LIB: &str = "export function parseInt(text) {\n  use(text);\n}\n";
+    for (import, lib, route, keep_first_leaf) in [
+        ("", Some(LIB), Some(ResolutionKind::FreeSingle), false),
+        ("", None, None, true),
+        (
+            "import { parseInt } from './lib';",
+            Some(LIB),
+            Some(ResolutionKind::ImportMember),
+            true,
+        ),
+    ] {
+        let mut sources = BTreeMap::from([("m.js".into(), format!("{import}\n{MAIN}"))]);
+        if let Some(lib) = lib {
+            sources.insert("lib.js".into(), lib.into());
+        }
+        let files = parse(&sources);
+        let cold = CodePropertyGraph::build(&files);
+        let legacy = with_legacy(|| CodePropertyGraph::build(&files));
+        let serial = super::step5b_reference::with_serial(|| CodePropertyGraph::build(&files));
+        for (assembly, cpg) in [("production", cold), ("legacy", legacy), ("serial", serial)] {
+            let context = format!("{assembly} with {route:?}");
+            let site = bare::site(&cpg, &files["m.js"], "parseInt(p.a)", "parseInt");
+            let resolved: Vec<_> = cpg
+                .call_graph
+                .resolve_call_site(site)
+                .into_iter()
+                .map(|arm| (arm.target.file.as_str(), arm.kind, arm.confidence))
+                .collect();
+            let expected: Vec<_> = route
+                .into_iter()
+                .map(|kind| ("lib.js", kind, ResolutionConfidence::Exact))
+                .collect();
+            assert_eq!(resolved, expected, "{context}");
+            let has_outgoing = cpg.graph.edge_references().any(|edge| {
+                *edge.weight() == CpgEdge::DataFlow(FlowConfidence::Exact)
+                    && spell(&cpg, edge.source()) == Some(("take:p.a@3".into(), true))
+                    && spell(&cpg, edge.target()) == Some(("parseInt:text@1".into(), false))
+            });
+            assert_eq!(has_outgoing, route.is_some(), "{context}");
+            let mut expected =
+                BTreeMap::from([("main:v@7 -> take:p.a@4".into(), FlowConfidence::Exact)]);
+            if keep_first_leaf {
+                expected.insert("main:v@7 -> take:p.a@3".into(), FlowConfidence::Exact);
+            }
+            assert_eq!(literal_edges(&cpg), expected, "{context}");
+            let exact = cpg
+                .graph
+                .edge_weights()
+                .filter(|edge| **edge == CpgEdge::DataFlow(FlowConfidence::Exact))
+                .count();
+            assert_eq!(cpg.dfg_label_stats.dfg_label_exact, exact, "{context}");
+        }
+    }
+}
+
+#[test]
 fn bare_bindings_are_identical_across_every_route() {
     use bare::{assert_bindings, endpoint, site, target, BARE};
     let mut sources = BTreeMap::from([
@@ -335,7 +396,11 @@ fn bare_bindings_are_identical_across_every_route() {
                             if file == &parsed.path && site.start_byte <= *start_byte && *end_byte <= site.end_byte)
                         && matches!(graph.node(to), CpgNode::Variable { file, function, .. }
                             if file == &lib.path && function == "take"))
-                    .then_some(PendingArgumentFlow { edge: (from, to, edge), cross_file_free_single_exact: false })
+                    .then_some(PendingArgumentFlow {
+                        edge: (from, to, edge),
+                        cross_file_free_single_exact: false,
+                        bare_literal: false,
+                    })
                 }).collect::<Vec<_>>();
                 let expected = [endpoint(lib, owner, leaf)];
                 assert_bindings(

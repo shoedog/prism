@@ -156,6 +156,7 @@ impl CodePropertyGraph {
                                 CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
                             ),
                             cross_file_free_single_exact,
+                            bare_literal: false,
                         });
                     }
                 }

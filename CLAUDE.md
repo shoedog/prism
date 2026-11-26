@@ -543,7 +543,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v190) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v192) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -637,8 +637,10 @@ An ordinary JS/TS/TSX bare-arrow argument (lane 9, slice C) binds at its exact r
 to the entry Def for the identifier's byte span. The locator requires a unique named implementation
 or an independently resolved positional anonymous owner. Exact input needs a complete singleton
 pool, excludes foreign `free_single` targets, and requires a matching value-export witness for
-`import_qualified`. Same-file ordinary NameOnly targets retain the call's label. A refused
-incoming transfer leaves its Def available. The existing outgoing source guard still applies.
+`import_qualified`. Same-file ordinary NameOnly targets retain the call's label. The
+`inferred_from_enclosing_call` refusal applies because an inferred name from an enclosing call
+does not prove the call returned the callback. A refused incoming transfer leaves its Def
+available. The outgoing source guard also checks each bare literal-leaf edge's read.
 Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
 call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
 

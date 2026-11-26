@@ -471,11 +471,14 @@ pub(super) fn collect<T>(
         if !may_be_literal(arg_text, language) {
             continue;
         }
-        let Some(def) = param
-            .as_ref()
-            .filter(|param| admission.literal(bare_slot(param)))
-            .and_then(&resolve)
-        else {
+        let Some(param) = param.as_ref() else {
+            continue;
+        };
+        let bare = bare_slot(param);
+        if !admission.literal(bare) {
+            continue;
+        }
+        let Some(def) = resolve(param) else {
             continue;
         };
         let Some(leaves) = argument_leaves(site.caller_parsed, arg_span) else {
@@ -534,6 +537,7 @@ pub(super) fn collect<T>(
                                 CpgEdge::DataFlow(FlowConfidence::Exact.worst(read.label)),
                             ),
                             cross_file_free_single_exact: site.cross_file_free_single_exact,
+                            bare_literal: bare.is_some(),
                         });
                     }
                 }

@@ -115,7 +115,7 @@ use crate::data_flow::{DataFlowGraph, VarAccessKind, VarLocation};
 use crate::resolution::{ResolutionConfidence, ResolutionKind, ResolutionOutcome, ResolvedCallee};
 use crate::type_db::TypeDatabase;
 
-use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -174,23 +174,23 @@ pub struct DfgLabelStats {
 
 impl DfgLabelStats {
     fn record_label(&mut self, confidence: FlowConfidence) {
+        *self.label_count_mut(confidence) += 1;
+    }
+
+    fn label_count_mut(&mut self, confidence: FlowConfidence) -> &mut usize {
         match confidence {
-            FlowConfidence::Exact => self.dfg_label_exact += 1,
+            FlowConfidence::Exact => &mut self.dfg_label_exact,
             FlowConfidence::NameOnly(FlowDoubt::Killed { .. }) => {
-                self.dfg_label_nameonly_killed += 1;
+                &mut self.dfg_label_nameonly_killed
             }
-            FlowConfidence::NameOnly(FlowDoubt::SameLine) => {
-                self.dfg_label_nameonly_sameline += 1;
-            }
+            FlowConfidence::NameOnly(FlowDoubt::SameLine) => &mut self.dfg_label_nameonly_sameline,
             FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => {
-                self.dfg_label_nameonly_cfg_incomplete += 1;
+                &mut self.dfg_label_nameonly_cfg_incomplete
             }
             FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => {
-                self.dfg_label_nameonly_alias_unstable += 1;
+                &mut self.dfg_label_nameonly_alias_unstable
             }
-            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => {
-                self.dfg_label_nameonly_call += 1;
-            }
+            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => &mut self.dfg_label_nameonly_call,
         }
     }
 
@@ -311,6 +311,7 @@ pub(crate) type PendingEdge = (NodeIndex, NodeIndex, CpgEdge);
 struct PendingArgumentFlow {
     edge: PendingEdge,
     cross_file_free_single_exact: bool,
+    bare_literal: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -367,12 +368,13 @@ pub struct CodePropertyGraph {
 impl CodePropertyGraph {
     /// Reverse reachability includes locals, interprocedural argument/return
     /// flow, and conservative labels. It cannot miss an already assembled E5
-    /// path by inspecting only direct reads of the formal. Existing edges and
-    /// callable resolution remain unchanged; the new static Def stays present.
+    /// path by inspecting only direct reads of the formal. Bare literal edges
+    /// bypass the static Def, so check their individual read targets as well.
     fn refuse_new_sources_exposing_free_single_calls(
         graph: &mut DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
         argument_seeds: Vec<NodeIndex>,
+        mut bare_literal_edges: BTreeSet<EdgeIndex>,
         stats: &mut DfgLabelStats,
         registered: &BTreeMap<(String, String, usize), NodeIndex>,
     ) {
@@ -401,7 +403,7 @@ impl CodePropertyGraph {
                 }
             }
         }
-        if new_sources.is_empty() || argument_seeds.is_empty() {
+        if argument_seeds.is_empty() || (new_sources.is_empty() && bare_literal_edges.is_empty()) {
             return;
         }
         let trace_seeds = e5_trace::enabled().then(|| argument_seeds.clone());
@@ -418,12 +420,18 @@ impl CodePropertyGraph {
                     .map(|e| e.source()),
             );
         }
+        bare_literal_edges.retain(|&edge| {
+            let (_, read) = graph
+                .edge_endpoints(edge)
+                .expect("assembled bare literal edge");
+            reached.contains(&read)
+        });
         let refused: BTreeSet<_> = reached.into_iter().filter(|&n| {
             matches!(&graph[n], CpgNode::Variable { file, function, function_start_line,
                 access: VarAccess::Def, start_byte, end_byte, .. }
                 if new_sources.contains(&((file.clone(), function.clone(), *function_start_line), *start_byte, *end_byte)))
         }).collect();
-        if refused.is_empty() {
+        if refused.is_empty() && bare_literal_edges.is_empty() {
             return;
         }
         if let Some(seeds) = trace_seeds {
@@ -433,48 +441,32 @@ impl CodePropertyGraph {
         }
         let mut remove: Vec<_> = graph
             .edge_references()
-            .filter(|e| refused.contains(&e.source()) && matches!(e.weight(), CpgEdge::DataFlow(_)))
+            .filter(|e| {
+                bare_literal_edges.contains(&e.id())
+                    || (refused.contains(&e.source()) && matches!(e.weight(), CpgEdge::DataFlow(_)))
+            })
             .map(|e| e.id())
             .collect();
         remove.sort_by_key(|e| std::cmp::Reverse(e.index()));
         for edge in remove {
-            if let Some((from, to)) = graph.edge_endpoints(edge) {
-                // Only intraprocedural Def->Use rows contributed these labels
-                // before Step 5c. Keep unrelated languages and telemetry intact.
-                if matches!((&graph[from], &graph[to]),
-                    (CpgNode::Variable { file: f, function: n, function_start_line: s, access: VarAccess::Def, .. },
-                     CpgNode::Variable { file: g, function: m, function_start_line: t, access: VarAccess::Use, .. })
-                     if (f,n,s) == (g,m,t))
+            let (from, to) = graph.edge_endpoints(edge).expect("assembled DataFlow edge");
+            // Step 4 counts local Def-to-Use edges; Step 5b counts literal leaves too.
+            let local_def_use = matches!((&graph[from], &graph[to]),
+                (CpgNode::Variable { file: f, function: n, function_start_line: s, access: VarAccess::Def, .. },
+                 CpgNode::Variable { file: g, function: m, function_start_line: t, access: VarAccess::Use, .. })
+                 if (f,n,s) == (g,m,t));
+            if let Some(CpgEdge::DataFlow(label)) = graph.remove_edge(edge) {
+                if local_def_use || bare_literal_edges.contains(&edge) {
+                    *stats.label_count_mut(label) -= 1;
+                }
+                if local_def_use
+                    && label.is_exact()
+                    && matches!((&graph[from], &graph[to]),
+                        (CpgNode::Variable { line: f, .. }, CpgNode::Variable { line: t, .. }) if t < f)
                 {
-                    if let CpgEdge::DataFlow(label) = graph[edge] {
-                        match label {
-                            FlowConfidence::Exact => stats.dfg_label_exact -= 1,
-                            FlowConfidence::NameOnly(FlowDoubt::Killed { .. }) => {
-                                stats.dfg_label_nameonly_killed -= 1
-                            }
-                            FlowConfidence::NameOnly(FlowDoubt::SameLine) => {
-                                stats.dfg_label_nameonly_sameline -= 1
-                            }
-                            FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => {
-                                stats.dfg_label_nameonly_cfg_incomplete -= 1
-                            }
-                            FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => {
-                                stats.dfg_label_nameonly_alias_unstable -= 1
-                            }
-                            FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => {
-                                stats.dfg_label_nameonly_call -= 1
-                            }
-                        }
-                        if label.is_exact()
-                            && matches!((&graph[from], &graph[to]),
-                            (CpgNode::Variable { line: f, .. }, CpgNode::Variable { line: t, .. }) if t < f)
-                        {
-                            stats.dfg_label_loop_carried -= 1;
-                        }
-                    }
+                    stats.dfg_label_loop_carried -= 1;
                 }
             }
-            graph.remove_edge(edge);
         }
         // Retain the raw DFG. Incremental reconstruction must be able to
         // restore these gains when an inferred target changes or disappears.
@@ -1159,6 +1151,7 @@ impl CodePropertyGraph {
         profile.next("cpg.step5b");
         // --- Step 5b: Interprocedural data flow edges ---
         let mut argument_seeds = Vec::new();
+        let mut bare_literal_edges = BTreeSet::new();
         for flow in Self::collect_step5b_edges_with_exact(
             &go_satisfiers,
             lookup,
@@ -1173,7 +1166,10 @@ impl CodePropertyGraph {
             if let CpgEdge::DataFlow(confidence) = w {
                 dfg_label_stats.record_label(confidence);
             }
-            graph.add_edge(from, to, w);
+            let edge = graph.add_edge(from, to, w);
+            if flow.bare_literal {
+                bare_literal_edges.insert(edge);
+            }
         }
 
         // Nothing reads the build-local exact index after Step 5b.
@@ -1195,13 +1191,13 @@ impl CodePropertyGraph {
         drop(go_satisfiers);
 
         // D12 incoming holes do not isolate outgoing E5 paths. After all flow
-        // construction, refuse only outgoing edges of new sources that can
-        // reach a cross-file Exact free_single argument edge (regardless of
-        // callee syntax). Imported and NameOnly targets do not seed refusal.
+        // construction, guard the new Defs and bare literal-leaf destinations
+        // against paths to cross-file Exact free_single argument edges.
         Self::refuse_new_sources_exposing_free_single_calls(
             &mut graph,
             files,
             argument_seeds,
+            bare_literal_edges,
             &mut dfg_label_stats,
             &func_index,
         );
@@ -1543,6 +1539,10 @@ impl CodePropertyGraph {
         if callee_legacy::enabled() {
             return callee_legacy::collect(cg, var_index, exact_var_index, graph, files);
         }
+        #[cfg(test)]
+        if step5b_reference::enabled() {
+            return Self::collect_step5b_flows_reference(cg, var_index, graph, files);
+        }
         let shared_params = ParamCache::new(files);
 
         crate::build_pool::per_item(files.iter().collect::<Vec<_>>()).for_each(|(_, p)| {
@@ -1710,6 +1710,7 @@ impl CodePropertyGraph {
                                     CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
                                 ),
                                 cross_file_free_single_exact,
+                                bare_literal: false,
                             });
                         }
                     }

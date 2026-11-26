@@ -1,6 +1,24 @@
 //! Serial twin of Step-5b used as the par==serial reference by the parallelization oracles.
-//! Moved out of `build.rs` unchanged (test-only).
+//! Test-only, with a full-assembly path for checking post-collection guards.
 use super::*;
+use std::cell::Cell;
+
+thread_local! { static SERIAL: Cell<bool> = const { Cell::new(false) }; }
+
+pub(super) fn enabled() -> bool {
+    SERIAL.with(Cell::get)
+}
+
+pub(super) fn with_serial<T>(f: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            SERIAL.with(|active| active.set(self.0));
+        }
+    }
+    let _restore = Restore(SERIAL.with(|active| active.replace(true)));
+    f()
+}
 
 impl CodePropertyGraph {
     pub(crate) fn collect_step5b_edges_reference(
@@ -9,12 +27,24 @@ impl CodePropertyGraph {
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
+        Self::collect_step5b_flows_reference(cg, var_index, graph, files)
+            .into_iter()
+            .map(|flow| flow.edge)
+            .collect()
+    }
+
+    pub(super) fn collect_step5b_flows_reference(
+        cg: &CallGraph,
+        var_index: &VarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+        files: &BTreeMap<String, ParsedFile>,
+    ) -> Vec<PendingArgumentFlow> {
         // Serial twin of Step-5b (global lazy param_cache, no prewarm) — the par==serial
         // reference for the oracle. The arg→param binding mirrors the production helper's
         // field-sensitive logic so the oracle proves the par_iter restructure is faithful
         // (it is no longer a frozen pre-edge-steps original; that byte-identity is
         // intentionally superseded by the field-sensitivity change).
-        let mut out: Vec<PendingEdge> = Vec::new();
+        let mut out = Vec::new();
         let exact_var_index = Self::exact_var_index_from_graph(graph);
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<callee_params::ParamDef>>>> =
             BTreeMap::new();
@@ -76,16 +106,14 @@ impl CodePropertyGraph {
                         exact_singleton,
                         cross_file_free_single_exact,
                     );
-                    let mut literal = Vec::new();
                     object_literal_args::collect(
-                        &mut literal,
+                        &mut out,
                         &inputs,
                         param_nodes,
                         &admission,
                         |t| t.bare,
                         |t| Some(t.node),
                     );
-                    out.extend(literal.into_iter().map(|flow| flow.edge));
                     for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
                         let Some(param) = slot
                             .and_then(|slot| param_nodes.get(slot))
@@ -122,11 +150,15 @@ impl CodePropertyGraph {
                             })
                             .collect();
                         for from in arg_idxs {
-                            out.push((
-                                from,
-                                param.node,
-                                CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
-                            ));
+                            out.push(PendingArgumentFlow {
+                                edge: (
+                                    from,
+                                    param.node,
+                                    CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
+                                ),
+                                cross_file_free_single_exact,
+                                bare_literal: false,
+                            });
                         }
                     }
                     if !rest_params::admitted(&inputs, site, cg, &resolved, exact_singleton) {
@@ -142,15 +174,13 @@ impl CodePropertyGraph {
                     }) else {
                         continue;
                     };
-                    let mut rest = Vec::new();
                     rest_params::collect(
-                        &mut rest,
+                        &mut out,
                         &inputs,
                         target,
                         offsets,
                         resolved.confidence.into(),
                     );
-                    out.extend(rest.into_iter().map(|flow| flow.edge));
                 }
             }
         }
