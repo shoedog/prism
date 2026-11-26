@@ -11,7 +11,7 @@ use crate::navigation::types::{
     Source, SymbolRef, Warning, WarningKind,
 };
 use crate::navigation::NavigationSession;
-use crate::reasoning::boundary_warnings::{attribution_warning, boundary_warnings};
+use crate::reasoning::boundary_warnings::boundary_warnings;
 use crate::reasoning::order::AstOrderView;
 use crate::reasoning::sanitizer_walk::{
     sanitized_hits_on_chain, sanitizer_bypass_exclusions, SanitizerHit,
@@ -20,7 +20,7 @@ use crate::reasoning::scope_honesty;
 use crate::reasoning::seeds::{resolve, ResolvedSeed, SeedRole, SeedSpec};
 use crate::reasoning::shape::{
     node_to_graph_node, reachability_and_boundary, window_relations, witness_chain_for,
-    witness_graph_for_chain, BoundaryTargets,
+    witness_graph_for_chain,
 };
 use crate::reasoning::types::{
     Reachability, ReasoningReason, ReasoningSummary, ReasoningWarning, SanitizerSite, SinkResult,
@@ -47,33 +47,7 @@ pub fn taint_reaches(
             seed: "sources".into(),
         });
     }
-    taint_reaches_with_roots(session, &source_roots, &source_set.warnings, sinks)
-}
 
-/// Query one variable occurrence in this session's CPG without expanding a source line.
-pub fn taint_reaches_from_node(
-    session: &NavigationSession,
-    node: NodeIndex,
-    sinks: Option<&[SeedSpec]>,
-) -> Result<Evidence, QueryError> {
-    let cpg = session.index.cpg();
-    let loc = cpg
-        .graph
-        .node_weight(node)
-        .and_then(|_| cpg.to_var_location(node))
-        .ok_or_else(|| QueryError::SymbolNotFound {
-            seed: format!("source node {}", node.index()),
-        })?;
-    let symbol = symbol_for_var_location(&loc);
-    taint_reaches_with_roots(session, &[ConcreteSeed { node, loc, symbol }], &[], sinks)
-}
-
-fn taint_reaches_with_roots(
-    session: &NavigationSession,
-    source_roots: &[ConcreteSeed],
-    source_warnings: &[Warning],
-    sinks: Option<&[SeedSpec]>,
-) -> Result<Evidence, QueryError> {
     let order = AstOrderView::new(&session.index.cpg, &session.repo.files);
     let trace = session.index.cpg.taint_trace_nodes_with_mode(
         &source_roots
@@ -90,8 +64,8 @@ fn taint_reaches_with_roots(
             let sink_nodes = concrete_seeds(&sink_set.seeds);
             witness_mode(
                 session,
-                source_warnings,
-                source_roots,
+                &source_set.warnings,
+                &source_roots,
                 &sink_nodes,
                 &trace,
                 Some(&order),
@@ -99,8 +73,8 @@ fn taint_reaches_with_roots(
         }
         None => Ok(frontier_mode(
             session,
-            source_warnings,
-            source_roots,
+            &source_set.warnings,
+            &source_roots,
             &trace,
         )),
     }
@@ -114,7 +88,7 @@ fn frontier_mode(
 ) -> Evidence {
     let mut warnings = seed_warnings.to_vec();
     warnings.extend(trace_warnings(trace));
-    warnings.extend(boundary_warnings(&session.index.cpg, trace, true));
+    warnings.extend(boundary_warnings(&session.index.cpg, trace));
     warnings.extend(scope_honesty::warnings_for_trace(
         &session.repo.files,
         &session.index.cpg,
@@ -176,7 +150,7 @@ fn witness_mode(
 ) -> Result<Evidence, QueryError> {
     let mut warnings = seed_warnings.to_vec();
     warnings.extend(trace_warnings(trace));
-    let mut boundary_targets = BoundaryTargets::new(&session.index.cpg, trace, order);
+    warnings.extend(boundary_warnings(&session.index.cpg, trace));
     warnings.extend(scope_honesty::warnings_for_trace(
         &session.repo.files,
         &session.index.cpg,
@@ -194,25 +168,21 @@ fn witness_mode(
         let mut source_results = Vec::new();
         for source in sources {
             let mut ordering_warnings = Vec::new();
-            let (raw_reachability, attribution) = reachability_and_boundary(
+            let (raw_reachability, boundary) = reachability_and_boundary(
+                &session.index.cpg,
                 trace,
-                &mut boundary_targets,
                 source.node,
                 sink.node,
+                order,
                 &mut ordering_warnings,
             );
-            warnings.extend(attribution_warning(
-                &session.index.cpg,
-                &source.loc,
-                &sink.loc,
-                attribution,
-            ));
             warnings.extend(ordering_warnings.iter().map(ordering_warning));
 
             // P10: derive the ordered chain first, run the sanitizer-window check and settle the
             // FINAL verdict BEFORE the witness-graph gate below — the graph (for Reached|Sanitized)
             // then carries the sanitizer step for whichever verdict actually won.
             let mut reachability = raw_reachability;
+            let mut reason = boundary.map(|edge| edge.reason);
             let mut graph_node = None;
             let mut sanitized_by: Vec<SanitizerSite> = Vec::new();
             let mut descent_depth: usize = 0;
@@ -258,21 +228,14 @@ fn witness_mode(
                             ReturnFlowMode::On,
                         );
                         let mut bypass_ordering_warnings = Vec::new();
-                        let mut bypass_targets =
-                            BoundaryTargets::new(&session.index.cpg, &rewalk, order);
-                        let (bypass_reachability, attribution) = reachability_and_boundary(
+                        let (bypass_reachability, bypass_boundary) = reachability_and_boundary(
+                            &session.index.cpg,
                             &rewalk,
-                            &mut bypass_targets,
                             source.node,
                             sink.node,
+                            order,
                             &mut bypass_ordering_warnings,
                         );
-                        warnings.extend(attribution_warning(
-                            &session.index.cpg,
-                            &source.loc,
-                            &sink.loc,
-                            attribution,
-                        ));
                         warnings.extend(bypass_ordering_warnings.iter().map(ordering_warning));
                         match bypass_reachability {
                             // Bypass exists: verdict stays `Reached`, `sanitized_by` stays empty
@@ -284,6 +247,7 @@ fn witness_mode(
                             // no graph, no `sanitized_by`, `descent_depth` 0.
                             Reachability::BoundaryExited => {
                                 reachability = Reachability::BoundaryExited;
+                                reason = bypass_boundary.map(|edge| edge.reason);
                                 descent_depth = 0;
                                 skip_graph = true;
                             }
@@ -365,6 +329,7 @@ fn witness_mode(
             source_results.push(SinkSourceResult {
                 source: source.symbol.clone(),
                 reachability,
+                reason,
                 graph_node,
                 sanitizers_present_in_source_fn: sanitizers,
                 sanitized_by,
@@ -383,8 +348,6 @@ fn witness_mode(
     }
 
     let reachability = ReasoningSummary::aggregate(&per_sink, 0);
-    // Insert the legacy warning records after any attributed versions of the same record.
-    warnings.extend(boundary_warnings(&session.index.cpg, trace, false));
     Ok(Evidence {
         query: "taint_reaches".into(),
         items: Vec::new(),

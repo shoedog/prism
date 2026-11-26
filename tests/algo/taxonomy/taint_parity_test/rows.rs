@@ -12,6 +12,7 @@ pub(super) const GROUPS: &[&str] = &[
     "walk",
     "guard",
     "reasons",
+    "option_b",
     "tbd",
 ];
 const REASONS: &[&str] = &[

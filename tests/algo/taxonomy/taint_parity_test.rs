@@ -255,6 +255,7 @@ fn walk(row: &Row, fixture: &Fixture) -> Walk {
     };
     let summary = evidence.reasoning.unwrap();
     assert_eq!(summary.sinks_omitted, 0, "{}", row.id);
+    reason_checks::check_deferred_refusals(row, &session, &summary);
     let mut pairs = summary
         .per_sink
         .iter()
@@ -289,11 +290,11 @@ fn walk(row: &Row, fixture: &Fixture) -> Walk {
     }
     // In a tie, choose the first terminal by byte span.
     pairs.sort_by_key(|(sink, _)| symbol_bytes(&sink.sink));
-    if let Some((sink, source)) = pairs
+    if let Some((_, source)) = pairs
         .iter()
         .find(|(_, source)| source.reachability == reaches)
     {
-        reason_checks::check_walk_warning(row, &session, source, &sink.sink, &sink_seed);
+        reason_checks::check_walk_reason(row, source);
     }
     for (sink, source) in pairs {
         if source.reachability == reaches {
@@ -321,17 +322,19 @@ fn walk(row: &Row, fixture: &Fixture) -> Walk {
     Walk::no_witness(reaches.into())
 }
 
+fn current_cell(row: &Row, group_enabled: bool) -> Option<&rows::Current> {
+    row.current.as_ref().filter(|current| {
+        !group_enabled
+            || current
+                .until
+                .iter()
+                .any(|slice| !SHIPPED_SLICES.contains(&slice.as_str()))
+    })
+}
+
 fn active_cell(row: &Row, group_enabled: bool) -> Option<(&Expectations, Option<&rows::Reasons>)> {
-    match &row.current {
-        Some(current)
-            if !group_enabled
-                || current
-                    .until
-                    .iter()
-                    .any(|slice| !SHIPPED_SLICES.contains(&slice.as_str())) =>
-        {
-            Some((&current.expect, current.reasons.as_ref()))
-        }
+    match current_cell(row, group_enabled) {
+        Some(current) => Some((&current.expect, current.reasons.as_ref())),
         _ if group_enabled => Some((
             row.expect
                 .as_ref()

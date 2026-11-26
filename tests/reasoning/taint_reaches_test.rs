@@ -1404,6 +1404,7 @@ fn sanitized_exact_plus_nameonly_boundary_stays_boundary_exited() {
         Reachability::BoundaryExited,
         "a NameOnly residual boundary must not be reported as a proven Sanitized cut"
     );
+    assert_eq!(source.reason, Some(prism::cpg::LossReason::NotExact));
     assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
     assert_eq!(source.descent_depth, 0);
     assert!(evidence.warnings.iter().any(|warning| {

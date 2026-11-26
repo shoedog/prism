@@ -2,54 +2,66 @@ use super::*;
 use prism::cpg::{LossReason, Relation, ReturnFlowMode};
 use prism::navigation::types::{ReasoningWarning, WarningKind};
 use prism::reasoning::order::AstOrderView;
-use prism::reasoning::shape::{
-    reachability_for_node_from_ordered_with_attribution, BoundaryAttribution,
-};
-use prism::reasoning::taint_reaches::taint_reaches_from_node;
 use prism::reasoning::types::SinkSourceResult;
 
-pub(super) fn check_walk_warning(
-    row: &Row,
-    session: &NavigationSession,
-    source: &SinkSourceResult,
-    sink: &SymbolRef,
-    sink_seed: &SeedSpec,
-) {
+pub(super) fn check_walk_reason(row: &Row, source: &SinkSourceResult) {
     if row.pending_issue(Level::Reasons).is_some() {
         return;
     }
-    let Some((_, reasons)) = active_cell(row, enabled_groups().contains(&row.group)) else {
-        return;
-    };
-    let expected = match source.reachability {
-        Reachability::BoundaryExited => reasons
-            .into_iter()
-            .flat_map(|reasons| &reasons.walk)
-            .filter(|reason| {
-                matches!(
-                    reason.as_str(),
-                    "target_not_binding"
-                        | "no_matching_site"
-                        | "ambiguous_site"
-                        | "not_exact"
-                        | "unproven_slot"
-                        | "depth_cap"
-                        | "policy_ceiling"
-                        | "self_param"
-                        | "self_return"
-                )
-            })
-            .cloned()
-            .collect::<BTreeSet<_>>(),
-        Reachability::NotReached if row.group == "reasons" => BTreeSet::new(),
-        _ => return,
-    };
-    if source.reachability == Reachability::BoundaryExited && expected.is_empty() {
+    if source.reachability != Reachability::BoundaryExited {
+        assert_eq!(source.reason, None, "{}", row.id);
         return;
     }
+    let Some((_, Some(reasons))) = active_cell(row, enabled_groups().contains(&row.group)) else {
+        return;
+    };
+    let expected: Vec<_> = reasons
+        .walk
+        .iter()
+        .filter(|reason| {
+            matches!(
+                reason.as_str(),
+                "target_not_binding"
+                    | "no_matching_site"
+                    | "ambiguous_site"
+                    | "not_exact"
+                    | "unproven_slot"
+                    | "depth_cap"
+                    | "policy_ceiling"
+                    | "self_param"
+                    | "self_return"
+            )
+        })
+        .collect();
+    if !expected.is_empty() {
+        let reason = source
+            .reason
+            .expect("refused hop reason for the marked pair");
+        assert!(
+            expected.contains(&&reason.to_string()),
+            "{}: expected {expected:?}, got {reason}",
+            row.id
+        );
+    }
+}
 
-    // A file:line source can resolve to several graph nodes. Only the marked one can
-    // supply a warning for this row's verdict.
+pub(super) fn check_deferred_refusals(
+    row: &Row,
+    session: &NavigationSession,
+    summary: &prism::reasoning::types::ReasoningSummary,
+) {
+    if row.group != "option_b" {
+        return;
+    }
+    let Some(current) = current_cell(row, enabled_groups().contains(&row.group)) else {
+        return;
+    };
+    assert_eq!(
+        summary.reachability.map(Verdict::from),
+        Some(current.expect.walk.reaches),
+        "{}: line verdict",
+        row.id
+    );
     let resolved = resolve(session, &[row.source_seed()], SeedRole::Source).unwrap();
     let mut roots = resolved
         .seeds
@@ -64,93 +76,18 @@ pub(super) fn check_walk_warning(
         "{}: ambiguous marked source",
         row.id
     );
-    let singleton =
-        taint_reaches_from_node(session, root, Some(std::slice::from_ref(sink_seed))).unwrap();
-    let summary = singleton.reasoning.unwrap();
-    assert_eq!(summary.source_count, 1, "{}", row.id);
-    let terminal = summary
-        .per_sink
-        .iter()
-        .find(|result| &result.sink == sink)
-        .unwrap();
-    assert_eq!(terminal.sources.len(), 1, "{}", row.id);
-    assert_eq!(terminal.sources[0].source, source.source, "{}", row.id);
-    assert_eq!(
-        terminal.sources[0].reachability, source.reachability,
-        "{}",
-        row.id
-    );
-
-    // Warning locations point to boundary targets. Verify the exact operand's
-    // attribution before checking that its boundary record carries the reason.
-    let SymbolRef::Variable {
-        path,
-        file,
-        function,
-        access,
-        ..
-    } = sink
-    else {
-        panic!("expected sink occurrence");
-    };
-    let kind = if access == "def" {
-        prism::data_flow::VarAccessKind::Def
-    } else {
-        prism::data_flow::VarAccessKind::Use
-    };
-    let bytes = symbol_bytes(sink);
-    let resolved = resolve(session, std::slice::from_ref(sink_seed), SeedRole::Sink).unwrap();
-    let mut operands = resolved
-        .seeds
-        .iter()
-        .flat_map(|seed| seed.nodes.iter().zip(&seed.locations))
-        .filter(|(_, loc)| {
-            &loc.file == file
-                && &loc.function == function
-                && &loc.path.to_string() == path
-                && loc.kind == kind
-                && [loc.start_byte, loc.end_byte] == bytes
-        });
-    let (&operand, _) = operands.next().expect("resolved sink occurrence");
-    assert!(operands.next().is_none(), "{}: ambiguous operand", row.id);
     let cpg = session.index.cpg();
     let order = AstOrderView::new(cpg, &session.repo.files);
     let trace = cpg.taint_trace_nodes_with_mode(&[root], Some(&order), ReturnFlowMode::On);
-    let (verdict, attribution) = reachability_for_node_from_ordered_with_attribution(
-        cpg,
-        &trace,
-        root,
-        operand,
-        Some(&order),
-        &mut Vec::new(),
-    );
-    assert_eq!(verdict, source.reachability, "{}", row.id);
-    match attribution {
-        BoundaryAttribution::None => assert!(expected.is_empty(), "{}", row.id),
-        BoundaryAttribution::Incomplete { .. } => panic!("{}: incomplete attribution", row.id),
-        BoundaryAttribution::Matched(edge) => {
-            assert!(
-                expected.contains(&edge.reason.to_string()),
-                "{}: {:?}",
-                row.id,
-                edge.reason
-            );
-            let target = cpg.to_var_location(edge.to).unwrap();
-            assert!(
-                singleton.warnings.iter().any(|warning| {
-                    matches!(&warning.kind, WarningKind::Reasoning(
-                    ReasoningWarning::InterproceduralBoundary { reason: Some(reason), .. }
-                ) if *reason == edge.reason)
-                        && warning.location.as_ref().is_some_and(|loc| {
-                            loc.file == target.file
-                                && loc.start_byte == target.start_byte
-                                && loc.end_byte == target.end_byte
-                        })
-                }),
-                "{}: attributed boundary warning",
-                row.id
-            );
-        }
+    for reason in &current.reasons.as_ref().expect("live refusal reasons").walk {
+        assert!(
+            trace
+                .boundary
+                .iter()
+                .any(|edge| edge.root == root && edge.reason.to_string() == *reason),
+            "{}: missing live {reason} refusal for the marked root",
+            row.id
+        );
     }
 }
 
@@ -159,8 +96,10 @@ fn row(id: &str) -> Row {
 }
 
 #[test]
-fn f01_checks_each_root_without_borrowing_its_siblings_warning() {
+fn f01_checks_each_roots_own_reason() {
     let mut row = row("f01");
+    row.group = "reasons".into();
+    row.current = None;
     row.sink.line = 6;
     row.sink.operand = [96, 97];
     let original = Fixture::load(&row);

@@ -19,6 +19,12 @@ the shipped slice list. Pending producer checks apply to their listed levels
 after cell selection. An engine test reports an all-pending group and fails
 an enabled group with no cells and no pending reason at that level.
 
+The ten `option_b` rows retain `truth: flows` and their distal `BoundaryExited`
+targets. Their active `current.until: ["option_b"]` cells assert the parent's
+`NotReached` at the marked operand and on the line. On these rows,
+`current.reasons.walk` lists live refusals to verify on the marked root's hop
+ledger. Option B after I-walk supplies distal sink attribution.
+
 ## Row schema
 
 | Field | Meaning |
@@ -73,7 +79,7 @@ are listed, using the reached decisions on the marked sink line.
 ## Vocabularies
 
 - Groups are `control`, `binding`, `same_line`, `spelling`, `knobs`, `catalog`,
-  `walk`, `guard`, `reasons`, and `tbd`. `ENABLED` can contain any listed group
+  `walk`, `guard`, `reasons`, `option_b`, and `tbd`. `ENABLED` can contain any listed group
   except `tbd`. Stage D sets the remaining requirements for `tbd` rows.
 - Classes are `research`, `seed`, `design_review`, and `second_review`.
   Use `research` for Sol and Astra enumeration rows. Proposal classes describe
@@ -104,7 +110,8 @@ are listed, using the reached decisions on the marked sink line.
 - Review-side reasons are `review_no_return_flow`, `review_no_recovered_def_use`,
   `review_cfg_filter`, `review_context_policy`, `uncertified_flow`, and `matcher_admission`.
 
-The harness asserts active boundary reasons at the selected sink and pins comparison
+The harness asserts active boundary reasons on the marked pair in
+`per_sink[].sources[]` and pins comparison
 reasons with paired fixtures. Catalog and knob runtime assertions arrive with I-8 and I-5. Both review modes use the default
 crossing policy even on rows with explicit walk knobs. Update the matching
 expectations when an enabled group's required behavior changes.

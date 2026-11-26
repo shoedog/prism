@@ -8,7 +8,7 @@ use petgraph::Direction;
 
 use super::{
     BoundaryKind, CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, LossReason, Relation,
-    ReturnFlowMode, Trace, VarAccess,
+    ReturnFlowMode, VarAccess,
 };
 
 /// A def-use crossing recorded without traversing the refused hop.
@@ -22,8 +22,6 @@ pub struct BoundaryEdge {
     pub relation: Relation,
     pub site: Option<CrossingSite>,
     pub depth: usize,
-    pub edge_own_not_exact: bool,
-    pub joint_relaxations: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -44,29 +42,11 @@ pub struct TraceCut {
     pub depth: usize,
 }
 
-impl Trace {
-    pub(super) fn record_refusal(&mut self, attempt: BoundaryEdge) -> bool {
-        if attempt.reason == LossReason::ReturnNotEnteredSite {
-            self.cuts.insert(TraceCut {
-                root: attempt.root,
-                from: attempt.from,
-                to: attempt.to,
-                reason: attempt.reason,
-                relation: attempt.relation,
-                site: attempt.site,
-                depth: attempt.depth,
-            })
-        } else {
-            self.boundary.insert(attempt)
-        }
-    }
-}
-
-pub(crate) fn enabled() -> bool {
+pub(super) fn enabled() -> bool {
     std::env::var_os("PRISM_TAINT_CROSSING_TRACE").is_some_and(|value| value == "1")
 }
 
-pub(crate) fn byte_span(node: &CpgNode) -> (usize, usize) {
+pub(super) fn byte_span(node: &CpgNode) -> (usize, usize) {
     match node {
         CpgNode::Function {
             start_byte,
@@ -92,7 +72,7 @@ pub(crate) fn byte_span(node: &CpgNode) -> (usize, usize) {
 }
 
 impl CodePropertyGraph {
-    pub(crate) fn trace_identity(&self, index: NodeIndex) -> String {
+    fn trace_identity(&self, index: NodeIndex) -> String {
         let node = self.node(index);
         let (start, end) = byte_span(node);
         let owner = self.node_file_fn(index);

@@ -117,6 +117,9 @@ pub struct SanitizerSite {
 pub struct SinkSourceResult {
     pub source: SymbolRef,
     pub reachability: Reachability,
+    /// Reason recorded on the refused hop that matched this source and sink.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<LossReason>,
     /// Index of this source's reached sink endpoint in the union witness graph. This is not the
     /// source node; `merge_witness` returns the witness path's terminal sink node after remapping.
     pub graph_node: Option<usize>,
@@ -471,6 +474,7 @@ mod tests {
                     SinkSourceResult {
                         source: sym("clean"),
                         reachability: Reachability::NotReached,
+                        reason: None,
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
@@ -479,6 +483,7 @@ mod tests {
                     SinkSourceResult {
                         source: sym("boundary"),
                         reachability: Reachability::BoundaryExited,
+                        reason: None,
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
@@ -487,6 +492,7 @@ mod tests {
                     SinkSourceResult {
                         source: sym("culprit"),
                         reachability: Reachability::Reached,
+                        reason: None,
                         graph_node: Some(0),
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
@@ -524,6 +530,7 @@ mod tests {
                     SinkSourceResult {
                         source: sym("second"),
                         reachability: Reachability::NotReached,
+                        reason: None,
                         graph_node: None,
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
@@ -532,6 +539,7 @@ mod tests {
                     SinkSourceResult {
                         source: sym("first"),
                         reachability: Reachability::Reached,
+                        reason: None,
                         graph_node: Some(0),
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],
@@ -568,6 +576,7 @@ mod tests {
                 sources: vec![SinkSourceResult {
                     source: sym("source"),
                     reachability: Reachability::Reached,
+                    reason: None,
                     graph_node: Some(3),
                     sanitizers_present_in_source_fn: vec!["html".into()],
                     sanitized_by: vec![],

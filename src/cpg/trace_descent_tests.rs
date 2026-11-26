@@ -292,15 +292,6 @@ fn use_target_reports_target_not_binding() {
     cpg.call_graph.callers.remove("g").unwrap();
     let trace = cpg.taint_trace_nodes(&[from], None);
     assert_boundary(&trace, from, to, LossReason::TargetNotBinding);
-    let edge = trace
-        .boundary
-        .iter()
-        .find(|edge| edge.from == from && edge.to == to)
-        .unwrap();
-    assert_ne!(
-        edge.joint_relaxations & super::relaxation(LossReason::NoMatchingSite),
-        0
-    );
 }
 
 #[test]
@@ -430,59 +421,6 @@ fn suppressed_shortcut_is_recorded() {
         .boundary
         .iter()
         .any(|edge| edge.root == root && edge.to == to));
-}
-
-#[test]
-fn return_not_entered_site_is_a_cut_not_a_boundary() {
-    let mut trace = Trace::default();
-    let [root, from, to] = [0, 1, 2].map(NodeIndex::new);
-    use super::{BoundaryEdge, CrossingSite};
-    let entered = CrossingSite {
-        start_byte: 10,
-        end_byte: 20,
-        slot: Some(0),
-    };
-    let receiving = CrossingSite {
-        start_byte: 30,
-        end_byte: 40,
-        slot: Some(0),
-    };
-    let identity = |site: CrossingSite| ("a.js".into(), site.start_byte, site.end_byte);
-    let compare = super::ContinuationFrames::check_return;
-    let entry = Some(identity(entered));
-    let reason = compare(Some(&entry), Some(&identity(receiving))).unwrap_err();
-    assert!(compare(Some(&entry), Some(&identity(entered))).is_ok());
-    assert_eq!(
-        compare(Some(&entry), Some(&("b.js".into(), 10, 20))),
-        Err(LossReason::ReturnNotEnteredSite)
-    );
-    assert_eq!(compare(Some(&entry), None), Err(LossReason::NoMatchingSite));
-    assert_eq!(
-        compare(Some(&None), Some(&identity(receiving))),
-        Err(LossReason::NoMatchingSite)
-    );
-    assert!(compare(None, Some(&identity(receiving))).is_ok());
-    trace.record_refusal(BoundaryEdge {
-        root,
-        from,
-        to,
-        kind: BoundaryKind::CrossFunction,
-        reason,
-        relation: Relation::ReturnFlow,
-        depth: 1,
-        site: Some(receiving),
-        edge_own_not_exact: false,
-        joint_relaxations: 0,
-    });
-    assert!(trace.boundary.is_empty());
-    assert_eq!(
-        trace
-            .cuts
-            .iter()
-            .map(|cut| (cut.root, cut.from, cut.to, cut.reason))
-            .collect::<Vec<_>>(),
-        [(root, from, to, LossReason::ReturnNotEnteredSite)]
-    );
 }
 
 #[test]

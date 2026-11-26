@@ -13,9 +13,8 @@ use super::{CodePropertyGraph, CpgEdge, CpgNode, TaintCrossingPolicy, VarAccess}
 
 pub const MAX_TAINT_DESCENT_DEPTH: usize = 2;
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReturnFlowMode {
-    #[default]
     Off,
     On,
 }
@@ -106,8 +105,6 @@ pub struct Trace {
     /// traversal collapse — Plan B counts `InterproceduralBoundary` warnings off this.
     pub boundary: BTreeSet<BoundaryEdge>,
     pub cuts: BTreeSet<TraceCut>,
-    pub(crate) return_flow_mode: ReturnFlowMode,
-    pub(crate) excluded_hops: BTreeSet<(NodeIndex, NodeIndex)>,
     pub degraded: bool,
     pub warnings: Vec<String>,
     pub ordering_warnings: Vec<OrderingWarning>,
@@ -209,10 +206,7 @@ impl CodePropertyGraph {
         policy: Option<&TaintCrossingPolicy<'_>>,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
-        let mut trace = Trace {
-            return_flow_mode,
-            ..Trace::default()
-        };
+        let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
 
@@ -354,11 +348,7 @@ impl CodePropertyGraph {
         return_flow_mode: ReturnFlowMode,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
-        let mut trace = Trace {
-            return_flow_mode,
-            excluded_hops: excluded_hops.clone(),
-            ..Trace::default()
-        };
+        let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
 
@@ -528,17 +518,7 @@ impl CodePropertyGraph {
                         site = self.crossing_site(node, next, relation, order);
                     }
                     if let Err(reason) = gate {
-                        let (edge_own_not_exact, joint_relaxations) = self
-                            .joint_crossing_relaxations(
-                                kind,
-                                relation,
-                                node,
-                                next,
-                                label,
-                                descent_gate_cache,
-                                policy,
-                            );
-                        let first = trace.record_refusal(BoundaryEdge {
+                        let first = trace.boundary.insert(BoundaryEdge {
                             root,
                             from: node,
                             to: next,
@@ -547,8 +527,6 @@ impl CodePropertyGraph {
                             relation,
                             site,
                             depth,
-                            edge_own_not_exact,
-                            joint_relaxations,
                         });
                         if first && log_crossings {
                             self.log_trace_attempt(

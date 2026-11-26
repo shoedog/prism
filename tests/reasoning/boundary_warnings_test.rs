@@ -21,7 +21,15 @@ fn witness_boundary_warnings_keep_target_location_for_each_sink_verdict() {
         (12, Reachability::NotReached),
     ] {
         let evidence = taint_reaches(&fixture.session, &[seed(2)], Some(&[seed(line)])).unwrap();
-        assert_eq!(evidence.reasoning.unwrap().reachability, Some(verdict));
+        let summary = evidence.reasoning.as_ref().unwrap();
+        assert_eq!(summary.reachability, Some(verdict));
+        let pair = &summary.per_sink[0].sources[0];
+        let wire = serde_json::to_value(pair).unwrap();
+        if verdict == Reachability::BoundaryExited {
+            assert_eq!(wire["reason"], "depth_cap");
+        } else {
+            assert!(wire.get("reason").is_none());
+        }
         let boundaries: Vec<_> = evidence
             .warnings
             .iter()
@@ -41,10 +49,6 @@ fn witness_boundary_warnings_keep_target_location_for_each_sink_verdict() {
         assert_eq!(warning["location"]["start_line"], 8);
         let details = &warning["kind"]["Reasoning"]["InterproceduralBoundary"];
         assert_eq!(details["sink"], "p");
-        if verdict == Reachability::BoundaryExited {
-            assert_eq!(details["reason"], "depth_cap");
-        } else {
-            assert!(details.get("reason").is_none());
-        }
+        assert_eq!(details["reason"], "depth_cap");
     }
 }

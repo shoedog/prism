@@ -408,45 +408,6 @@ impl CodePropertyGraph {
         }
         Ok(())
     }
-
-    /// Score guards hidden by the ordinary gate's ordered first refusal.
-    pub(super) fn joint_crossing_relaxations(
-        &self,
-        kind: super::BoundaryKind,
-        relation: Relation,
-        from: NodeIndex,
-        to: NodeIndex,
-        label: Option<FlowConfidence>,
-        cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
-        policy: Option<&super::TaintCrossingPolicy<'_>>,
-    ) -> (bool, u32) {
-        use super::trace_continuation::relaxation;
-
-        if kind != super::BoundaryKind::CrossFunction {
-            return (false, 0);
-        }
-        if relation == Relation::ReturnFlow {
-            return (
-                false,
-                self.return_flow_ascent(from, to)
-                    .err()
-                    .map_or(0, relaxation),
-            );
-        }
-        // A Use can have enough owner and occurrence information to fail site proof
-        // independently of its binding role. The policy tests the graph edge itself.
-        let mut required = self
-            .descend_site(from, to, cache)
-            .err()
-            .map_or(0, relaxation);
-        if !self.is_binding_target(to) {
-            required |= relaxation(LossReason::TargetNotBinding);
-        }
-        if policy.is_some() && self.admitted_data_flow_label(policy, from, to).is_none() {
-            required |= relaxation(LossReason::PolicyCeiling);
-        }
-        (edge_own_not_exact(label), required)
-    }
 }
 
 fn site_contains_occurrence(site: &CallSite, start_byte: usize, end_byte: usize) -> bool {

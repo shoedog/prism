@@ -1,4 +1,4 @@
-"""Materialize the default CLI verdicts on both binaries for every parity row."""
+"""Compare default line and marked-operand verdicts with the main-head binary."""
 
 import argparse
 import json
@@ -32,11 +32,13 @@ def verdict_at_operand(summary, row):
         for result in sink["sources"]:
             root = result["source"]["Variable"]
             if root["file"] == src["file"] and [root["start_byte"], root["end_byte"]] == src["bytes"]:
-                terminals.append((result["reachability"], left, right))
+                terminals.append((result["reachability"], left, right, result.get("reason")))
     if not terminals:
-        return "NotReached", None
-    verdict, left, right = min(terminals, key=lambda x: (VERDICT_ORDER.index(x[0]), x[1:]))
-    return verdict, (left, right)
+        return "NotReached", []
+    verdict, left, right, _ = min(terminals, key=lambda x: (VERDICT_ORDER.index(x[0]), x[1:3]))
+    reasons = sorted({reason for status, start, end, reason in terminals
+                      if (status, start, end) == (verdict, left, right) and reason})
+    return verdict, reasons
 
 
 def observe(binary, repo, row):
@@ -54,39 +56,29 @@ def observe(binary, repo, row):
         if len(error) != 1 or not error.keys() <= SEED_ERRORS:
             raise ValueError(f"unexpected CLI error {error}")
         return {"line": "SeedError", "operand": "SeedError", "error": error, "reasons": [],
-                "reason_status": "absent", "line_reason_status": "absent"}
+                "line_reasons": []}
     if proc.returncode:
         raise ValueError(f"CLI exited {proc.returncode}: {proc.stderr}")
     summary = payload["reasoning"]
     if summary["sinks_omitted"] or any(s["sources_omitted"] for s in summary["per_sink"]):
         raise ValueError("CLI clipped the witness results")
-    verdict, terminal = verdict_at_operand(summary, row)
-    candidates = set()
-    for warning in payload["warnings"]:
-        reason = warning["kind"].get("Reasoning", {}) if isinstance(warning["kind"], dict) else {}
-        reason = reason.get("InterproceduralBoundary", {}).get("reason")
-        if reason:
-            candidates.add(reason)
-    # Warning locations name the boundary. Bind a reason only if the query has one
-    # root and one BoundaryExited sink occurrence, so no other pair can supply it.
-    boundary_sinks = [result["sink"]["Variable"] for result in summary["per_sink"]
-                      if result["reachability"] == "BoundaryExited"]
-    unique = summary["source_count"] == 1 and len(boundary_sinks) == len(candidates) == 1
+    verdict, reasons = verdict_at_operand(summary, row)
     line = summary["reachability"]
-    line_bound = unique and line == "BoundaryExited"
-    operand_bound = unique and verdict == "BoundaryExited" and (
-        boundary_sinks[0]["file"], boundary_sinks[0]["start_byte"], boundary_sinks[0]["end_byte"]
-    ) == (sink["file"], *terminal)
-
-    return {
-        "line": line, "operand": verdict,
-        "line_reasons": sorted(candidates) if line_bound else [],
-        "line_reason_status": "bound" if line_bound else
-                              "unbound" if candidates and line == "BoundaryExited" else "absent",
-        "reasons": sorted(candidates) if operand_bound else [],
-        "reason_status": "bound" if operand_bound else
-                         "unbound" if candidates and verdict == "BoundaryExited" else "absent",
-    }
+    line_reasons = set()
+    for operand in summary["per_sink"]:
+        for pair in operand["sources"]:
+            if reason := pair.get("reason"):
+                if pair["reachability"] != "BoundaryExited":
+                    raise ValueError(f"unexpected boundary reason {reason} on {pair['reachability']}")
+                if line == "BoundaryExited":
+                    line_reasons.add(reason)
+    boundaries = []
+    for warning in payload["warnings"]:
+        kind = warning["kind"]
+        if isinstance(kind, dict) and "InterproceduralBoundary" in kind.get("Reasoning", {}):
+            boundaries.append({"location": warning["location"], "message": warning["message"]})
+    return {"line": line, "operand": verdict, "reasons": reasons,
+            "line_reasons": sorted(line_reasons), "boundary_warnings": boundaries}
 
 
 def main():
@@ -117,18 +109,20 @@ def main():
 
     args.out.write_text("".join(json.dumps(entry, sort_keys=True) + "\n" for entry in ledger))
     print(f"{len(ledger)} paired rows")
+    differences = 0
     for entry in ledger:
         before, after = entry["base"], entry["head"]
-        for scope, reasons, status in [
-            ("operand", "reasons", "reason_status"), ("line", "line_reasons", "line_reason_status")
-        ]:
+        for scope, reasons in [("operand", "reasons"), ("line", "line_reasons")]:
             if before[scope] != after[scope]:
-                reason = ",".join(after.get(reasons, []))
-                if not reason:
-                    reason = "unbound" if after[status] == "unbound" else "–"
+                differences += 1
                 print(entry["id"], scope, before[scope], after[scope],
-                      reason, sep="\t")
+                      ",".join(after[reasons]) or "–", sep="\t")
+        for field in ("error", "boundary_warnings"):
+            if before.get(field) != after.get(field):
+                differences += 1
+                print(entry["id"], field, before.get(field), after.get(field), sep="\t")
+    return int(differences != 0)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

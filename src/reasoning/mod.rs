@@ -3,7 +3,6 @@
 
 #[cfg(test)]
 mod boundary_target_tests;
-mod boundary_targets;
 mod boundary_warnings;
 pub mod order;
 pub mod sanitizer_walk;
