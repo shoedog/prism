@@ -88,3 +88,7 @@ Run the hermetic tests from the repository root.
 python3 -m unittest discover -s scripts/measure -t scripts -p 'test_*.py'
 python3 -m unittest discover -s scripts/memguard -p 'test_*.py'
 ```
+
+## Known limits of S1 (accept-list)
+
+Round 3 of the S1 review (sol) found four more instances of one class: edge cases around trusting the guard, its quiet helper, the kit's own files and the product's staged artifacts when those are special files or edited by an adversarial party. Opus approved the S1 head before these. The boundary: S1 binds regular-file bytes of the executable, guard and helper (rechecked at each launch and at completion), the corpus snapshot, and the staged artifacts; it detects ordinary replacement, rewrite and deletion. It does not defend against a guard, helper, kit file or product that is itself adversarial (FIFO or device substitution, mode-only edits under suppressing index flags). Those four instances are the rows `known-s1-1..4` in FORMATS-OPEN-ROWS.md, each with an owner. A consumer that must resist an adversarial product or guard must wait for those rows.
