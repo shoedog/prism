@@ -48,10 +48,13 @@ pub(super) fn implementation<'a>(
     }
     let function = match declaration.kind() {
         "function_declaration" | "generator_function_declaration" => {
-            if declaration
-                .parent()
-                .is_some_and(|parent| parent.kind() == "program")
-                && !parsed.js_ts_is_module()
+            // A label does not change the scope: `tag: function f() {}` at
+            // program level is still a global function in a classic script.
+            let mut holder = declaration.parent();
+            while let Some(label) = holder.filter(|node| node.kind() == "labeled_statement") {
+                holder = label.parent();
+            }
+            if holder.is_some_and(|parent| parent.kind() == "program") && !parsed.js_ts_is_module()
             {
                 return Err("script_global_binding");
             }

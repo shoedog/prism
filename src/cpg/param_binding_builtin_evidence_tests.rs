@@ -575,6 +575,31 @@ fn global_object_alias_refuses_script_global_callback_but_preserves_local_and_mo
 }
 
 #[test]
+fn global_object_alias_refuses_labeled_script_global_callback() {
+    // A labeled declaration is still a program-scope global function in a
+    // classic script; its immediate parent is the labeled_statement.
+    let source = "tag: function visit(v) { use(v); }\nfunction main(replacement) {\ntag: function local(v) { use(v); }\nconst items = [1];\nglobalThis.visit = replacement;\nitems.map(visit);\nitems.map(local);\n}";
+    assert_callback_decisions(
+        "labeled-classic.js",
+        source,
+        Language::JavaScript,
+        &[
+            ("items.map(visit)", "script_global_binding"),
+            ("items.map(local)", "table_role"),
+        ],
+    );
+    assert_callback_decisions(
+        "labeled-module.js",
+        &format!("{source}\nexport {{}};"),
+        Language::JavaScript,
+        &[
+            ("items.map(visit)", "table_role"),
+            ("items.map(local)", "table_role"),
+        ],
+    );
+}
+
+#[test]
 fn refuses_indirect_initializer() {
     let source = "import {useCallback} from 'react';\nfunction main() {\nconst items = [1];\nconst visit = useCallback((item) => use(item), []);\nconst stable = (item) => use(item);\nitems.forEach(visit);\nitems.forEach(stable);\n}";
     assert_callback_decisions(
