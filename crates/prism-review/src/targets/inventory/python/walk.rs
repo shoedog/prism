@@ -272,6 +272,36 @@ pub(super) fn supports_anchor_tie(left: Node<'_>, right: Node<'_>) -> bool {
     ORDERED_TIE_FIELDS
         .iter()
         .any(|&(a, b)| fields == (Some(a), Some(b)) || fields == (Some(b), Some(a)))
+        && exact_anchor_branch(&left[..=left_end])
+        && exact_anchor_branch(&right[..=right_end])
+}
+
+fn exact_anchor_branch(lineage: &[Node<'_>]) -> bool {
+    // For these listed splits, the walk visits the field directly through
+    // the pair or parameter wrapper that tie_field has already checked.
+    let skip_wrapper = matches!(
+        lineage.last().map(Node::kind),
+        Some("dictionary" | "parameters" | "lambda_parameters")
+    );
+    lineage
+        .windows(2)
+        .rev()
+        .skip(usize::from(skip_wrapper))
+        .all(|edge| {
+            let (child, parent) = (edge[0], edge[1]);
+            transparent(parent, child)
+                || match child.kind() {
+                    "call" | "attribute" | "list" | "tuple" | "set" | "unary_operator"
+                    | "not_operator" | "binary_operator" | "await" | "keyword_argument" => true,
+                    "subscript" => {
+                        // A comma, including a trailing comma, adds an AST Tuple index.
+                        let mut cursor = child.walk();
+                        let has_comma = child.children(&mut cursor).any(|part| part.kind() == ",");
+                        !has_comma
+                    }
+                    _ => false,
+                }
+        })
 }
 
 fn tie_field(parent: Node<'_>, branch: &[Node<'_>]) -> Option<TieField> {

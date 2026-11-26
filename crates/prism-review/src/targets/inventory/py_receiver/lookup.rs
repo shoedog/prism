@@ -198,6 +198,22 @@ impl<'tree> Resolver<'_, 'tree> {
             let Kind::Import(import) = &binding.kind else {
                 return false;
             };
+            let binding_scope = &self.walk.scopes[binding.scope];
+            let direct_import = (binding.scope == alt.owner || binding.scope == scope)
+                && direct(binding_scope.body, binding.node);
+            // Class-slot lookup already resolves the reaching binding through
+            // if/elif/else arms. Other compound suites lack that path proof.
+            let class_arm_import = binding.scope == scope
+                && alt.owner == scope
+                && binding_scope.kind == ScopeKind::Class
+                && std::iter::successors(binding.node.parent(), Node::parent)
+                    .take_while(|node| *node != binding_scope.body)
+                    .all(|node| {
+                        matches!(
+                            node.kind(),
+                            "block" | "if_statement" | "elif_clause" | "else_clause"
+                        )
+                    });
             let path = super::import_path(import, rest);
             !import.relative
                 && !self.repository_local(&path)
@@ -205,7 +221,7 @@ impl<'tree> Resolver<'_, 'tree> {
                     path.as_str(),
                     "typing.TYPE_CHECKING" | "typing_extensions.TYPE_CHECKING"
                 )
-                && direct(self.walk.scopes[binding.scope].body, binding.node)
+                && (direct_import || class_arm_import)
                 && !self.name_rebound(alt.owner, root, test, scope)
                 && !self.member_rebound(import, binding, test, scope, rest)
         })

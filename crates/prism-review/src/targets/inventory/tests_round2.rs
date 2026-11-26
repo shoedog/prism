@@ -115,6 +115,21 @@ fn type_only_guards_follow_redirects_through_nested_scopes() {
 }
 
 #[test]
+fn type_only_class_guards_require_a_proven_reaching_import_on_each_path() {
+    use UnprovenCause::BindingUnavailable;
+    assert_http_cases(&[
+        ("arm-local alias", "class C:\n    if flag:\n        from typing import TYPE_CHECKING as tc\n        if tc:\n            class D:\n                global requests\n                import requests\ndef f(u): return requests.get(u)\n", Some(BindingUnavailable)),
+        ("both class paths bind typing aliases", "class C:\n    if flag:\n        from typing import TYPE_CHECKING as tc\n    else:\n        from typing_extensions import TYPE_CHECKING as tc\n    if tc:\n        class D:\n            global requests\n            import requests\ndef f(u): return requests.get(u)\n", Some(BindingUnavailable)),
+        ("missing alias on one path", "class C:\n    if flag:\n        from typing import TYPE_CHECKING as tc\n    if tc:\n        class D:\n            global requests\n            import requests\ndef f(u): return requests.get(u)\n", None),
+        ("ordinary binding on another path", "class C:\n    if flag:\n        from typing import TYPE_CHECKING as tc\n    else:\n        tc = True\n    if tc:\n        class D:\n            global requests\n            import requests\ndef f(u): return requests.get(u)\n", None),
+        ("unproven module fallback", "if flag:\n    from typing import TYPE_CHECKING as tc\nclass C:\n    if tc:\n        class D:\n            global requests\n            import requests\ndef f(u): return requests.get(u)\n", None),
+        ("deferred module fallback", "def setup():\n    global tc\n    from typing import TYPE_CHECKING as tc\nclass C:\n    if tc:\n        class D:\n            global requests\n            import requests\ndef f(u): return requests.get(u)\n", None),
+        ("possibly skipped with import", "tc = True\nclass C:\n    with manager:\n        raise ValueError\n        from typing import TYPE_CHECKING as tc\n    if tc:\n        class D:\n            global requests\n            import requests\ndef f(u): return requests.get(u)\n", None),
+        ("typing member written before import", "import typing\ntyping.TYPE_CHECKING = True\nclass C:\n    if flag:\n        from typing import TYPE_CHECKING as tc\n        if tc:\n            class D:\n                global requests\n                import requests\ndef f(u): return requests.get(u)\n", None),
+    ], "requests.get");
+}
+
+#[test]
 fn class_elif_test_bindings_reach_member_writes() {
     use UnprovenCause::MemberRebound;
     assert_http_cases(&[

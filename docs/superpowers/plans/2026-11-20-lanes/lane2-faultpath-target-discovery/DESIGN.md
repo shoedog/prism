@@ -540,10 +540,11 @@ well as in a clean file.
   Recognize a direct test of `typing.TYPE_CHECKING` or `typing_extensions.TYPE_CHECKING`, including
   verified import aliases, and a direct test of the name `TYPE_CHECKING` whose sole, available
   unconditional binding in the deciding scope is the literal `False`. Resolve the guard where
-  written and check module origin and member writes. The true arm of an `if` or `elif` also guards
-  imports within nested classes and functions, including imports redirected by `global`.
-  Other values, same-spelled parameters,
-  computed tests and unproven wrappers use the ordinary conditional-import rule.
+  written and check module origin and writes to the name and its members. A typing import in a
+  class `if`, `elif` or `else` suite can prove the guard when every reaching binding establishes
+  one of the typing identities. The true arm of an `if` or `elif` also guards imports within nested
+  classes and functions, including imports redirected by `global`. Other values, same-spelled
+  parameters, computed tests and unresolved reaching bindings use the ordinary conditional-import rule.
   Also refuse a sole local value binding textually later than its use in the **same execution scope**.
   These give `binding_unavailable` (o11, sl3-02). This source-order check includes loops. Do not
   order a deferred body against module or enclosing-function initialisation or another function's
@@ -985,14 +986,19 @@ line, even when the outer grouping starts earlier. A newline inside `requests �
 list alone does not. All calls whose semantic callee covers L compete, including unlisted calls,
 constructors, dynamic callees and calls in a statically discarded operand.
 
-On exact equality of all three 5.4 keys, use the verified Python 3.11.11 `ast.walk` order for an
-ancestor and descendant call and for the listed sibling fields. The list covers dictionary literal
-keys versus values, conditional-expression test/body/else, keyword-only versus positional defaults
-in `def` and lambda, and separate chained-assignment targets. If any pair among the minimum-key
-candidates needs an unlisted sibling-field order, the line has no supported anchor. Emit otherwise
-injectable proven calls on it with `not_line_anchor`. Cases include `with` headers, match guards,
-flat boolean chains and dictionary comprehensions. In as4-07 the outer call and its inner
-`factory` call tie at (0, 11, −35). The oracle binds the outer expression and `requests.get` loses.
+On exact equality of all three 5.4 keys, an ancestor call precedes its descendants in Python 3.11.11
+`ast.walk` order. For calls in separate branches, the listed sibling-field orders cover dictionary
+literal keys versus values, conditional-expression test/body/else, keyword-only versus positional
+defaults in `def` and lambda, and separate chained-assignment targets. That order is usable only
+when both paths below the split have the same depth as in the Python AST. The closed list admits
+calls, attributes, single-index subscripts without a comma, lists, tuples, sets, unary operators
+including `not`, binary operators, `await` and keyword arguments. It also admits the transparent
+parser wrappers handled by the walk and the field wrappers removed by the listed split rules.
+If any pair among the minimum-key candidates falls outside the field or depth list, emit otherwise
+injectable proven calls on that line with `not_line_anchor`. Examples include `with` headers,
+match guards, boolean operators, f-string fragments, multi-index subscripts and dictionary
+comprehensions. In as4-07 the outer call and its inner `factory` call tie at (0, 11, −35). The oracle
+binds the outer expression and `requests.get` loses.
 
 Emit the bare, NFKC-normalized function identifier for the symbol, including `__fetch` as written,
 without class mangling or qualification (as1-38, as2-10). Bounds use the `def`/`async` token and
@@ -1029,9 +1035,9 @@ binder, never as a listed class. There is no PEP 695 matrix row or interpreter-p
 
 | Decision | Option and main cost | Choice |
 |---|---|---|
-| Equal key (Q1) | Refuse ties that need an unlisted sibling-field order. The proven call still gets an unsupported row. | Chosen for S2a |
+| Equal key (Q1) | Refuse ties outside the listed sibling-field orders or branch depths. The proven call still gets an unsupported row. | Chosen for S2a |
 | Equal key (Q1) | Compare absolute end offsets. This introduces a line-dependent key absent from the recorded rule. | Declined |
-| Equal key (Q1) | Use stable Python AST order after the three key components for the verified orders above. | Chosen |
+| Equal key (Q1) | Use Python AST order after the three key components for the supported ties above. | Chosen |
 | Postponement (Q2) | Inventory all syntactic annotation calls. This invents executable sites. | Declined |
 | Postponement (Q2) | Erase annotations entirely. This loses usable static receiver types. | Declined |
 | Postponement (Q2) | Separate executable-site eligibility, line binding and static type lookup. Each uses its stated context. | Chosen |
@@ -1797,8 +1803,8 @@ limits, not reached, patch shadowed by a mock).
 - **The closed-world rule costs recall** where Python code rebinds a name it does not use at the call
   (`try`/`except ImportError` fallbacks, a parameter defaulted and then assigned). Faultpath's own binding
   check can report a different identity or no qualification. Section 6.8 defines how to compare them.
-- **One call per line** is faultpath's binding. Prism uses the anchor key and the verified Python 3.11.11
-  tie orders in §6.6. It lists a proven call with no usable anchor as unsupported.
+- **One call per line** is faultpath's binding. Prism uses the anchor key and the supported Python 3.11.11
+  tie orders and branch depths in §6.6. It lists a proven call with no usable anchor as unsupported.
 - **Consumer runtime limits** (decorated functions, comprehension frames on 3.11, dynamic callees, nested
   functions, `with` receivers, annotation witnesses) leave some injectable rows unusable by faultpath today.
   They are counted in the funnel under the consumer's reason, and a lifted limit needs no prism change.
@@ -1839,9 +1845,15 @@ execution-order modeling beyond the accept-list.
 - **Computed reflection.** The literal forms above apply under §6.2 exclusion 3. A surviving
   static identity does not account for a computed `setattr` member or `vars` or `globals` key.
 
-The known-limit tests record the current outcomes and proving controls. These cases add no
-write veto. Class-suite bindings in tests, lexical redirection and type-only guard availability
-remain within the static model in §6.2.
+The known-limit tests record the current outcomes and proving controls. S2a adds no write veto
+for these cases. Target-order and computed-reflection cases can retain an incorrect `exact` row,
+which counts against G-precision. Captured-identity cases are withheld with `member_rebound`.
+Class-suite bindings in tests, lexical redirection and type-only guard availability remain within
+the static model in §6.2, with the following recall limit.
+
+| Class-slot limit | Example in a function's class body | Expected row | Current outcome |
+|---|---|---|---|
+| Short-circuit walrus | `import requests` precedes `if True or (requests := None):` with `x = requests.get('u')` in its arm. Python skips the walrus. | `class_body_frame` | `shadowed_root` because the slot model applies the skipped store. |
 
 ## Change log
 

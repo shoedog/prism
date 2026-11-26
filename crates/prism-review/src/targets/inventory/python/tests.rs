@@ -189,6 +189,21 @@ fn tied_anchor(input: &str, line: usize) -> [usize; 4] {
     Span::new(&source, anchor::winners(&walk.calls)[&line].node).range
 }
 
+const APPROXIMATE_DEPTH_TIES: &[(&str, &str, usize, &str)] = &[
+    (
+        "adjacent f-strings in dictionary key",
+        "import requests\ndef f(u, obj):\n    return {f'' f\"\"\"{ (obj\n    ).get()}\"\"\": f\"\"\"{requests.get(\n         u)}\"\"\",}\n",
+        4,
+        "requests.get",
+    ),
+    (
+        "boolean chain in dictionary key",
+        "import requests\ndef f(u, b, c):\n    return {(          requests\n.get)(u) and b and c: [requests.post(\n      u)]}\n",
+        4,
+        "requests.post",
+    ),
+];
+
 #[test]
 fn equal_anchor_keys_follow_python_field_order_and_depth() {
     let mut failures = Vec::new();
@@ -222,11 +237,17 @@ fn equal_anchor_keys_follow_python_field_order_and_depth() {
 
 #[test]
 fn equal_anchor_keys_match_python_311_ast_walk() {
-    let Some(home) = std::env::var_os("HOME") else {
-        eprintln!("skipped AST oracle: HOME is unavailable");
+    let Some(python) = std::env::var_os("PRISM_PYTHON_311_ORACLE")
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME").map(|home| {
+                Path::new(&home).join("prism-evidence/faultpath-targets/venv/bin/python")
+            })
+        })
+    else {
+        eprintln!("skipped AST oracle: configure PRISM_PYTHON_311_ORACLE");
         return;
     };
-    let python = Path::new(&home).join("prism-evidence/faultpath-targets/venv/bin/python");
     if !python.is_file() {
         eprintln!("skipped AST oracle: {} is unavailable", python.display());
         return;
@@ -261,6 +282,12 @@ print(json.dumps(winners))
             format!("def f():\n{line}{pad}(obj\n{close}{test} else requests.get(\n          ))\n");
         fixtures.push((label, source, 3));
     }
+    let listed_count = fixtures.len();
+    fixtures.extend(
+        APPROXIMATE_DEPTH_TIES
+            .iter()
+            .map(|&(label, source, line, _)| (label, source.to_owned(), line)),
+    );
     let output = std::process::Command::new(python)
         .args(["-c", script, &serde_json::to_string(&fixtures).unwrap()])
         .output()
@@ -271,14 +298,20 @@ print(json.dumps(winners))
         String::from_utf8_lossy(&output.stderr)
     );
     let expected: Vec<[usize; 4]> = serde_json::from_slice(&output.stdout).unwrap();
-    let actual: Vec<_> = fixtures
+    assert_eq!(expected.len(), fixtures.len());
+    let actual: Vec<_> = fixtures[..listed_count]
         .iter()
         .map(|(_, source, line)| tied_anchor(source, *line))
         .collect();
-    assert_eq!(actual, expected);
+    assert_eq!(actual, expected[..listed_count]);
+    for (&(label, _, line, _), winner) in
+        APPROXIMATE_DEPTH_TIES.iter().zip(&expected[listed_count..])
+    {
+        assert_eq!(winner[0], line - 1, "{label}: {winner:?}");
+    }
     eprintln!(
-        "checked {} anchor ties against CPython 3.11.11",
-        actual.len()
+        "checked {listed_count} listed ties and {} refused ties against CPython 3.11.11",
+        APPROXIMATE_DEPTH_TIES.len()
     );
 }
 
@@ -299,6 +332,38 @@ fn http_anchor_label(input: &str, line: usize, callee: &str) -> Vec<Option<Unsup
         })
         .map(|occurrence| occurrence.reason)
         .collect()
+}
+
+#[test]
+fn equal_anchor_keys_with_approximate_branch_depth_are_unsupported() {
+    let mut failures = Vec::new();
+    for &(label, input, line, callee) in APPROXIMATE_DEPTH_TIES {
+        let parsed = parse_tied_calls(input);
+        let walk = Walk::new(&parsed);
+        assert_tied_keys(&walk, line, input);
+        let has_winner = anchor::winners(&walk.calls).contains_key(&line);
+        let found = http_anchor_label(input, line, callee);
+        if has_winner || found != [Some(UnsupportedReason::NotLineAnchor)] {
+            failures.push(format!("{label}: expected no winner and not_line_anchor, got winner={has_winner}, label={found:?}"));
+        }
+    }
+    for (index, supported) in [("0", true), ("0,", false), ("0, 1", false)] {
+        let prefix = "    return {[";
+        let middle = format!("    ).get()][{index}]: requests.get(");
+        let pad = " ".repeat(middle.find("requests").unwrap() - prefix.len());
+        let input =
+            format!("import requests\ndef f():\n{prefix}{pad}(obj\n{middle}\n          )}}\n");
+        let parsed = parse_tied_calls(&input);
+        let walk = Walk::new(&parsed);
+        assert_tied_keys(&walk, 4, &input);
+        let has_winner = anchor::winners(&walk.calls).contains_key(&4);
+        if has_winner != supported {
+            failures.push(format!(
+                "subscript [{index}]: expected winner={supported}, got {has_winner}"
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 #[test]
