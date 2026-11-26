@@ -15,12 +15,12 @@ impl<'a> Classifier<'a, '_> {
         // step can prove that the final property reused the selected value.
         let selectors: BTreeSet<_> = steps
             .values()
-            .filter_map(|step| self.primitive_identity(&AstSpan::from(step.key)))
+            .filter_map(|step| self.primitive_identity(&AstSpan::from(step.key), true))
             .collect();
         for (span, operand) in operands {
             if operand.role == KeyRole::Property
                 && self
-                    .primitive_identity(span)
+                    .primitive_identity(span, true)
                     .is_some_and(|key| selectors.contains(&key))
             {
                 operand.role = KeyRole::Selector;
@@ -28,12 +28,20 @@ impl<'a> Classifier<'a, '_> {
         }
     }
 
-    pub(super) fn primitive_identity(&self, span: &AstSpan) -> Option<(AstSpan, AstSpan)> {
+    pub(super) fn primitive_identity(
+        &self,
+        span: &AstSpan,
+        allow_conversion: bool,
+    ) -> Option<(AstSpan, AstSpan)> {
         let read = self.analysis.read_at(span)?;
         let [site] = read.reaching_versions.as_slice() else {
             return None;
         };
-        if !read.resolution_complete || read.path != read.base {
+        let binding = read.binding.as_ref()?;
+        if !read.resolution_complete
+            || read.path != read.base
+            || self.script_global_binding(binding)
+        {
             return None;
         }
         let Origin::Value(value) = self.origin(site) else {
@@ -41,8 +49,9 @@ impl<'a> Classifier<'a, '_> {
         };
         let value = peel(value);
         let primitive = value.kind() == "template_string"
-            || self.fixed_key(value).is_some()
-            || (value.kind() == "call_expression"
+            || ((allow_conversion || !identifier(value)) && self.fixed_key(value).is_some())
+            || (allow_conversion
+                && value.kind() == "call_expression"
                 && field(value, "function").is_some_and(|callee| {
                     ["String", "Number", "Boolean", "BigInt"]
                         .iter()
@@ -51,7 +60,7 @@ impl<'a> Classifier<'a, '_> {
         if !primitive || self.analysis.may_repeat(value) {
             return None;
         }
-        Some((read.binding.clone()?, site.clone()))
+        Some((binding.clone(), site.clone()))
     }
 
     pub(super) fn key_reads(

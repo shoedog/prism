@@ -353,11 +353,17 @@ show new `incomplete_reason` values for identity escapes, implicit arguments,
 direct eval, possible member aliases, opaque calls, deferred evaluation, accessors
 and unproven control flow. Text prints facts and refusal reasons without expanding
 candidate histories. The listing discharges individual receiver steps for a
-stable own-slot installation followed by a standalone assignment, or for a
-bounded key on an admitted receiver. Bounded keys come from literals,
-arithmetic, comparisons, numeric records with proven writes, closed literal
-tables, `typeof`, or anchored fragments. Call-result slots use a closed
-allow-list. Private table children, null walks, shared-slot proofs, closed-data
+stable own-slot installation with a literal or template-literal key followed by
+a standalone assignment, or for a bounded key on an admitted receiver. Bounded
+keys come from literals, arithmetic, comparisons, numeric counters, numeric
+records with proven writes, closed literal tables, `typeof` expressions,
+dominating `typeof x === "number"` guards, or anchored fragments. Slot proofs
+model standard built-in identity for `Array.from`, `Array(n).fill`,
+`Object.defineProperty` and `Object.create`. Runtime changes to built-ins
+are outside that model. The install proof refuses a direct source write to
+`Object.defineProperty` in the analyzed file. Script-level `var` and function
+declaration bindings lack the local identity these proofs require.
+Private table children, null walks, shared-slot proofs, closed-data
 write-back and intrinsic-trusting key domains are deferred. Every fact has
 guard state `none`.
 

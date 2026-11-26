@@ -280,17 +280,25 @@ descent and review-taint matching are later slices.
 
 Receiver exclusions require local source evidence. A completed own-slot
 installation can discharge the lookup in the next standalone assignment
-when it uses the same stable primitive key. Bounded keys come from literals,
-arithmetic, comparisons, `typeof`, anchored fragments, closed literal tables,
+when it uses the same stable literal or template-literal key. Bounded keys
+come from literals, arithmetic, comparisons, numeric counters, `typeof`
+expressions, dominating `typeof x === "number"` guards, anchored fragments, closed literal tables,
 and numeric fields of closed record collections with proven numeric writes.
-Calls through a record invalidate its numeric-field proof. A named finite
-table must be a file-local constant with a single direct reference.
+Calls through a record and exports of its collection invalidate its
+numeric-field proof. A named finite table must be a file-local constant
+with a single direct reference. In a script without import or export
+syntax, program-scoped `var` and function declaration bindings can be
+changed through the global object. These bindings supply no fixed key,
+key domain, numeric counter, bounded receiver, or installed-slot identity.
 A bounded key can
 discharge a receiver step for a modeled input, a direct data literal, or an
 admitted call-result slot. The call-result forms are `Object.create(null)`,
 `Array.from` over a length record with a literal-producing mapper, and
-`Array(n).fill` with a closed data value. These are syntax models for the
-standard operations. Other factories, indirect receiver aliases and
+`Array(n).fill` with a closed data value. The slot proofs assume standard
+built-in identity for these operations and for `Object.defineProperty`.
+Runtime changes to built-ins are outside the model. The install proof
+refuses a direct source write to `Object.defineProperty` in the analyzed
+file. Other factories, indirect receiver aliases and
 unproved receiver versions keep their steps. The explicit shared-link steps
 also stay in the listing.
 

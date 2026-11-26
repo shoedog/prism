@@ -136,13 +136,14 @@ fn numeric_lookup_retains_slots_exposed_to_unknown_calls() {
 
 #[test]
 fn installation_must_survive_until_receiver_capture() {
-    assert!(!lists_target(matrix_case!("t2-078"), "root[key][field]"));
+    let install = matrix_case!("t2-078").replace("String(section)", "`${section}`");
+    assert!(!lists_target(&install, "root[key][field]"));
     assert!(lists_target(
         matrix_case!("t2-110"),
         "catalog[section][field]"
     ));
     assert!(lists_target(
-        "function f(raw, child) { const t = {}; const k = String(raw); Object.defineProperty(t,k,{value:{},writable:true}); (t[k]=child,t[k].flag=1); }",
+        "function f(raw, child) { const t = {}; const k = `${raw}`; Object.defineProperty(t,k,{value:{},writable:true}); (t[k]=child,t[k].flag=1); }",
         "t[k].flag",
     ));
 }
@@ -355,9 +356,9 @@ fn bounded_index_requires_an_admitted_call_result() {
 
 #[test]
 fn proven_installation_and_numeric_record_have_one_token_controls() {
-    let install = matrix_case!("t2-078");
+    let install = matrix_case!("t2-078").replace("String(section)", "`${section}`");
     let target = "root[key][field]";
-    assert!(!lists_target(install, target));
+    assert!(!lists_target(&install, target));
     assert!(lists_target(
         &install.replace("= value;", "+= value;"),
         target,
@@ -409,3 +410,6 @@ fn bounded_input_keeps_direct_member_changes_listed() {
     assert!(!lists_target(source, target));
     assert!(lists_target(&source.replace("typeof", "delete"), target));
 }
+
+#[path = "proto_writes_review_fold_tests.rs"]
+mod review_fold;

@@ -493,7 +493,7 @@ impl<'a> Classifier<'a, '_> {
                 .analysis
                 .read(key)
                 .filter(|read| read.resolution_complete)?;
-            if !identifier(key) {
+            if !identifier(key) || self.script_global_binding(read.binding.as_ref()?) {
                 return None;
             }
             let [site] = read.reaching_versions.as_slice() else {

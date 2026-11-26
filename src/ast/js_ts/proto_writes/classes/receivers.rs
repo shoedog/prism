@@ -21,7 +21,7 @@ impl<'a> Classifier<'a, '_> {
             return false;
         }
         let base = peel(step.object);
-        let key = self.primitive_identity(&AstSpan::from(step.key));
+        let key = self.primitive_identity(&AstSpan::from(step.key), false);
         let Some(key) = key else { return false };
         let Some(initial) = self.initializer(base) else {
             return false;
@@ -52,7 +52,9 @@ impl<'a> Classifier<'a, '_> {
         let Some(installation) = children(previous).next().map(peel) else {
             return false;
         };
-        if !self.static_call(installation, "Object", "defineProperty") {
+        if !self.static_call(installation, "Object", "defineProperty")
+            || self.analysis.explicit_define_property_write()
+        {
             return false;
         }
         let Some([install_base, install_key, descriptor]) = self.args(installation) else {
@@ -62,7 +64,7 @@ impl<'a> Classifier<'a, '_> {
             return false;
         };
         self.same_value(peel(install_base), base)
-            && self.primitive_identity(&AstSpan::from(peel(install_key))) == Some(key)
+            && self.primitive_identity(&AstSpan::from(peel(install_key)), false) == Some(key)
             && self.private_literal(value, 0)
     }
 

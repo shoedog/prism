@@ -64,13 +64,33 @@ impl<'a> Classifier<'a, '_> {
         let [site] = read.reaching_versions.as_slice() else {
             return None;
         };
-        if !read.resolution_complete || self.analysis.defaults.contains_key(&site.start_byte) {
+        if !read.resolution_complete
+            || self.script_global_binding(read.binding.as_ref()?)
+            || self.analysis.defaults.contains_key(&site.start_byte)
+        {
             return None;
         }
         match self.origin(site) {
             Origin::Value(value) => Some(peel(value)),
             _ => None,
         }
+    }
+
+    pub(super) fn script_global_binding(&self, binding: &AstSpan) -> bool {
+        let lexical = &self.analysis.lexical;
+        let id = binding.start_byte;
+        !lexical.module_syntax
+            && lexical.binding_scopes.get(&id) == Some(&self.file.tree.root_node().id())
+            && (lexical.hoisted_vars.contains(&id)
+                || self
+                    .node_at(binding)
+                    .and_then(|name| name.parent())
+                    .is_none_or(|decl| {
+                        matches!(
+                            decl.kind(),
+                            "function_declaration" | "generator_function_declaration"
+                        )
+                    }))
     }
 
     pub(super) fn same_value(&self, first: Node<'a>, second: Node<'a>) -> bool {

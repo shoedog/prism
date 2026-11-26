@@ -453,6 +453,10 @@ impl<'a> Analysis<'a> {
         self.effects.known.get(&id)
     }
 
+    pub(super) fn explicit_define_property_write(&self) -> bool {
+        self.effects.refused_file || self.effects.direct_define_property_write
+    }
+
     fn read_path(
         &mut self,
         node: Node<'a>,

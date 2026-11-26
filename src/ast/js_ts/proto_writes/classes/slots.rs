@@ -1,4 +1,8 @@
 //! Closed receiver forms for bounded-key exclusions.
+//!
+//! Slot proofs model standard built-in identity for Array.from, Array(n).fill,
+//! Object.create and Object.defineProperty. Runtime mutation is outside the
+//! model. Installation also refuses direct source writes to Object.defineProperty.
 use super::*;
 
 impl<'a> Classifier<'a, '_> {
@@ -17,7 +21,12 @@ impl<'a> Classifier<'a, '_> {
         let [site] = read.reaching_versions.as_slice() else {
             return false;
         };
-        if self.analysis.defaults.contains_key(&site.start_byte) {
+        let Some(binding) = &read.binding else {
+            return false;
+        };
+        if self.script_global_binding(binding)
+            || self.analysis.defaults.contains_key(&site.start_byte)
+        {
             return false;
         }
         match self.origin(site) {
@@ -28,11 +37,9 @@ impl<'a> Classifier<'a, '_> {
                 .is_some_and(|owner| AstSpan::from(owner) == read.owner)
                     && self.direct_slot_source(peel(value))
                     && (self.analysis.unmutated_receiver(receiver)
-                        || read.binding.as_ref().is_some_and(|binding| {
-                            self.direct_receiver_uses(binding, receiver, &read.owner)
-                        }))
+                        || self.direct_receiver_uses(binding, receiver, &read.owner))
             }
-            Origin::Unknown if read.binding.as_ref() == Some(site) => {
+            Origin::Unknown if binding == site => {
                 self.formal_slot_input(site)
                     && self.direct_receiver_uses(site, receiver, &read.owner)
             }

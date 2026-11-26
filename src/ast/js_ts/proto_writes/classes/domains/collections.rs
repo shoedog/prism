@@ -89,6 +89,9 @@ impl<'a> Classifier<'a, '_> {
         let Some(binding) = &read.binding else {
             return false;
         };
+        if self.script_global_binding(binding) {
+            return false;
+        }
         let Some(decl) = self.node_at(site) else {
             return false;
         };
@@ -118,6 +121,13 @@ impl<'a> Classifier<'a, '_> {
             else {
                 return false;
             };
+            if self
+                .node_at(binding)
+                .and_then(|name| name.parent()?.parent()?.parent())
+                .is_none_or(|parent| parent.kind() == "export_statement")
+            {
+                return false;
+            }
             let Some(refs) = self.binding_references(binding) else {
                 return false;
             };

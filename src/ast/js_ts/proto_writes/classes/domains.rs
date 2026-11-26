@@ -80,8 +80,14 @@ impl<'a> Classifier<'a, '_> {
 
     fn identifier_domain(&self, node: Node<'a>, depth: usize) -> Option<Domain> {
         let read = self.analysis.read(node)?;
+        let binding = read.binding.as_ref()?;
+        if self.script_global_binding(binding) {
+            return None;
+        }
         if !read.resolution_complete {
-            return self.numeric_counter(node, depth).then_some(Domain::Numeric);
+            return self
+                .numeric_counter(node, binding, depth)
+                .then_some(Domain::Numeric);
         }
         if self.numeric_type_test_dominates(node) {
             return Some(Domain::Numeric);
@@ -124,17 +130,10 @@ impl<'a> Classifier<'a, '_> {
         }
     }
 
-    fn numeric_counter(&self, node: Node<'a>, depth: usize) -> bool {
+    fn numeric_counter(&self, node: Node<'a>, binding: &AstSpan, depth: usize) -> bool {
         if depth >= 32 || !self.proof_charge(1) {
             return false;
         }
-        let Some(binding) = self
-            .analysis
-            .read(node)
-            .and_then(|read| read.binding.as_ref())
-        else {
-            return false;
-        };
         let Some(writes) = self.analysis.proof_writes(binding) else {
             return false;
         };
