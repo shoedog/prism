@@ -213,7 +213,12 @@ fn observe(
     let params = exact.and_then(|r| {
         compute_param_def_nodes(&files[&r.target.file], r.target, &cpg.var_index, &cpg.graph)
     });
-    let parameter = params.as_ref().and_then(|p| p.first()).copied().flatten();
+    let parameter = params
+        .as_ref()
+        .and_then(|p| p.first())
+        .copied()
+        .flatten()
+        .map(|def| def.node);
     if let Some(p) = parameter {
         match cpg.node(p) {
             CpgNode::Variable {

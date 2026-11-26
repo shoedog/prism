@@ -10,8 +10,9 @@
 //! It is gated on a call that resolves to an `Exact` singleton (NameOnly singletons were
 //! wrong at 44 census sites; no multi-target pool is bound) and on a JS/TS/TSX caller and
 //! callee. The callee formal is whatever Step 5b already admits as a positional target
-//! (plain identifier, member-only, parenthesised-arrow); destructured, rest and bare-arrow
-//! slots are holes there and stay holes here.
+//! (plain identifier, member-only, parenthesised or admitted bare arrow). Bare targets
+//! also require lexical admission for the selected call, even when a read adds doubt to
+//! the final edge label. Destructured and rest slots remain unsupported.
 //!
 //! Callee reads. The targets are the `Use` nodes one DataFlow hop from the formal's `Def`
 //! whose path base is the formal: the DFG has already decided which reads that definition
@@ -448,6 +449,8 @@ pub(super) fn collect<T>(
     out: &mut Vec<PendingArgumentFlow>,
     site: &SiteInputs<'_>,
     params: &[Option<T>],
+    admission: &bare_param_admission::Admission,
+    bare_slot: impl Fn(&T) -> Option<callee_params::BareSlot>,
     resolve: impl Fn(&T) -> Option<NodeIndex>,
 ) {
     let language = site.caller_parsed.language;
@@ -468,7 +471,11 @@ pub(super) fn collect<T>(
         if !may_be_literal(arg_text, language) {
             continue;
         }
-        let Some(def) = param.as_ref().and_then(&resolve) else {
+        let Some(def) = param
+            .as_ref()
+            .filter(|param| admission.literal(bare_slot(param)))
+            .and_then(&resolve)
+        else {
             continue;
         };
         let Some(leaves) = argument_leaves(site.caller_parsed, arg_span) else {

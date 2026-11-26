@@ -633,6 +633,15 @@ standard array iterator, as slice A offsets do. A replacement of the standard it
 statements after the call needs a second invocation and is not checked (disclosed residual). See the
 known-gaps document for the iteration proof's coverage.
 
+An ordinary JS/TS/TSX bare-arrow argument (lane 9, slice C) binds at its exact runtime offset
+to the entry Def for the identifier's byte span. The locator requires a unique named implementation
+or an independently resolved positional anonymous owner. Exact input needs a complete singleton
+pool, excludes foreign `free_single` targets, and requires a matching value-export witness for
+`import_qualified`. Same-file ordinary NameOnly targets retain the call's label. A refused
+incoming transfer leaves its Def available. The existing outgoing source guard still applies.
+Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
+call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
+
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals
 flatten to `k.j`) gets `Use(v) -> Use(p.<read>)` edges to the formal's reads that the definition
@@ -644,7 +653,7 @@ fed, and a leaf at or below a written path feeds no read). The label is the call
 the definition edge's. A spread or computed key refuses every key written before it; for duplicate keys the last
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
 non-data values (calls, arithmetic, arrays), a spread argument before the literal, NameOnly or
-multi-target calls, and destructured, rest or bare-arrow formals bind nothing. A mixed formal's reads
+multi-target calls, and destructured or rest formals bind nothing. A mixed formal's reads
 in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
 are not fed (known gap).
 

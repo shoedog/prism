@@ -5,6 +5,9 @@
 #[path = "argument_nodes.rs"]
 mod argument_nodes;
 
+#[path = "bare_param_admission.rs"]
+mod bare_param_admission;
+
 #[path = "callee_params.rs"]
 mod callee_params;
 
@@ -1608,9 +1611,11 @@ impl CodePropertyGraph {
         let files = shared_params.files;
         let mut out = Vec::new();
         let mut param_cache: BTreeMap<FunctionId, callee_params::FactCell> = BTreeMap::new();
+        let trace_bare = bare_param_admission::trace_enabled();
         for site in sites {
             let resolved_site = cg.resolve_call_site(site);
-            let literal_ok = object_literal_args::exact_singleton(&resolved_site); // #594
+            let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
+            let mut traced = trace_bare.then(bare_param_admission::TraceKeys::default);
             let mut call_args = None;
             for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
@@ -1656,12 +1661,35 @@ impl CodePropertyGraph {
                     graph,
                     cross_file_free_single_exact,
                 };
-                if literal_ok {
-                    let resolve = |t: &callee_params::ParamTarget| t.resolve(var_index, graph);
-                    object_literal_args::collect(&mut out, &inputs, param_nodes, resolve);
+                let bare = param_nodes
+                    .first()
+                    .and_then(Option::as_ref)
+                    .and_then(|t| t.bare);
+                let admission = bare_param_admission::Admission::new(
+                    bare,
+                    site,
+                    cg.call_graph(),
+                    &resolved,
+                    exact_singleton,
+                    cross_file_free_single_exact,
+                );
+                if let Some(traced) = &mut traced {
+                    admission.report(traced, site, &resolved, bare);
                 }
+                object_literal_args::collect(
+                    &mut out,
+                    &inputs,
+                    param_nodes,
+                    &admission,
+                    |t| t.bare,
+                    |t| t.resolve(var_index, graph),
+                );
                 for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
-                    let Some(param_target) = slot.and_then(|slot| param_nodes.get(slot)) else {
+                    let Some(param_target) = slot
+                        .and_then(|slot| param_nodes.get(slot))
+                        .and_then(Option::as_ref)
+                        .filter(|target| admission.ordinary(target.bare))
+                    else {
                         continue;
                     };
                     let arg_idxs = Self::argument_nodes(
@@ -1673,10 +1701,7 @@ impl CodePropertyGraph {
                         exact_var_index,
                         graph,
                     );
-                    if let Some(to) = param_target
-                        .as_ref()
-                        .and_then(|t| t.resolve(var_index, graph))
-                    {
+                    if let Some(to) = param_target.resolve(var_index, graph) {
                         for from in arg_idxs {
                             out.push(PendingArgumentFlow {
                                 edge: (
@@ -1689,7 +1714,13 @@ impl CodePropertyGraph {
                         }
                     }
                 }
-                if !rest_params::admitted(&inputs, site, cg.call_graph(), &resolved, literal_ok) {
+                if !rest_params::admitted(
+                    &inputs,
+                    site,
+                    cg.call_graph(),
+                    &resolved,
+                    exact_singleton,
+                ) {
                     continue;
                 }
                 let Some((offset, to)) = shared_params
