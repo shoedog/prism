@@ -169,21 +169,48 @@ def survivors(preds, role_of):
     return {(tuple(p["w"]), tuple(p["r"]), role_of(p)): p for p in preds if p["outcome"] == "predicted"}
 
 
+def identity_matches(rec, span, end_max):
+    """The product's owner span against the independent one: the same start, and an end that is the node's
+    own or reaches only over the comment-only text that follows it (tree-sitter keeps a trailing comment)."""
+    return rec[0] == span[0] and span[1] <= rec[1] <= end_max
+
+
 def match_owners(product, independent):
-    """Pair product and independent owners by (file, name, line) then span start."""
+    """Pair product and independent owners on (file, name, product start line) and the span.
+
+    The product starts a decorated function at its first decorator and keys it by that line, the census by
+    the `def` line; the independent row carries both (`owner_line`/`owner_span`, `line`/`span`). The span
+    start must be equal and the end equal up to trailing comments. CHOICE: a collision (two product owners
+    for one key), a span disagreement or an owner whose product start the independent side could not
+    establish pairs with nothing (refused, never guessed); it comes back in `alone`. Rows of the older shape
+    (no `owner_line`) are read as undecorated."""
     by_id = defaultdict(list)
     for o in product:
         by_id[o.ident].append(o)
-    matched, alone = [], []
+    matched, alone, taken = [], [], Counter()
     for ind in independent:
-        cands = by_id.get((ind["file"], ind["name"], ind["line"]), [])
-        if len(cands) > 1:
-            cands = [o for o in cands if o.start == ind["span"][0]]
-        if cands:
-            matched.append((cands[0], ind))
-        else:
-            alone.append(ind)
-    return matched, alone
+        line = ind.get("owner_line", ind["line"])
+        span = ind.get("owner_span") or ind["span"]
+        cands = [o for o in by_id.get((ind["file"], ind["name"], line), [])
+                 if identity_matches(o.rec["span"], span, ind.get("end_max", span[1]))] if line and span else []
+        if len(cands) == 1:
+            taken[id(cands[0])] += 1
+        matched.append((cands[0], ind)) if len(cands) == 1 else alone.append(ind)
+    # a product owner claimed by two independent owners joins neither
+    clash = {k for k, n in taken.items() if n > 1}
+    alone += [i for p, i in matched if id(p) in clash]
+    return [(p, i) for p, i in matched if id(p) not in clash], alone
+
+
+def function_index(files):
+    """Every function owner the independent side listed per file: `(file, name, product line) -> rows`; an
+    identity listed twice, or one whose product start was not established, joins nothing."""
+    out = defaultdict(list)
+    for file, row in files.items():
+        for key, name, _def_line, line, span, _def_span, ambiguous, end_max in row.get("functions", ()):
+            if line is not None and span and not ambiguous:
+                out[(file, name, line)].append((key, span, end_max))
+    return out
 
 
 def residual(prod, ind, ind_preds):
@@ -195,7 +222,12 @@ def residual(prod, ind, ind_preds):
             for (w, r, role) in sorted(set(i) - set(p))]
     for field in RECON:
         a, b = prod.rec.get(field), ind.get(field)
-        if a != b:
+        if field == "raw_pairs" and a is not None and b is not None:
+            # The independent side sees the graph after materialization, the product raw rows before it:
+            # the product's P lies between the clean count and the count including join-refused endpoints.
+            if not b <= a <= max(b, ind.get("raw_pairs_max") or 0):
+                out.append(dict(field=field, product=a, independent=b, independent_max=ind.get("raw_pairs_max")))
+        elif a != b:
             out.append(dict(field=field, product=a, independent=b))
     return out, p, i
 
@@ -247,10 +279,26 @@ def corpus_pass(corpus, fr, ind, product, problems, acc):
                                     agreed=len(agreed), residual_owners=int(bool(res)))
         acc["owners"][fk] = dict(product=p.rec, residual=res, agreed=len(agreed), product_survivors=len(prod_set),
                                  independent_survivors=len(ind_set), ident=p.ident)
+    listed = function_index(ind["files"])
     for p in product:
-        if id(p) not in paired and any(x["outcome"] == "predicted" for x in p.preds):
+        if id(p) in paired:
+            continue
+        keys = [k for k, span, end_max in listed.get(p.ident, []) if identity_matches(p.rec["span"], span, end_max)]
+        predicted = any(x["outcome"] == "predicted" for x in p.preds)
+        if len(keys) == 1 and not predicted:
+            # The independent side parsed this exact function and found no candidate store in it, and the
+            # product predicts no pair for it: both sides agree that the owner holds nothing to credit.
+            acc["owners"][(corpus, p.ident[0], keys[0], "python")] = dict(
+                product=p.rec, residual=[], agreed=0, product_survivors=0, independent_survivors=0,
+                ident=p.ident, independent="no_candidate")
+        elif predicted:
             acc["residuals"].append(dict(corpus=corpus, file=p.rec["file"], owner=f"{p.ident[1]}@{p.ident[2]}",
                                          residual=[dict(field="owner", side="product_only")]))
+            if len(keys) == 1:
+                acc["owners"][(corpus, p.ident[0], keys[0], "python")] = dict(
+                    product=p.rec, residual=[dict(field="owner", side="product_only")], agreed=0,
+                    product_survivors=sum(x["outcome"] == "predicted" for x in p.preds), independent_survivors=0,
+                    ident=p.ident)
 
 
 def status_rows(fr, m, independent, acc, dups, problems):

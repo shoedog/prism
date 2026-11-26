@@ -1,3 +1,4 @@
+import ast
 import json
 import tempfile
 import unittest
@@ -189,6 +190,73 @@ class LoaderInventoryTests(unittest.TestCase):
         self.assertEqual((got, owner["raw_capped"], owner["raw_pairs"]), ([], 1, 3))
         got, owner = outcomes((3, 8, 256))
         self.assertEqual((got, owner["raw_capped"]), (["predicted"] * 3, 0))
+
+    def test_decorated_owner_joins_the_graph_on_its_first_decorator_line(self):
+        """The product starts a decorated function at its `@` and keys its graph nodes by that line."""
+        src = b"@deco\n@other(1)\n" + SRC
+        run = self.run_of({"a.py": src}, nodes=list(standard_nodes(src, line=1)))
+        rows = rows_of(run)
+        owner, = [r for r in rows if r["kind"] == "owner"]
+        self.assertEqual((owner["owner"], owner["line"], owner["owner_line"], owner["decorated"]), ("f@3", 3, 1, True))
+        self.assertEqual((owner["owner_span"][0], owner["span"][0]), (0, src.index(b"def f")))
+        self.assertEqual(owner["owner_span"][1], owner["span"][1])
+        pair, = predictions(rows)
+        self.assertEqual(pair["outcome"], "predicted")
+        self.assertEqual((owner["joined_writes"], owner["joined_reads"]), (1, 1))
+
+    def test_decorated_owner_keyed_by_the_def_line_does_not_join(self):
+        src = b"@deco\n" + SRC
+        run = self.run_of({"a.py": src}, nodes=list(standard_nodes(src, line=2)))
+        self.assertEqual({p["outcome"] for p in predictions(rows_of(run))}, {"refused:join:missing"})
+
+    def test_async_and_parenthesised_decorators_have_a_product_start(self):
+        src = b"@(\n    deco)\nasync def f(d, v):\n    d[\"k\"] = v\n    return d\n"
+        run = self.run_of({"a.py": src}, nodes=list(standard_nodes(src, line=1)))
+        owner, = [r for r in rows_of(run) if r["kind"] == "owner"]
+        self.assertEqual((owner["owner_line"], owner["line"], owner["owner_span"][0]), (1, 3, 0))
+
+    def test_decorator_start_that_cannot_be_read_is_unestablished_and_refused(self):
+        src = b"@(  # note\n    deco)\n" + SRC
+        run = self.run_of({"a.py": src}, nodes=list(standard_nodes(src, line=1)))
+        rows = rows_of(run)
+        owner, = [r for r in rows if r["kind"] == "owner"]
+        self.assertEqual((owner["owner_line"], owner["owner_span"]), (None, []))
+        self.assertEqual({p["outcome"] for p in predictions(rows)}, {"refused:join:ambiguousowner"})
+
+    def test_every_function_is_listed_in_its_file_record(self):
+        src = b"@d\ndef g():\n    return 1\n\n\n" + SRC + b"x = 1  # tail\n"
+        file_row, = [r for r in rows_of(self.run_of({"a.py": src}, nodes=[])) if r["kind"] == "file"]
+        by_name = {f[1]: f for f in file_row["functions"]}
+        self.assertEqual(sorted(by_name), ["f", "g"])
+        key, name, def_line, line, span, def_span, ambiguous, end_max = by_name["g"]
+        self.assertEqual((key, def_line, line, span[0], def_span[0], ambiguous), ("g@2", 2, 1, 0, 3, 0))
+        self.assertEqual(file_row["owners"], 2)
+
+    def test_end_max_reaches_only_over_trailing_comments(self):
+        src = SRC.replace(b"return d\n", b"return d  # note\n") + b"# next\nx = 1\n"
+        owner, = [r for r in rows_of(self.run_of({"a.py": src}, nodes=list(standard_nodes(src)))) if r["kind"] == "owner"]
+        end = owner["span"][1]
+        self.assertEqual(src[end:owner["end_max"]].strip(), b"# note\n# next")
+
+    def test_single_body_statement_has_no_cfg_whatever_the_header_spans(self):
+        multi = b'@deco\ndef f(\n    d, v\n):\n    d["k"] = v\n'
+        w = var("a.py", "f", 1, multi, "def", b'd["k"]', ("d", "[]"))
+        owner, = [r for r in rows_of(self.run_of({"a.py": multi}, nodes=[w])) if r["kind"] == "owner"]
+        self.assertEqual((owner["rd"], owner["raw_pairs"]), ("no_cfg", None))
+        two = ast.parse(SRC).body[0].body
+        self.assertEqual(li.statement_lines(two), {2, 3})
+        nested = ast.parse(b"def f(a):\n    if a:\n        a[0] = 1\n").body[0].body
+        self.assertEqual(li.statement_lines(nested), {2, 3})
+        owner, = [r for r in rows_of(self.fresh("T8", *standard_nodes())) if r["kind"] == "owner"]
+        self.assertEqual(owner["rd"], "available")
+
+    def test_raw_work_bounds_count_join_refused_endpoints_only_in_the_maximum(self):
+        w, r = standard_nodes()
+        moved = dict(r, start_byte=r["start_byte"] - 1, end_byte=r["end_byte"] + 1)
+        owner, = [x for x in rows_of(self.run_of(nodes=[w, moved])) if x["kind"] == "owner"]
+        self.assertEqual((owner["raw_pairs"], owner["raw_pairs_max"]), (0, 1))
+        owner, = [x for x in rows_of(self.fresh("T9", w, r)) if x["kind"] == "owner"]
+        self.assertEqual((owner["raw_pairs"], owner["raw_pairs_max"]), (1, 1))
 
     def test_cli_writes_one_stream_for_every_corpus_with_a_base_run(self):
         write_run(self.dir.name, "P1", {"a.py": SRC}, nodes=list(standard_nodes()))

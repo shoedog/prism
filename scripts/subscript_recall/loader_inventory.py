@@ -12,6 +12,7 @@ as a reconciliation residual in `admission.py`.
 
 import argparse
 import ast
+import bisect
 import json
 import sys
 from collections import Counter, defaultdict, deque
@@ -26,6 +27,9 @@ SCHEMA = "element_recall_independent/1"
 LIMITS = (flow.RAW_LIMIT, flow.READ_LIMIT, flow.OWNER_LIMIT)
 RD_MAX_DEFS, RD_MAX_LINES = 2048, 4096
 ROUTE_BUDGET = 5000
+# Flags that only say the endpoint is not the unique node at its key (not a syntax or binding refusal).
+JOIN_FLAGS_ONLY = frozenset(("join:missing", "join:truncated", "join:mismatched", "join:ambiguousowner",
+                             "same_line_collision"))
 
 
 def dump(row):
@@ -126,12 +130,35 @@ def storage_key(owner, access, point):
 class Candidate:
     """One owner with at least one indexed-store endpoint in the M inventory."""
 
-    def __init__(self, file, key, node, span, graph, entry, ambiguous):
-        self.file, self.key, self.node, self.span, self.graph, self.entry = (
-            file, key, node, span, graph, entry)
+    def __init__(self, file, key, node, ident, graph, entry, ambiguous):
+        self.file, self.key, self.node, self.graph, self.entry = file, key, node, graph, entry
+        self.ident, self.span = ident, ident.span
         self.name = node.name
-        self.ambiguous = ambiguous
-        self.owner = (file, node.name, node.lineno)
+        # An owner whose product start line cannot be read off the source joins nothing.
+        self.ambiguous = ambiguous or ident.line is None
+        # The graph keys an owner by the line the product starts it on: the first decorator's `@` line.
+        self.owner = (file, node.name, ident.line)
+
+
+def statement_lines(body):
+    """Distinct start lines of the statements the product's CFG sees in a function body.
+
+    The product's `statements_in_function` lists the body's statements and those nested in compound
+    statements (not the `def` line, not nested definitions' bodies); one line leaves the owner without CFG
+    edges, whatever span the `def` header and its decorators cover."""
+    lines = set()
+    for node in body:
+        lines.add(node.lineno)
+        if isinstance(node, ast.Try) or type(node).__name__ == "TryStar":
+            lines.update(statement_lines(node.body + node.orelse + node.finalbody))
+            for handler in node.handlers:
+                lines.update(statement_lines(handler.body))
+        elif type(node).__name__ == "Match":
+            for case in node.cases:
+                lines.update(statement_lines(case.body))
+        elif isinstance(node, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.With, ast.AsyncWith)):
+            lines.update(statement_lines(node.body + getattr(node, "orelse", [])))
+    return lines
 
 
 def rd_exit(parent, cand):
@@ -139,7 +166,7 @@ def rd_exit(parent, cand):
         return "def_cap"
     if len(parent.lines.get(cand.owner, ())) > RD_MAX_LINES:
         return "line_cap"
-    return "no_cfg" if cand.node.end_lineno == cand.node.lineno else "available"
+    return "no_cfg" if len(statement_lines(cand.node.body)) < 2 else "available"
 
 
 def predict(cand, parent, limits=LIMITS):
@@ -162,8 +189,17 @@ def predict(cand, parent, limits=LIMITS):
         if not read.flags:
             buckets[read.binding_path].append(read)
     raw, _ = flow.work((w.binding_path for w in clean), buckets)
+    # The typed reader shows the graph after first-wins materialization; the product counts raw bucket
+    # rows before it, so an endpoint refused only by a join (a collapsed key) still counts toward its P.
+    # The count over those endpoints too is the most that P can be; the clean count is the least.
+    loose = defaultdict(list)
+    for read in reads:
+        if not read.flags - JOIN_FLAGS_ONLY:
+            loose[read.binding_path].append(read)
+    most, _ = flow.work((w.binding_path for w in writes if not w.flags - JOIN_FLAGS_ONLY), loose)
     rd = rd_exit(parent, cand)
     row = dict(rd=rd, rd_source="graph_caps", raw_pairs=None if rd != "available" else min(raw, MAX_COUNTER),
+               raw_pairs_max=None if rd != "available" else min(max(raw, most), MAX_COUNTER),
                raw_overflow=int(raw > MAX_COUNTER), raw_capped=int(rd == "available" and raw > raw_limit),
                reads_over_fanin=0, omitted_fanin_pairs=0, over_edge_cap=0, omitted_cap_pairs=0)
     pairs = []
@@ -221,16 +257,67 @@ def predict(cand, parent, limits=LIMITS):
     return row, pairs, writes, reads
 
 
+def trailing_comments(source, end):
+    """End of the comment-only text that directly follows a node ending at `end` (else `end`).
+
+    tree-sitter closes a function after a trailing comment (`return x  # note`), `ast` before it; the join
+    accepts a product end between the two and no other difference."""
+    at, last = end, end
+    while at < len(source):
+        byte = source[at:at + 1]
+        if byte in (b" ", b"\t", b"\n", b"\r", b"\f"):
+            at += 1
+        elif byte == b"#":
+            line_end = source.find(b"\n", at)
+            at = last = len(source) if line_end < 0 else line_end
+            if source[last - 1:last] == b"\r":
+                last -= 1
+        else:
+            break
+    return last
+
+
+class Ident:
+    """Where one function owner lives for each side: the def (census key) and the product's own start.
+
+    The product starts a decorated function at its first decorator's `@` (tree-sitter's
+    `decorated_definition`) and keys its graph nodes and trace records by that line, while the frame and
+    census key it by the `def` line. `line`/`span` are the product's; `def_line`/`def_span` the census's.
+    `line` is None when the `@` cannot be found in the source, so the identity is not established."""
+
+    def __init__(self, parsed, node):
+        starts, source = parsed.starts, parsed.source
+        end = starts[node.end_lineno - 1] + node.end_col_offset
+        self.def_line = node.lineno
+        self.def_span = (starts[node.lineno - 1] + node.col_offset, end)
+        self.decorated = bool(node.decorator_list)
+        self.line, self.span = self.def_line, self.def_span
+        self.end_max = trailing_comments(source, end)
+        if self.decorated:
+            first = node.decorator_list[0]
+            at = starts[first.lineno - 1] + first.col_offset
+            while at > 0 and source[at - 1:at] in (b" ", b"\t", b"\n", b"\r", b"\f", b"("):
+                at -= 1
+            if source[at - 1:at] == b"@":
+                self.span = (at - 1, end)
+                self.line = bisect.bisect_right(starts, at - 1)
+            else:
+                self.line = self.span = None
+
+
 def owners_of(parsed):
-    """Function owners (the product scans function definitions), with the product's name@line ambiguity."""
+    """Function owners (the product scans function definitions), with the product's name@line ambiguity.
+
+    Ambiguity is counted on the product's identity (name and start line), the key its graph uses."""
     count = Counter()
     found = []
     for key, nodes in parsed.owners.items():
         for node in nodes:
             if not isinstance(node, ast.Lambda):
-                count[(node.name, node.lineno)] += 1
-                found.append((key, node))
-    return [(key, node, count[(node.name, node.lineno)] > 1) for key, node in found]
+                ident = Ident(parsed, node)
+                count[(node.name, ident.line)] += 1
+                found.append((key, node, ident))
+    return [(key, node, ident, count[(node.name, ident.line)] > 1) for key, node, ident in found]
 
 
 def scan_corpus(corpus, run_dir):
@@ -255,16 +342,16 @@ def scan_corpus(corpus, run_dir):
         except (SyntaxError, ValueError, UnicodeError, RecursionError):
             records.append(dict(kind="file", corpus=corpus, file=name, sha256=digest, status="parse_error"))
             continue
-        total = 0
-        for key, node, ambiguous in owners_of(parsed):
-            total += 1
+        functions = []
+        for key, node, ident, ambiguous in owners_of(parsed):
+            # Every function owner is listed, candidate or not: the identity table `admission.py` joins on.
+            functions.append([key, node.name, ident.def_line, ident.line, list(ident.span or ()),
+                              list(ident.def_span), int(ambiguous), ident.end_max])
             graph, entry = parsed.compile(node)
             if graph.writes:
-                span = (parsed.starts[node.lineno - 1] + node.col_offset,
-                        parsed.starts[node.end_lineno - 1] + node.end_col_offset)
-                found.append((digest, Candidate(name, key, node, span, graph, entry, ambiguous)))
+                found.append((digest, Candidate(name, key, node, ident, graph, entry, ambiguous)))
         records.append(dict(kind="file", corpus=corpus, file=name, sha256=digest, status="parsed",
-                            owners=total))
+                            owners=len(functions), functions=functions))
     return manifest, records, found
 
 
@@ -278,8 +365,10 @@ def corpus_records(corpus, run_dir, limits=LIMITS):
     out.extend(records)
     for digest, cand in found:
         row, preds, writes, reads = predict(cand, parent, limits)
+        ident = cand.ident
         base = dict(corpus=corpus, file=cand.file, owner=cand.key, name=cand.name,
-                    line=cand.node.lineno, span=list(cand.span), parser="python-ast")
+                    line=ident.def_line, span=list(ident.def_span), owner_line=ident.line,
+                    owner_span=list(ident.span or ()), end_max=ident.end_max, decorated=ident.decorated, parser="python-ast")
         out.append(dict(kind="owner", source_sha256=digest, **base, **row))
         for w in writes:
             out.append(dict(kind="write", **{k: base[k] for k in ("corpus", "file", "owner")},

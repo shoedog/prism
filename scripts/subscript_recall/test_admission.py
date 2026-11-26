@@ -26,10 +26,10 @@ def product_records(rows):
     """Product-format trace records equal to the independent stream's own pairs (mutated by tests)."""
     out = []
     for o in (r for r in rows if r["kind"] == "owner"):
-        at = {"file": o["file"], "owner": o["name"], "owner_line": o["line"]}
+        at = {"file": o["file"], "owner": o["name"], "owner_line": o["owner_line"]}
         mine = [r for r in rows if r.get("file") == o["file"] and r.get("owner") == o["owner"]]
         preds = [r for r in mine if r["kind"] == "prediction"]
-        out.append(dict(kind="owner", **at, span=o["span"], writes=o["writes"], nodes=o["reads"], rd=o["rd"],
+        out.append(dict(kind="owner", **at, span=list(o["owner_span"]), writes=o["writes"], nodes=o["reads"], rd=o["rd"],
                         raw_pairs=o["raw_pairs"], raw_overflow=bool(o["raw_overflow"]),
                         raw_capped=bool(o["raw_capped"]), reads_over_fanin=o["reads_over_fanin"],
                         omitted_fanin_pairs=o["omitted_fanin_pairs"], over_edge_cap=bool(o["over_edge_cap"]),
@@ -49,12 +49,14 @@ class World:
         self.limits = li.LIMITS
         self.witness_all = True
 
-    def function(self, file="a.py", src=SRC, nodes=None, owner="f"):
-        """One function owner on line 1; its recorded C3 read is `return d` and its W the first store."""
+    def function(self, file="a.py", src=SRC, nodes=None, owner="f", line=1, def_line=1):
+        """One function owner; its recorded C3 read is `return d` and its W the first store.
+
+        `line` is the line the product keys the owner by (a decorator's), `def_line` the census's."""
         self.files[file] = src
-        self.nodes += list(standard_nodes(src, file, owner) if nodes is None else nodes)
+        self.nodes += list(standard_nodes(src, file, owner, line) if nodes is None else nodes)
         first = b'd["k"]' if b'd["k"]' in src else b'd["a"]' if b'd["a"]' in src else b'd["0"]'
-        self.frame[(file, f"{owner}@1")] = [(span(src, first)[0], span(src, b"return d", b"d"), "return")]
+        self.frame[(file, f"{owner}@{def_line}")] = [(span(src, first)[0], span(src, b"return d", b"d"), "return")]
 
     def build(self, mutate_ind=None, mutate_trace=None):
         r, files = self.root, {}
@@ -290,7 +292,135 @@ class AdmissionTests(unittest.TestCase):
 
         self.assertEqual(w.prepare(mutate_trace=skew)[0], 0)
         residual, = ad.jsonl(w.root / "adm" / "residuals.jsonl")
-        self.assertEqual(residual["residual"], [dict(field="raw_pairs", product=7, independent=1)])
+        self.assertEqual(residual["residual"],
+                         [dict(field="raw_pairs", product=7, independent=1, independent_max=1)])
+
+    def test_decorated_owner_joins_on_the_product_start_line(self):
+        """The product keys a decorated function by its first decorator's line, the census by the def line."""
+        w = self.world
+        src = b"@deco\n" + SRC
+        w.function("a.py", src, owner="f", line=1, def_line=2)
+        code, out, err = w.prepare()
+        self.assertEqual(code, 0, err)
+        row, = ad.jsonl(w.root / "adm" / "owners.jsonl")
+        self.assertEqual((row["owner"], row["status"], row["candidates"]), ("f@2", "ok", 1))
+        cand, = ad.jsonl(w.root / "adm" / "candidates.jsonl")
+        self.assertEqual(cand["key"].split("|")[:3], ["P1", "a.py", "f@2"])
+        self.assertEqual(self.a_of(w.report()[1]), 1)
+
+    def test_decorated_owner_with_the_wrong_product_line_or_span_is_refused(self):
+        src = b"@deco\n" + SRC
+
+        def line_of_def(records):  # the product keyed it by the def line: not the product's own identity
+            for r in records:
+                r["owner_line"] = 2 if "owner_line" in r else None
+
+        def span_start_at_def(records):
+            next(r for r in records if r["kind"] == "owner")["span"][0] += 6
+
+        for name, hook in (("line", line_of_def), ("span", span_start_at_def)):
+            with tempfile.TemporaryDirectory() as tmp:
+                w = World(tmp)
+                w.function("a.py", src, owner="f", line=1, def_line=2)
+                code, _, _ = w.prepare(mutate_trace=hook)
+                self.assertEqual(code, 1, name)
+                self.assertEqual(ad.jsonl(Path(tmp, "adm", "candidates.jsonl")), [], name)
+                row, = ad.jsonl(Path(tmp, "adm", "owners.jsonl"))
+                self.assertEqual(row["status"], "missing_trace", name)
+
+    def test_unestablished_decorator_start_joins_nothing(self):
+        w = self.world
+        src = b"@(  # why\n    deco)\n" + SRC
+        w.function("a.py", src, owner="f", line=1, def_line=3)
+
+        def product_knows_its_start(records):  # the product does know where it starts
+            for r in records:
+                r["owner_line"] = 1
+            next(r for r in records if r["kind"] == "owner")["span"] = [0, len(src) - 1]
+
+        code, _, _ = w.prepare(mutate_trace=product_knows_its_start)
+        owner, = [r for r in ad.jsonl(w.root / "ind.jsonl") if r["kind"] == "owner"]
+        self.assertEqual((owner["line"], owner["owner_line"]), (3, None))
+        self.assertEqual(code, 1)
+        self.assertEqual(ad.jsonl(w.root / "adm" / "candidates.jsonl"), [])
+        row, = ad.jsonl(w.root / "adm" / "owners.jsonl")
+        self.assertEqual(row["status"], "missing_trace")
+
+    def test_trailing_comment_may_extend_the_product_span_but_nothing_else(self):
+        src = SRC.replace(b"return d\n", b"return d  # note\n")
+        for name, extra, want in (("comment", len(b"  # note"), 0), ("code", len(b"  # note") + 1, 1)):
+            with tempfile.TemporaryDirectory() as tmp:
+                w = World(tmp)
+                w.function("a.py", src)
+
+                def stretch(records, extra=extra):
+                    next(r for r in records if r["kind"] == "owner")["span"][1] += extra
+
+                self.assertEqual(w.prepare(mutate_trace=stretch)[0], want, name)
+
+    def test_function_without_a_candidate_store_reconciles_when_the_product_predicts_nothing(self):
+        """The product lists an owner (refused stores) the independent side found no store in."""
+        w = self.world
+        w.function()
+        hsrc = b"def h(x):\n    y = x\n    return y\n"
+        w.files["h.py"] = hsrc
+        w.frame[("h.py", "h@1")] = [(span(hsrc, b"y = x")[0], span(hsrc, b"return y", b"y"), "return")]
+        owner = dict(kind="owner", file="h.py", owner="h", owner_line=1, span=[0, len(hsrc) - 1], writes=2, nodes=0,
+                     rd="available", raw_pairs=0, raw_overflow=False, raw_capped=False, reads_over_fanin=0,
+                     omitted_fanin_pairs=0, over_edge_cap=False, omitted_cap_pairs=0,
+                     attrition={s: 0 for s in ad.STAGES}, pairs=[])
+        writes = [dict(kind="write", file="h.py", owner="h", owner_line=1, bytes=[10, 15]) for _ in range(2)]
+
+        def product_lists_h(records):
+            records += [owner, *writes]
+
+        code, _, err = w.prepare(mutate_trace=product_lists_h)
+        self.assertEqual(code, 0, err)
+        rows = {r["file"]: r for r in ad.jsonl(w.root / "adm" / "owners.jsonl")}
+        self.assertEqual((rows["h.py"]["status"], rows["h.py"]["agreed"], rows["h.py"]["candidates"] if "candidates" in rows["h.py"] else 0),
+                         ("ok", 0, 0))
+        self.assertEqual(rows["a.py"]["status"], "ok")
+        self.assertEqual(self.a_of(w.report()[1]), 1)
+
+    def test_function_without_a_candidate_store_but_a_product_prediction_is_unreconciled(self):
+        w = self.world
+        hsrc = b"def h(x):\n    y = x\n    return y\n"
+        w.files["h.py"] = hsrc
+        w.frame[("h.py", "h@1")] = [(span(hsrc, b"y = x")[0], span(hsrc, b"return y", b"y"), "return")]
+        pair = dict(w=[10, 15], r=[30, 31], role="Return", join="joined")
+        owner = dict(kind="owner", file="h.py", owner="h", owner_line=1, span=[0, len(hsrc) - 1], writes=1, nodes=1,
+                     rd="available", raw_pairs=1, raw_overflow=False, raw_capped=False, reads_over_fanin=0,
+                     omitted_fanin_pairs=0, over_edge_cap=False, omitted_cap_pairs=0,
+                     attrition={s: 0 for s in ad.STAGES}, pairs=[pair])
+        records = [owner, dict(kind="write", file="h.py", owner="h", owner_line=1, bytes=[10, 15]),
+                   dict(kind="node", file="h.py", owner="h", owner_line=1, bytes=[30, 31]),
+                   dict(kind="prediction", file="h.py", owner="h", owner_line=1, w=[10, 15], r=[30, 31],
+                        role="Return", outcome="predicted")]
+        w.function()
+        code, _, _ = w.prepare(mutate_trace=lambda rs: rs.extend(records))
+        self.assertEqual(code, 0)
+        rows = {r["file"]: r for r in ad.jsonl(w.root / "adm" / "owners.jsonl")}
+        self.assertEqual(rows["h.py"]["status"], "unreconciled")
+        self.assertEqual({c["file"] for c in ad.jsonl(w.root / "adm" / "candidates.jsonl")}, {"a.py"})
+
+    def test_raw_work_may_exceed_the_clean_count_only_up_to_the_join_refused_endpoints(self):
+        """The reader shows the graph after first-wins materialization; the product counts raw rows."""
+        for name, product_raw, status in (("below", 0, "unreconciled"), ("clean", 1, "ok"),
+                                          ("collapsed", 2, "ok"), ("above", 3, "unreconciled")):
+            with tempfile.TemporaryDirectory() as tmp:
+                w = World(tmp)
+                w.function()
+
+                def hooks(rows):
+                    owner = next(r for r in rows if r["kind"] == "owner")
+                    owner["raw_pairs_max"] = 2
+
+                def skew(records, raw=product_raw):
+                    next(r for r in records if r["kind"] == "owner")["raw_pairs"] = raw
+
+                self.assertEqual(w.prepare(mutate_ind=hooks, mutate_trace=skew)[0], 0, name)
+                row, = ad.jsonl(Path(tmp, "adm", "owners.jsonl"))
+                self.assertEqual(row["status"], status, name)
 
     def test_loader_skip_keeps_its_status_row(self):
         w = self.world
