@@ -1,0 +1,32 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/atelier/{shade}",
+      "variables": {
+        "shade": {
+          "default": "salt",
+          "enum": [
+            "salt"
+          ]
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/pot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response"
+          }
+        },
+        "operationId": "inspectSaltPot"
+      }
+    }
+  }
+}

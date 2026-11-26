@@ -47,8 +47,13 @@ impl Row {
             sites(&self.want) == sites(&self.truth),
             "want and truth must list the same sites"
         );
+        // Truth values that mean "no finding" (a literal, a computed value, a non-variable token) equal `none`.
+        let norm = |origin: &str| match origin {
+            "none" | "non_variable" | "derived" | "constant" => "none".to_string(),
+            other => other.to_string(),
+        };
         let same = |a: &[Expectation], b: &[Expectation]| {
-            let key = |e: &Expectation| (e.file.clone(), e.line, e.var.clone(), e.origin.clone());
+            let key = |e: &Expectation| (e.file.clone(), e.line, e.var.clone(), norm(&e.origin));
             a.iter().map(key).collect::<BTreeSet<_>>() == b.iter().map(key).collect::<BTreeSet<_>>()
         };
         ensure!(

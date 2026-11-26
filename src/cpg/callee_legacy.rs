@@ -41,9 +41,11 @@ impl CodePropertyGraph {
     ) -> Vec<PendingArgumentFlow> {
         let mut out = Vec::new();
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
+        let mut rest_cache = BTreeMap::new();
         for site in sites {
             let resolved_site = cg.resolve_call_site(site);
             let literal_ok = object_literal_args::exact_singleton(&resolved_site);
+            let mut call_args = None;
             for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
                 // maybe-edge (nav-only). DataFlow carries no confidence/kind and
@@ -61,10 +63,8 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let args = caller_parsed.call_argument_texts_and_spans_at(
-                    site.start_byte,
-                    site.effective_source_callee_name(),
-                );
+                let (args, offsets) =
+                    call_args.get_or_insert_with(|| spread_args::for_call(caller_parsed, site));
                 if args.is_empty() {
                     continue;
                 }
@@ -72,30 +72,30 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let param_nodes = match param_cache.entry(callee_id.clone()).or_insert_with(|| {
-                    compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
-                }) {
-                    Some(nodes) => nodes.as_slice(),
-                    None => continue,
+                let param_nodes = param_cache
+                    .entry(callee_id.clone())
+                    .or_insert_with(|| {
+                        compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
+                    })
+                    .as_deref()
+                    .unwrap_or_default();
+                let inputs = object_literal_args::SiteInputs {
+                    caller_id,
+                    caller_parsed,
+                    callee_parsed,
+                    args,
+                    var_index,
+                    exact_var_index: exact_var_index,
+                    graph,
+                    cross_file_free_single_exact,
                 };
                 if literal_ok {
-                    let inputs = object_literal_args::SiteInputs {
-                        caller_id,
-                        caller_parsed,
-                        callee_parsed,
-                        args: &args,
-                        var_index,
-                        exact_var_index,
-                        graph,
-                        cross_file_free_single_exact,
-                    };
                     object_literal_args::collect(&mut out, &inputs, param_nodes, |&n| Some(n));
                 }
-                for (i, &param_idx) in param_nodes.iter().enumerate() {
-                    if i >= args.len() {
-                        break;
-                    }
-                    let (arg_text, arg_span) = &args[i];
+                for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
+                    let Some(&param_idx) = slot.and_then(|slot| param_nodes.get(slot)) else {
+                        continue;
+                    };
                     // Field-sensitive arg binding (from PR #113): prefer the full access path
                     // (e.g. `o.data`) so interproc taint flows from the specific field, falling
                     // back to the base (`o`) — the pre-change behavior — when no field-path var
@@ -139,6 +139,21 @@ impl CodePropertyGraph {
                         }
                     }
                 }
+                if !rest_params::admitted(&inputs, site, cg, &resolved, literal_ok) {
+                    continue;
+                }
+                let Some(target) = *rest_cache.entry(callee_id.clone()).or_insert_with(|| {
+                    rest_params::compute_rest_def_node(callee_parsed, callee_id, var_index, graph)
+                }) else {
+                    continue;
+                };
+                rest_params::collect(
+                    &mut out,
+                    &inputs,
+                    target,
+                    offsets,
+                    resolved.confidence.into(),
+                );
             }
         }
         out

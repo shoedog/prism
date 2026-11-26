@@ -1,0 +1,29 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sable Quay shape-s34",
+    "version": "1.0.0"
+  },
+  "host": "alderfen.invalid",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/mothbank/bouquets": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Synthetic response"
+          }
+        }
+      }
+    }
+  }
+}

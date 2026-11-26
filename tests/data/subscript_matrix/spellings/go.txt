@@ -1,0 +1,53 @@
+"a"
+`a`
+"\x61"
+"\141"
+"\u0061"
+"\U00000061"
+`\x61`
+"a" + "b"
+"a" + `b`
+"ab"
+`ab`
+"é"
+`é`
+"é"
+"\u00e9"
+"\u0065\u0301"
+"\xc3\xa9"
+"\xe9"
+"雪"
+"$"
+"$x"
+"class"
+"type"
+"constructor"
+"__proto__"
+"toString"
+"1"
+1
+0x1
+0b1
+1.0
+int(1)
+int32(1)
+"01"
+0
+"0"
+"a.b"
+""
+``
+"a b"
+"\n"
+"\x0a"
+"\012"
+`\n`
+"a\"b"
+`a"b`
+"a-b"
+'a'
+rune(97)
+"😀"
+"long-key-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789"
+# setup: const p = "a"
+p

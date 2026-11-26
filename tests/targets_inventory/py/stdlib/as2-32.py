@@ -1,0 +1,1 @@
+import osdef read(key):    return os.getenv(        key)    # tail

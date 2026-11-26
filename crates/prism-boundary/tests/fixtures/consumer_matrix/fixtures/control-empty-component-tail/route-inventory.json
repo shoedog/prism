@@ -1,0 +1,13 @@
+{
+  "api": "sable-quay",
+  "origin": "https://sable-quay.invalid",
+  "coverage": "checked",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/orchards/{*0+}",
+      "retain_separator": true,
+      "allow_empty": true
+    }
+  ]
+}

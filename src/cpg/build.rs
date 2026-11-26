@@ -2,14 +2,26 @@
 //! building the unified graph from parsed files, assembling nodes/edges, and
 //! statement classification.
 
+#[path = "argument_nodes.rs"]
+mod argument_nodes;
+
 #[path = "callee_params.rs"]
 mod callee_params;
 
 #[path = "callee_returns.rs"]
 mod callee_returns;
 
+#[path = "e5_trace.rs"]
+mod e5_trace;
+
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
+
+#[path = "rest_params.rs"]
+mod rest_params;
+
+#[path = "spread_args.rs"]
+mod spread_args;
 
 #[cfg(test)]
 #[path = "mem_s1_tests.rs"]
@@ -49,6 +61,14 @@ mod callee_cases;
 #[cfg(test)]
 #[path = "callee_legacy.rs"]
 mod callee_legacy;
+
+#[cfg(test)]
+#[path = "param_binding_parity_tests.rs"]
+mod param_binding_parity_tests;
+
+#[cfg(test)]
+#[path = "rest_params_tests.rs"]
+mod rest_params_tests;
 
 #[cfg(test)]
 #[path = "callee_identity_tests.rs"]
@@ -381,6 +401,7 @@ impl CodePropertyGraph {
         if new_sources.is_empty() || argument_seeds.is_empty() {
             return;
         }
+        let trace_seeds = e5_trace::enabled().then(|| argument_seeds.clone());
         let mut reached = BTreeSet::new();
         let mut stack = argument_seeds;
         while let Some(node) = stack.pop() {
@@ -401,6 +422,11 @@ impl CodePropertyGraph {
         }).collect();
         if refused.is_empty() {
             return;
+        }
+        if let Some(seeds) = trace_seeds {
+            e5_trace::for_each_witness(graph, seeds, &refused, |source, seed, path| {
+                e5_trace::report(graph, source, seed, path);
+            });
         }
         let mut remove: Vec<_> = graph
             .edge_references()
@@ -1530,6 +1556,7 @@ impl CodePropertyGraph {
                     exact_var_index,
                     graph,
                     &shared_params,
+                    spread_args::for_call,
                 )
             })
             .collect::<Vec<Vec<PendingArgumentFlow>>>()
@@ -1558,6 +1585,7 @@ impl CodePropertyGraph {
             &exact_var_index,
             graph,
             &ParamCache::new(files),
+            spread_args::for_call,
         )
         .into_iter()
         .map(|flow| flow.edge)
@@ -1572,6 +1600,10 @@ impl CodePropertyGraph {
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         shared_params: &ParamCache<'_>,
+        read_arguments: impl Fn(
+            &ParsedFile,
+            &CallSite,
+        ) -> (Vec<spread_args::Argument>, spread_args::Offsets),
     ) -> Vec<PendingArgumentFlow> {
         let files = shared_params.files;
         let mut out = Vec::new();
@@ -1579,6 +1611,7 @@ impl CodePropertyGraph {
         for site in sites {
             let resolved_site = cg.resolve_call_site(site);
             let literal_ok = object_literal_args::exact_singleton(&resolved_site); // #594
+            let mut call_args = None;
             for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
                 // maybe-edge (nav-only). DataFlow carries no confidence/kind and
@@ -1596,10 +1629,8 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let args = caller_parsed.call_argument_texts_and_spans_at(
-                    site.start_byte,
-                    site.effective_source_callee_name(),
-                );
+                let (args, offsets) =
+                    call_args.get_or_insert_with(|| read_arguments(caller_parsed, site));
                 if args.is_empty() {
                     continue;
                 }
@@ -1610,58 +1641,38 @@ impl CodePropertyGraph {
                 let cell = param_cache.entry(callee_id.clone()).or_insert_with(|| {
                     shared_params.get(callee_id, callee_parsed, var_index, graph)
                 });
-                let Some(param_nodes) = cell.get().expect("initialized parameter facts") else {
-                    continue;
+                let param_nodes = cell
+                    .get()
+                    .expect("initialized parameter facts")
+                    .as_deref()
+                    .unwrap_or_default();
+                let inputs = object_literal_args::SiteInputs {
+                    caller_id,
+                    caller_parsed,
+                    callee_parsed,
+                    args,
+                    var_index,
+                    exact_var_index,
+                    graph,
+                    cross_file_free_single_exact,
                 };
                 if literal_ok {
-                    let inputs = object_literal_args::SiteInputs {
-                        caller_id,
-                        caller_parsed,
-                        callee_parsed,
-                        args: &args,
-                        var_index,
-                        exact_var_index,
-                        graph,
-                        cross_file_free_single_exact,
-                    };
                     let resolve = |t: &callee_params::ParamTarget| t.resolve(var_index, graph);
                     object_literal_args::collect(&mut out, &inputs, param_nodes, resolve);
                 }
-                for (i, param_target) in param_nodes.iter().enumerate() {
-                    if i >= args.len() {
-                        break;
-                    }
-                    let (arg_text, arg_span) = &args[i];
-                    // Field-sensitive arg binding (from PR #113): prefer the full access path
-                    // (e.g. `o.data`) so interproc taint flows from the specific field, falling
-                    // back to the base (`o`) — the pre-change behavior — when no field-path var
-                    // node exists (recall-preserving).
-                    let full_arg_path = caller_parsed
-                        .bounded_argument_member_path_at(arg_span.start, arg_span.end)
-                        .unwrap_or_else(|| AccessPath::from_expr(arg_text));
-                    let mut arg_paths = vec![full_arg_path.clone()];
-                    let base_arg_path = AccessPath::simple(&full_arg_path.base);
-                    if base_arg_path != full_arg_path {
-                        arg_paths.push(base_arg_path);
-                    }
-                    // Supplement, not replace: emit an edge from EACH resolved arg node (the
-                    // field path AND the base) so both field-rooted and whole-object taint cross
-                    // the boundary. prism's DFG does not propagate base taint into field nodes, so
-                    // binding only the field would drop object-level taint the base edge carries.
-                    let arg_idxs: Vec<NodeIndex> = arg_paths
-                        .into_iter()
-                        .filter_map(|arg_path| {
-                            Self::argument_var_node_in_span_with_exact(
-                                caller_id,
-                                caller_parsed,
-                                &arg_path,
-                                arg_span,
-                                var_index,
-                                exact_var_index,
-                                graph,
-                            )
-                        })
-                        .collect();
+                for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
+                    let Some(param_target) = slot.and_then(|slot| param_nodes.get(slot)) else {
+                        continue;
+                    };
+                    let arg_idxs = Self::argument_nodes(
+                        caller_id,
+                        caller_parsed,
+                        arg_text,
+                        arg_span,
+                        var_index,
+                        exact_var_index,
+                        graph,
+                    );
                     if let Some(to) = param_target
                         .as_ref()
                         .and_then(|t| t.resolve(var_index, graph))
@@ -1678,6 +1689,22 @@ impl CodePropertyGraph {
                         }
                     }
                 }
+                if !rest_params::admitted(&inputs, site, cg.call_graph(), &resolved, literal_ok) {
+                    continue;
+                }
+                let Some((offset, to)) = shared_params
+                    .rest(callee_id, callee_parsed, var_index, graph)
+                    .and_then(|(offset, target)| Some((offset, target.resolve(var_index, graph)?)))
+                else {
+                    continue;
+                };
+                rest_params::collect(
+                    &mut out,
+                    &inputs,
+                    (offset, to),
+                    offsets,
+                    resolved.confidence.into(),
+                );
             }
         }
         out

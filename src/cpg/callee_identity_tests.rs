@@ -2,7 +2,7 @@
 use super::*;
 use crate::cpg::dfg_observation::{fieldwise_payload, lookup_indexes};
 use crate::languages::Language;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::callee_cases as cases;
 
@@ -55,40 +55,24 @@ fn generated_complete_cpg_identity() {
         "function helper({first}, second) { return second; }\nfunction caller(x,y) { let a = helper(x,y); return a; }\n"));
 }
 
-fn sources(root: &Path, out: &mut Vec<PathBuf>) {
-    let mut entries: Vec<_> = std::fs::read_dir(root)
-        .unwrap()
-        .map(Result::unwrap)
-        .collect();
-    entries.sort_by_key(|e| e.file_name());
-    for entry in entries {
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if name == "private-corpus"
-            || name.starts_with("f-")
-            || name.starts_with("F-private")
-            || name.to_ascii_lowercase().contains("secbench")
-        {
-            continue;
-        }
-        let kind = entry.file_type().unwrap();
-        if kind.is_dir() {
-            sources(&entry.path(), out);
-        } else if kind.is_file() && Language::from_path(&entry.path().to_string_lossy()).is_some() {
-            out.push(entry.path());
-        }
-    }
-}
+/// Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297 (tests/fixtures).
+const BOUND: usize = 1_500;
 
 #[test]
 fn repository_fixtures_complete_cpg_identity() {
     crate::build_pool::install(|| {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
-        let mut paths = Vec::new();
-        sources(&root, &mut paths);
+        let paths = crate::fixture_corpus::legacy_fixture_files(&root, |p| {
+            Language::from_path(&p.to_string_lossy()).is_some()
+        });
         assert!(
             paths.len() >= 100,
             "fixture population unexpectedly empty or truncated"
+        );
+        crate::fixture_corpus::assert_visited_within(
+            "repository_fixtures_complete_cpg_identity",
+            paths.len(),
+            BOUND,
         );
         let mut all = BTreeMap::new();
         for path in &paths {

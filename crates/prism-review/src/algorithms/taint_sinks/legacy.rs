@@ -62,9 +62,5 @@ pub(super) fn legacy_hit(
             "get_user" => c_family && text == "get_user",
             p => crate::algorithms::taint::matches_sink(text, p),
         })
-        .then_some(super::SinkHit {
-            rule: "legacy",
-            cwe: None,
-            strength: super::Strength::Strong,
-        })
+        .then_some(super::SinkHit::LEGACY)
 }

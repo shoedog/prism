@@ -1,0 +1,43 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Ceramic Lantern Fixture",
+    "version": "1.0.0"
+  },
+  "definitions": {
+    "Coil": {
+      "type": "object",
+      "properties": {
+        "byShade": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Coil"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coil"
+          }
+        },
+        "length": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Documented response",
+            "schema": {
+              "$ref": "#/definitions/Coil"
+            }
+          }
+        }
+      }
+    }
+  }
+}

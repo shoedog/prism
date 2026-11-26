@@ -110,7 +110,10 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `diff.rs` — Diff parsing and `DiffInput`/`DiffInfo` types.
 - `slice.rs` — `SlicingAlgorithm` enum (30 variants), `SliceConfig`, and `SliceResult`.
   `SliceFinding.rules` contains `RuleRef` entries sorted by id, with at most one entry per id. The field is skipped when empty and additive under the API handle promise.
+- `rule_registry.rs` and `rule_registry/` own the named finding rules, `RuleInfo`, and `RuleRef`.
+  Both types have private fields and borrowed read accessors. Named rows make references via `rule_ref()`. `prism::slice::RuleRef` and `prism_review::output::rule_registry` re-export the core API.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
+  Under the Exact ceiling, `cpg/trace_descent.rs` refuses binding doubts such as `call_nameonly` before site lookup or a cached proof. It counts same-spelling sites in the executing caller before requiring the unique site's byte span to contain the occurrence. Until I-spelling, `s2-js-alias-same-line`, `s2-js-alias-multiline-overlap`, `s3-ts-optional-default-competitor` and `s3-js-nested-spread-alias-competitor` now report `BoundaryExited` in the walk and no trace-review finding. An empty occurrence must lie strictly inside the one accepted site (nomination keeps the inclusive base predicate), and a `call_nameonly` binding edge that lands in the function being walked is a self-function boundary instead of local flow.
 - `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.
   `ReviewContextRound` builds a graph from the captured review and the admitted files.
@@ -235,11 +238,30 @@ Whole-repo `prism nav` indexes use a prism-owned per-repo cache at
 `dirs::cache_dir()/prism/nav/<hash(canonical repo root)>/`, with `--no-cache`
 and `--cache-dir` gating that navigation store specifically.
 Navigation queries include `nodes-at`, `symbol-spans`, `callers`, `callees`, `ego`,
-`module-deps`, `repo-map`, `dfg-stats`, and the CLI-only `onboard` report.
+`module-deps`, `repo-map`, `dfg-stats`, `routes`, and the CLI-only `onboard` report.
 `module-deps`/`repo-map` live in `src/navigation/module_graph.rs`; onboarding report
 construction lives in `src/navigation/onboarding.rs` and deterministic Markdown/JSON
 rendering in `crates/prism-review/src/output/onboarding.rs`. `onboard --out` is explicit create-new-only
 output and must never overwrite an existing file.
+
+`prism nav routes --repo <dir> [--entry <selector>] [--mounts] [--format json|text]`
+lists source registrations, optional mount edges, and a final summary. The
+summary names the enabled adapters. S1b adds composition behind an adapter
+interface. Its adapter set is empty, so an empty listing carries no evidence
+of route absence. Explicit entries require a unique, statically evidenced root and otherwise return `entry_unproven`.
+The wire contract distinguishes router and unproven receivers, full, suffix
+and dynamic exposures, and resolved, anonymous and unresolved callbacks.
+Live mounts see later registrations, and copies use the source installation
+at capture. Suffix reasons include `no_known_mount`, `variable_prefix`,
+`mount_cycle`, `dispatch_conflict` and `expansion_truncated`. Dynamic leaves
+carry `non_literal_path`, `regex_path` or `expansion_truncated`. Dispatch cuts
+retain the source origin and apply to the potentially colliding keys. A
+proved rejection records the failed setup root and blocks every binding on
+that root. When the event lacks a setup root and its dispatcher is outside
+the selected roots, the rejection reports a diagnostic and blocks bindings
+on every selected root. See
+[the routes wire contract](docs/features/query-layer/navigation/routes.md).
+
 Navigation and CPG call resolution share one ordered ladder (S3),
 `CallGraph::resolve_call_site` in `src/resolution.rs`, which returns each callee
 with a `ResolutionConfidence` (`Exact` | `NameOnly`) and a `ResolutionKind`. The
@@ -321,6 +343,16 @@ cross-package concrete-asserted keys, and package-level `var` receivers.
 `prism nav call-stats --repo <dir>` reports the resolution-kind histogram and drop
 classification; `prism nav interface-manifest --repo <dir>` emits the PR-2 in-scope
 interface-dispatch manifest (the §8a denominator for the precision gate report).
+
+`prism nav proto-writes --repo <dir> [--format json|text]` is an unstable JS/TS/TSX
+syntax listing. It reports each nested-key or walked write by target byte span and
+includes the selector sites that supply its receiver. JSON also includes the value
+reads on each target and live selector line, including unresolved reads. Read
+completeness requires proven binding identity and member versions. JSON and text
+show new `incomplete_reason` values for identity escapes, implicit arguments,
+direct eval, possible member aliases, opaque calls, deferred evaluation, accessors
+and unproven control flow. Text prints facts and refusal reasons without expanding
+candidate histories. This slice reports guard state `none` for every fact.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
 `dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
@@ -511,7 +543,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v189) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v190) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -579,6 +611,27 @@ alias of a refused formal (seam, eval, `arguments`) are not aliases. See the kno
 residual list. `PRISM_RD_CENSUS_TRACE=1` names the owners as
 `rd-census-owner<TAB>param-alias|param-bare<TAB>file<TAB>owner<TAB>first<TAB>last`. See
 `docs/features/language-coverage/js-ts-known-gaps.md` §6.
+
+JS/TS/TSX positional bindings read the argument list by the call node's full byte span and source
+callee name, so inner and outer calls in a chain have separate arguments. A dense array-literal
+spread such as `f(...[0, 1], x)` advances the fixed-slot offset by its syntactic length, including
+through parentheses and runtime-transparent TypeScript wrappers. A hole, a spread element in the
+array, or a non-literal spread operand makes later positions unknown. A spread operand and its
+elements supply no fixed-slot bindings. Object-literal field flow retains its spread-argument exclusion.
+
+JS/TS/TSX identifier rest formals (lane 9, slice B) receive ordinary Uses and dense spread-element
+Uses whose minimum runtime offset reaches the rest slot. The slot counts defaults and unsupported
+fixed patterns and omits TypeScript `this`. Rest flow uses the implementation's byte-matched entry
+Def, and scoped rebinding can disqualify it. Exact rest edges require a singleton target and,
+for namespace-qualified imports, a matching value export. Cross-file `free_single` Exact targets
+remain ineligible. An opaque spread must start within rest. Its Exact edge also requires a positive
+iteration witness from a bounded literal and evaluation-prefix check. A proved-empty spread
+yields no edge at either confidence. An ordinary NameOnly rest edge uses
+`nameonly/call_nameonly` and requires the call site and target declaration to be in different
+files. Rest transfers that depend on dense-literal iteration or later scalar offsets assume the
+standard array iterator, as slice A offsets do. A replacement of the standard iterator in owner-body
+statements after the call needs a second invocation and is not checked (disclosed residual). See the
+known-gaps document for the iteration proof's coverage.
 
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals

@@ -1,0 +1,13 @@
+{
+  "before": {
+    "coverage": "checked",
+    "operations": []
+  },
+  "after": {
+    "coverage": "partial",
+    "operations": [],
+    "unreadable": [
+      "routes.js"
+    ]
+  }
+}

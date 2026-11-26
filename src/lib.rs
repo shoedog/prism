@@ -59,6 +59,10 @@ pub mod languages;
 pub mod process_usage;
 pub mod profile;
 
+/// The one list of fixture directories the fixture sweeps read, shared with `tests/common`.
+#[cfg(test)]
+#[path = "../tests/common/fixture_corpus.rs"]
+pub(crate) mod fixture_corpus;
 pub mod live_types;
 mod manifest_snapshot;
 #[cfg(test)]
@@ -76,6 +80,7 @@ pub mod resolution_disproof;
 pub mod resolution_identity;
 pub mod resolution_receiver;
 mod review_context;
+pub mod rule_registry;
 pub mod sanitizers;
 pub mod slice;
 pub mod type_db;

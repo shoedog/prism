@@ -173,6 +173,15 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
             println!("{}", prism_review::output::navigation::render(&ev, format));
             Ok(())
         }
+        NavQuery::Routes(args) => {
+            let table =
+                prism::navigation::routes::list_with_session(args.entry.as_deref(), || {
+                    prism::api::nav_session(&args.repo, &nav_options)
+                })?;
+            let success = table.is_ok();
+            print!("{}", args.format.render(table, args.mounts));
+            success.then_some(()).ok_or_else(|| prism::profile::exit(2))
+        }
         NavQuery::Onboard { repo, format, out } => {
             let session = prism::api::nav_session(repo, &nav_options)?;
             let report = prism::navigation::onboarding::build_report(&session)?;
@@ -235,6 +244,59 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                     serde_json::to_value(&session.index.cpg().dfg_label_stats)?,
                 );
                 println!("{}", serde_json::to_string_pretty(&stats)?);
+            }
+            Ok(())
+        }
+        NavQuery::ProtoWrites { repo, format } => {
+            if format == "json" {
+                let listing = prism::navigation::proto_writes::repo_proto_writes(repo)?;
+                println!("{}", serde_json::to_string_pretty(&listing)?);
+            } else {
+                let listing = prism::navigation::proto_writes::repo_proto_writes_text(repo)?;
+                for row in &listing.facts {
+                    let write = &row.write;
+                    println!(
+                        "{}:{} [{}..{}] {} {} guard={}",
+                        row.file,
+                        write.line,
+                        write.start_byte,
+                        write.end_byte,
+                        write.function,
+                        serde_json::to_value(write.class)?
+                            .as_str()
+                            .expect("serialized class"),
+                        serde_json::to_value(write.guard)?
+                            .as_str()
+                            .expect("serialized guard")
+                    );
+                    for operand in &write.key_operands {
+                        println!(
+                            "  {} {}:{} [{}..{}]",
+                            serde_json::to_value(operand.role)?
+                                .as_str()
+                                .expect("serialized role"),
+                            operand.name,
+                            operand.line,
+                            operand.start_byte,
+                            operand.end_byte
+                        );
+                    }
+                }
+                for line in &listing.name_reads {
+                    for read in &line.reads {
+                        if let Some(reason) = read.incomplete_reason {
+                            println!(
+                                "{}:{} [{}..{}] {} resolution_complete=false incomplete_reason={}",
+                                line.file,
+                                line.line,
+                                read.span.start_byte,
+                                read.span.end_byte,
+                                read.path,
+                                reason
+                            );
+                        }
+                    }
+                }
             }
             Ok(())
         }
@@ -318,5 +380,51 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+    use prism_review::cli::{Cli, Command};
+
+    #[test]
+    fn routes_dispatch_succeeds_and_propagates_repository_open_errors() {
+        let repo = tempfile::tempdir().unwrap();
+        let args = |path: &std::path::Path| {
+            let cli = Cli::try_parse_from([
+                "prism",
+                "nav",
+                "--no-cache",
+                "routes",
+                "--repo",
+                path.to_str().unwrap(),
+                "--format",
+                "json",
+                "--mounts",
+            ])
+            .unwrap();
+            let Some(Command::Nav(nav)) = cli.command else {
+                panic!("expected navigation command");
+            };
+            nav
+        };
+        assert!(run_nav(&args(repo.path())).is_ok());
+
+        let missing = repo.path().join("missing");
+        let error = run_nav(&args(&missing)).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!("failed to read repository root {}", missing.display())
+        );
+        assert_eq!(
+            error
+                .root_cause()
+                .downcast_ref::<std::io::Error>()
+                .unwrap()
+                .kind(),
+            std::io::ErrorKind::NotFound
+        );
     }
 }

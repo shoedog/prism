@@ -157,33 +157,19 @@ fn go_prune_matrix() {
 #[test]
 fn prune_subset_and_labels_across_fixture_tree() {
     crate::build_pool::install(|| {
-        fn walk(dir: &std::path::Path, paths: &mut Vec<PathBuf>) {
-            for entry in std::fs::read_dir(dir).unwrap() {
-                let path = entry.unwrap().path();
-                let name = path.file_name().unwrap().to_str().unwrap();
-                if name.starts_with("f-")
-                    || name.starts_with("F-private")
-                    || name == "private-corpus"
-                    || name == "secbench"
-                {
-                    continue;
-                }
-                if path.is_dir() {
-                    walk(&path, paths);
-                } else if Language::from_path(path.to_str().unwrap()).is_some() {
-                    paths.push(path);
-                }
-            }
-        }
-        let mut paths = Vec::new();
-        walk(
+        let paths = crate::fixture_corpus::legacy_fixture_files(
             &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"),
-            &mut paths,
+            |p| Language::from_path(p.to_str().unwrap()).is_some(),
         );
-        paths.sort();
         assert!(
             paths.len() > 100,
             "fixture walk must not silently select nothing"
+        );
+        crate::fixture_corpus::assert_visited_within(
+            "prune_subset_and_labels_across_fixture_tree",
+            paths.len(),
+            // Language-recognised files of the legacy corpus at 9d1a7d06f: 1,297.
+            1_500,
         );
         let mut edges = 0;
         for path in &paths {

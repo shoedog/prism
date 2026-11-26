@@ -16,8 +16,7 @@ what admitted Exact callers pass to a parameter and a name-only fallback in the 
 **Tech stack:** Rust (`src/cpg`, `src/resolution`, `src/call_graph`), tree-sitter JS/TS/TSX; Node with the pinned
 TypeScript 5.9.3 (censuses, oracles); Python 3 (comparators, benchmark harness).
 
-**Spec:** `DESIGN.md` here (section 5 slices, 6 census and go/no-go, 7 slice gates). Slice E carries the #434 plan's
-interfaces, cited "#434 §n" (`~/prism-evidence/lanes-2026-11-20/research/scratch/lane9/argfollow-PLAN.md`).
+**Spec.** [DESIGN §5](DESIGN.md) fixes the rules after Stage M. [RULES-INPUT-NOTES.md](RULES-INPUT-NOTES.md) assigns each of the 425 fixture IDs a rule and a required disposition. Issue #434 §3–5 supplies the original E algorithm. This plan uses the Stage D storage, value and stability rules. Quote both the slice brief and its design subsection when dispatching an implementation.
 
 ## Global constraints
 
@@ -30,9 +29,8 @@ interfaces, cited "#434 §n" (`~/prism-evidence/lanes-2026-11-20/research/scratc
   `~/prism-evidence/native-positional-gap/gate-inputs/typescript-5.9.3/package/lib/typescript.js`.
 - **Not changed:** the slot builders in `src/parameter_slots.rs`, `function_parameter_occurrences`, `CallSite.arg_spread`
   and the arity checks reading it (setting it for JavaScript would change call resolution, a DESIGN anti-goal), the
-  results of `refuse_new_sources_exposing_free_single_calls` (slice A adds a stderr trace only), call resolution
-  outside E2 (the unimported-export defect is filed, DESIGN 2), `src/cpg/trace.rs` and lane 8's descent gate (the
-  check of DESIGN 5 is requested from lane 8), `src/reasoning/scope_honesty.rs` (its "JS/TS callback" warning
+  algorithm in `refuse_new_sources_exposing_free_single_calls` (slice A adds a stderr trace only, and the ledger records changed results when reachability moves), call resolution
+  outside E2 (the unimported-export defect is filed, DESIGN 2), `src/cpg/trace.rs` and lane 8's descent gate (lane 8 owns the accepted I-guard check in DESIGN 5), `src/reasoning/scope_honesty.rs` (its "JS/TS callback" warning
   describes touched functions, not missing flow), taint code, `arguments` handling.
 - Weighted sizes (`python3 scripts/file_size.py`): `src/call_graph.rs` 5,653, `src/resolution.rs` 4,171.5,
   `src/navigation/queries.rs` 2,502.5: no PR grows any of them, measured against that PR's base and listed in the PR
@@ -50,7 +48,7 @@ interfaces, cited "#434 §n" (`~/prism-evidence/lanes-2026-11-20/research/scratc
   (`src/navigation/call_edge_cache.rs`). Take the next free number at rebase (ORCHESTRATION section 5 item 7).
 - Tier-A on every slice; for E2 the `--quick` regressions and flip candidates go in the PR body, never re-baselined.
 - Lane 3 owns `src/cpg/object_literal_args.rs` and edits `object_literal_arg_tests.rs`: slice C changes one doc
-  comment, one expectation and the binding-admission skip there, and rebases over lane 3.
+  comment, one expectation and bare-target admission there, and rebases over lane 3. Its existing preceding-spread and Exact-singleton gates govern literal leaves. Record the local losses s1-1/s5-3 and s5-28. A change to that shared contract needs owner agreement.
 
 ## Review focus
 
@@ -68,6 +66,8 @@ interfaces, cited "#434 §n" (`~/prism-evidence/lanes-2026-11-20/research/scratc
    cold build. `arg_follow_tests::index_partial_hit_equals_cold`, `activated_route_parity` (E1, E2).
 
 ## Stage M: census, oracle, benchmark (5 days)
+
+Stage M is complete. The tasks below preserve the measurement definitions that produced the baseline. All five slices passed. The actuals and eligible denominators are in [DESIGN §§5–6](DESIGN.md). The original M4 role sample measured the element slot. Slice D also grades first-accumulator seeding and an element collected by rest on its own head.
 
 ### Task M-1: workspaces, binaries, capture script and oracle (evidence directory)
 
@@ -91,20 +91,18 @@ interfaces, cited "#434 §n" (`~/prism-evidence/lanes-2026-11-20/research/scratc
       identity by full span (`CallExpression` or `NewExpression`, the innermost one whose argument holds the Use) and
       the runtime implementation behind TS overload declarations. Modes:
       `binding` (Use → Def: the argument's runtime offset (DESIGN 5) against the formal's slot, a TS `this` taking
-      none; at or after a rest index the rest formal is CORRECT when the least offset reaches it; member-span operands
-      accepted; an unknown offset UNDECIDED; replaces `useDef`'s `position_or_rest`);
+      none. Prove the rest destination from the argument or dense element’s least offset. An operand earns CORRECT only with an independent positive yield witness for this iteration. Grade a witnessed zero-yield transfer WRONG and an unwitnessed yield UNDECIDED. Compare a selected `import_qualified` target with the actual value export by declaration identity. A witnessed private decoy grades WRONG. Include empty/nonempty tuple, array and string controls, erased wrappers and an alias mutated before spread. Accept matched member-span operands. Otherwise an unknown offset is UNDECIDED).
       `literal` (Use → Use: a literal leaf to a read of the formal's member path, CORRECT when the key path is a prefix
       or extension, WRONG for a sibling field);
       `spread` (a LOST row: `proved-wrong` when its offset is exact and differs, `unproved` when unknown, `correct` when
       exact and equal; `chain` when the row's Use lies outside the resolved call's span);
       `builtin` (a second program with the default lib: CORRECT only when `getResolvedSignature` of the call gives a
       declaration whose source file is a TypeScript library file (`lib.*.d.ts`) and the fed formal has the element role
-      there; WRONG when the declaration is in the repository and its body demonstrably does not pass the receiver's
-      element to that slot; UNDECIDED otherwise, including a receiver whose method is assigned in the file);
+      there. On the D head also check the no-initializer seed, the rest Def covering a delivered slot and the independent delivery evidence. A witnessed contrary delivery grades WRONG, including an installed method whose static signature still comes from the library. For h12a/b count one WRONG emitted receiver transfer, zero CORRECT and zero UNDECIDED. For x3-9 count the emitted slot-0 transfer WRONG and record the missed slot-1 delivery separately. An opaque override with no delivery witness grades UNDECIDED. Require positive delivery evidence for CORRECT);
       `argfollow` (call target: each holder caller resolved by the checker, independently of the census: CORRECT when
       the checker resolves the caller to the holder, the passed value to the target's declaration and the slot or key
       path matches; WRONG when it resolves the caller or the value elsewhere; UNDECIDED without a witness. The DFG
-      rows into the target's formals are graded by `binding` separately). The census's product target set is kept as a
+      rows into its formals require the independent target join in DESIGN §7 before `binding` can grade the payload offset). The census's product target set is kept as a
       second ledger for yield only.
 - [ ] Self-test every mode on hand-labelled fixtures with a positive, a wrong-target or wrong-slot mutation and an
       undecided case per shape (constructor, overload, TS `this`, member span, nested call, same-line same-name owners,
@@ -172,6 +170,8 @@ which review taint and slicing follow, from a source's prior Def), `trace_bounda
 stops there), `counter` (a key of `dfg_label_stats` or `navigation::queries::call_stats`, `return_flow` keys included;
 absent is 0).
 
+The T-1 table below uses parent IDs. Split cases and enumerated IDs use the [complete design ledger](RULES-INPUT-NOTES.md). Use the reviewed matrix at `5767ceb8` with the separately pinned original RED record. Thirteen model-boundary skips and the narrowed x1-6/x3-5 checks postdate that receipt. The implementer applies its seven runtime corrections before enabling feature groups and keeps external checks in their own harnesses.
+
 One test, `param_binding_matrix_rows`, with `const ENABLED: &[&str] = &["control"];`. Control rows pass on main; each
 other group is enabled once by hand, its RED run recorded in the ledger, and the constant restored. Rows asserting
 `exact` use callee bodies of two or more lines. `/` in the tables separates source lines.
@@ -198,13 +198,13 @@ bare site resolves `free_single` Exact to `a.js`'s holder, truth wrong; no slice
 | a08 | `f.call(null, ...[0], v)`; `f.apply(null, [0, v])` | dropped as main, no edge (measured exclusion) |
 | a09 | `const origin = x =>`/`observe(x);`/`mid(...[], x);` and `function mid(unused, y) {`/`freeSink(y);`/`}`, `freeSink` cross-file (P2) | `x → mid:unused` (offset 0); `origin:x`'s outgoing edges follow the refusal's reachability: refusal accounting lists the change as a reachability change with its seed `y → freeSink:p` and witness path |
 | b01 | `f(v, 2)` into `function f(...args) {`/`use(args[0]);`/`}` (p01); `const f = (...args) =>` (p13); method; TS `...args: any[]` | `v → f:args@1`, the call's label |
-| b02 | `f(a, v, w)` into `function f(p, ...rest)`; `f(...xs)` into `f(...rest)`; `f(a, ...xs)` | `a → p`, `v → rest`, `w → rest`; `xs → rest`; `a → p`, `xs → rest` |
-| b03 | `f(...xs, v)` into `f(p, ...rest)` | nothing into `p`; truth `ambiguous` for `v` (stage D) |
+| b02 | `f(a, v, w)` into `function f(p, ...rest)`; `f(...xs)` into `f(...rest)`; `f(a, ...xs)` | Keep the three scalar edges in b02a. Withhold the opaque `xs → rest` in b02b/c. Keep `a → p` in b02c |
+| b03 | `f(...xs, v)` into `f(p, ...rest)` | no edge from xs or v into p or rest. The runtime position of v may be zero |
 | b04 | TS `function f(this: T, a, ...rest)` with `f(x, y)` | `x → a`, `y → rest` |
-| b09 | `g(...xs, v, w)` into `function g(p, ...r)` (P11); `g(...[], v)`; `g(...[0], v)` | `w → r` (least offset 1), `v` per stage D; `v → p`; `v → r` |
+| b09 | `g(...xs, v, w)` into `function g(p, ...r)` (P11); `g(...[], v)`; `g(...[0], v)` | first call only `w → r`, with no edge into p and no v → r. Empty spread gives `v → p`. Singleton gives `v → r` |
 | b10 | `collect(1)`; `collect({})` into `function collect(...r)` (P11) | no edge; M2 does not count the sites |
 | b05 | `function f(...[a, b])`; rest rebound by a nested callable (D11) | nothing |
-| b06 | callee resolves name-only | `v → rest` labelled `nameonly/call_nameonly` |
+| b06 | same-file callee resolves NameOnly | keep the resolution and require no `v → rest` edge |
 | b07 | `f(q, { a: x })` into `function f(q, ...p)` | no edge from `x` (as main) |
 | b08 | a rest Def whose value reaches a cross-file `free_single` Exact argument edge | its outgoing edges refused, as main does for new sources |
 | k01 | `const g = x =>`/`use(x);` with `g(v)` (p03a); `async x =>` | `v → g:x@1` exact |
@@ -223,14 +223,14 @@ bare site resolves `free_single` Exact to `a.js`'s holder, truth wrong; no slice
 | h06 | `(e, i) =>`; no formals; `({ a }) =>` | only `e`; nothing; nothing (lane 3) |
 | h07 | `function simple(items) {`/`items.forEach(v => use(v));`/`}` (member-only formal, P5); the same with `observe(items);` first (mixed formal); `o.list.forEach(…)`; `arr?.forEach(…)`; `this.items.forEach(…)`; two receivers on one line | edge from the node DESIGN 5 names (the `items.forEach` projection Use; the zero-width base Use at `items`; `o.list.forEach`; the receiver's own Use in the others; each receiver its own node on the shared line), each `reaches` from the receiver's prior Def to `use(v)`; no edge where no node exists |
 | h08 | `class Box { map(f) {…} }` and `b.map(v =>`/`use(v))` | the edge, labelled `builtin_callback`, never `exact` |
-| h09 | `Object.keys(o).forEach(k => …)` (p07); `arr.map(f).filter(y => …)`; `fetch(u).then(r => …)` | truth from the enumerators; stage D decides receiver forms |
+| h09 | `Object.keys(o).forEach(k => …)` (p07); `arr.map(f).filter(y => …)`; `fetch(u).then(r => …)` | enable all three negatives. No D edge into the outer callback from a call result or from any of its constituents |
 | h10 | `.catch(e => …)`; `.finally(…)`; `emitter.on('x', r => …)` (p11) | no edge (not in the table) |
 | h11 | h01 through both engines | `reaches` from `arr` to `use(e)`; `trace_boundary` at the edge |
-| h12 | TS `const xs: number[] = …; xs.forEach = cb => { cb(99, 0, []); };` then `xs.forEach(v =>`/`use(v))` | the product edge, `builtin_callback`; `--mode builtin` grades it UNDECIDED, never CORRECT |
+| h12 | TS `const xs: number[] = [0]; xs.forEach = cb => { cb(99, 0, []); };` then `xs.forEach(v =>`/`use(v))` | the product edge, `builtin_callback`; `--mode builtin` grades it WRONG. A companion with an opaque override grades UNDECIDED |
 | h13 | `arr.forEach(handler); handler(0);` on one line, `function handler(e) {`/`use(e);`/`}` | `trace_boundary` at the builtin edge (the direct `handler(0)` site does not lend its Exact resolution) |
 | h14 | a bare-formal source flowing into a named callback whose formal already reaches a cross-file `free_single` Exact argument | the source's outgoing edges as the refusal decides; refusal accounting lists the change as a reachability change with seed and path |
 | e01 | `function run(cb) {`/`const input = read();`/`cb(input);`/`}`, `run(handler)`, `function handler(e) {`/`use(e);`/`}` (p10b) | `cb(input)` resolves to `handler`, `nameonly`, kind `argument_follow`; `run:input → handler:e@1` labelled `nameonly/call_nameonly` |
-| e02 | `run(w =>`/`use(w))` (p10a); `run((w) =>`/`use(w))` | resolves to `<anon@..>`; parenthesised edge exists; bare edge per stage D |
+| e02 | `run(w =>`/`use(w))` (p10a); `run((w) =>`/`use(w))` | both resolve to their byte-identified anonymous callable and bind the payload, including the bare arrow with ordinary C disabled |
 | e03 | two callers passing two functions; one passing a function and one a number | both targets; one |
 | e04 | `cb(a, b)` into `handler(x, y)` and into `(x) => …` | `a → x`, `b → y`; `a → x` only |
 | e05 | nine callers passing nine distinct callables | drop `ArgFanout`, no edge, counter `js_arg_follow.fanout` = 1 |
@@ -269,32 +269,28 @@ bare site resolves `free_single` Exact to `a.js`'s holder, truth wrong; no slice
 
 ## Stage D: design of record (2 days)
 
-- [ ] The design seat amends DESIGN section 5 for B to E against the full rows and `CENSUS.md`: whether a
-      known-length literal spread's own elements bind (A, B); the rest rule for an argument of unknown offset (b03,
-      b09); any refusal C keeps beyond binding admission and today's outgoing one (M3); for D the receiver forms (h09),
-      the named-callback rule, roles beyond the element slot, whether bare callback formals bind (if C is no-go, an
-      in-place literal callback still has its identity proof), the doubt kind's rank in `FlowConfidence::worst`; for E
-      the #434 rules with anonymous targets, holder writes that make a passed value stale, slot paths, whether a
-      bare-arrow target binds when C did not run (e02), the cap's counting (callable identities deduplicated before the
-      cap; no target bootstrapped from a cycle); where E1's index lives so `src/call_graph.rs` does not grow (E1). The
-      controller asks lane 8 for DESIGN 5's descent check and records lane 8's answer here. Inputs: DESIGN 4 and 5,
-      #434 §3, the rows with truths and outcomes, `CENSUS.md`, the accepted-loss candidates (`ambiguous` rows, M3's
-      UNDECIDED list). Slice A's rule (DESIGN 5) is final and not reopened. The implementer then updates expectations.
-      Both reviewers; cap 2 rounds. Owner decisions 2, 5 and 6 end here.
+- [x] The design seat recorded rules for B–E, costs, all 425 matrix dispositions, all 73 M3 UNDECIDED records and the seven runtime disputes in DESIGN §§4–9 and RULES-INPUT-NOTES. The owner defaults for decisions 2, 5 and 6 are recorded in DESIGN §8.
+- [x] Lane 8's published answer accepts the edge-local descent check in its I-guard slice after I-1. By doubt kind h13 corresponds to n02 and e14 to n01. Each product merge still needs the landed guard and its own integrated test.
+- [ ] At the two-round cap the owner classified round 2 as converging and authorized one further controller review. Review the targeted amendments in DESIGN’s Round 2 fold. Keep accepted losses, hard sentinels and outstanding measurements visible.
+- [ ] The test-only matrix PR below applies the full Loss/Set manifest, including b03, b09a, e02a, h09a–c and each disputed row. Re-run each changed assertion on the pinned base and identify the applicable slice or external probe. Preserve the original outcome receipt and record its replacement with the corrected assertion. A runtime witness, a missing endpoint and a known product approximation receive separate dispositions. Do not skip a mixed row's supported assertions.
 
 ## Stage I: slices
 
-Order: A (unconditional; it starts once T-1 is committed and T-2's spread and call-identity axes are dry, since its
-rule is final); B
-and C (same loop, smallest); D (a separate pass; it builds the anonymous-formal lookup E reuses); E0, E1, E2 (the only
-slices that change call resolution, last so their differential is not mixed with others). B to E run only if M-4
-marked them go and the parent-gate forecast allows.
+A is the unconditional correctness slice. Stage T-2 reached all three five-round caps. DESIGN §5 and the row ledger supply the open-class disposition for review. Slice A is complete and verified per the integration handoff. Preserve the frozen rule and the three mandatory RED sentinels in DESIGN §9. Run B and C next with the matrix harness prerequisite available, D after them, then the E0 move, E1 facts and E2 activation. Stage M gave each slice GO. Re-forecast parent credit after A and after B/C as before.
 
 Every slice's differential runs on the same pinned inputs as its base and reports, besides its own classes:
 refusal accounting (DESIGN 7) from `PRISM_E5_TRACE=1` on base and head, each restored or removed outgoing edge of a
 guarded source with its reason (seed change or reachability change), seed and witness path; `call-stats` aggregate and
 `--dump-sites` compared, with only the counters DESIGN 7 lists for the slice moving and each `return_flow_suppression_*`
-change reconstructed from the sites whose bindings changed.
+change reconstructed from the sites whose bindings changed. Reconcile every counted DFG label to signed before/after edge multiplicities, including refusal changes and restored edges. A delta of one without a matching witness stops the slice.
+
+### Test-only PR before D — per-assertion matrix staging and losses
+
+Land the small harness PR before D, early enough for A/B/C fixture reconciliation. Limit it to the matrix harness, expectations and its tests. No production graph or resolver change. Consume the 425-row source digest and the ordinal/stage tables in RULES-INPUT-NOTES.
+
+- [ ] Add two optional fields on each existing assertion object. `slice` is a validated slice ID (control, A, B, C, D, E2) overriding the row's default; map the legacy row group E to E2. `loss` is a nonempty reason identifying the accepted mismatch in the ledger. Absence of both means the original assertion and stage. Keep `deny_unknown_fields` and existing row-level `unexecuted`.
+- [ ] Validate every record, enabled or disabled. Select individual assertions across **all rows** by active slices; a row's group cannot hide an earlier assertion. Keep per-ID, language, ordinal, slice, expected/actual outcome and loss reason. Run every selected sibling even after a failure. An expected semantic failure is reported as a loss, a matching assertion marked loss is an unexpected pass and fails the suite. Setup/schema/endpoint errors and panics fail independently. An ordinary unmarked mismatch stays RED. Skipped or inactive assertions earn no pass or conversion credit.
+- [ ] Generate and reconcile the manifest from **every Loss and Set row** against the actual assertion objects, include the ten group-A dispositions, retain mandatory x1-4/x2-2/x5-2, and retain the historical review skips. Exercise expected failure, unexpected pass, ordinary RED, invalid metadata, setup error and untouched positive/negative siblings. Test B alone selecting k06a #2 and k07a/b #1, then B+C adding k06a #1 and k07a/b #2. Test mixed rows under D alone and D+E2 (s3-14, s4-12, s4-13, x2-11, x4-9 and amended s2-15). Assert the exact selected ordinals in each phase and complete integrated coverage. Do not infer activation from product output. Record the base run with the corrected expectations before attributing any feature result. In the PR report count expected losses, hard RED sentinels and blocked-prerequisite assertions separately. For constructors report the integration-base site/target pin per row, ordinal and language, plus the deduplicated ordinal and row counts in the ledger. Show fixed-slot loss overlaps and the x5-3 skip separately. A blocked required assertion stays RED. Run the supplied-site binding tests and independent negatives and report their own results.
 
 ### Slice A: spread arguments by runtime offset, arguments by call identity (3 days)
 
@@ -331,15 +327,15 @@ pub(super) fn report(graph: &DiGraph<CpgNode, CpgEdge>, source: NodeIndex, seed:
 - [ ] Enable `A`: RED (a01, a03 to a07; a05 shows main's two wrong `exact` edges). In the three copies, for the JS
       family read the arguments with `call_argument_texts_and_spans_of_call(site.start_byte, site.end_byte, ..)`,
       compute `offsets` once per site and bind argument `j` to formal `slot[j]` when it is `Some` and in range;
-      spreads bind nothing. GREEN; c03, c07, c08 and a08 unchanged.
+      A emits no fixed binding from a spread operand or its individual elements. B alone adds the trailing rest-element case.
+      Re-run the A ledger, including t3-1 and the three mandatory RED A checks in DESIGN §9. Keep the reviewed model-boundary skips and the post-spread literal-leaf losses s1-1/s5-3. Preserve the base findings if iterator overrides, exceptional control flow or an upstream resolver contradict the positional rule. Do not clear a WRONG Exact by changing the expected target. Keep c03, c07, c08 and a08 as controls.
 - [ ] `spread_and_rest_graph_is_identical_across_every_route`, modelled on
       `object_literal_parity_tests::literal_bearing_graph_is_identical_across_every_route`: production, legacy twin,
       serial reference, full hit, partial hit; pinned edges for a01, a02, a05 and a06, forbidden rows included.
 - [ ] Differential (X, T, SB, G): `spread-removed` (`--mode spread` per LOST row: proved-wrong and unproved listed
       apart, any `correct` is a STOP; site and row totals equal M1's), `spread-moved` (a known-length row moved to its
       correct formal, ADDED graded `--mode binding`, 0 WRONG), `chain-removed` (`--mode spread` `chain`; equals M1's
-      chain rows), refusal accounting (Stage I preamble). Counters: only return-flow certification may move (DESIGN
-      7). Anything else is a STOP.
+      chain rows), refusal accounting (Stage I preamble). Reconcile counted label deltas and return-flow certification under DESIGN §7. Anything else is a STOP.
 - [ ] Benchmark at the head (Task M-3 command, new `--out`): traced cases do not drop in any class.
 - [ ] Tier-A; cloud tests at 1 and 4 threads with RED-on-base; two reviewers. PR body: prediction, M1 beside the
       removed counts by class, the refusal-accounting list, counter changes reconstructed, benchmark table, Tier-A, the
@@ -357,8 +353,8 @@ map in `ParamCache`; `ParamTarget::from_node`), `src/cpg/build.rs`, both twins, 
 /// Identifier rest formal: index (formals before it, a TS `this` not counted) and Def, byte-verified.
 pub(super) fn compute_rest_def_node(parsed: &ParsedFile, callee: &FunctionId, var_index: &VarIndex,
     graph: &DiGraph<CpgNode, CpgEdge>) -> Option<(usize, NodeIndex)>;
-/// Edges from the arguments whose least runtime offset reaches the rest index (DESIGN 5; stage D's rule for
-/// unknown offsets) to its Def. Nothing when `site.cross_file_free_single_exact` (binding admission).
+/// Bind scalars and dense elements by least offset. An Exact opaque operand also needs a positive yield witness.
+/// The receiver is the identifier rest Def. Apply the site's lexical admission before emitting each edge.
 pub(super) fn collect(out: &mut Vec<PendingArgumentFlow>, site: &object_literal_args::SiteInputs<'_>,
     rest: (usize, NodeIndex), offsets: &spread_args::Offsets, label: FlowConfidence);
 // src/cpg/callee_params.rs
@@ -366,33 +362,27 @@ impl ParamCache<'_> { pub(super) fn rest(&self, callee: &FunctionId, parsed: &Pa
     graph: &DiGraph<CpgNode, CpgEdge>) -> Option<(usize, ParamTarget)>; }
 ```
 
-`collect` uses `argument_nodes` and slice A's argument list, binds a spread's inner expression where stage D admits
-it, and refuses every edge at a cross-file `free_single` site. It runs after the positional loop in the three copies.
+Read the call's own argument list. Count TS `this` as zero and each actual fixed parameter as one, including defaults and unsupported fixed patterns. Find the actual implementation's identifier rest Def. Keep captured-write protection and occurrence multiplicity. Bind an ordinary Use with least ≥ rest, an opaque path spread only if its own start has reached rest, and a dense literal element Use if least(start) + element index has reached rest. Require exact_singleton for every new Exact B edge. On `import_qualified`, also require the §5 export-declaration witness. For an otherwise Exact opaque operand, withhold the edge unless this iteration is proved to yield an element. Refuse a proved-empty operand at any confidence. Exercise zero/one-yield generators, an empty Set, array iterator and slice, and a stable proved-nonempty operand as specified in §5 B. Keep scalar sibling and dense element checks independent. Use the ordinary complete-path/base extraction. No array identity, length transfer or rest-object field flattening.
 
-- [ ] Enable `B`: RED (b01 to b04, b06, b09; k06's rest half). Implement. GREEN; b05, b07, b08, b10, k07, c07 hold.
+- [ ] For each otherwise eligible ordinary B NameOnly rest target, compare the call-site and declaration files. Emit the existing `nameonly/call_nameonly` edge only when they differ. Apply the comparison at rest-edge emission so the resolver, fixed-slot binder and D/E producers keep their own admission rules. In b06 keep the resolution and check the edge is absent. In s5-5 keep the Exact prohibition and check the missing edge and its dependent consumer results. Add a foreign positive for the labelled rest edge, reachability and trace boundary. Use the [assertion-level dispositions](RULES-INPUT-NOTES.md#ordinary-b-nameonly-rest-edges) when folding the fixtures and manifest.
+- [ ] **Activation gate.** Perform the complete B replay in DESIGN §7, including the per-producer yield dispositions for every opaque operand at spread-only and mixed sites, straddles and dense terminal elements. Enumerate NameOnly sites outside M2’s original sole-Exact filter. Report withheld and emitted C/W/U per corpus. Reconcile the edited head against the priced B-only NameOnly losses of X/T/SB 4/29/36 rows and the 109/18/177 retained. Pool W/(C+W+U) across emitted NameOnly additions only. Report W/(C+W) alongside it and count only C for credit. Include singleton and multi-Exact controls on local_def and import_qualified. Price the private same-name rest decoy and bare-arrow decoy classes against actual exported singletons on the pinned M2/M3 site inventories. Stop on one unwitnessed Exact declaration or operand yield, a missing stratum, any WRONG Exact or pooled W/(C+W+U) > 5% for B NameOnly. Price any further change to this predicate.
+- [ ] Check the complete mixed fixed/rest inventory in the ledger, including the two independent fixed-slot losses s1-7 and s2-4. Apply the constructor table in the ledger to t4-3, s2-4, s3-3, s5-6, both new expressions in x3-5, and x5-3’s skipped ordinary control. For each active missing route report blocked/RED, exercise its binding with the pinned site/target supplied, and check the independent negatives. E2 applies the same disposition to s1-25. Every supplied-site test supplies the call's argument nodes and byte spans with the site and its Exact target (ledger "Supplied-site seam": the argument index records none for a `new` expression).
+- [ ] Enable B after rerunning the affected rows on base. b03 forbids both destinations for v. b09a binds only w to rest. Test dense trailing elements s5-7/x1-5, opaque straddles s4-4, multiple spreads s1-6/s3-4, TS implementation slots, repeated Uses, name-only and refusal reachability. Record x2-4's reviewed dead-call loss. Run both remaining x1-6 positives. Recheck x3-5’s two real-site positives under the constructor prerequisite. Preserve the reasons their historical negative walk assertions were removed. M2 counted 482 admitted sites, 53 spread-operand-only, one excluded cross-file site and 991 without an eligible Use. Record marginal dense-element yield on the head.
+
 - [ ] Differential: `rest-added` (graded `--mode binding`, 0 WRONG among `exact`, name-only at most 5%), refusal
-      accounting (Stage I preamble). Counters: only return-flow certification may move (DESIGN 7).
+      accounting (Stage I preamble). Reconcile signed label and return-flow deltas (DESIGN §7).
 - [ ] Benchmark; Tier-A; cloud tests; two reviewers. PR body: M2 beside converted sites (sites with an added row, all
       rows CORRECT), oracle table, refusal-accounting list, counter changes reconstructed.
 
 ### Slice C: unparenthesised arrow parameters (2 days)
 
-**Files:** modify `src/cpg/callee_params.rs` (drop the `bare_formal` filter; rewrite the comment at lines 155-159;
-`ParamTarget` gains `pub(super) admitted_only: bool`, true for the bare formal), `src/cpg/build.rs` and both twins (skip an
-`admitted_only` target when `cross_file_free_single_exact`: DESIGN 5, binding admission), `src/cpg/object_literal_args.rs`
-(the same skip for literal leaves; doc lines 13-14), `src/cpg/js_param_defs_tests.rs`
-(`bare_arrow_formal_stays_a_step5b_hole_but_the_parenthesised_control_binds` becomes
-`bare_arrow_formal_binds_like_the_parenthesised_control`), `src/cpg/object_literal_arg_tests.rs`
-(`destructured_rest_and_bare_arrow_formals_are_out_of_scope`: the bare case gains `h:x@9 -> f:p.a@2`), the matrix test
-(`"C"`), `src/cpg_cache.rs`, docs.
+**Files.** Modify `src/cpg/callee_params.rs`, `src/cpg/build.rs`, both twins, `src/cpg/object_literal_args.rs`, the bare-formal, literal-leaf and matrix tests, `src/cpg_cache.rs` and docs. Factor `locate_function` and `formal_def_nodes` here for the anonymous/default-export/IIFE cases. Verify named owners by unique identity and anonymous owners through `anon_owner::node_for_id`. Other languages keep their existing slot lookup.
 
-- [ ] Enable `C`: RED (k01, k05, k06's bare half, k08). Implement. GREEN; k02 to k04, k07, c07 hold.
-- [ ] Differential: `bare-added` (`--mode binding`), `bare-literal-added` (`--mode literal`), 0 WRONG among `exact`;
-      refusal accounting (Stage I preamble). The ADDED set equals M3's probe set minus its cross-file `free_single`
-      class on the same corpora; any difference is explained in the PR. Counters: only return-flow certification may
-      move (DESIGN 7; k08 shows the mechanism).
-- [ ] Benchmark; Tier-A; cloud tests; two reviewers. PR body: M3 beside converted sites, oracle table,
-      refusal-accounting list, counter changes reconstructed.
+- [ ] Enable C with RED on the ordinary direct and literal-leaf rows in the ledger. Replace the D12 `bare_formal` filter with byte-checked eligibility. Mark a bare `ParamTarget` and check the site on each newly enabled edge. Reject `cross_file_free_single_exact`. Require exact_singleton on the complete resolution result for each newly enabled Exact edge. For `import_qualified`, independently identify the actual exported declaration as specified in §5. Pin the renamed live export with both private decoys and a genuine export positive. Test ordinary and literal-leaf admission. For an **ordinary bare target only**, also reject NameOnly when caller and target files differ. Keep same-file NameOnly, admitted imports/locals and their original label, existing inferred-name and outgoing source rules, and lane 3's Exact-singleton gate on leaves. Test ordinary same-file NameOnly, foreign NameOnly, admitted foreign Exact, foreign FreeSingle, and an unchanged parenthesised control. D/E with their own identity proofs bypass the ordinary NameOnly predicate.
+- [ ] Update `bare_arrow_formal_stays_a_step5b_hole_but_the_parenthesised_control_binds` and the bare case in `destructured_rest_and_bare_arrow_formals_are_out_of_scope`. Test k01–k08, ordinary anonymous lookup, conflicting imports and qualified receivers, rebinding, and both directions of the k08 return-flow change. Preserve byte and Def identity in the twins and cache paths.
+- [ ] Pin every positive in the C route inventory before testing its formal locator. Preserve runtime-truth loss assertions on s3-7, s5-11 and both x2-6 IIFEs, plus the nonunique site checks in s5-9 and x3-7. Test singleton vs multiple results on each W1 rung. Keep the locator test for an independently identified anonymous owner.
+- [ ] Differential `bare-added` and `bare-literal-added`. Compare against the 195-row lift minus 14 FreeSingle Exact and 50 foreign NameOnly (6 WRONG, 44 UNDECIDED, zero CORRECT) and three multi-Exact rows (T#5 local_def, T#58/59 import_qualified, all UNDECIDED). Before the export-witness check the reference is 128 retained, 116 CORRECT and 12 UNDECIDED. T#39 and T#54 are the two retained T Exact. Price the declaration check separately against these keys and the complete singleton fallback inventory. Rejoin actual site kinds, report differences by key, apply zero WRONG Exact and at most 5% WRONG NameOnly. List no-credit rows and new/restored outgoing witnesses. The probe predicted 104 all-CORRECT SB sites before the head differential.
+- [ ] Benchmark, Tier-A, cloud tests and both reviewers. Reconstruct allowed return-flow counters and re-forecast parent credit after B/C.
 
 ### Slice D: built-in higher-order callbacks (5 to 6 days)
 
@@ -409,7 +399,8 @@ match becomes the two helper calls, so the file shrinks), `src/cpg/callee_params
 pub(super) const TABLE: &[(&str, usize)] = &[("forEach", 0), ("map", 0), ("filter", 0), ("find", 0),
     ("findIndex", 0), ("some", 0), ("every", 0), ("flatMap", 0), ("reduce", 1), ("reduceRight", 1), ("then", 0)];
 /// JS/TS/TSX only: receiver node (DESIGN 5, slice D) -> callback formal Def for a member call named in TABLE,
-/// whatever the site resolves to. Label `NameOnly(BuiltinCallback)`; `cross_file_free_single_exact` false.
+/// Use TABLE at the public attached member call, plus slot 0 for a reducer with a proved omitted initializer.
+/// Bind a read identifier Def or the identifier rest Def covering the role. Label NameOnly(BuiltinCallback).
 pub(super) fn collect(out: &mut Vec<PendingArgumentFlow>, site: &CallSite, caller_id: &FunctionId,
     caller_parsed: &ParsedFile, var_index: &VarIndex, exact_var_index: &ExactVarIndex, graph: &DiGraph<CpgNode, CpgEdge>);
 // src/cpg/callee_params.rs (compute_param_def_nodes keeps its signature and result)
@@ -418,31 +409,21 @@ pub(super) fn formal_def_nodes(parsed: &ParsedFile, function: &tree_sitter::Node
     var_index: &VarIndex, graph: &DiGraph<CpgNode, CpgEdge>, admit_bare: bool) -> Option<Vec<Option<NodeIndex>>>;
 ```
 
-`locate_function` finds anonymous ids with `anon_owner::node_for_id` and named ids by today's unique
-line-range-and-name match. The call node is the one whose full span is `site.start_byte..site.end_byte` (DESIGN 5,
-call identity); the callback is its argument 0 (`call_argument_texts_and_spans_of_call`): an inline arrow or function
-expression gives its owner through `anon_owner::identity`; an identifier gives a same-file callable when
-`js_ts_site_binding` returns `JsBinding::Callable`. The receiver node follows DESIGN 5's order: a nonzero Use of the
-receiver path in the member object's span (`argument_nodes`); else the projection Use whose path is the receiver path
-plus the method name and whose bytes are the callee member expression's (exact index); else a zero-width Use of the
-receiver base at the member object's start byte (legacy line index, filtered by that byte); else no edge (M4's
-`receiver-absent` class; the differential reports it from the dumps, no product counter). Stage D fixes further receiver forms and `admit_bare`. `collect` runs per site before
-the resolved-target loop.
+Use C's formal locator, or factor it here if C was absent. The collector runs before the resolved-target loop. Match a static public dot/quoted-bracket method on an ordinary or optional attached member call by full site identity. Use a path-bearing identifier/member/`this` receiver. Match in order the complete path Use in the receiver span, the exact callee projection Use, then the zero-width base Use at the receiver start in this owner. No call result, inner producer argument, condition or index supplies an outer receiver. Assert the three h09 negatives at real callback Defs. Preserve h07 paths, occurrences and prior-Def reachability.
 
-- [ ] Step 1, no behaviour change: split `compute_param_def_nodes` into `locate_function` and `formal_def_nodes`; commit.
-- [ ] Enable `D`: RED (h01 to h04, h07, h11, h12). Implement the doubt kind (serialisation, `dfg-stats` spelling
-      `builtin_callback`, stats field, a `FlowConfidence::worst` test against `Exact` and every existing doubt in both
-      operand orders), then `collect`. GREEN; h05, h06, h08, h10, h14 hold. Add the `builtin_callback` arm to the evidence
-      copy of `byte_dump.rs`.
+Read runtime slot zero, including transparent wrappers, a proved empty spread and an inline function inside a dense spread. An inline function has its own owner identity. A named candidate needs the occurrence-specific JsBinding::Callable, declaration-kind and initialization checks in DESIGN §5. Exercise stale writes and sloppy Annex B against stable and strict controls. Independently witness the live value in the grader. Reject a mutable or stale declaration, imported terminal/alias, formal, member, bound or factory value. Bind a bare Def under this independent proof even when C is disabled. Apply DESIGN §5's slot-zero table, slot-one reducers and first-accumulator seed only with a proved omitted initializer. A read identifier rest Def covering a fed role gets one edge. Leave index/key, whole array, `thisArg`, explicit init and rejection to their recorded losses.
+
+- [ ] Apply the D activation gate in DESIGN §7 on M4 keys. Price all identity and role subtypes before enabling D. Replay h12a/b’s constant-delivering override, x3-9’s installed reducer and an opaque override on the M4 grading path. Include each emitted contrary transfer in W/(C+W+U). Use the test-only PR’s D assertion selection and corrected byte fixtures. Pin t3-3, s1-17 and the five accepted runtime/model discrepancies in DESIGN §5. Run D and E2 halves together on the integrated head. At D alone use the D ordinals, including those in group-E rows. Implement badness `(6, 0)` above `CallNameOnly` and preserve the order of all older kinds. Test `worst` in both orders, idempotence and associativity. Use the product doubt spelling in matrix/byte dumps and the new stats field. Replay h13, x3-8 and s4-9 against the recorded base byte dump; retain s4-9’s missing second receiver as a loss. Add the indented companion in the ledger and pin its missing D edge as a loss.
+
 - [ ] Differential: `builtin-added` (`--mode builtin`; WRONG rate at most 5%, coverage by method and receiver class
-      published, only CORRECT rows credited); refusal accounting (Stage I preamble); the new label counter equals the
-      added count; counters otherwise as DESIGN 7.
-- [ ] Merge only when h13 holds (lane 8's descent check, DESIGN 5); until then the PR waits, and the controller
-      escalates if lane 8 declines.
+      published, only CORRECT rows credited); refusal accounting (Stage I preamble); reconcile the signed builtin label count and every affected existing label (including h14a) under DESIGN §7.
+- [ ] Merge only after lane 8 I-guard lands. Exercise repaired h13 and the represented x3-8 companion (lane 8 n02). Compare the two-space-indented companion, whose missing receiver Use precludes that D edge while the direct Exact argument still descends. The column-1 x3-8 test must identify BoundaryExited/not_exact on the builtin edge and reach the same callback body from the independent direct variable root across its own Exact edge. A missing endpoint or merely stopped walk fails the gate.
 - [ ] Benchmark; Tier-A; cloud tests; two reviewers. PR body: M4 beside converted sites, declarations of added edges by
-      class, `receiver-absent` count, refusal-accounting list.
+      class, receiver-absent count (10,114 at M4), 1,707 callbacks outside admission, 1,142 missing read Defs, 409 bare and 88 same-file named candidates. Rejoin the 88 named site keys to count any exclusions under the live-binding proof. Report the new role counts alongside the 3,910 original candidates and all accepted runtime mismatches.
 
-### Slice E0: move-only split of the three oversized files (2 days; only if E is go)
+### Slice E0: move-only split of the three oversized files (2 days)
+
+M5 passed. Keep ArgIndex and storage changes in E1. This PR only establishes the child module where its lifecycle hook will live.
 
 - [ ] One move-only PR, three moves, each its own commit with a byte-identity check of the moved text:
       `compute_indirect_call_sites` (`src/call_graph.rs:2392`), `recompute_indirect_calls`, `clear_indirect_calls`,
@@ -456,75 +437,60 @@ the resolved-target loop.
 
 ### Slice E1: argument-follow facts and counters, no resolution change (3 days)
 
-**Files:** create `src/resolution/js_ts/arg_follow.rs`, `src/resolution/js_ts/arg_follow/value.rs`,
-`src/resolution/js_ts/arg_follow_tests.rs` (`#[cfg(test)]` in `arg_follow.rs`), `src/ast/js_ts/param_slot.rs` (`mod
-param_slot;` in `src/ast/js_ts.rs`); modify `src/resolution/js_ts.rs` (`pub(crate) mod arg_follow;`),
-`src/call_graph/indirect.rs` (the index's reset in `clear_indirect_calls`, one call in `recompute_indirect_calls`), the
-index's holder as stage D placed it, `src/navigation/call_stats.rs` (key `js_arg_follow` from `arg_follow::stats`), both
-cache files, docs. `src/call_graph.rs`, `src/resolution.rs` and `src/navigation/queries.rs` do not grow in this PR.
+**Files.** Create `src/resolution/js_ts/arg_follow.rs`, its value module and tests, and `src/ast/js_ts/param_slot.rs`. Modify their module declarations, `src/resolution/js_ts/anonymous.rs` (the existing `CallGraph.js_anonymous` storage object), E0's `src/call_graph/indirect.rs`, `src/navigation/call_stats.rs`, both cache versions and the relevant tests/docs. The weighted size of `src/call_graph.rs` must not grow in E1.
 
 ```rust
-// src/resolution/js_ts/arg_follow.rs (all derive Clone, Debug, PartialEq, Eq, Serialize, Deserialize)
-pub(crate) struct ArgIndex { pub sites: BTreeMap<(String, usize, usize), ParamSlot>,  // (file, call start, call end)
-                             pub outcomes: BTreeMap<ParamSlot, ArgOutcome> }        // + Default
-pub(crate) struct ParamSlot { pub holder: FunctionId, pub position: usize, pub path: Option<String> } // + Ord
+// Types in src/resolution/js_ts/arg_follow.rs. Give keys a deterministic Ord.
+pub(crate) enum PathStep { ObjectKey(String), ArrayIndex(usize) }
+pub(crate) struct ParamSlot {
+    pub holder: FunctionId,
+    pub position: usize,
+    pub path: Vec<PathStep>,
+    pub declaration: (usize, usize), // distinguishes defaults of distinct bindings at one path
+}
+pub(crate) struct ArgIndex {
+    pub sites: BTreeMap<(String, usize, usize, String), ParamSlot>, // file, call start/end, callee
+    pub outcomes: BTreeMap<ParamSlot, ArgOutcome>,
+}
 pub(crate) enum ArgOutcome { Targets(BTreeSet<FunctionId>), Fanout(usize), Empty(String) }
-/// #434 §3 rules 2-7 and §4, with stage D's write and staleness rules. Computed while the index is empty, so
-/// ArgumentFollow outcomes (never Exact) cannot enter the Exact-caller sets; callers admitted by DESIGN 5 (no
-/// cross-file `free_single`); forwarding to depth 2; callable identities deduplicated, cap 8 targets.
 pub(crate) fn compute(cg: &CallGraph, files: &BTreeMap<String, ParsedFile>) -> ArgIndex;
-pub(crate) fn stats(cg: &CallGraph) -> BTreeMap<String, usize>;
-// src/ast/js_ts/param_slot.rs — for the callee identifier of the call whose full span is `start..end`: run
-// `js_ts_binding_walk` from that occurrence; when it answers `Walk::Found` with a declaration that is a formal (or a
-// destructured property of one) of the callable starting at byte `holder_start`, return that holder start, the
-// formal's runtime slot (a TS `this` takes none) and the destructuring key path; None for any other binding.
-impl ParsedFile { pub(crate) fn js_ts_param_slot_of_call(&self, start: usize, end: usize, callee: &str)
-    -> Option<(usize, usize, Option<String>)>; }
 ```
 
-The facts are read from the parsed files when the index is built, not stored as the #434 plan's new `CallSite` fields
-(`js_param_slot`, `js_args`, which would grow `src/call_graph.rs`): the slot from `js_ts_param_slot_of_call` (the
-binder's declaration, not the walk's `Pos`), values through `js_ts_follow_alias`, inline callables through
-`anon_owner::identity` (`value.rs`). The index is persisted with the call graph (a full hit restores it) and recomputed
-on cold and partial builds.
+Read facts from parsed files. At the callee occurrence use the binding walk's declaration, its holder identity, runtime position and ordered path, including in-body destructured aliases. Retain the value/default belonging to that declaration. Treat TS `this`, destructuring elisions and duplicate formals as specified in DESIGN §5. Read values from each admitted Exact Source caller with E disabled. Keep values paired with their caller. Use stable Exact terminal witnesses, including inline byte identities, ordered last-winning literal keys and explicit JSX attributes. Run DESIGN §5 E’s final-descriptor and prototype lookup at each path component before selecting a default. Test `{__proto__: {cb: selected}}`, `{"__proto__": {cb: selected}}` and `{["__proto__"]: {cb: selected}}` with `{cb = fallback}`. Pin inherited `selected` at runtime for the first two, prohibit their false fallback, and require `fallback` for the computed own data key on a witnessed ordinary chain miss. Add the full ordinary-prototype key table, nested reads, null-prototype/own undefined controls, getter/setter pairings and data↔accessor replacements. Apply #434 JsFollow terminal proof and JsBinding::Callable at local identifier reads, with independent hoisting/TDZ and declaration-kind checks. Exercise reassigned handler, Annex B in D/E, E TDZ and var-expression terminals. Complete the identifier × initialization/write × scope enumeration before the E1 fold. Defaults run left to right before the body. No source call means no contribution from the default.
 
-- [ ] Unit tests first: one per value shape of #434 §3 rule 4; rule 2 (written parameter) and stage D's write forms;
-      the cap after deduplication; forwarding depth; a cycle with no grounded caller gives no target; a TS `this`
-      parameter; `({ a, b })` gives two slots by path (e15); `cb(x)(y)` keys two calls (e11); a cross-file `free_single`
-      caller contributes nothing (e12); a JSX attribute after a spread; `index_partial_hit_equals_cold`,
-      `index_full_hit_equals_cold`. RED against a skeleton.
-- [ ] Implement. Gate: `call-stats --dump-sites` byte-identical on X and T apart from the new key; DataFlow edges
-      identical; group E rows unchanged; cache size on X and T before and after in the PR; sizes of the three
-      oversized files unchanged. Tier-A; cloud tests; two reviewers.
+Apply the declaration-specific stability rule to writes in initializers, the body and closures. Include assignments, updates, patterns, iteration targets, dynamic scope and the actual live mapped arguments object. Distinguish strict/non-simple, rightmost duplicate, detached index, shadow binding, body-only var, copied value and a mutation of a callable's property. At each entry or in-body destructure, check survival of the value along the selected path up to that read. Preserve a callable already copied before a later container write. Count vetoes by reason. Replay the original M5 candidate keys and compare newly withheld caller contributions and sites for each refined write or path check. Split sites retaining another ground from sites losing their last target, and count any known graded loss before E2 activation. Apply the two-lookup depth limit per path from an empty index, preserve independent grounds through cycles and deduplicate callable identities before applying the per-slot cap of eight. An existing derived edge cannot be a caller.
+
+Change `anonymous::ProofIndex` from the current tuple wrapper into a serializable object with its per-file proofs and a separate default-empty `ArgIndex`. Its accessors continue to read the per-file proofs for anonymous admission. Clear the entire ArgIndex on removal/merge/indirect clear and compute once after all files and proofs are current. Full hit restores the versioned index. On partial hit rebuild on the merged snapshot. A full-graph equality test includes both fields. A test comparing per-file anonymous extraction with a direct subset compares the per-file component. No per-site storage or extra field/initializer in `src/call_graph.rs`.
+
+- [ ] RED against the facts skeleton. Cover each E rule in the row ledger. Include e11, e12, e15, nested key collisions s1-22, ambiguous computed keys, overwritten/defaulted values, before/after writes, direct vs indirect eval, mapped vs copied arguments, bare and anonymous targets with C off, source-kind admission at each relay, grounded vs empty cycles, depth 1/2/3 and 8 vs 9 distinct targets. Test full/partial/cold identity after caller edits and deletion. Keep E resolution disabled in E1.
+
+- [ ] Implement and price E’s stability, terminal identity and lookup subtypes under the §7 E1 → E2 activation gate. On X and T require byte-identical `call-stats --dump-sites` site records and DataFlow edges. Compare aggregate `call-stats` separately; E1's new key is `js_arg_follow` (including per-reason facts and `fanout`). Every older counter remains pinned. Record E matrix results, cache sizes on X/T and the three oversized file sizes.
+- [ ] **E1 performance gate.** On T `7964e22f` and the Stage M manifest of 594 SB roots, compare E0 with E1 release binaries on the same host, loader options and thread count. Use `PRISM_PROFILE=1`, cold graph/no cache and five alternating paired builds per corpus. Publish each derived-index phase time and total build time, plus medians (sum SB package times within each pass). E0 has no index phase. Stop if a phase or corpus is unmeasured or the median paired increase in total time exceeds 10% on either corpus. Tier-A, cloud tests and both reviews remain separate gates.
 
 ### Slice E2: the argument-follow route (5 days)
 
-**Files:** modify `src/resolution/free.rs` (in `admit_and_filter_family`, between `admit_anonymous_exact` and
+**Files:** modify `src/resolution/free.rs` (give `admit_and_filter_family<'a>(&'a self, site: &CallSite, outcome: ResolutionOutcome<'a>) -> ResolutionOutcome<'a>` the graph borrow carried by each `ResolvedCallee.target`; in its body, between `admit_anonymous_exact` and
 `retain_family`: `let outcome = self.js_ts_argument_follow(site, outcome);`, so anonymous-caller admission does not
 clear ArgumentFollow targets and the family filter and multi-occurrence refusal still apply; DESIGN 5),
 `arg_follow.rs` (that method), `src/resolution/kinds.rs` (`ResolutionKind::ArgumentFollow`, `as_str`
 "argument_follow"; `DropReason::ArgFanout`), `src/navigation/call_stats.rs` (the `ArgFanout` arm), other exhaustive
 matches the compiler reports (`rg -n 'ResolutionKind::ParameterCallback' src crates`; any arm needed in an oversized
 file is offset in the same PR or placed in a module), `src/cpg/callee_params.rs` (`compute_param_def_nodes` locates
-anonymous callees with `locate_function`, created here if D did not run), `tests/integration/js_alias_rule_test.rs` (no
-`ArgumentFollow` outcome has `via_alias_route`, #434 §4), the matrix test (`"E"`), both cache files, docs.
+anonymous callees with the shared `locate_function`, factored here if neither C nor D ran), `tests/integration/js_alias_rule_test.rs` (no
+`ArgumentFollow` outcome has `via_alias_route`, #434 §4), the matrix test (`"E2"`), both cache files, docs.
 
-`js_ts_argument_follow` changes only a JS-family site with no target, drop reason `UnknownName` or
-`LocalBindingUnproven`, and a slot in the index under its full span: `Targets` gives `NameOnly` targets of kind
-`ArgumentFollow`; `Fanout` gives `dropped(DropReason::ArgFanout)`; `Empty` keeps the drop. Argument binding then follows
-in the loop (edges `nameonly/call_nameonly`), through slice A's call-identity argument lookup.
+`js_ts_argument_follow` changes only an empty JS-family Source `UnknownName` or `LocalBindingUnproven` outcome for an indexed parameter call/JSX site. Look up the full file, span and callee, then the stable declaration/slot/path. `Targets` gives NameOnly `ArgumentFollow`, `Fanout` gives `ArgFanout` with no target, and `Empty` keeps the original drop. Anonymous-caller admission precedes this lookup, family and multi-occurrence filters follow. Every caller/forwarding hop is an independently admitted singleton Exact Source. Exported and escaping holders retain their witnessed subset.
 
-- [ ] Enable `E`: RED (e01 to e04, e07, e08, e11 to e13, e15). Implement. GREEN; e05, e06, e09, e16, c08 hold.
-- [ ] `arg_follow_tests::activated_route_parity`: cold, full hit and partial hit after a caller edit, a caller deletion
-      and a fanout change from 8 to 9 targets give identical labelled DataFlow multisets and site kinds.
-- [ ] Differential: `argfollow-call` (targets graded `--mode argfollow`, the independent checker ledger; WRONG rate at
-      most 5%), `argfollow-flow` (use→def into the targets' formals, `--mode binding`); refusal accounting (Stage I
-      preamble); expected counter moves (`resolved` up and the two drop reasons down by the same sites, `ArgFanout` drops
-      as drop-reason moves, `return_flow_skipped_nameonly`, return-flow certification as DESIGN 7); 0 changes at sites
-      resolved on main.
-- [ ] Merge only when e14 holds (lane 8's descent check, DESIGN 5).
+Grade every payload against the independent target witness before checking its slot (DESIGN §7). Bind payloads independently for each target at A's offsets and B's identifier rest Def, as `nameonly/call_nameonly`. Allow byte-identified bare targets even with ordinary C disabled (e02a). Return-flow stays NameOnly, a D table edge never grounds an E target, and lane 3's Exact-singleton predicate still excludes literal leaves on derived calls (s5-28). Keep declaration and site byte identities when filtering each target and reporting per-site drops.
+
+- [ ] Enable `E2` after corrected same-base runs. For s1-25 #1–2 pin the constructor caller by site and implementation. Report missing ground as blocked/RED, independently exercise both target and payload from a supplied Exact Source caller, and check absent and wrong-holder grounds. Exercise every E rule in the ledger, including mixed D/E rows s3-14, s4-12/13, x2-11 and x4-9, the independent D assertions and admission-pinned E2 pair for s2-15, plus known opaque-value losses. Test e02a with C off, a grounded recursion vs a cycle-only slot, the same-line distinct-label tests and fanout scoped to one of two formals. Every supplied-site test supplies the call's argument nodes and byte spans with the site and its Exact target (ledger "Supplied-site seam": the argument index records none for a `new` expression).
+- [ ] `arg_follow_tests::activated_route_parity` compares labelled edge multisets and complete site outcomes on cold, full and partial hits after caller edit, deletion and the 8→9→8 fanout changes.
+
+- [ ] Differential: `argfollow-call` (targets graded `--mode argfollow`, the independent checker ledger; WRONG rate at most 5%) and `argfollow-flow` (target-joined Use → Def, `--mode binding`, independently at most 5%). Self-test correct target/slot, decoy with the same slot, wrong slot, same-line anonymous target, missing/ambiguous joins and a typed FunctionType without a declaration witness. Publish both C/W/U totals and both W/N denominators. Reconcile refusal accounting (Stage I preamble) and expected counter moves (`resolved` up and the two drop reasons down by the same sites, `ArgFanout` drops
+      as drop-reason moves, `return_flow_skipped_nameonly`, return-flow certification as DESIGN 7). Require zero changes at sites resolved on main.
+- [ ] Merge only after lane 8 I-guard lands and e14 passes with `call_nameonly` (lane 8 n01). Require BoundaryExited/not_exact on its own root/from/to edge and actual descent to handler.p and its body read from a separate variable root through the same-line direct Exact argument.
 - [ ] Tier-A `--quick` regressions pasted; benchmark; cloud tests; two reviewers. PR body: M5 beside converted sites,
-      sizes of the three oversized files before and after.
+      sizes of the three oversized files before and after. Report M5's 1,253 payload candidates beside the head, 135 fanout drops (105 with payload), 12 sites with a refused holder caller, and every published loss and disagreement.
 
 ## Close-out (2 days)
 
@@ -541,9 +507,11 @@ in the loop (edges `nameonly/call_nameonly`), through slice A's call-identity ar
       the argument index keyed by (start byte, callee name) gives a chained inner call the outer call's arguments (P8,
       P15; row a05; fixed for the JS family by slice A, other languages not verified).
 - [ ] Follow-up issues with census numbers: `arguments` binding (owner decision 3); `.call`/`.apply`/`.bind`; promise
-      chains; D's refused receiver forms and roles outside the element slot; shared-script globals lost to binding
+      chains; D's missing receiver nodes, excluded callback and unsupplied roles (including collection, thisArg and explicit reducer seed); shared-script globals lost to binding
       admission; Python `f(*xs, v)` misbinding (not verified); trace-engine crossing of name-only edges beyond DESIGN 5's
       check (lane 8). Handoff refreshed; raw dumps offloaded; `target/` removed.
+
+- [ ] Reconcile DESIGN §9’s enumerated loss rows, three mandatory RED fixture checks, seven external checks and the 73 M3 UNDECIDED grade keys with the actual differential. Attach the corrected same-base receipt for each changed assertion. Count each eligible site in the parent union only once.
 
 ## Acceptance for the lane
 

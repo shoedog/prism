@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "base.json",
+  "$defs": {
+    "slot": {
+      "$dynamicAnchor": "reedSlot",
+      "type": "object",
+      "properties": {
+        "fallbackWax": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$dynamicRef": "#reedSlot"
+}

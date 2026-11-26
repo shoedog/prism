@@ -1,0 +1,3 @@
+schema_retrieval_url = "https://sable-quay.invalid/schema.json"
+
+# Built-in clients only.

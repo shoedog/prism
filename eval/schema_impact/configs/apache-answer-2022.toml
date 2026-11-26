@@ -1,0 +1,13 @@
+aliases = { "@answer/utils/" = "src/utils/", "@/" = "src/" }
+
+[[client]]
+file = "src/utils/request.ts"
+export = "default"
+methods = { get = "GET", post = "POST", put = "PUT", delete = "DELETE", "instance.get" = "GET", "instance.post" = "POST", "instance.put" = "PUT", "instance.delete" = "DELETE", "instance.head" = "HEAD", "instance.options" = "OPTIONS", "instance.patch" = "PATCH" }
+url_arg = 0
+response_root = "data"
+
+[[client]]
+hook = "useSWR"
+url_arg = 0
+fetcher_arg = 1

@@ -261,38 +261,15 @@ fn compare(path: &str, source: &str) -> (usize, bool) {
         })
 }
 
-fn fixture_files(root: &Path, files: &mut Vec<std::path::PathBuf>) {
-    for entry in std::fs::read_dir(root).unwrap() {
-        let entry = entry.unwrap();
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if name == "private-corpus"
-            || name.starts_with("f-")
-            || name.starts_with("F-private")
-            || name.to_lowercase().contains("secbench")
-        {
-            continue;
-        }
-        let kind = entry.file_type().unwrap();
-        if kind.is_dir() {
-            fixture_files(&entry.path(), files);
-        } else if kind.is_file() && Language::from_path(entry.path().to_str().unwrap()).is_some() {
-            files.push(entry.path());
-        }
-    }
-}
-
 #[test]
 fn differential_all_fixtures() {
-    let mut files = Vec::new();
-    for root in ["tests/fixtures", "eval/fixtures"] {
-        fixture_files(
-            &Path::new(env!("CARGO_MANIFEST_DIR")).join(root),
-            &mut files,
-        );
-    }
-    files.sort();
+    let files = work_tests::repository_fixture_files();
     assert!(files.len() >= 100);
+    crate::fixture_corpus::assert_visited_within(
+        "differential_all_fixtures (join_kind_tests)",
+        files.len(),
+        work_tests::FIXTURE_SWEEP_BOUND,
+    );
     let mut owners = 0;
     let mut incomplete = false;
     for file in &files {

@@ -148,16 +148,25 @@ pub(crate) fn with_reference<T>(f: impl FnOnce() -> T) -> T {
 /// Shared CPG emission seam; the ordinary graph implementation keeps serial
 /// reference helpers and their fanout filtering identical.
 pub(crate) trait CpgCallResolver {
+    fn call_graph(&self) -> &CallGraph;
     fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>>;
 }
 
 impl CpgCallResolver for CallGraph {
+    fn call_graph(&self) -> &CallGraph {
+        self
+    }
+
     fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
         CallGraph::resolve_call_site(self, site)
     }
 }
 
 impl CpgCallResolver for GoSatisfierMemo<'_> {
+    fn call_graph(&self) -> &CallGraph {
+        self.graph()
+    }
+
     fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>> {
         filter_func_value_fanout(self.resolve_call_site_full(site).resolved)
     }

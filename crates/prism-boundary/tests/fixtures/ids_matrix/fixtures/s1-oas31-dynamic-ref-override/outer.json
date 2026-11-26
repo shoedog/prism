@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "outer.json",
+  "$defs": {
+    "slot": {
+      "$dynamicAnchor": "reedSlot",
+      "type": "object",
+      "properties": {
+        "outerWax": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$ref": "base.json"
+}

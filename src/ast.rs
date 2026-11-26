@@ -261,12 +261,12 @@ pub(crate) struct CallArg {
     pub end_byte: usize,
 }
 
-/// Per-file call-argument index, keyed by (call node start_byte, callee name).
-/// Built once per file by a single pre-order walk; replaces the per-lookup
-/// full-tree walk frozen as `collect_call_args_at_reference`.
+/// Per-file call-argument index, built once by a single pre-order walk.
+/// JS-family call identity also includes the call node's end byte.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct CallArgsIndex {
     by_call: BTreeMap<(usize, String), Vec<CallArg>>,
+    by_span: BTreeMap<(usize, usize, String), Vec<CallArg>>,
 }
 
 /// A variable occurrence the parser located, with its real source span.
@@ -485,6 +485,8 @@ pub struct ParsedFile {
     /// Lazily-extracted JS/TS export facts: a pure function of the parsed
     /// file, shared by the P1 loader priming and the call-graph build.
     js_export_facts: std::sync::OnceLock<js_ts::exports::JsExportFacts>,
+    /// Per-file JavaScript-family read and receiver-selection facts.
+    js_name_reads: std::sync::OnceLock<js_ts::proto_writes::NameReadIndex>,
     /// Lazily-computed JS/TS/TSX loop-tree plan (#693, #697): a pure function of the parsed file, asked
     /// by the `do` condition admission and the loop edge rewrite (and read for the per-file counters).
     js_loop_plan: std::sync::OnceLock<crate::cfg::js_loops::LoopPlan>,
@@ -611,6 +613,7 @@ impl ParsedFile {
             go_compat: go_compat_types::Cache::default(),
             call_args: std::sync::OnceLock::new(),
             js_export_facts: std::sync::OnceLock::new(),
+            js_name_reads: std::sync::OnceLock::new(),
             js_loop_plan: std::sync::OnceLock::new(),
             python_hidden_hazard: std::sync::OnceLock::new(),
             c_object_names: std::sync::OnceLock::new(),

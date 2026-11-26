@@ -1,0 +1,23 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Moonspindle Exchange",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "//moonspindle.invalid:8443/amber"
+    }
+  ],
+  "paths": {
+    "/reed": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful exchange"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,15 +1,13 @@
 //! Dependency-identity verification for `dependency_hint::resolve`.
 //!
 //! `dependency_hint.rs` decides WHICH call a target is about and what its
-//! source-verbatim `callee` is; this module decides whether that callee's root
-//! provably names a real, single-purpose external library — the only condition
-//! under which `kind` may be emitted at all (see that module's header for why
-//! a wrong `kind` is worse than none). Split out to keep both files under the
-//! repository's 600-line convention.
+//! source-verbatim `callee` is. This module verifies import paths and looks up
+//! the legacy `kind` for proven bindings.
 
 use super::dependency_hint::SiteContext;
 use prism::ast::ParsedFile;
 use prism::languages::Language;
+use std::borrow::Cow;
 use tree_sitter::Node;
 
 /// The kind of the library `root` names at `at`, if `root` provably names an
@@ -21,10 +19,19 @@ pub(super) fn kind_for_binding(
     root: &str,
     rest: &[&str],
 ) -> Option<&'static str> {
+    if parsed.language == Language::Python {
+        return match python_root_binding(parsed, ctx, at, root, rest).0 {
+            PythonBinding::External(path) => python_kind_for_path(&path),
+            PythonBinding::NoDecidingImport if rest.is_empty() => {
+                builtin_kind(parsed.language, root)
+            }
+            _ => None,
+        };
+    }
     if binds_name_locally(parsed, at, root) {
         return None;
     }
-    let Some((module, consumed_rest)) = imported_module(parsed, at, root, rest) else {
+    let Some(module) = imported_module(parsed, at, root) else {
         // Not imported: only a language builtin can still be the real thing.
         return rest
             .is_empty()
@@ -33,10 +40,7 @@ pub(super) fn kind_for_binding(
     if is_local_module_path(parsed.language, &module) {
         return None;
     }
-    if parsed.language == Language::Python && repo_has_local_module(ctx, module_root(&module)) {
-        return None;
-    }
-    library_kind(parsed.language, &module, &rest[consumed_rest..])
+    library_kind(parsed.language, &module)
 }
 
 /// A module path that names something inside this repository rather than an
@@ -60,35 +64,73 @@ fn module_root(module: &str) -> &str {
     module.split('.').next().unwrap_or(module)
 }
 
-/// The module path `name` is bound to by an import visible at `at`, plus the
-/// number of callee-chain segments already represented by that import.
-fn imported_module(
-    parsed: &ParsedFile,
-    at: Node<'_>,
-    name: &str,
-    rest: &[&str],
-) -> Option<(String, usize)> {
-    if parsed.language == Language::Python {
-        return python_imported_module(parsed, at, name, rest);
-    }
+/// The non-Python module path `name` is bound to by an import visible at `at`.
+fn imported_module(parsed: &ParsedFile, at: Node<'_>, name: &str) -> Option<String> {
     if matches!(
         parsed.language,
         Language::JavaScript | Language::TypeScript | Language::Tsx
     ) {
-        return js_imported_module(parsed, at, name).map(|module| (module, 0));
+        return js_imported_module(parsed, at, name);
     }
     // Go imports are necessarily file-scoped and exact in `extract_imports`.
-    parsed
-        .extract_imports()
-        .get(name)
-        .cloned()
-        .map(|module| (module, 0))
+    parsed.extract_imports().get(name).cloned()
 }
 
-struct PythonImportBinding {
-    module: String,
-    required_rest: Vec<String>,
-    scope_depth: usize,
+pub(super) enum PythonBinding {
+    External(String),
+    NoDecidingImport,
+    Refused,
+}
+
+pub(super) fn python_root_binding(
+    parsed: &ParsedFile,
+    ctx: &SiteContext<'_>,
+    at: Node<'_>,
+    root: &str,
+    rest: &[&str],
+) -> (PythonBinding, bool) {
+    let catalog_spelling = PYTHON_LIBRARIES
+        .iter()
+        .any(|(key, _)| module_root(key) == root);
+    let shadowed = binds_name_locally(parsed, at, root);
+    if shadowed && catalog_spelling {
+        return (PythonBinding::Refused, true);
+    }
+    let (import, import_spelling) = python_imported_module(parsed, at, root, rest, shadowed);
+    let binding = if shadowed {
+        PythonBinding::Refused
+    } else if let Some((module, consumed_rest)) = import {
+        python_external_path(ctx, &module, &rest[consumed_rest..])
+            .map_or(PythonBinding::Refused, PythonBinding::External)
+    } else {
+        PythonBinding::NoDecidingImport
+    };
+    (binding, catalog_spelling || import_spelling)
+}
+
+/// Construct the path for an already-decided import and the remaining callee
+/// chain. Relative and repository-local modules cannot prove external identity.
+pub(super) fn python_external_path(
+    ctx: &SiteContext<'_>,
+    module: &str,
+    rest: &[&str],
+) -> Option<String> {
+    if is_local_module_path(Language::Python, module)
+        || repo_has_local_module(ctx, module_root(module))
+    {
+        return None;
+    }
+    let mut path = module.to_string();
+    for segment in rest {
+        path.push('.');
+        path.push_str(segment);
+    }
+    Some(path)
+}
+
+fn binding_scope<'a>(parsed: &'a ParsedFile, binding: Node<'a>, at: Node<'_>) -> Option<Node<'a>> {
+    let scope = enclosing_function_node(parsed, binding).unwrap_or_else(|| parsed.tree.root_node());
+    (scope.start_byte() <= at.start_byte() && at.end_byte() <= scope.end_byte()).then_some(scope)
 }
 
 fn binding_reaches_site(
@@ -97,10 +139,7 @@ fn binding_reaches_site(
     at: Node<'_>,
     name: &str,
 ) -> Option<usize> {
-    let scope = enclosing_function_node(parsed, binding).unwrap_or_else(|| parsed.tree.root_node());
-    if at.start_byte() < scope.start_byte() || at.end_byte() > scope.end_byte() {
-        return None;
-    }
+    let scope = binding_scope(parsed, binding, at)?;
     parsed
         .find_variable_references_scoped(&scope, name, binding.start_position().row + 1)
         .contains(&(at.start_position().row + 1))
@@ -116,152 +155,121 @@ fn scope_depth(mut node: Node<'_>) -> usize {
     depth
 }
 
-/// Python's own binding rule, filtered through the scope-aware reference
-/// binder. `import a.b` binds `a` and requires the source chain to continue
-/// through `.b`; aliased and `from` imports replace the local root directly.
-fn python_imported_module(
-    parsed: &ParsedFile,
+/// Source decomposition for one binding in a Python import statement.
+pub(super) struct PythonImport<'a> {
+    pub(super) name: &'a str,
+    pub(super) module: Cow<'a, str>,
+    pub(super) required_rest: Option<&'a str>,
+}
+
+impl PythonImport<'_> {
+    fn consumed_rest(&self, rest: &[&str]) -> Option<usize> {
+        let mut consumed = 0;
+        if let Some(required) = self.required_rest {
+            for segment in required.split('.') {
+                if rest.get(consumed) != Some(&segment) {
+                    return None;
+                }
+                consumed += 1;
+            }
+        }
+        Some(consumed)
+    }
+}
+
+/// Decompose a statement so callers can apply their own binding admission.
+pub(super) fn python_imports<'a>(parsed: &'a ParsedFile, node: Node<'_>) -> Vec<PythonImport<'a>> {
+    let from = match node.kind() {
+        "import_statement" => None,
+        "import_from_statement" => match node.child_by_field_name("module_name") {
+            Some(module) => Some(module),
+            None => return Vec::new(),
+        },
+        _ => return Vec::new(),
+    };
+    let mut cursor = node.walk();
+    node.children(&mut cursor)
+        .filter(|child| from.is_none_or(|module| child.start_byte() != module.start_byte()))
+        .filter_map(|child| {
+            let (name, imported, required_rest) = match child.kind() {
+                "aliased_import" => (
+                    parsed.node_text(&child.child_by_field_name("alias")?),
+                    parsed.node_text(&child.child_by_field_name("name")?),
+                    None,
+                ),
+                "dotted_name" if from.is_none() => {
+                    let imported = parsed.node_text(&child);
+                    match imported.split_once('.') {
+                        Some((name, tail)) => (name, imported, Some(tail)),
+                        None => (imported, imported, None),
+                    }
+                }
+                "dotted_name" | "identifier" if from.is_some() => {
+                    let imported = parsed.node_text(&child);
+                    (imported, imported, None)
+                }
+                _ => return None,
+            };
+            let module = match from {
+                Some(module) => Cow::Owned(format!("{}.{imported}", parsed.node_text(&module))),
+                None => Cow::Borrowed(imported),
+            };
+            Some(PythonImport {
+                name,
+                module,
+                required_rest,
+            })
+        })
+        .collect()
+}
+
+/// The legacy binder requires an unaliased dotted import's tail to match the
+/// call chain, then accepts a unique binding in the nearest visible scope.
+fn python_imported_module<'a>(
+    parsed: &'a ParsedFile,
     at: Node<'_>,
     name: &str,
     rest: &[&str],
-) -> Option<(String, usize)> {
-    fn push(
-        parsed: &ParsedFile,
-        binding: Node<'_>,
-        at: Node<'_>,
-        name: &str,
-        module: String,
-        required_rest: Vec<String>,
-        out: &mut Vec<PythonImportBinding>,
-    ) {
-        if let Some(scope_depth) = binding_reaches_site(parsed, binding, at, name) {
-            out.push(PythonImportBinding {
-                module,
-                required_rest,
-                scope_depth,
-            });
+    shadowed: bool,
+) -> (Option<(Cow<'a, str>, usize)>, bool) {
+    fn visit_imports<'tree>(node: Node<'tree>, visit: &mut impl FnMut(Node<'tree>)) {
+        if matches!(node.kind(), "import_statement" | "import_from_statement") {
+            visit(node);
+            return;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            visit_imports(child, visit);
         }
     }
 
-    fn walk(
-        parsed: &ParsedFile,
-        node: Node<'_>,
-        at: Node<'_>,
-        name: &str,
-        out: &mut Vec<PythonImportBinding>,
-    ) {
-        match node.kind() {
-            "import_statement" => {
-                let mut cursor = node.walk();
-                for child in node.children(&mut cursor) {
-                    match child.kind() {
-                        "dotted_name" => {
-                            let path = parsed.node_text(&child);
-                            let mut parts = path.split('.');
-                            if parts.next() == Some(name) {
-                                push(
-                                    parsed,
-                                    node,
-                                    at,
-                                    name,
-                                    path.to_string(),
-                                    parts.map(str::to_string).collect(),
-                                    out,
-                                );
-                            }
-                        }
-                        "aliased_import" => {
-                            let module = child.child_by_field_name("name");
-                            let alias = child.child_by_field_name("alias");
-                            if let (Some(module), Some(alias)) = (module, alias) {
-                                if parsed.node_text(&alias) == name {
-                                    push(
-                                        parsed,
-                                        node,
-                                        at,
-                                        name,
-                                        parsed.node_text(&module).to_string(),
-                                        Vec::new(),
-                                        out,
-                                    );
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            "import_from_statement" => {
-                let Some(module_node) = node.child_by_field_name("module_name") else {
-                    return;
-                };
-                let module = parsed.node_text(&module_node);
-                let mut cursor = node.walk();
-                for child in node.children(&mut cursor) {
-                    if child.start_byte() == module_node.start_byte() {
-                        continue;
-                    }
-                    match child.kind() {
-                        "dotted_name" | "identifier" if parsed.node_text(&child) == name => {
-                            push(
-                                parsed,
-                                node,
-                                at,
-                                name,
-                                format!("{module}.{name}"),
-                                Vec::new(),
-                                out,
-                            );
-                        }
-                        "aliased_import" => {
-                            let imported = child.child_by_field_name("name");
-                            let alias = child.child_by_field_name("alias");
-                            if let (Some(imported), Some(alias)) = (imported, alias) {
-                                if parsed.node_text(&alias) == name {
-                                    push(
-                                        parsed,
-                                        node,
-                                        at,
-                                        name,
-                                        format!("{module}.{}", parsed.node_text(&imported)),
-                                        Vec::new(),
-                                        out,
-                                    );
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            _ => {
-                let mut cursor = node.walk();
-                for child in node.children(&mut cursor) {
-                    walk(parsed, child, at, name, out);
-                }
-            }
-        }
-    }
-
+    let mut spelling = false;
     let mut bindings = Vec::new();
-    walk(parsed, parsed.tree.root_node(), at, name, &mut bindings);
-    bindings.retain(|binding| {
-        binding.required_rest.len() <= rest.len()
-            && binding
-                .required_rest
-                .iter()
-                .zip(rest)
-                .all(|(required, actual)| required == actual)
+    visit_imports(parsed.tree.root_node(), &mut |node| {
+        for import in python_imports(parsed, node) {
+            // Spelling evidence only requires a lexically visible module name.
+            if !spelling && module_root(&import.module) == name {
+                spelling = binding_scope(parsed, node, at).is_some();
+            }
+            if shadowed || import.name != name {
+                continue;
+            }
+            if let Some(consumed) = import.consumed_rest(rest) {
+                if let Some(depth) = binding_reaches_site(parsed, node, at, name) {
+                    bindings.push((import.module, consumed, depth));
+                }
+            }
+        }
     });
-    let max_depth = bindings.iter().map(|binding| binding.scope_depth).max()?;
+    let max_depth = bindings.iter().map(|(_, _, depth)| *depth).max();
     let mut nearest = bindings
         .into_iter()
-        .filter(|binding| binding.scope_depth == max_depth);
-    let binding = nearest.next()?;
-    if nearest.next().is_some() {
-        return None;
-    }
-    Some((binding.module, binding.required_rest.len()))
+        .filter(|(_, _, depth)| Some(*depth) == max_depth);
+    let selected = nearest
+        .next()
+        .filter(|_| nearest.next().is_none())
+        .map(|(module, consumed, _)| (module, consumed));
+    (selected, spelling)
 }
 
 /// JS/TS imports and CommonJS requires are parsed by Prism's existing import
@@ -478,7 +486,7 @@ fn pattern_binds(parsed: &ParsedFile, node: Node<'_>, name: &str) -> bool {
 
 /// Language builtins that are genuinely single-purpose external-call targets
 /// and have no import to verify. Still subject to the shadow check.
-fn builtin_kind(language: Language, root: &str) -> Option<&'static str> {
+pub(super) fn builtin_kind(language: Language, root: &str) -> Option<&'static str> {
     match (language, root) {
         (Language::Python, "open") => Some("filesystem"),
         (Language::JavaScript | Language::TypeScript | Language::Tsx, "fetch") => Some("http"),
@@ -486,19 +494,12 @@ fn builtin_kind(language: Language, root: &str) -> Option<&'static str> {
     }
 }
 
-/// Look the library up by the identity its import established, not by the
-/// spelling of the local binding: `import requests as rq` makes `rq.post`
-/// `requests.post`.
-fn library_kind(language: Language, module: &str, rest: &[&str]) -> Option<&'static str> {
+pub(super) fn python_kind_for_path(path: &str) -> Option<&'static str> {
+    longest_prefix_kind(PYTHON_LIBRARIES, path, '.')
+}
+
+fn library_kind(language: Language, module: &str) -> Option<&'static str> {
     match language {
-        Language::Python => {
-            let mut path = module.to_string();
-            for segment in rest {
-                path.push('.');
-                path.push_str(segment);
-            }
-            longest_prefix_kind(PYTHON_LIBRARIES, &path, '.')
-        }
         Language::Go => longest_prefix_kind(GO_LIBRARIES, module, '/'),
         Language::JavaScript | Language::TypeScript | Language::Tsx => longest_prefix_kind(
             JS_LIBRARIES,

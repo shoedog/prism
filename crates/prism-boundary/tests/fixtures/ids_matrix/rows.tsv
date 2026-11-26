@@ -1,0 +1,302 @@
+id	fixture	expected_ids	expected_warnings	truth	class
+allof-compatible-overlap	fixtures/allof-compatible-overlap/swagger.json	field:resp:GET /kiln:200#/heat;op:GET /kiln	allof_overlap	rule	allof
+allof-envelope-first	fixtures/allof-envelope-first/swagger.json	field:resp:GET /kiln:200#/code;field:resp:GET /kiln:200#/data;field:resp:GET /kiln:200#/data/shade;field:resp:GET /kiln:200#/msg;op:GET /kiln		rule	allof
+allof-envelope-last	fixtures/allof-envelope-last/swagger.json	field:resp:GET /kiln:200#/code;field:resp:GET /kiln:200#/data;field:resp:GET /kiln:200#/data/shade;field:resp:GET /kiln:200#/msg;op:GET /kiln		rule	allof
+allof-nested-overlap	fixtures/allof-nested-overlap/openapi.json	field:resp:GET /kiln:200#/data;field:resp:GET /kiln:200#/data/tile;field:resp:GET /kiln:200#/data/tile/shade;field:resp:GET /kiln:200#/data/tile/width;op:GET /kiln	allof_overlap	rule	allof
+allof-single-ref-property	fixtures/allof-single-ref-property/swagger.json	field:resp:GET /kiln:200#/rank;field:resp:GET /kiln:200#/slip;field:resp:GET /kiln:200#/slip/shade;op:GET /kiln		rule	allof
+anyof-choice	fixtures/anyof-choice/openapi.json	field:resp:GET /kiln:200#/dark;field:resp:GET /kiln:200#/light;op:GET /kiln	anyOf_union	rule	oneof-anyof
+control-ambiguous-status-root-replacement	fixtures/control-ambiguous-status-root-replacement/openapi.json	field:resp:GET /loom:201#/stamp;field:resp:GET /loom:202#/stamp;op:GET /loom		rule	status-keys
+control-bodyless-success-loss	fixtures/control-bodyless-success-loss/openapi.json	op:GET /loom		rule	status-keys
+control-closed-minimum-1	fixtures/control-closed-minimum-1/openapi.json	field:resp:GET /loom:200#/kept;op:GET /loom		rule	wire-tree
+control-closed-minimum-2	fixtures/control-closed-minimum-2/openapi.json	op:GET /loom		rule	wire-tree
+control-composition-only-cycle	fixtures/control-composition-only-cycle/openapi.json	field:resp:GET /spare:200#/spool;op:GET /loom;op:GET /spare	recursive	rule	cycle
+control-cross-conjunct-false-required	fixtures/control-cross-conjunct-false-required/openapi.json	op:GET /loom		rule	wire-tree
+control-cross-conjunct-integer	fixtures/control-cross-conjunct-integer/openapi.json	field:resp:GET /loom:200#/grain;op:GET /loom		rule	wire-tree
+control-cross-conjunct-integer-required-only	fixtures/control-cross-conjunct-integer-required-only/openapi.json	field:resp:GET /loom:200#/wax;op:GET /loom		rule	wire-tree
+control-cross-conjunct-omitted-required	fixtures/control-cross-conjunct-omitted-required/openapi.json	field:resp:GET /loom:200#/grain;field:resp:GET /loom:200#/reserve;op:GET /loom		rule	wire-tree
+control-cross-conjunct-string	fixtures/control-cross-conjunct-string/openapi.json	op:GET /loom		rule	wire-tree
+control-cross-conjunct-string-required	fixtures/control-cross-conjunct-string-required/openapi.json	op:GET /loom		rule	wire-tree
+control-definition-rename	fixtures/control-definition-rename/swagger.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:200#/stamp/size;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	wire-neutral-rename
+control-document-client-only-held-service	fixtures/control-document-client-only-held-service/projection.json			rule	wire-tree
+control-document-computed-tree-borrowed-date	fixtures/control-document-computed-tree-borrowed-date/projection.json			rule	wire-tree
+control-document-computed-tree-null-metadata	fixtures/control-document-computed-tree-null-metadata/projection.json			rule	wire-tree
+control-document-configured-provenance	fixtures/control-document-configured-provenance/projection.json	op:GET /api/kiln		rule	wire-tree
+control-document-joint-edit-four-comparisons	fixtures/control-document-joint-edit-four-comparisons/projection.json			rule	wire-tree
+control-document-keyless-coverage	fixtures/control-document-keyless-coverage/projection.json			rule	wire-tree
+control-document-saved-inventory-withheld	fixtures/control-document-saved-inventory-withheld/scan.json			rule	wire-tree
+control-document-side-presence	fixtures/control-document-side-presence/projection.json			rule	wire-tree
+control-document-tracked-dirtiness	fixtures/control-document-tracked-dirtiness/projection.json	op:GET /kiln		rule	wire-tree
+control-document-unbound-raw-call	fixtures/control-document-unbound-raw-call/projection.json			rule	wire-tree
+control-document-zero-saved-matches	fixtures/control-document-zero-saved-matches/scan.json			rule	wire-tree
+control-enum-absent-to-empty	fixtures/control-enum-absent-to-empty/openapi.json	field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-enum-empty-to-absent	fixtures/control-enum-empty-to-absent/openapi.json	field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-enum-member-swap	fixtures/control-enum-member-swap/openapi.json	field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-field-added-only	fixtures/control-field-added-only/openapi.json	field:resp:GET /loom:200#/extra;field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-field-format-only	fixtures/control-field-format-only/openapi.json	field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-field-items-only	fixtures/control-field-items-only/openapi.json	field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-field-required-added	fixtures/control-field-required-added/openapi.json	field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-field-required-removed	fixtures/control-field-required-removed/openapi.json	field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-formatting-only	fixtures/control-formatting-only/openapi.json	field:resp:GET /loom:200#/stamp;op:GET /loom		rule	wire-tree
+control-g01-method-annotation	fixtures/control-g01-method-annotation/producer.go	op:GET /mugs		rule	annotations
+control-g02-two-annotations	fixtures/control-g02-two-annotations/producer.go	op:GET /mugs;op:POST /mugs		rule	annotations
+control-g03-detached-agreeing-registration	fixtures/control-g03-detached-agreeing-registration/producer.go			rule	annotations
+control-g04-contradicting-registration	fixtures/control-g04-contradicting-registration/producer.go		annotation_without_operation;schema_stale_against_code	rule	annotations
+control-g04-missing-registration	fixtures/control-g04-missing-registration/producer.go		annotation_without_operation	rule	annotations
+control-g04-partial-registration	fixtures/control-g04-partial-registration/producer.go		annotation_without_operation	rule	annotations
+control-g05-duplicate-annotations	fixtures/control-g05-duplicate-annotations/producer.go	op:GET /mugs		rule	annotations
+control-g06-tagged-field	fixtures/control-g06-tagged-field/producer.go	field:resp:GET /mugs:200#/shade		rule	annotations
+control-g07-ignored-field	fixtures/control-g07-ignored-field/producer.go			rule	annotations
+control-g08-untagged-field	fixtures/control-g08-untagged-field/producer.go	field:resp:GET /mugs:200#/Shade		rule	annotations
+control-g09-embedded-field	fixtures/control-g09-embedded-field/producer.go	field:resp:GET /mugs:200#/shade;field:resp:GET /rims:200#/shade;field:resp:GET /slips:200#/shade		rule	annotations
+control-g10-generated-annotation	fixtures/control-g10-generated-annotation/producer.go	op:GET /mugs		rule	annotations
+control-g11-definition-rename	fixtures/control-g11-definition-rename/producer.go	field:resp:GET /mugs:200#/shade		rule	annotations
+control-gin-catchall-version-withheld	fixtures/control-gin-catchall-version-withheld/routes.go			rule	no-id-for-served-op
+control-p2-agreeing-registration-no-annotation	fixtures/control-p2-agreeing-registration-no-annotation/producer.go			rule	annotations
+control-p2-linked-method-drift	fixtures/control-p2-linked-method-drift/producer.go	op:GET /mugs		rule	annotations
+control-p2-linked-path-drift	fixtures/control-p2-linked-path-drift/producer.go			rule	annotations
+control-range-status-root-overlap	fixtures/control-range-status-root-overlap/openapi.json	field:resp:GET /loom:201#/stamp;op:GET /loom		rule	status-keys
+control-required-only-false	fixtures/control-required-only-false/openapi.json	op:GET /reed		rule	wire-tree
+control-required-only-integer	fixtures/control-required-only-integer/openapi.json	field:resp:GET /reed:200#/wax;op:GET /reed		rule	wire-tree
+control-retained-route-handler-edit	fixtures/control-retained-route-handler-edit/routes.js	op:GET /kiln		rule	methods
+control-root-reference-cycle	fixtures/control-root-reference-cycle/openapi.json	field:resp:GET /spare:200#/spool;op:GET /loom;op:GET /spare	recursive	rule	cycle
+control-route-closed-wildcard-withheld	fixtures/control-route-closed-wildcard-withheld/routes.js			rule	no-id-for-served-op
+control-route-custom-keys-and-mount-join-policy-withheld	fixtures/control-route-custom-keys-and-mount-join-policy-withheld/routes.js			rule	prefixes
+control-route-custom-keys-and-mount-method-key-withheld	fixtures/control-route-custom-keys-and-mount-method-key-withheld/routes.js			rule	prefixes
+control-route-express4-bare-star-version-withheld	fixtures/control-route-express4-bare-star-version-withheld/routes.js			rule	no-id-for-served-op
+control-route-express4-optional-version-withheld	fixtures/control-route-express4-optional-version-withheld/routes.js			rule	no-id-for-served-op
+control-route-hapi-catchall-version-withheld	fixtures/control-route-hapi-catchall-version-withheld/routes.js			rule	no-id-for-served-op
+control-route-hapi-fixed-catchall-version-withheld	fixtures/control-route-hapi-fixed-catchall-version-withheld/routes.js			rule	no-id-for-served-op
+control-route-hapi-insensitive-withheld	fixtures/control-route-hapi-insensitive-withheld/routes.js			rule	no-id-for-served-op
+control-route-hapi-optional-version-withheld	fixtures/control-route-hapi-optional-version-withheld/routes.js			rule	no-id-for-served-op
+control-route-hapi-strip-trailing-withheld	fixtures/control-route-hapi-strip-trailing-withheld/routes.js			rule	path-normalisation
+control-route-hapi-vhosts-withheld	fixtures/control-route-hapi-vhosts-withheld/routes.js			rule	two-ops-one-id
+control-route-hapi-wildcard-method-withheld	fixtures/control-route-hapi-wildcard-method-withheld/routes.js			rule	no-id-for-served-op
+control-route-header-dispatch-withheld	fixtures/control-route-header-dispatch-withheld/routes.js			rule	two-ops-one-id
+control-route-method-lowercase-method-normalization-withheld	fixtures/control-route-method-lowercase-method-normalization-withheld/routes.js			rule	methods
+control-route-mount-parameter-path-dialect-withheld	fixtures/control-route-mount-parameter-path-dialect-withheld/routes.js			rule	prefixes
+control-route-mount-root-join-policy-withheld	fixtures/control-route-mount-root-join-policy-withheld/routes.js			rule	prefixes
+control-route-plugin-mount-withheld	fixtures/control-route-plugin-mount-withheld/routes.js			rule	one-op-two-ids
+control-s1-hapi-internal-route-withheld	fixtures/control-s1-hapi-internal-route-withheld/routes.js	op:POST /fletch/public		rule	methods
+control-s1-hapi-optional-mixed-segment-version-withheld	fixtures/control-s1-hapi-optional-mixed-segment-version-withheld/routes.js			rule	no-id-for-served-op
+control-s1-hapi-prefix-on-plugin-root-withheld	fixtures/control-s1-hapi-prefix-on-plugin-root-withheld/routes.js			rule	prefixes
+control-s1-oas31-external-path-item-server-withheld	fixtures/control-s1-oas31-external-path-item-server-withheld/openapi.json			rule	prefixes
+control-saturated-object-before	fixtures/control-saturated-object-before/openapi.json	field:resp:GET /loom:200#/*/tag;field:resp:GET /loom:200#/extra;field:resp:GET /loom:200#/kept;op:GET /loom		rule	wire-tree
+control-saturated-object-required	fixtures/control-saturated-object-required/openapi.json	field:resp:GET /loom:200#/kept;op:GET /loom		rule	wire-tree
+control-saturated-object-restored	fixtures/control-saturated-object-restored/openapi.json	field:resp:GET /loom:200#/*/tag;field:resp:GET /loom:200#/extra;field:resp:GET /loom:200#/kept;op:GET /loom		rule	wire-tree
+control-t1-directional-annotations-two-slot	fixtures/control-t1-directional-annotations-two-slot/openapi.json	field:req:POST /forge#/label;field:req:POST /forge#/secret;field:req:POST /forge#/serial;field:resp:POST /forge:200#/label;field:resp:POST /forge:200#/secret;field:resp:POST /forge:200#/serial;op:POST /forge		rule	wire-tree
+control-t1-external-pointer-escaped-withheld	fixtures/control-t1-external-pointer-escaped-withheld/openapi.json	op:GET /beacon		rule	field-punctuation
+control-t1-ref-external-relative-withheld	fixtures/control-t1-ref-external-relative-withheld/openapi.json	op:GET /forge		rule	wire-tree
+control-t1-relative-server-document-base-withheld	fixtures/control-t1-relative-server-document-base-withheld/openapi.json			rule	path-normalisation
+control-two-node-composition-cycle	fixtures/control-two-node-composition-cycle/openapi.json	field:resp:GET /spare:200#/spool;op:GET /loom;op:GET /spare	recursive	rule	cycle
+control-unique-status-root-replacement	fixtures/control-unique-status-root-replacement/openapi.json	field:resp:GET /loom:201#/stamp;op:GET /loom		rule	status-keys
+definition-dotted-name	fixtures/definition-dotted-name/openapi.json	field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	field-punctuation
+definition-pointer-punctuation	fixtures/definition-pointer-punctuation/swagger.json	field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	field-punctuation
+field-embedded-brackets	fixtures/field-embedded-brackets/swagger.json	field:resp:GET /kiln:200#/tone%5B%5Dwet;op:GET /kiln		rule	field-punctuation
+field-embedded-star	fixtures/field-embedded-star/swagger.json	field:resp:GET /kiln:200#/tone%2Awet;op:GET /kiln		rule	field-punctuation
+field-empty-name	fixtures/field-empty-name/swagger.json	field:resp:GET /kiln:200#/;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	field-punctuation
+field-exact-brackets-vs-item	fixtures/field-exact-brackets-vs-item/openapi.json	field:resp:GET /kiln:200#/bucket;field:resp:GET /kiln:200#/bucket/%5B%5D;field:resp:GET /kiln:200#/bucket/%5B%5D/tone;field:resp:GET /kiln:200#/bucket/[]/tone;op:GET /kiln	oneOf_union	rule	field-punctuation
+field-exact-star-vs-map	fixtures/field-exact-star-vs-map/swagger.json	field:resp:GET /kiln:200#/%2A;field:resp:GET /kiln:200#/%2A/tone;field:resp:GET /kiln:200#/*/tone;field:resp:GET /kiln:200#/common;op:GET /kiln		rule	field-punctuation
+field-hash	fixtures/field-hash/swagger.json	field:resp:GET /kiln:200#/tone%23wet;op:GET /kiln		rule	field-punctuation
+field-slash-vs-nesting	fixtures/field-slash-vs-nesting/swagger.json	field:resp:GET /kiln:200#/coat;field:resp:GET /kiln:200#/coat/shade;field:resp:GET /kiln:200#/coat~1shade;op:GET /kiln		rule	field-punctuation
+field-tilde-escape-lookalike	fixtures/field-tilde-escape-lookalike/swagger.json	field:resp:GET /kiln:200#/tone~01;field:resp:GET /kiln:200#/tone~1;op:GET /kiln		rule	field-punctuation
+gin-catchall	fixtures/gin-catchall/routes.go	op:GET /mugs/{*0+}		rule	no-id-for-served-op
+gin-clean-slash-join	fixtures/gin-clean-slash-join/routes.go	op:POST /studio/kiln/pots		rule	path-normalisation
+gin-colon	fixtures/gin-colon/routes.go	op:GET /mugs/{}		rule	parameters
+gin-distinct-head-options	fixtures/gin-distinct-head-options/routes.go	op:HEAD /mugs;op:OPTIONS /mugs		rule	methods
+gin-group-supplied-prefix	fixtures/gin-group-supplied-prefix/routes.go			loss:public_mapping_unavailable	one-op-two-ids
+gin-handle-custom-method	fixtures/gin-handle-custom-method/routes.go	op:PROPFIND /mugs		rule	no-id-for-served-op
+gin-literal-nested-groups	fixtures/gin-literal-nested-groups/routes.go	op:POST /studio/kiln/mugs/{}		rule	prefixes
+gin-match-list	fixtures/gin-match-list/routes.go	op:HEAD /mugs;op:OPTIONS /mugs		rule	no-id-for-served-op
+gin-mixed-segment	fixtures/gin-mixed-segment/routes.go	op:GET /mugs/rim-{}		rule	parameters
+gin-strict-trailing-slash	fixtures/gin-strict-trailing-slash/routes.go	op:GET /mugs;op:GET /mugs/		rule	two-ops-one-id
+oas-absolute-server	fixtures/oas-absolute-server/openapi.json	op:GET /atelier/pot		rule	path-normalisation
+oas-adjacent-braces	fixtures/oas-adjacent-braces/openapi.json	op:GET /print/{}{}.png		rule	parameters
+oas-authority-only	fixtures/oas-authority-only/openapi.json	op:GET /pot		rule	path-normalisation
+oas-body-component-ref	fixtures/oas-body-component-ref/openapi.json	field:req:POST /cast#/tone;op:POST /cast		rule	request-body
+oas-body-fallback-single	fixtures/oas-body-fallback-single/openapi.json	op:POST /cast		loss:non_json_media	request-body
+oas-body-fallback-sorted	fixtures/oas-body-fallback-sorted/openapi.json	op:POST /cast		loss:non_json_media	request-body
+oas-body-fallback-sorted-control	fixtures/oas-body-fallback-sorted-control/openapi.json	op:POST /cast		loss:non_json_media	request-body
+oas-body-json	fixtures/oas-body-json/openapi.json	field:req:POST /cast#/tone;op:POST /cast		rule	request-body
+oas-body-json-preferred	fixtures/oas-body-json-preferred/openapi.json	field:req:POST /cast#/tone;op:POST /cast		rule	request-body
+oas-body-media-distinct	fixtures/oas-body-media-distinct/openapi.json	field:req:POST /cast#/jsonMark;op:POST /cast		loss:non_json_media	request-body
+oas-braces	fixtures/oas-braces/openapi.json	op:GET /vase/{}		rule	parameters
+oas-colon-literal	fixtures/oas-colon-literal/openapi.json	op:GET /marks/:catalog		rule	parameters
+oas-default-exclusion	fixtures/oas-default-exclusion/openapi.json	field:resp:GET /cone:200#/fired;op:GET /cone		rule	status-keys
+oas-default-only	fixtures/oas-default-only/openapi.json	op:GET /cone		rule	status-keys
+oas-encoded-slash	fixtures/oas-encoded-slash/openapi.json	op:GET /etch/A%2FB		rule	path-normalisation
+oas-form-request-body	fixtures/oas-form-request-body/openapi.json	op:POST /mix		loss:non_json_media	formdata
+oas-implicit-server	fixtures/oas-implicit-server/openapi.json	op:GET /pot		rule	path-normalisation
+oas-in-segment-braces	fixtures/oas-in-segment-braces/openapi.json	op:GET /print/plate-{}.png		rule	parameters
+oas-literal-vs-template	fixtures/oas-literal-vs-template/openapi.json	op:GET /kiln/warm;op:GET /kiln/{}		rule	parameters
+oas-lowercase-range	fixtures/oas-lowercase-range/openapi.json	op:GET /glaze		rule	status-keys
+oas-no-content	fixtures/oas-no-content/openapi.json	op:DELETE /cone		rule	status-keys
+oas-nonbody-parameters	fixtures/oas-nonbody-parameters/openapi.json	op:GET /cast/{}		rule	request-body
+oas-operation-keys	fixtures/oas-operation-keys/openapi.json	op:DELETE /clay;op:GET /clay;op:HEAD /clay;op:OPTIONS /clay;op:PATCH /clay;op:POST /clay;op:PUT /clay;op:TRACE /clay		rule	methods
+oas-operation-server-overrides	fixtures/oas-operation-server-overrides/openapi.json	op:GET /archive/plate/;op:GET /atlas/plate		rule	two-ops-one-id
+oas-operationid-attribute	fixtures/oas-operationid-attribute/openapi.json	op:GET /urn;op:POST /urn		rule	methods
+oas-path-case	fixtures/oas-path-case/openapi.json	op:GET /Tumbler;op:GET /tumbler		rule	path-normalisation
+oas-path-item-metadata	fixtures/oas-path-item-metadata/openapi.json	op:GET /tile		rule	methods
+oas-path-server-overrides	fixtures/oas-path-server-overrides/openapi.json	op:GET /archive/plate/;op:GET /atlas/plate		rule	two-ops-one-id
+oas-range-and-exact-status	fixtures/oas-range-and-exact-status/openapi.json	field:resp:POST /glaze:201#/receipt;field:resp:POST /glaze:2XX#/fallback;op:POST /glaze		rule	status-keys
+oas-relative-server	fixtures/oas-relative-server/openapi.json	op:GET /atelier/pot		rule	path-normalisation
+oas-response-component-ref	fixtures/oas-response-component-ref/openapi.json	field:resp:GET /cast:200#/tone;op:GET /cast		rule	wire-tree
+oas-response-media-disjoint	fixtures/oas-response-media-disjoint/openapi.json	field:resp:GET /cast:200#/jsonMark;op:GET /cast		loss:non_json_media	two-ops-one-id
+oas-response-media-same-pointer	fixtures/oas-response-media-same-pointer/openapi.json	field:resp:GET /cast:200#/mark;op:GET /cast		loss:non_json_media	two-ops-one-id
+oas-server-host-variable	fixtures/oas-server-host-variable/openapi.json	op:GET /atelier/pot		rule	path-normalisation
+oas-server-order-north-first	fixtures/oas-server-order-north-first/openapi.json	op:GET /north/tile;op:GET /south/tile		rule	one-op-two-ids
+oas-server-order-south-first	fixtures/oas-server-order-south-first/openapi.json	op:GET /north/tile;op:GET /south/tile		rule	one-op-two-ids
+oas-server-partial-variable	fixtures/oas-server-partial-variable/openapi.json	op:GET /atelier/v7/pot		rule	two-ops-one-id
+oas-server-path-variable	fixtures/oas-server-path-variable/openapi.json	op:GET /atelier/cobalt/pot		rule	two-ops-one-id
+oas-server-trailing-join	fixtures/oas-server-trailing-join/openapi.json	op:GET /atelier//pot		rule	path-normalisation
+oas-server-variable-collapse	fixtures/oas-server-variable-collapse/openapi.json	op:GET /atelier/cobalt/pot;op:GET /atelier/ivory/pot		rule	two-ops-one-id
+oas-server-variable-distinct-operations	fixtures/oas-server-variable-distinct-operations/ash.openapi.json	op:GET /atelier/ash/pot;op:GET /atelier/salt/pot		rule	two-ops-one-id
+oas-significant-repeated-slash	fixtures/oas-significant-repeated-slash/openapi.json	op:GET /slip//apply		rule	path-normalisation
+oas-significant-trailing-slash	fixtures/oas-significant-trailing-slash/openapi.json	op:GET /slip/		rule	path-normalisation
+oas-uppercase-key	fixtures/oas-uppercase-key/openapi.json			rule	methods
+oneof-choice	fixtures/oneof-choice/openapi.json	field:resp:GET /kiln:200#/kind;field:resp:GET /kiln:200#/roughness;field:resp:GET /kiln:200#/shine;op:GET /kiln	oneOf_union	rule	oneof-anyof
+route-closed-wildcard	fixtures/route-closed-wildcard/routes.js	op:OPTIONS /mugs;op:POST /mugs		rule	no-id-for-served-op
+route-colon-required	fixtures/route-colon-required/routes.js	op:GET /mugs/{}		rule	parameters
+route-configured-external-base	fixtures/route-configured-external-base/routes.js			loss:public_mapping_unavailable	one-op-two-ids
+route-custom-keys-and-mount	fixtures/route-custom-keys-and-mount/routes.js	op:GET /atelier/mugs/{}		rule	prefixes
+route-express4-bare-star	fixtures/route-express4-bare-star/routes.js	op:POST /mugs/{*0+}		rule	no-id-for-served-op
+route-express4-optional	fixtures/route-express4-optional/routes.js	op:POST /mugs/{?}		rule	no-id-for-served-op
+route-gateway-stage	fixtures/route-gateway-stage/routes.js			loss:public_mapping_unavailable	one-op-two-ids
+route-hapi-braces	fixtures/route-hapi-braces/routes.js	op:GET /mugs/{}		rule	parameters
+route-hapi-catchall	fixtures/route-hapi-catchall/routes.js	op:POST /mugs/{*0+}		rule	no-id-for-served-op
+route-hapi-fixed-catchall	fixtures/route-hapi-fixed-catchall/routes.js	op:POST /mugs/{*2}		rule	no-id-for-served-op
+route-hapi-insensitive	fixtures/route-hapi-insensitive/routes.js	op:POST /mugs		rule	no-id-for-served-op
+route-hapi-optional	fixtures/route-hapi-optional/routes.js	op:POST /mugs/{?}		rule	no-id-for-served-op
+route-hapi-strip-trailing	fixtures/route-hapi-strip-trailing/routes.js	op:POST /mugs		rule	path-normalisation
+route-hapi-vhosts	fixtures/route-hapi-vhosts/routes.js			loss:dispatch_discriminator	two-ops-one-id
+route-hapi-wildcard-method	fixtures/route-hapi-wildcard-method/routes.js	op:* /mugs		rule	no-id-for-served-op
+route-header-dispatch	fixtures/route-header-dispatch/routes.js			loss:dispatch_discriminator	two-ops-one-id
+route-method-head-options	fixtures/route-method-head-options/routes.js	op:HEAD /mugs;op:OPTIONS /mugs		rule	methods
+route-method-list	fixtures/route-method-list/routes.js	op:OPTIONS /mugs;op:POST /mugs		rule	no-id-for-served-op
+route-method-lowercase	fixtures/route-method-lowercase/routes.js	op:PATCH /mugs		rule	methods
+route-mount-parameter	fixtures/route-mount-parameter/routes.js	op:POST /atelier/{}/mugs		rule	prefixes
+route-mount-root	fixtures/route-mount-root/routes.js	op:GET /		rule	prefixes
+route-plugin-mount	fixtures/route-plugin-mount/routes.js	op:POST /atelier/mugs		rule	one-op-two-ids
+route-proxy-rewrite	fixtures/route-proxy-rewrite/routes.js			loss:public_mapping_unavailable	one-op-two-ids
+s1-express4-constrained-captures	fixtures/s1-express4-constrained-captures/routes.js			loss:dispatch_discriminator	two-ops-one-id
+s1-express4-generated-options	fixtures/s1-express4-generated-options/routes.js	op:POST /fletch;op:PUT /fletch		loss:implicit_methods	no-id-for-served-op
+s1-express4-query-dispatch	fixtures/s1-express4-query-dispatch/routes.js			loss:dispatch_discriminator	two-ops-one-id
+s1-express5-mount-aliases	fixtures/s1-express5-mount-aliases/routes.js	op:POST /amber/proof;op:POST /ochre/proof		loss:implicit_methods	prefixes
+s1-express5-optional-literal-group	fixtures/s1-express5-optional-literal-group/routes.js	op:POST /fletch/draft/proof;op:POST /fletch/proof		loss:implicit_methods	no-id-for-served-op
+s1-express5-quoted-parameter	fixtures/s1-express5-quoted-parameter/routes.js	op:POST /fletch/{}		loss:implicit_methods	parameters
+s1-express5-root-inclusive-wildcard	fixtures/s1-express5-root-inclusive-wildcard/routes.js	op:POST /{*0+}		loss:implicit_methods	no-id-for-served-op
+s1-field-control-characters	fixtures/s1-field-control-characters/openapi.json	field:resp:GET /reed:200#/wax%00note;field:resp:GET /reed:200#/wax%09note;field:resp:GET /reed:200#/wax%0Anote;op:GET /reed		rule	field-punctuation
+s1-gin-raw-encoded-slash	fixtures/s1-gin-raw-encoded-slash/routes.go	op:GET /fletch/wax%2Fpith;op:GET /fletch/wax/pith		rule	path-normalisation
+s1-gin-static-file-methods	fixtures/s1-gin-static-file-methods/routes.go			loss:implicit_methods	no-id-for-served-op
+s1-hapi-internal-route	fixtures/s1-hapi-internal-route/routes.js	op:POST /fletch/public		rule	methods
+s1-hapi-optional-mixed-segment	fixtures/s1-hapi-optional-mixed-segment/routes.js	op:POST /fletch/wax-{?}/proof		rule	no-id-for-served-op
+s1-hapi-prefix-on-plugin-root	fixtures/s1-hapi-prefix-on-plugin-root/routes.js	op:POST /fletch		rule	prefixes
+s1-oas30-get-request-body	fixtures/s1-oas30-get-request-body/openapi.json	op:GET /reed		rule	request-body
+s1-oas31-204-response-body	fixtures/s1-oas31-204-response-body/openapi.json	field:resp:POST /reed:200#/wax;op:POST /reed		rule	status-keys
+s1-oas31-anyof-impossible-branch	fixtures/s1-oas31-anyof-impossible-branch/openapi.json	field:resp:GET /reed:200#/wax;op:GET /reed	anyOf_union	rule	oneof-anyof
+s1-oas31-authority-dispatch	fixtures/s1-oas31-authority-dispatch/openapi.json	field:resp:GET /reed:200#/pith;field:resp:GET /reed:200#/wax;op:GET /reed		rule	two-ops-one-id
+s1-oas31-default-success-witness	fixtures/s1-oas31-default-success-witness/openapi.json	field:resp:POST /reed:200#/finished;op:POST /reed		loss:fallback_success	status-keys
+s1-oas31-dynamic-ref-override	fixtures/s1-oas31-dynamic-ref-override/openapi.json	op:GET /reed		loss:reference_scope	wire-tree
+s1-oas31-empty-server-list	fixtures/s1-oas31-empty-server-list/openapi.json	op:GET /reed		rule	path-normalisation
+s1-oas31-enum-object-shape	fixtures/s1-oas31-enum-object-shape/openapi.json	op:GET /reed		loss:unsupported_schema_keyword	wire-tree
+s1-oas31-external-path-item-server	fixtures/s1-oas31-external-path-item-server/openapi.json	field:resp:GET /plans/branch/rev/reed:200#/wax;op:GET /plans/branch/rev/reed		rule	prefixes
+s1-oas31-get-request-body	fixtures/s1-oas31-get-request-body/openapi.json	field:req:GET /reed#/wax;op:GET /reed		rule	request-body
+s1-oas31-head-response-body	fixtures/s1-oas31-head-response-body/openapi.json	field:resp:GET /reed:200#/wax;op:GET /reed;op:HEAD /reed		rule	status-keys
+s1-oas31-label-path-parameter	fixtures/s1-oas31-label-path-parameter/openapi.json	op:GET /reed/.{}		rule	parameters
+s1-oas31-network-path-server	fixtures/s1-oas31-network-path-server/openapi.json	op:GET /amber/reed		rule	path-normalisation
+s1-oas31-property-names-finite-map	fixtures/s1-oas31-property-names-finite-map/openapi.json	op:GET /reed		loss:unsupported_schema_keyword	wire-tree
+s1-oas31-request-media-case-range	fixtures/s1-oas31-request-media-case-range/openapi.json	field:req:POST /reed#/cerulean;op:POST /reed		rule	request-body
+s1-oas31-required-only-name	fixtures/s1-oas31-required-only-name/openapi.json	field:resp:GET /reed:200#/wax;op:GET /reed		rule	wire-tree
+s1-oas31-response-media-range	fixtures/s1-oas31-response-media-range/openapi.json	field:resp:GET /reed:200#/cerulean;op:GET /reed		loss:non_json_media	two-ops-one-id
+s1-oas31-tuple-unevaluated-tail	fixtures/s1-oas31-tuple-unevaluated-tail/openapi.json	op:GET /reed		loss:indexed_tuple	wire-tree
+s1-oas31-yaml-status-keys	fixtures/s1-oas31-yaml-status-keys/openapi.yaml			loss:yaml_format	status-keys
+s1-swagger-body-parameter-ref-override	fixtures/s1-swagger-body-parameter-ref-override/swagger.json	field:req:POST /reed#/sap;field:req:PUT /reed#/pith;op:POST /reed;op:PUT /reed		rule	request-body
+s1-swagger-discriminator-inheritance	fixtures/s1-swagger-discriminator-inheritance/swagger.json	field:resp:GET /reed:200#/family;op:GET /reed		loss:discriminator_inheritance	allof
+s1-swagger-response-ref-two-statuses	fixtures/s1-swagger-response-ref-two-statuses/swagger.json	field:resp:POST /reed:200#/wax;field:resp:POST /reed:201#/wax;op:POST /reed		rule	status-keys
+s1-swagger-xml-wire-name	fixtures/s1-swagger-xml-wire-name/swagger.json	op:GET /reed		loss:non_json_media	wire-tree
+swag-detached-annotation	fixtures/swag-detached-annotation/routes.go			rule	annotations
+swag-method-doc-comment	fixtures/swag-method-doc-comment/routes.go	op:GET /mugs		rule	annotations
+swag-method-drift	fixtures/swag-method-drift/routes.go	op:POST /mugs		rule	one-op-two-ids
+swag-path-drift	fixtures/swag-path-drift/routes.go	op:POST /mugs		rule	one-op-two-ids
+swag-two-annotations	fixtures/swag-two-annotations/routes.go	op:GET /mugs;op:POST /mugs/{}		rule	annotations
+swagger-base	fixtures/swagger-base/swagger.json	op:GET /studio/v4/kiln		rule	path-normalisation
+swagger-body-name-not-on-wire	fixtures/swagger-body-name-not-on-wire/swagger.json	field:req:POST /cast#/stamp;field:req:POST /cast#/tone;op:POST /cast		rule	request-body
+swagger-body-path-inheritance	fixtures/swagger-body-path-inheritance/swagger.json	field:req:POST /cast#/receipt;field:req:PUT /cast#/slip;op:POST /cast;op:PUT /cast		rule	request-body
+swagger-braces	fixtures/swagger-braces/swagger.json	op:GET /vase/{}		rule	parameters
+swagger-default-exclusion	fixtures/swagger-default-exclusion/swagger.json	field:resp:GET /cone:200#/fired;op:GET /cone		rule	status-keys
+swagger-disjoint-collision	fixtures/swagger-disjoint-collision/swagger.json	field:resp:GET /mold/{}:200#/gloss;field:resp:POST /mold/{}:200#/texture;op:GET /mold/{};op:POST /mold/{}		rule	collision
+swagger-duplicate-collision	fixtures/swagger-duplicate-collision/swagger.json	field:resp:GET /mold/{}:200#/gloss;op:GET /mold/{}	duplicate_operation	rule	collision
+swagger-encoded-braces	fixtures/swagger-encoded-braces/swagger.json	op:GET /etch/%7Bstamp%7D		rule	path-normalisation
+swagger-formdata-multipart	fixtures/swagger-formdata-multipart/swagger.json	op:POST /mix		loss:non_json_media	formdata
+swagger-formdata-urlencoded	fixtures/swagger-formdata-urlencoded/swagger.json	op:POST /mix		loss:non_json_media	formdata
+swagger-no-base	fixtures/swagger-no-base/swagger.json	op:GET /kiln		rule	path-normalisation
+swagger-nonbody-parameters	fixtures/swagger-nonbody-parameters/swagger.json	op:GET /cast/{}		rule	request-body
+swagger-operation-keys	fixtures/swagger-operation-keys/swagger.json	op:DELETE /clay;op:GET /clay;op:HEAD /clay;op:OPTIONS /clay;op:PATCH /clay;op:POST /clay;op:PUT /clay		rule	methods
+swagger-path-item-metadata	fixtures/swagger-path-item-metadata/swagger.json	op:GET /tile		rule	methods
+swagger-range-key	fixtures/swagger-range-key/swagger.json	op:GET /glaze		rule	status-keys
+swagger-repeated-name	fixtures/swagger-repeated-name/swagger.json	op:GET /chisel/{}/pair/{}		rule	parameters
+swagger-root	fixtures/swagger-root/swagger.json	op:GET /		rule	path-normalisation
+swagger-root-base	fixtures/swagger-root-base/swagger.json	op:GET /kiln		rule	path-normalisation
+swagger-root-with-base	fixtures/swagger-root-with-base/swagger.json	op:GET /studio/		rule	path-normalisation
+swagger-success-boundaries	fixtures/swagger-success-boundaries/swagger.json	field:resp:GET /glaze:200#/first;field:resp:GET /glaze:299#/last;op:GET /glaze		rule	status-keys
+swagger-trace-key	fixtures/swagger-trace-key/swagger.json			rule	methods
+t1-allof-closed-intersection	fixtures/t1-allof-closed-intersection/openapi.json	op:GET /loom		rule	allof
+t1-anchor-ref	fixtures/t1-anchor-ref/openapi.json	op:GET /beacon		loss:reference_scope	wire-tree
+t1-array-of-map	fixtures/t1-array-of-map/openapi.json	field:resp:GET /forge:200#/[]/*/grain;op:GET /forge		rule	wire-tree
+t1-array-prefix-index-collision	fixtures/t1-array-prefix-index-collision/openapi.json	op:GET /beacon		loss:indexed_tuple	two-ops-one-id
+t1-array-zero-maximum	fixtures/t1-array-zero-maximum/openapi.json	op:GET /shuttle		rule	wire-tree
+t1-conditional-branches	fixtures/t1-conditional-branches/openapi.json	op:GET /loom		loss:unsupported_schema_keyword	wire-tree
+t1-contains-items	fixtures/t1-contains-items/openapi.json	op:GET /shuttle		loss:unsupported_schema_keyword	wire-tree
+t1-defs-reference	fixtures/t1-defs-reference/openapi.json	field:resp:GET /forge:200#/grain;op:GET /forge		rule	wire-tree
+t1-dependent-schema	fixtures/t1-dependent-schema/openapi.json	op:GET /shuttle		loss:unsupported_schema_keyword	wire-tree
+t1-directional-annotations	fixtures/t1-directional-annotations/openapi.json	field:req:POST /forge#/label;field:req:POST /forge#/secret;field:req:POST /forge#/serial;field:resp:POST /forge:200#/label;field:resp:POST /forge:200#/secret;field:resp:POST /forge:200#/serial;op:POST /forge		rule	wire-tree
+t1-discriminator-mapping	fixtures/t1-discriminator-mapping/openapi.json	field:resp:GET /forge:200#/edge;field:resp:GET /forge:200#/kind;field:resp:GET /forge:200#/radius;op:GET /forge	oneOf_union	rule	oneof-anyof
+t1-enum-format-after	fixtures/t1-enum-format-after/openapi.json	field:resp:GET /forge:200#/stamp;op:GET /forge		rule	wire-neutral-rename
+t1-enum-format-before	fixtures/t1-enum-format-before/openapi.json	field:resp:GET /forge:200#/stamp;op:GET /forge		rule	wire-neutral-rename
+t1-express-array-paths	fixtures/t1-express-array-paths/routes.js	op:POST /loom;op:POST /spindle		rule	no-id-for-served-op
+t1-express-implicit-head	fixtures/t1-express-implicit-head/routes.js	op:GET /forge		loss:implicit_methods	no-id-for-served-op
+t1-external-pointer-escaped	fixtures/t1-external-pointer-escaped/openapi.json	field:resp:GET /beacon:200#/grain~1size;op:GET /beacon		rule	field-punctuation
+t1-false-property	fixtures/t1-false-property/openapi.json	field:resp:GET /shuttle:200#/open;op:GET /shuttle		rule	wire-tree
+t1-fragment-percent-collision	fixtures/t1-fragment-percent-collision/openapi.json	field:resp:GET /forge:200#/%23;field:resp:GET /forge:200#/%2523;op:GET /forge		rule	field-punctuation
+t1-max-properties-zero	fixtures/t1-max-properties-zero/openapi.json	op:GET /beacon		rule	wire-tree
+t1-names-ascii-keys	fixtures/t1-names-ascii-keys/openapi.json	field:resp:GET /forge:200#/0;field:resp:GET /forge:200#/01;field:resp:GET /forge:200#/Shade;field:resp:GET /forge:200#/__proto__;field:resp:GET /forge:200#/shade;op:GET /forge		rule	field-punctuation
+t1-not-required-field	fixtures/t1-not-required-field/openapi.json	op:GET /forge		loss:unsupported_schema_keyword	wire-tree
+t1-null-union-31	fixtures/t1-null-union-31/openapi.json	field:resp:GET /forge:200#/leaf;op:GET /forge		rule	wire-tree
+t1-nullable-object	fixtures/t1-nullable-object/openapi.json	field:resp:GET /forge:200#/leaf;op:GET /forge		rule	wire-tree
+t1-oneof-overlap-exclusion	fixtures/t1-oneof-overlap-exclusion/openapi.json	op:GET /shuttle	oneOf_union	loss:unsupported_schema_keyword	oneof-anyof
+t1-path-item-reference	fixtures/t1-path-item-reference/openapi.json	op:GET /forge;op:GET /mold		rule	methods
+t1-pattern-exact-property	fixtures/t1-pattern-exact-property/openapi.json	op:GET /loom		loss:unsupported_schema_keyword	wire-tree
+t1-pattern-excluded-by-property	fixtures/t1-pattern-excluded-by-property/openapi.json	op:GET /beacon		loss:unsupported_schema_keyword	wire-tree
+t1-property-names-uri	fixtures/t1-property-names-uri/openapi.json	field:resp:GET /loom:200#/a%20b;field:resp:GET /loom:200#/a%3Fb;op:GET /loom		rule	field-punctuation
+t1-ref-external-relative	fixtures/t1-ref-external-relative/openapi.json	field:resp:GET /forge:200#/grain;op:GET /forge		rule	wire-tree
+t1-ref-id-base	fixtures/t1-ref-id-base/openapi.json	op:GET /loom		loss:reference_scope	wire-tree
+t1-ref-inline-pointer	fixtures/t1-ref-inline-pointer/openapi.json	field:resp:GET /forge:200#/leaf;op:GET /forge		rule	wire-tree
+t1-ref-siblings-30	fixtures/t1-ref-siblings-30/openapi.json	field:resp:GET /forge:200#/base;op:GET /forge		rule	wire-tree
+t1-ref-siblings-31	fixtures/t1-ref-siblings-31/openapi.json	field:resp:GET /forge:200#/base;field:resp:GET /forge:200#/extra;op:GET /forge		rule	wire-tree
+t1-relative-server-document-base	fixtures/t1-relative-server-document-base/openapi.json	op:GET /catalog/api/loom		rule	path-normalisation
+t1-request-media-same-pointer	fixtures/t1-request-media-same-pointer/openapi.json	field:req:POST /beacon#/mark;op:POST /beacon		loss:non_json_media	two-ops-one-id
+t1-required-allof	fixtures/t1-required-allof/openapi.json	field:resp:GET /forge:200#/leaf;op:GET /forge		rule	allof
+t1-tuple-prefix-items	fixtures/t1-tuple-prefix-items/openapi.json	op:GET /forge		loss:indexed_tuple	wire-tree
+t1-unevaluated-properties	fixtures/t1-unevaluated-properties/openapi.json	op:GET /shuttle		loss:unsupported_schema_keyword	allof
+t1-unicode-normalization	fixtures/t1-unicode-normalization/openapi.json	field:resp:GET /forge:200#/%C3%A9;field:resp:GET /forge:200#/e%CC%81;op:GET /forge		rule	field-punctuation
+wire-array-of-arrays	fixtures/wire-array-of-arrays/swagger.json	field:resp:GET /kiln:200#/grid;field:resp:GET /kiln:200#/grid/[]/[]/cell;op:GET /kiln		rule	wire-tree
+wire-array-property	fixtures/wire-array-property/swagger.json	field:resp:GET /kiln:200#/rims;field:resp:GET /kiln:200#/rims/[]/width;op:GET /kiln		rule	wire-tree
+wire-container-cycle	fixtures/wire-container-cycle/swagger.json	field:resp:GET /kiln:200#/byShade;field:resp:GET /kiln:200#/children;field:resp:GET /kiln:200#/length;op:GET /kiln		rule	cycle
+wire-depth-16	fixtures/wire-depth-16/swagger.json	field:resp:GET /kiln:200#/layer01;field:resp:GET /kiln:200#/layer01/layer02;field:resp:GET /kiln:200#/layer01/layer02/layer03;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15/layer16;op:GET /kiln		rule	depth-cut
+wire-depth-17	fixtures/wire-depth-17/swagger.json	field:resp:GET /kiln:200#/layer01;field:resp:GET /kiln:200#/layer01/layer02;field:resp:GET /kiln:200#/layer01/layer02/layer03;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15;field:resp:GET /kiln:200#/layer01/layer02/layer03/layer04/layer05/layer06/layer07/layer08/layer09/layer10/layer11/layer12/layer13/layer14/layer15/layer16;op:GET /kiln	depth_cut	loss:depth_cut	depth-cut
+wire-direct-cycle	fixtures/wire-direct-cycle/swagger.json	field:resp:GET /kiln:200#/length;field:resp:GET /kiln:200#/next;op:GET /kiln		rule	cycle
+wire-empty-object	fixtures/wire-empty-object/swagger.json	op:GET /kiln		rule	wire-tree
+wire-map-boolean	fixtures/wire-map-boolean/openapi.json	field:resp:GET /kiln:200#/closed;field:resp:GET /kiln:200#/open;op:GET /kiln		rule	wire-tree
+wire-map-object	fixtures/wire-map-object/swagger.json	field:resp:GET /kiln:200#/byCoat;field:resp:GET /kiln:200#/byCoat/*/shade;op:GET /kiln		rule	wire-tree
+wire-map-object-ref	fixtures/wire-map-object-ref/swagger.json	field:resp:GET /kiln:200#/byCoat;field:resp:GET /kiln:200#/byCoat/*/shade;op:GET /kiln		rule	wire-tree
+wire-map-of-arrays	fixtures/wire-map-of-arrays/openapi.json	field:resp:GET /kiln:200#/byCoat;field:resp:GET /kiln:200#/byCoat/*/[]/shade;op:GET /kiln		rule	wire-tree
+wire-map-primitive	fixtures/wire-map-primitive/swagger.json	field:resp:GET /kiln:200#/counts;op:GET /kiln		rule	wire-tree
+wire-mutual-cycle	fixtures/wire-mutual-cycle/openapi.json	field:resp:GET /kiln:200#/bead;field:resp:GET /kiln:200#/bead/slip;field:resp:GET /kiln:200#/bead/width;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	cycle
+wire-named-ref-inline	fixtures/wire-named-ref-inline/swagger.json	field:resp:GET /kiln:200#/lid;field:resp:GET /kiln:200#/lid/size;op:GET /kiln		rule	wire-tree
+wire-nested-properties	fixtures/wire-nested-properties/swagger.json	field:resp:GET /kiln:200#/tag;field:resp:GET /kiln:200#/tag/ink;field:resp:GET /kiln:200#/token;op:GET /kiln		rule	wire-tree
+wire-neutral-rename-clayreceipt	fixtures/wire-neutral-rename-clayreceipt/swagger.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:200#/stamp/size;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	wire-neutral-rename
+wire-neutral-rename-pressedreceipt	fixtures/wire-neutral-rename-pressedreceipt/swagger.json	field:resp:GET /kiln:200#/stamp;field:resp:GET /kiln:200#/stamp/size;field:resp:GET /kiln:200#/tone;op:GET /kiln		rule	wire-neutral-rename
+wire-primitive-array	fixtures/wire-primitive-array/swagger.json	field:resp:GET /kiln:200#/rims;op:GET /kiln		rule	wire-tree
+wire-root-array	fixtures/wire-root-array/openapi.json	field:resp:GET /kiln:200#/[]/width;op:GET /kiln		rule	wire-tree
+wire-root-map	fixtures/wire-root-map/openapi.json	field:resp:GET /kiln:200#/*/shade;op:GET /kiln		rule	wire-tree
+wire-scalar-root	fixtures/wire-scalar-root/swagger.json	op:GET /kiln		rule	wire-tree
+wire-sibling-ref-reuse	fixtures/wire-sibling-ref-reuse/swagger.json	field:resp:GET /kiln:200#/lower;field:resp:GET /kiln:200#/lower/size;field:resp:GET /kiln:200#/upper;field:resp:GET /kiln:200#/upper/size;op:GET /kiln		rule	wire-tree

@@ -13,9 +13,7 @@ impl CallGraph {
         site: &CallSite,
         base: &[&'a crate::call_graph::FunctionId],
     ) -> Option<ResolutionOutcome<'a>> {
-        let module_file =
-            resolve_js_ts_relative_module(module, &site.caller.file, &self.indexed_files)
-                .or_else(|| namespace_sibling(module, &site.caller.file, &self.indexed_files));
+        let module_file = self.js_ts_namespace_module_file(module, site);
         if let Some(file) = module_file {
             let outcome = self
                 .js_ts_namespace_proof(&file, member, site, base)
@@ -51,6 +49,30 @@ impl CallGraph {
 }
 
 impl CallGraph {
+    fn js_ts_namespace_module_file(&self, module: &str, site: &CallSite) -> Option<String> {
+        resolve_js_ts_relative_module(module, &site.caller.file, &self.indexed_files)
+            .or_else(|| namespace_sibling(module, &site.caller.file, &self.indexed_files))
+    }
+
+    /// A binding consumer can require the positive export proof even when R3
+    /// returned Exact through its spelling fallback.
+    pub(crate) fn js_ts_namespace_export_matches(
+        &self,
+        site: &CallSite,
+        target: &crate::call_graph::FunctionId,
+    ) -> bool {
+        let crate::call_graph::JsLocalBinding::NamespaceImport { module_path } =
+            &site.local_binding
+        else {
+            return false;
+        };
+        self.js_ts_namespace_module_file(module_path, site)
+            .is_some_and(|file| {
+                self.js_ts_namespace_proof(&file, &site.callee_name, site, &[target])
+                    .is_some()
+            })
+    }
+
     /// The positive namespace proof: `None` means "no proof", never "wrong".
     fn js_ts_namespace_proof<'a>(
         &'a self,

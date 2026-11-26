@@ -16,12 +16,14 @@ mod member_only_param_test;
 mod min_confidence_admission_test;
 mod min_confidence_test;
 mod nav_compat_test;
+mod nav_proto_writes_test;
 mod nav_sidecar_cache_parity_test;
 mod output_test;
 mod owner_activation_test;
 mod readme_test;
 mod review_compact_test;
 mod review_no_diagrams_test;
+mod routes_matrix_test;
 mod sarif_shape_test;
 mod sarif_test;
 mod skills_test;
@@ -30,6 +32,9 @@ mod taint_context_output_test;
 mod taint_reaches_test;
 mod taint_sink_strength_view_test;
 mod targets_test;
+
+mod targets_inventory_matrix_test;
+
 mod validation_test;
 mod version_test;
 

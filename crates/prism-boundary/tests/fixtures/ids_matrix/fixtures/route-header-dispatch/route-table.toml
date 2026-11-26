@@ -1,0 +1,12 @@
+callee = "route"
+method_key = "method"
+path_key = "path"
+handler_key = "handler"
+validation_key = "validate"
+
+
+[entry_options]
+file = "routes.js"
+receiver = "route"
+constraint_key = "finish"
+header = "x-finish"

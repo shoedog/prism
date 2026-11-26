@@ -25,25 +25,18 @@ impl Case
     }
 }
 
-pub fn fixture_paths(dir: &Path, out: &mut Vec<PathBuf>) {
-    let mut entries: Vec<_> = std::fs::read_dir(dir)
-        .unwrap()
-        .map(|e| e.unwrap().path())
-        .collect();
-    entries.sort();
-    for path in entries {
-        let meta = std::fs::symlink_metadata(&path).unwrap();
-        assert!(
-            !meta.file_type().is_symlink(),
-            "fixture symlink: {}",
-            path.display()
-        );
-        if meta.is_dir() {
-            fixture_paths(&path, out);
-        } else if Language::from_path(path.to_str().unwrap()).is_some() {
-            out.push(path);
-        }
-    }
+/// The language-recognised files of the legacy fixture corpus (see `common::fixture_corpus`):
+/// 1,297 at 9d1a7d06f.
+pub fn fixture_paths() -> Vec<PathBuf> {
+    let paths = common::fixture_corpus::legacy_fixture_files(Path::new("tests/fixtures"), |p| {
+        Language::from_path(p.to_str().unwrap()).is_some()
+    });
+    common::fixture_corpus::assert_visited_within(
+        "fixture_tree_multifile_storage",
+        paths.len(),
+        1_500,
+    );
+    paths
 }
 pub fn parsed(path: &str) -> ParsedFile {
     ParsedFile::parse(
@@ -184,8 +177,7 @@ fixtures! {
 #[test]
 fn fixture_tree_multifile_storage() {
     prism::build_pool::install(|| {
-        let mut paths = Vec::new();
-        fixture_paths(Path::new("tests/fixtures"), &mut paths);
+        let paths = fixture_paths();
         let mut counts = BTreeMap::new();
         let mut files = BTreeMap::new();
         for p in paths {

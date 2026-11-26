@@ -24,7 +24,7 @@
 //! its own finding warnings before severity/tier filtering; it cannot recover
 //! boundary diagnostics from findings alone.
 
-mod dependency_hint;
+pub(crate) mod dependency_hint;
 mod dependency_identity;
 pub mod mapping;
 mod model;
