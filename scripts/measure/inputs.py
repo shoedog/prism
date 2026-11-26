@@ -66,9 +66,22 @@ class NumberToken:
         self.text = text
 
 
+class IntegerToken(NumberToken):
+    """An undecoded JSON integer; a caller that projects it converts it with `wire_int`."""
+
+    __slots__ = ()
+
+
+def wire_int(value):
+    """Convert a deferred integer token to an int; any other value is returned as is."""
+    return int(value.text) if isinstance(value, IntegerToken) else value
+
+
 def json_object(data, numbers=finite_float):
+    deferred = numbers is NumberToken
     obj = json.loads(data.decode("utf-8"), object_pairs_hook=unique_object,
-                     parse_constant=finite_float, parse_float=numbers)
+                     parse_constant=finite_float, parse_float=numbers,
+                     parse_int=IntegerToken if deferred else int)
     if not isinstance(obj, dict):
         raise ValueError("expected a JSON object")
     return obj

@@ -111,6 +111,17 @@ def artifact(path):
     return {"sha256": sha256_file(path), "bytes": path.stat().st_size}
 
 
+def verified_bytes(path, record):
+    """Read one receipt-bound artifact once and verify the bytes returned."""
+    if not stat.S_ISREG(path.lstat().st_mode):
+        raise ValueError(f"unbound measurement artifact: {path.name}")
+    data = path.read_bytes()
+    if (not isinstance(record, dict) or record.get("sha256") != hashlib.sha256(data).hexdigest()
+            or type(record.get("bytes")) is not int or record["bytes"] != len(data)):
+        raise ValueError(f"unbound measurement artifact: {path.name}")
+    return data
+
+
 def is_digest(value):
     return isinstance(value, str) and SHA256.fullmatch(value) is not None
 
@@ -240,7 +251,10 @@ def _admit(directory, selected, entries):
     names.update(path for _, _, _, stdout, stderr in expected for path in (stdout, stderr))
     if not isinstance(artifacts, dict) or artifacts.keys() != names:
         raise ValueError("measurement artifacts do not match required output set")
-    for name in sorted(names):
+    # The version output is decoded below, so it is read once, with its hash taken
+    # from the bytes that are decoded; every other artifact is hashed here.
+    version_bytes = verified_bytes(directory / VERSION, artifacts[VERSION])
+    for name in sorted(names - {VERSION}):
         path = directory / name
         record = artifacts[name]
         if (not stat.S_ISREG(path.lstat().st_mode) or not isinstance(record, dict)
@@ -250,7 +264,7 @@ def _admit(directory, selected, entries):
     version = receipt["version_command"]
     _check_command(version, [binary["path"], "--version"], {}, VERSION_STDERR)
     _check_output(version, artifacts[VERSION], "stdout_sha256", "stdout_bytes")
-    if binary["version"] != (directory / VERSION).read_bytes().decode("utf-8").strip():
+    if binary["version"] != version_bytes.decode("utf-8").strip():
         raise ValueError("version output differs from the recorded version")
     commands = receipt["commands"]
     if not isinstance(commands, list) or len(commands) != len(expected):
@@ -266,8 +280,8 @@ def _admit(directory, selected, entries):
         if name in selected:
             path = directory / stdout
             if stdout.endswith(".json"):
-                json_object(path.read_bytes())
+                json_object(verified_bytes(path, artifacts[stdout]))
             else:
-                for _ in jsonl_objects(path):
+                for _ in jsonl_objects(path, artifacts[stdout]):
                     pass
     return receipt, data

@@ -123,6 +123,7 @@ class ComparatorFixture(unittest.TestCase):
                              str(self.work / "base"), str(self.work / "head"), *map(str, args)])
             except SystemExit as error:
                 code = error.code
+        self.stderr = stderr.getvalue()
         self.assertEqual(code, expected, (stdout.getvalue(), stderr.getvalue()))
         if diagnostic:
             self.assertIn(diagnostic, stdout.getvalue() + stderr.getvalue())

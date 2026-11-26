@@ -369,7 +369,7 @@ The reviews of `a0856951d` supplied ten WRONG findings, four material SMELLs and
 
 Sol's table also qualifies `terra4-oracle-002`. With empty fields and the exact bare member token, a different unique property declaration disproves the local claim (WRONG). A structured member path gives UNDECIDED `structured-path` before token reduction. `oracle-052` and `astra-oracle-007` cover the structured case.
 
-**Lane 10 amendment (superseded by the 2026-11-25 erratum; optional for an adopter of the inventory profile).** An adopter of the inventory profile needs the [exact S0 producer and rollout text](FORMATS.md#amendment-text-for-lane-10s-plan). Until its producer supplies the independent final counts, even a complete-looking S0 arm fails inventory admission with `inventory-terminal-missing`. Report edge/counter parity separately for S0 against baseline. S1/S0 and S2/S1 each need both terminals before claiming any inventory-dependent zero.
+**Lane 10 amendment (superseded by the 2026-11-25 erratum; optional for an adopter of the inventory profile).** An adopter of the inventory profile needs its producer to supply the independent terminal counts and complete inventories on its own registered population. The [historical S0 producer and seven-pin rollout text](FORMATS.md#amendment-text-for-lane-10s-plan) is reference only, not an adopter requirement. Until its producer supplies the independent final counts, even a complete-looking S0 arm fails inventory admission with `inventory-terminal-missing`. Report edge/counter parity separately for S0 against baseline. S1/S0 and S2/S1 each need both terminals before claiming any inventory-dependent zero.
 
 ### Review round 4 dispositions
 

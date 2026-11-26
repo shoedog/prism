@@ -148,7 +148,9 @@ component prefixes ending in `.*`; prefixes require an additional component.
   `kill_line` is null, absent or a positive integer. Integers exclude
   booleans. Projected strings are Unicode scalars with exact code points.
   Paths keep their strings and fields without normalization or dot splitting.
-  Additional members are ignored for comparison. Resident edge storage is
+  Additional members are ignored for comparison, and a finite number in
+  one (integer or float, of any size) is never converted: only projected
+  fields are. Resident edge storage is
   bounded by SQLite caches and the current key's bags and attached records.
 - **Counters.** Each selected stats file is one strict UTF-8 JSON object.
   Descend nested objects and count integer, decimal and exponent tokens.
@@ -194,7 +196,7 @@ component prefixes ending in `.*`; prefixes require an additional component.
   The context exposes both arms, all typed records, cancelled bags and the
   DFG and call deltas. The validator also receives final changes, joins,
   unjoined records and the `nodes(arm, file, start_byte, end_byte, access,
-  owner=...)` lookup. Views can be iterated repeatedly. A diagnostic from
+  owner=...)` lookup. Views can be iterated repeatedly. Every context and bound attribute is read-only; assigning or deleting one raises `AttributeError`. A diagnostic from
   validation vetoes credit even when every change has a class.
 
 The accept-list has **17 named refusal or failure classes**, grouped below.
@@ -209,11 +211,11 @@ change bag can still pass.
 | 2 | source binding | A requested arm's snapshot fails verification |
 | 2 | edge input | Invalid edge JSONL, gzip or field schema |
 | 2 | key mode | Unsupported bounds for the requested mode or missing line-loss reason |
-| 2 | trace input | Invalid stderr transport, parser exception or invalid typed record |
+| 2 | trace input | Invalid stderr transport, a parser exception (including an `OutputError` the callback raises) or invalid typed record, named with arm and line |
 | 2 | classifier interface | Unreadable module, load exception or invalid exports |
 | 2 | counter input | Invalid stats transport, object, member name or numeric token |
 | 2 | allow list | Unreadable file or invalid/noncanonical component path |
-| 2 | output or storage | Occupied output, staging or storage error |
+| 2 | output or storage | Occupied output, staging or storage error, including a SQLite failure in the conservation query |
 | 1 | unattributed change rows | Missing, undeclared or exceptional classifier result |
 | 1 | ambiguous edge records | More than one projected candidate |
 | 1 | forbidden stray edge records | A record joins a cancelled occurrence and either policy vetoes it |

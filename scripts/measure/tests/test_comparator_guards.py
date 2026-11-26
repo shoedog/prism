@@ -209,8 +209,9 @@ class RefusalClassTests(ComparatorFixture):
 
         real = edge_module.make_database
         with mock.patch.object(edge_module, "make_database", lambda path: Failing(real(path))):
-            stdout = self.compare(expected=2, diagnostic="output or storage")
-        self.assertNotIn("trace input", stdout)
+            self.compare(expected=2, diagnostic="output or storage")
+        self.assertIn("output or storage", self.stderr)
+        self.assertNotIn("trace input", self.stderr)
 
 
 class ConservationTests(ComparatorFixture):

@@ -108,6 +108,10 @@ class View(Sequence):
         raise IndexError(index)
 
 
+class TraceInput(ValueError):
+    """A trace callback failed on one input line."""
+
+
 class TraceStore:
     def __init__(self, connection):
         self.db = connection
@@ -137,7 +141,11 @@ class TraceStore:
                     line = raw.decode("utf-8")
                     if number == 1 and line.startswith("\ufeff"):
                         raise ValueError("UTF-8 BOM is not admitted")
-                    record = parser(line, ARM[arm]) if parser is not None else None
+                    try:
+                        record = parser(line, ARM[arm]) if parser is not None else None
+                    except (Exception, SystemExit) as error:
+                        # Whatever the callback raises, an OutputError included, is its input's defect.
+                        raise TraceInput(f"trace input: {ARM[arm]} line {number}: {describe(error)}") from error
                     if record is None:
                         continue
                     check_record(record, ARM[arm])
@@ -156,7 +164,7 @@ class TraceStore:
                     if arm == 1 and "legacy_key" in record:
                         self.store("INSERT OR IGNORE INTO legacy VALUES (?, ?)",
                                    (record["mechanism"], canonical(record["legacy_key"])))
-            except (ArtifactDrift, OutputError):
+            except (ArtifactDrift, OutputError, TraceInput):
                 raise
             except (Exception, SystemExit) as error:
                 raise ValueError(f"trace input: {ARM[arm]} line {number or 1}: {describe(error)}") from error

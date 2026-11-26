@@ -92,22 +92,56 @@ class SourceBinding(ValueError):
     """A requested source view did not match its run's receipt."""
 
 
-class Context:
+class Frozen:
+    """Slotted base: no attribute can be assigned, replaced or deleted after setup."""
+
+    __slots__ = ()
+
+    def __setattr__(self, name, value):
+        raise AttributeError(f"{type(self).__name__} is read-only: cannot assign {name!r}")
+
+    def __delattr__(self, name):
+        raise AttributeError(f"{type(self).__name__} is read-only: cannot delete {name!r}")
+
+
+class Context(Frozen):
+    __slots__ = ("_runs", "_requested", "_verified", "_source_error", "_store", "_key_mode",
+                 "_stats_deltas", "_counter_deltas", "_call_counter_deltas")
+
     def __init__(self, runs, mode, store, tables):
-        self._runs = runs
-        self._requested = set()
-        self._verified = set()
-        self._source_error = None
-        self._store = store
-        self.key_mode = mode
-        # Hooks get read-only views: a classifier cannot consume or rewrite a
+        def put(name, value):
+            object.__setattr__(self, name, value)
+
+        put("_runs", runs)
+        put("_requested", set())
+        put("_verified", set())
+        put("_source_error", None)
+        put("_store", store)
+        put("_key_mode", mode)
+        # Hooks get read-only views: a classifier cannot consume, rewrite or replace a
         # delta that a later hook, the validator included, will read.
-        self.stats_deltas = tuple(MappingProxyType(dict(row)) for table in tables.values()
-                                  for row in table["changed"])
-        self.counter_deltas, self.call_counter_deltas = (
-            MappingProxyType({row["key"]: row["delta"] for row in tables[kind]["changed"]})
-            for kind in ("dfg", "call")
-        )
+        put("_stats_deltas", tuple(MappingProxyType(dict(row)) for table in tables.values()
+                                   for row in table["changed"]))
+        put("_counter_deltas", MappingProxyType(
+            {row["key"]: row["delta"] for row in tables["dfg"]["changed"]}))
+        put("_call_counter_deltas", MappingProxyType(
+            {row["key"]: row["delta"] for row in tables["call"]["changed"]}))
+
+    @property
+    def key_mode(self):
+        return self._key_mode
+
+    @property
+    def stats_deltas(self):
+        return self._stats_deltas
+
+    @property
+    def counter_deltas(self):
+        return self._counter_deltas
+
+    @property
+    def call_counter_deltas(self):
+        return self._call_counter_deltas
 
     def _verify(self, index):
         self._requested.add(index)
@@ -123,8 +157,9 @@ class Context:
                 raise ValueError("snapshot differs from the receipt")
         except (OSError, PinError, ValueError) as error:
             arm = "base" if index == 0 else "head"
-            self._source_error = SourceBinding(f"source binding: {arm}: {error}")
-            raise self._source_error from error
+            failure = SourceBinding(f"source binding: {arm}: {error}")
+            object.__setattr__(self, "_source_error", failure)
+            raise failure from error
         self._verified.add(index)
         return path
 
@@ -175,10 +210,12 @@ class Context:
         return self._store.attached(change["id"])
 
 
-class Bound:
+class Bound(Frozen):
+    __slots__ = ("_context", "_store")
+
     def __init__(self, context):
-        self._context = context
-        self._store = context._store
+        object.__setattr__(self, "_context", context)
+        object.__setattr__(self, "_store", context._store)
 
     def __getattr__(self, name):
         return getattr(self._context, name)

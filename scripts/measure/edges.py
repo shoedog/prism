@@ -7,7 +7,8 @@ from itertools import groupby
 import json
 import sqlite3
 
-from .inputs import ArtifactDrift, NumberToken, jsonl_objects
+from .inputs import ArtifactDrift, NumberToken, jsonl_objects, wire_int
+from .run import OutputError
 
 SIDES = ("from", "to")
 BOUNDS = ("start_byte", "end_byte")
@@ -38,7 +39,7 @@ def valid_bounds(start, end):
 
 
 def decode_edge(wire, *, line_mode):
-    confidence, doubt, kill = wire["confidence"], wire["doubt"], wire.get("kill_line")
+    confidence, doubt, kill = wire["confidence"], wire["doubt"], wire_int(wire.get("kill_line"))
     if (confidence not in ("exact", "nameonly") or
             doubt is not None and (confidence == "exact" or not isinstance(doubt, str) or not doubt)
             or kill is not None and not integer(kill, 1)):
@@ -50,10 +51,10 @@ def decode_edge(wire, *, line_mode):
         endpoint = wire[side]
         if not isinstance(endpoint, dict):
             raise ValueError(f"{side} endpoint must be an object")
-        file, line, access = endpoint["file"], endpoint["line"], endpoint["access"]
+        file, line, access = endpoint["file"], wire_int(endpoint["line"]), endpoint["access"]
         if not isinstance(file, str) or not integer(line, 1) or access not in ("def", "use"):
             raise ValueError(f"invalid {side} endpoint file, line or access")
-        start, end = (endpoint.get(name) for name in BOUNDS)
+        start, end = (wire_int(endpoint.get(name)) for name in BOUNDS)
         if not valid_bounds(start, end):
             raise ValueError(f"invalid {side} endpoint byte bounds")
         original.extend((start, end))
@@ -214,7 +215,15 @@ def conserved(database, totals):
 
     Compares each arm's stored multiplicity with the decoded total, then each
     key's stored occurrences with unchanged plus the published bags per arm.
+    A storage failure is an output or storage error, never a failed comparison.
     """
+    try:
+        return _conserved(database, totals)
+    except sqlite3.Error as error:
+        raise OutputError(f"output or storage: {type(error).__name__}: {error}") from error
+
+
+def _conserved(database, totals):
     for arm in (0, 1):
         stored = database.execute("SELECT coalesce(sum(n), 0) FROM edges WHERE arm=?", (arm,)).fetchone()[0]
         if stored != totals[arm]:
