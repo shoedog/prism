@@ -703,3 +703,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     }
     stats
 }
+
+#[cfg(test)]
+#[path = "call_stats_tests.rs"]
+mod tests;

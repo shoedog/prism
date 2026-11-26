@@ -387,3 +387,7 @@ impl CallGraph {
         lines[start..end].join("\n")
     }
 }
+
+#[cfg(test)]
+#[path = "indirect_tests.rs"]
+mod tests;

@@ -153,3 +153,7 @@ pub enum DropReason {
     /// S1b: a JS/TS unqualified call whose lexical binding holds no single proven callable.
     LocalBindingUnproven,
 }
+
+#[cfg(test)]
+#[path = "kinds_tests.rs"]
+mod tests;
