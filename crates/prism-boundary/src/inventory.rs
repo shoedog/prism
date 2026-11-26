@@ -53,6 +53,14 @@ pub struct OperationSite {
     pub site: SchemaSite,
     pub referring_site: SchemaSite,
     pub reference_chain: Vec<SchemaSite>,
+    pub status_inventory: StatusInventory,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum StatusInventory {
+    /// All readable response keys, including non-success keys and the fallback.
+    Readable(Vec<String>),
+    Withheld,
 }
 
 impl Operation {

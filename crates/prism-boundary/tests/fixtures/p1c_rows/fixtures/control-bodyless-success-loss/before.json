@@ -1,0 +1,21 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Loom Workshop",
+    "version": "1"
+  },
+  "paths": {
+    "/loom": {
+      "get": {
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "description": "Sample client error"
+          }
+        }
+      }
+    }
+  }
+}

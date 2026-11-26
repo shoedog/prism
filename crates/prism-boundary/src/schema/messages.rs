@@ -6,7 +6,7 @@ use super::{signature, wire, Declaration, Dialect, SchemaError};
 use crate::element::{MessageRoot, SuccessKey};
 use crate::inventory::{
     Coverage, MessageCoverage, Operation, OperationSite, RegionLimit, RootKey, SchemaIndex,
-    SchemaSource,
+    SchemaSource, StatusInventory,
 };
 use crate::revision::{AdmittedSchemaInput, Snapshot};
 use media::Message;
@@ -82,6 +82,8 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                     site: declaration.site.clone(),
                     referring_site: declaration.referring_site.clone(),
                     reference_chain: declaration.reference_chain.clone(),
+                    // P1c job A leaves declaration-specific status evidence unpopulated.
+                    status_inventory: StatusInventory::Withheld,
                 })
                 .collect(),
             ranged_responses: dialect != Dialect::Swagger2,

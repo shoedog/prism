@@ -1,0 +1,100 @@
+id	fixture	expected_ids	expected_warnings	truth	class
+c1	fixtures/wire/partial-leaf.json	field:resp:GET /loom:200#/x	unsupported_schema_keyword	rule	limits
+c2	fixtures/wire/string.json	field:resp:GET /loom:200#/x	unsupported_schema_keyword	rule	limits
+c4	fixtures/wire/neighbor-before.json	field:resp:GET /loom:200#/x	unsupported_schema_keyword	rule	limits
+c5	fixtures/media/omitted.json	field:resp:GET /loom:200#/x	media_unverified	rule	limits
+c6	fixtures/wire/string.json	field:resp:GET /loom:200#/x	reference_unresolved	rule	limits
+c7	fixtures/wire/checked-request.json		body_presence_unchecked	rule	limits
+c7-with-edit	fixtures/wire/checked-request.json	field:req:POST /loom#/x	body_presence_unchecked	rule	limits
+c8	fixtures/wire/limit-at-a.json		reference_unresolved;unsupported_schema_keyword	rule	limits
+c9	fixtures/wire/string.json			rule	limits
+c9-authority	fixtures/wire/string.json			rule	limits
+c9-contradictory-slot	fixtures/wire/string.json			rule	limits
+c9-disjoint-scope	fixtures/wire/string.json			rule	limits
+c9-unbound-source	fixtures/wire/string.json			rule	limits
+composition-order	fixtures/neutral/compose-before.json			rule	control
+control-ambiguous-status-root-replacement	fixtures/control-ambiguous-status-root-replacement/before.json		ambiguous_root_pairing	rule	control
+control-bodyless-success-loss	fixtures/control-bodyless-success-loss/before.json			rule	control
+control-enum-absent-to-empty	fixtures/control-enum-absent-to-empty/before.json	field:resp:GET /loom:200#/stamp		rule	control
+control-enum-empty-to-absent	fixtures/control-enum-empty-to-absent/before.json	field:resp:GET /loom:200#/stamp		rule	control
+control-enum-member-swap	fixtures/control-enum-member-swap/before.json	field:resp:GET /loom:200#/stamp		rule	control
+control-field-added-only	fixtures/control-field-added-only/before.json	field:resp:GET /loom:200#/extra		rule	control
+control-field-format-only	fixtures/control-field-format-only/before.json	field:resp:GET /loom:200#/stamp		rule	control
+control-field-items-only	fixtures/control-field-items-only/before.json	field:resp:GET /loom:200#/stamp		rule	control
+control-field-required-added	fixtures/control-field-required-added/before.json	field:resp:GET /loom:200#/stamp		rule	control
+control-field-required-removed	fixtures/control-field-required-removed/before.json	field:resp:GET /loom:200#/stamp		rule	control
+control-range-status-root-overlap	fixtures/control-range-status-root-overlap/before.json		status_owner_transfer	rule	control
+control-retained-route-handler-edit	fixtures/producer/baseline.json	op:GET /kiln	schema_unavailable	rule	control
+control-saturated-object-required	fixtures/control-saturated-object-before/openapi.json	field:resp:GET /loom:200#/*/tag;field:resp:GET /loom:200#/extra;field:resp:GET /loom:200#/kept		rule	control
+control-saturated-object-restored	fixtures/control-saturated-object-required/openapi.json	field:resp:GET /loom:200#/*/tag;field:resp:GET /loom:200#/extra		rule	control
+control-t1-directional-annotations-two-slot	fixtures/t1-directional-annotations/openapi.json			rule	control
+control-unique-status-root-replacement	fixtures/control-unique-status-root-replacement/before.json	field:resp:GET /loom:200#/stamp;field:resp:GET /loom:201#/stamp;op:GET /loom		rule	control
+d1	fixtures/collisions/single.json		duplicate_operation;status_membership_unknown	rule	collisions
+d1-common-status	fixtures/collisions/single-204.json		duplicate_operation	rule	collisions
+d1-withheld-inventory	fixtures/collisions/single.json		duplicate_operation;status_membership_unknown	rule	collisions
+d2	fixtures/collisions/common-status.json		duplicate_operation	rule	collisions
+d2-checked-absence	fixtures/operations/none.json	op:GET /loom/{}	duplicate_operation	rule	collisions
+d2-literal-capture	fixtures/operations/none.json		duplicate_operation	rule	collisions
+definition-rename	fixtures/control-definition-rename/before.json		media_unverified	rule	control
+e2	fixtures/wire/string.json	field:resp:GET /loom:200#/x		rule	enums
+e3	fixtures/wire/wax.json	field:resp:GET /loom:200#/x		rule	enums
+e5	fixtures/wire/empty-enum.json	field:resp:GET /loom:200#/x		rule	enums
+e6	fixtures/wire/wax.json		enum_unreadable	rule	enums
+evidence-withheld	fixtures/media/omitted.json	field:resp:GET /loom:200#/x	media_unverified	rule	control
+f2	fixtures/wire/string.json	field:resp:GET /loom:200#/x		rule	fields
+f2-impossible	fixtures/wire/string.json	field:resp:GET /loom:200#/x		rule	fields
+f4	fixtures/statuses/no-body.json	field:resp:GET /loom:200#/x		rule	fields
+f4-dialect	fixtures/wire/request-31.json	field:req:GET /loom#/x	request_dialect_excluded	rule	fields
+f4-request	fixtures/wire/string.json	field:req:GET /loom#/x		rule	fields
+formatting-only	fixtures/control-formatting-only/before.json			rule	control
+n1	fixtures/control-definition-rename/before.json			rule	neutral
+n2	fixtures/neutral/union-before.json			rule	neutral
+n5	fixtures/neutral/order-before.json			rule	neutral
+n5-typed-control	fixtures/neutral/numeric-enum.json	field:resp:GET /loom:200#/x		rule	neutral
+n8	fixtures/known-limits/fold6-item-value-bounds/narrow.json			rule	neutral
+o1	fixtures/operations/none.json	field:resp:GET /loom:200#/x;op:GET /loom		rule	operations
+o2	fixtures/operations/withheld-field.json	field:resp:GET /loom:200#/stable;field:resp:GET /loom:200#/x;op:GET /loom	unsupported_schema_keyword	rule	operations
+o4	fixtures/operations/unreadable-get.json	op:GET /loom;op:POST /neighbor	operation_unreadable	rule	operations
+p1	fixtures/producer/baseline.json	op:GET /kiln	schema_unavailable	rule	producer
+p2	fixtures/producer/baseline.json	op:GET /kiln	schema_unavailable	rule	producer
+p2-checked-absence	fixtures/producer/no-validator.json	op:GET /kiln	schema_unavailable	rule	producer
+p3	fixtures/producer/baseline.json	op:GET /kiln	schema_unavailable	rule	producer
+p4	fixtures/producer/inline.json	op:GET /kiln	schema_unavailable	rule	producer
+p5	fixtures/producer/baseline.json	op:GET /kiln	schema_unavailable	rule	producer
+p5-partial	fixtures/producer/baseline.json	op:GET /kiln	ambiguous_validator;schema_unavailable	rule	producer
+p6	fixtures/producer/baseline.json		schema_unavailable	rule	producer
+p6-alias	fixtures/producer/baseline.json		schema_unavailable	rule	producer
+p6-inline-reference	fixtures/producer/inline.json	op:GET /kiln	schema_unavailable	rule	producer
+p6-withheld	fixtures/producer/baseline.json		endpoint_body_unavailable;schema_unavailable	rule	producer
+r10	fixtures/pairing/checked-siblings.json	field:resp:GET /loom:200#/x;field:resp:GET /loom:201#/x;op:GET /loom	unsupported_schema_keyword	rule	pairing
+r2	fixtures/pairing/before-edit.json	field:resp:GET /loom:200#/old;field:resp:GET /loom:200#/stamp;field:resp:GET /loom:201#/new;field:resp:GET /loom:201#/stamp;op:GET /loom		rule	pairing
+r6	fixtures/wire/string.json		non_json_media;root_media_incomparable	rule	pairing
+r6-ambiguous	fixtures/wire/string.json		json_media_ambiguous;root_media_incomparable	rule	pairing
+r6-case-equivalent	fixtures/wire/string.json	field:resp:GET /loom:200#/x;field:resp:GET /loom:201#/x;op:GET /loom		rule	pairing
+r6-media-proof-origin	fixtures/media/omitted.json	field:resp:GET /loom:200#/x;field:resp:GET /loom:201#/x;op:GET /loom		rule	pairing
+r6-proof-withheld	fixtures/media/omitted.json		media_unverified;root_media_incomparable	rule	pairing
+r6-wildcard	fixtures/wire/string.json		json_media_range_only;root_media_incomparable	rule	pairing
+r7	fixtures/pairing/retained-range.json	field:resp:GET /loom:201#/y		rule	pairing
+r8	fixtures/wire/string.json		root_body_unmatched	rule	pairing
+r9	fixtures/pairing/retained-2XX-before.json		status_owner_transfer	rule	pairing
+r9-retained-default	fixtures/pairing/retained-default-before.json		fallback_success;status_owner_transfer	rule	pairing
+r9-unknown-peer	fixtures/wire/string.json		ambiguous_root_pairing;media_schema_missing	rule	pairing
+s1	fixtures/statuses/only-error.json	field:resp:GET /loom:200#/x		rule	statuses
+s10	fixtures/statuses/only-error.json		fallback_success	rule	statuses
+s5	fixtures/statuses/204.json			rule	statuses
+s6	fixtures/statuses/only-error.json		reference_unresolved	rule	statuses
+s7	fixtures/statuses/unreadable-map.json		responses_unreadable	rule	statuses
+s7-repeated-key	fixtures/wire/string.json		response_key_ambiguous	rule	statuses
+s7-repeated-key-added	fixtures/statuses/only-error.json		response_key_ambiguous	rule	statuses
+s7-repeated-map	fixtures/wire/string.json		duplicate_member	rule	statuses
+s9	fixtures/statuses/range-last-code.json	field:resp:GET /loom:201#/y;field:resp:GET /loom:2XX#/x		rule	statuses
+t1	fixtures/wire/string.json	field:resp:GET /loom:200#/x		rule	shapes
+t11	fixtures/wire/before-multiple-slots.json	field:resp:GET /loom:200#/x		rule	shapes
+t2	fixtures/wire/string.json	field:resp:GET /loom:200#/x		rule	shapes
+t2-oas30	fixtures/wire/string-30.json	field:resp:GET /loom:200#/x		rule	shapes
+t3	fixtures/wire/missing-type.json	field:resp:GET /loom:200#/x		rule	shapes
+u1	fixtures/wire/string.json		branch_dependent	rule	limits
+u2	fixtures/wire/branch.json		branch_dependent;reference_unresolved	rule	limits
+u3	fixtures/wire/branch.json		branch_dependent	rule	limits
+u3-unknown	fixtures/wire/stopped-ref.json		reference_unresolved	rule	limits
+u4	fixtures/wire/string.json		requiredness_missing	rule	limits

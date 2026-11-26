@@ -1,0 +1,872 @@
+{
+  "c1": {
+    "case": "A blocked observation becoming checked is unknown-to-present", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [
+      {"fixture": "wire/partial-leaf.json", "fields": [], "observed": ["field:resp:GET /loom:200#/x"]},
+      {"fixture": "wire/string.json", "fields": ["field:resp:GET /loom:200#/x"]}
+    ],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/x", "presence": [[null, "Unknown"], ["field:resp:GET /loom:200#/x", "Present"]]}],
+    "subset_limits": true, "controls": ["f2"]
+  },
+  "c2": {
+    "case": "A checked observation becoming blocked is present-to-unknown", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/partial-leaf.json"}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/x", "presence": [["field:resp:GET /loom:200#/x", "Present"], [null, "Unknown"]]}],
+    "subset_limits": true, "controls": ["f2"]
+  },
+  "c4": {
+    "case": "An unsupported sibling does not block an independent known type edit", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [{"fixture": "wire/neighbor-before.json"}, {"fixture": "wire/neighbor-after.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"]}],
+    "limits": [
+      {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/a"},
+      {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/a"}
+    ],
+    "subset_limits": true, "controls": ["t1"], "forbidden_limit_pointers": ["/x"]
+  },
+  "c5": {
+    "case": "Wrong-tree omission proof withholds only dependent claims", "clause": "DESIGN §5.1 JSON media and Element diff, §9 accepted losses",
+    "inputs": [
+      {"fixture": "media/omitted.json", "media_proof": "media/loom-before.json", "fields": ["field:resp:GET /loom:200#/x"]},
+      {"fixture": "media/omitted.json", "media_proof": "media/loom-wrong-tree.json", "fields": []}
+    ],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "media_unverified", "pointer": "/x", "presence": [["field:resp:GET /loom:200#/x", "Present"], [null, "Unknown"]]}],
+    "subset_limits": true, "reverse": true, "controls": ["f2"]
+  },
+  "c6": {
+    "case": "A retained 200 with an unresolved response root does not imply any field removal", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "statuses/withheld-200.json"}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "reference_unresolved", "pointer": "/x", "presence": [["field:resp:GET /loom:200#/x", "Present"], [null, "Unknown"]]}],
+    "subset_limits": true, "reverse": true, "controls": ["f4"]
+  },
+  "c7": {
+    "case": "A body-presence limit alone produces no field change", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4 and P1b README body-presence limit",
+    "inputs": [{"fixture": "wire/checked-request.json"}, {"fixture": "wire/body-presence-limit.json"}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:req:POST /loom", "claim": "Coverage", "reason": "body_presence_unchecked"}],
+    "reverse": true, "controls": ["f4-request"]
+  },
+  "c7-with-edit": {
+    "case": "The body-presence limit leaves checked child edits reportable", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4 and P1b README body-presence limit",
+    "inputs": [{"fixture": "wire/checked-request.json"}, {"fixture": "wire/body-presence-limit-and-type-edit.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:req:POST /loom#/x", "Present"], "after": ["field:req:POST /loom#/x", "Present"]}],
+    "limits": [{"side": "After", "scope": "root:req:POST /loom", "claim": "Coverage", "reason": "body_presence_unchecked"}]
+  },
+  "c8": {
+    "case": "Changed scope and reason stay on separate sides with no ledger-generated edits", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [{"fixture": "wire/limit-at-a.json"}, {"fixture": "wire/limit-at-b.json"}],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/a"},
+      {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "reference_unresolved", "pointer": "/b"}
+    ],
+    "subset_limits": true, "reverse": true, "controls": ["c4"]
+  },
+  "c9": {
+    "case": "Invalid comparison basis even with identical printed IDs and hashes", "clause": "DESIGN §§5.2 and 5.6 admitted authority, scope and slot, design answer 7",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/string.json", "api": "other-api"}],
+    "changes": [],
+    "limits": [],
+    "error": "IncompatibleApi", "controls": ["t1"]
+  },
+  "c9-authority": {
+    "case": "Invalid comparison basis even with identical printed IDs and hashes", "clause": "DESIGN §§5.2 and 5.6 admitted authority, scope and slot, design answer 7",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/string.json", "authority": "other-authority"}],
+    "changes": [],
+    "limits": [],
+    "error": "IncompatibleAuthority", "controls": ["t1"]
+  },
+  "c9-contradictory-slot": {
+    "case": "Invalid comparison basis even with identical printed IDs and hashes", "clause": "DESIGN §§5.2 and 5.6 admitted authority, scope and slot, design answer 7",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/string.json", "basis_tree": "contradiction-tree"}],
+    "changes": [],
+    "limits": [],
+    "error": "ContradictorySlot", "controls": ["t1"]
+  },
+  "c9-disjoint-scope": {
+    "case": "Invalid comparison basis even with identical printed IDs and hashes", "clause": "DESIGN §§5.2 and 5.6 admitted authority, scope and slot, design answer 7",
+    "inputs": [{"fixture": "wire/string.json", "scope": "/loom"}, {"fixture": "wire/string.json", "scope": "/unrelated"}],
+    "changes": [],
+    "limits": [],
+    "error": "NoCommonScope", "controls": ["t1"]
+  },
+  "c9-unbound-source": {
+    "case": "Invalid comparison basis even with identical printed IDs and hashes", "clause": "DESIGN §§5.2 and 5.6 admitted authority, scope and slot, design answer 7",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/string.json", "missing_source": true}],
+    "changes": [],
+    "limits": [],
+    "error": "NoCommonScope", "controls": ["t1"]
+  },
+  "composition-order": {
+    "case": "AllOf arm order preserves the effective wire projection and coverage", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and DESIGN §5.1 effective conjunction",
+    "inputs": [{"fixture": "neutral/compose-before.json"}, {"fixture": "neutral/compose-after.json"}],
+    "changes": [],
+    "limits": [],
+    "equal_content": true, "changed_bytes": true, "controls": ["t1"]
+  },
+  "control-ambiguous-status-root-replacement": {
+    "case": "Two incoming JSON bodies defeat uniqueness", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "control-ambiguous-status-root-replacement/before.json"}, {"fixture": "control-ambiguous-status-root-replacement/openapi.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:202", "Present"]}
+    ],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "RootPairing", "reason": "ambiguous_root_pairing"}],
+    "subset_limits": true, "controls": ["control-unique-status-root-replacement"]
+  },
+  "control-bodyless-success-loss": {
+    "case": "Authored bodyless success is removed independently", "clause": "DESIGN §5.1 Messages and status keys, status precedence, and Element diff",
+    "inputs": [{"fixture": "control-bodyless-success-loss/before.json"}, {"fixture": "control-bodyless-success-loss/openapi.json"}],
+    "changes": [{"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:204", "Present"], "after": [null, "Absent"]}],
+    "limits": []
+  },
+  "control-enum-absent-to-empty": {
+    "case": "Omission versus readable empty enum is declaration-only", "clause": "DESIGN §§5.1 and 5.6 empty enum and signatures, design answer 3",
+    "inputs": [{"fixture": "control-enum-absent-to-empty/before.json"}, {"fixture": "control-enum-absent-to-empty/openapi.json"}],
+    "changes": [{"kinds": ["EnumDeclarationChanged"], "before": ["field:resp:GET /loom:200#/stamp", "Present"], "after": [null, "Absent"], "before_declaration": "field:resp:GET /loom:200#/stamp", "after_declaration": "field:resp:GET /loom:200#/stamp", "before_slots": {"enum": "missing"}, "after_slots": {"enum": []}}],
+    "limits": []
+  },
+  "control-enum-empty-to-absent": {
+    "case": "Omission versus readable empty enum is declaration-only", "clause": "DESIGN §§5.1 and 5.6 empty enum and signatures, design answer 3",
+    "inputs": [{"fixture": "control-enum-empty-to-absent/before.json"}, {"fixture": "control-enum-empty-to-absent/openapi.json"}],
+    "changes": [{"kinds": ["EnumDeclarationChanged"], "before": [null, "Absent"], "after": ["field:resp:GET /loom:200#/stamp", "Present"], "before_declaration": "field:resp:GET /loom:200#/stamp", "after_declaration": "field:resp:GET /loom:200#/stamp", "before_slots": {"enum": []}, "after_slots": {"enum": "missing"}}],
+    "limits": []
+  },
+  "control-enum-member-swap": {
+    "case": "Mixed member edit retains both directional deltas", "clause": "DESIGN §§5.1 and 5.6 empty enum and signatures, design answer 3",
+    "inputs": [{"fixture": "control-enum-member-swap/before.json"}, {"fixture": "control-enum-member-swap/openapi.json"}],
+    "changes": [{"kinds": ["EnumValuesAdded", "EnumValuesRemoved"], "before": ["field:resp:GET /loom:200#/stamp", "Present"], "after": ["field:resp:GET /loom:200#/stamp", "Present"], "enum_added": ["ochre"], "enum_removed": ["umber"]}],
+    "limits": []
+  },
+  "control-field-added-only": {
+    "case": "Field-only addition within a retained response", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records",
+    "inputs": [{"fixture": "control-field-added-only/before.json"}, {"fixture": "control-field-added-only/openapi.json"}],
+    "changes": [{"kinds": ["FieldAdded"], "before": [null, "Absent"], "after": ["field:resp:GET /loom:200#/extra", "Present"]}],
+    "limits": []
+  },
+  "control-field-format-only": {
+    "case": "Compare only the changed signed slot", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values",
+    "inputs": [{"fixture": "control-field-format-only/before.json"}, {"fixture": "control-field-format-only/openapi.json"}],
+    "changes": [{"kinds": ["FieldFormatChanged"], "before": ["field:resp:GET /loom:200#/stamp", "Present"], "after": ["field:resp:GET /loom:200#/stamp", "Present"], "before_slots": {"format": "missing"}, "after_slots": {"format": "date"}}],
+    "limits": []
+  },
+  "control-field-items-only": {
+    "case": "Compare only the changed signed slot", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values",
+    "inputs": [{"fixture": "control-field-items-only/before.json"}, {"fixture": "control-field-items-only/openapi.json"}],
+    "changes": [{"kinds": ["FieldItemTypeChanged"], "before": ["field:resp:GET /loom:200#/stamp", "Present"], "after": ["field:resp:GET /loom:200#/stamp", "Present"], "before_slots": {"item_type": "string"}, "after_slots": {"item_type": "integer"}}],
+    "limits": []
+  },
+  "control-field-required-added": {
+    "case": "Compare only the changed signed slot", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values",
+    "inputs": [{"fixture": "control-field-required-added/before.json"}, {"fixture": "control-field-required-added/openapi.json"}],
+    "changes": [{"kinds": ["FieldRequiredAdded"], "before": ["field:resp:GET /loom:200#/stamp", "Present"], "after": ["field:resp:GET /loom:200#/stamp", "Present"], "before_slots": {"required": false}, "after_slots": {"required": true}}],
+    "limits": []
+  },
+  "control-field-required-removed": {
+    "case": "Compare only the changed signed slot", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values",
+    "inputs": [{"fixture": "control-field-required-removed/before.json"}, {"fixture": "control-field-required-removed/openapi.json"}],
+    "changes": [{"kinds": ["FieldRequiredRemoved"], "before": ["field:resp:GET /loom:200#/stamp", "Present"], "after": ["field:resp:GET /loom:200#/stamp", "Present"], "before_slots": {"required": true}, "after_slots": {"required": false}}],
+    "limits": []
+  },
+  "control-range-status-root-overlap": {
+    "case": "Changed range and exact key overlap", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "control-range-status-root-overlap/before.json"}, {"fixture": "control-range-status-root-overlap/openapi.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:2XX", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:2XX", "claim": "RootPairing", "reason": "status_owner_transfer"}],
+    "subset_limits": true, "controls": ["control-unique-status-root-replacement"]
+  },
+  "control-retained-route-handler-edit": {
+    "case": "A retained named handler has a different body digest", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/named-handler-edit.json", "producer": true}],
+    "changes": [{"kinds": ["HandlerCodeChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true
+  },
+  "control-saturated-object-required": {
+    "case": "Requiring kept in the sole slot removes the optional property and map descendant", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records and DESIGN §5.1 one-slot object control",
+    "inputs": [{"fixture": "control-saturated-object-before/openapi.json"}, {"fixture": "control-saturated-object-required/openapi.json"}],
+    "changes": [
+      {"kinds": ["FieldRequiredAdded"], "before": ["field:resp:GET /loom:200#/kept", "Present"], "after": ["field:resp:GET /loom:200#/kept", "Present"], "before_slots": {"required": false}, "after_slots": {"required": true}},
+      {"kinds": ["FieldRemoved"], "before": ["field:resp:GET /loom:200#/extra", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["FieldRemoved"], "before": ["field:resp:GET /loom:200#/*/tag", "Present"], "after": [null, "Absent"]}
+    ],
+    "limits": []
+  },
+  "control-saturated-object-restored": {
+    "case": "Restoring one free slot returns both optional possibilities", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records and DESIGN §5.1 capacity control",
+    "inputs": [{"fixture": "control-saturated-object-required/openapi.json"}, {"fixture": "control-saturated-object-restored/openapi.json"}],
+    "changes": [
+      {"kinds": ["FieldAdded"], "before": [null, "Absent"], "after": ["field:resp:GET /loom:200#/extra", "Present"]},
+      {"kinds": ["FieldAdded"], "before": [null, "Absent"], "after": ["field:resp:GET /loom:200#/*/tag", "Present"]}
+    ],
+    "limits": []
+  },
+  "control-t1-directional-annotations-two-slot": {
+    "case": "A spare slot keeps all fields in both directions", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records and DESIGN §5.1 two-slot object control",
+    "inputs": [
+      {"fixture": "t1-directional-annotations/openapi.json", "fields": ["field:req:POST /forge#/label", "field:req:POST /forge#/secret", "field:req:POST /forge#/serial", "field:resp:POST /forge:200#/label", "field:resp:POST /forge:200#/secret", "field:resp:POST /forge:200#/serial"], "slots": {"field:req:POST /forge#/label": {"required": false}, "field:req:POST /forge#/secret": {"required": true}, "field:req:POST /forge#/serial": {"required": false}, "field:resp:POST /forge:200#/label": {"required": false}, "field:resp:POST /forge:200#/secret": {"required": false}, "field:resp:POST /forge:200#/serial": {"required": true}}},
+      {"fixture": "control-t1-directional-annotations-two-slot/openapi.json", "fields": ["field:req:POST /forge#/label", "field:req:POST /forge#/secret", "field:req:POST /forge#/serial", "field:resp:POST /forge:200#/label", "field:resp:POST /forge:200#/secret", "field:resp:POST /forge:200#/serial"], "slots": {"field:req:POST /forge#/label": {"required": false}, "field:req:POST /forge#/secret": {"required": true}, "field:req:POST /forge#/serial": {"required": false}, "field:resp:POST /forge:200#/label": {"required": false}, "field:resp:POST /forge:200#/secret": {"required": false}, "field:resp:POST /forge:200#/serial": {"required": true}}}
+    ],
+    "changes": [],
+    "limits": [],
+    "controls": ["control-saturated-object-required"]
+  },
+  "control-unique-status-root-replacement": {
+    "case": "Unique JSON replacement pairs unchanged fields with both original IDs", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "control-unique-status-root-replacement/before.json"}, {"fixture": "control-unique-status-root-replacement/openapi.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [],
+    "pairs": [{"operation": "op:GET /loom", "before": "200", "after": "201", "fields": [["field:resp:GET /loom:200#/stamp", "field:resp:GET /loom:201#/stamp"]]}]
+  },
+  "d1": {
+    "case": "Single A{200} versus collision A{200}/B{201} withholds both disputed memberships", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "collisions/single.json"}, {"fixture": "collisions/different-statuses.json"}],
+    "changes": [],
+    "limits": [
+      {"side": "After", "scope": "op:GET /loom/{}", "claim": "Coverage", "reason": "duplicate_operation"},
+      {"side": "After", "scope": "status:GET /loom/{}:200", "claim": "StatusMembership", "reason": "status_membership_unknown", "presence": [["status:GET /loom/{}:200", "Present"], [null, "Unknown"]]},
+      {"side": "After", "scope": "status:GET /loom/{}:201", "claim": "StatusMembership", "reason": "status_membership_unknown", "presence": [[null, "Absent"], [null, "Unknown"]]}
+    ],
+    "subset_limits": true, "inventories": {"After": {"/loom/{a}": ["200"], "/loom/{b}": ["201"]}}, "reverse": true, "controls": ["d1-common-status"]
+  },
+  "d1-common-status": {
+    "case": "Unanimous status can be established independently of an ambiguous body", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "collisions/single-204.json"}, {"fixture": "collisions/common-status.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom/{}:204", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom/{}:200", "Present"]}
+    ],
+    "limits": [{"side": "After", "scope": "op:GET /loom/{}", "claim": "Coverage", "reason": "duplicate_operation"}],
+    "subset_limits": true, "inventories": {"After": {"/loom/{a}": ["200"], "/loom/{b}": ["200"]}}
+  },
+  "d1-withheld-inventory": {
+    "case": "An unavailable candidate cannot be counted as an empty inventory", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "collisions/single.json"}, {"fixture": "collisions/withheld-inventory.json"}],
+    "changes": [],
+    "limits": [
+      {"side": "After", "scope": "op:GET /loom/{}", "claim": "Coverage", "reason": "duplicate_operation"},
+      {"side": "After", "scope": "status:GET /loom/{}:200", "claim": "StatusMembership", "reason": "status_membership_unknown", "presence": [["status:GET /loom/{}:200", "Present"], [null, "Unknown"]]}
+    ],
+    "subset_limits": true, "inventories": {"After": {"/loom/{a}": ["200"], "/loom/{b}": null}}, "reverse": true, "controls": ["d1-common-status"]
+  },
+  "d2": {
+    "case": "Changing the lexical representative proves no wire-tree edit", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "collisions/common-status.json"}, {"fixture": "collisions/changed-representative.json"}],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "op:GET /loom/{}", "claim": "Coverage", "reason": "duplicate_operation"},
+      {"side": "After", "scope": "op:GET /loom/{}", "claim": "Coverage", "reason": "duplicate_operation"}
+    ],
+    "subset_limits": true, "inventories": {"Before": {"/loom/{a}": ["200"], "/loom/{b}": ["200"]}, "After": {"/loom/{b}": ["200"], "/loom/{c}": ["200"]}}, "controls": ["d1-common-status"]
+  },
+  "d2-checked-absence": {
+    "case": "Coherent collision proves operation presence against checked absence", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "operations/none.json"}, {"fixture": "collisions/common-status.json"}],
+    "changes": [{"kinds": ["OpAdded"], "before": [null, "Absent"], "after": ["op:GET /loom/{}", "Present"], "after_site_pointers": [["paths", "/loom/{a}", "get"], ["paths", "/loom/{b}", "get"]]}],
+    "limits": [{"side": "After", "scope": "op:GET /loom/{}", "claim": "Coverage", "reason": "duplicate_operation"}],
+    "subset_limits": true, "reverse": true, "controls": ["o1"]
+  },
+  "d2-literal-capture": {
+    "case": "Printed equality of literal braces and capture cannot certify one typed key", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "operations/none.json"}, {"fixture": "collisions/literal-and-capture.json"}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "op:GET /loom/{}", "claim": "OperationPresence", "reason": "duplicate_operation"}],
+    "subset_limits": true, "reverse": true, "controls": ["d2-checked-absence"]
+  },
+  "definition-rename": {
+    "case": "A rename preserves observed wire paths without media authority", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and DESIGN §5.1 definition identity",
+    "inputs": [
+      {"fixture": "control-definition-rename/before.json", "fields": [], "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:200#/stamp/size", "field:resp:GET /kiln:200#/tone"]},
+      {"fixture": "control-definition-rename/swagger.json", "fields": [], "observed": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:200#/stamp/size", "field:resp:GET /kiln:200#/tone"]}
+    ],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "root:resp:GET /kiln:200", "claim": "Coverage", "reason": "media_unverified"},
+      {"side": "After", "scope": "root:resp:GET /kiln:200", "claim": "Coverage", "reason": "media_unverified"}
+    ],
+    "subset_limits": true, "controls": ["t1"]
+  },
+  "e2": {
+    "case": "Omission supplies no member-set baseline", "clause": "DESIGN §§5.1 and 5.6 empty enum and signatures, design answer 3",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/wax.json"}],
+    "changes": [{"kinds": ["EnumDeclarationChanged"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"], "before_slots": {"enum": "missing"}, "after_slots": {"enum": ["wax"]}}],
+    "limits": [],
+    "reverse": true
+  },
+  "e3": {
+    "case": "Two readable declarations establish a directional member delta", "clause": "DESIGN §§5.1 and 5.6 empty enum and signatures, design answer 3",
+    "inputs": [{"fixture": "wire/wax.json"}, {"fixture": "wire/wax-and-ochre.json"}],
+    "changes": [{"kinds": ["EnumValuesAdded"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"], "enum_added": ["ochre"]}],
+    "limits": [],
+    "reverse": true
+  },
+  "e5": {
+    "case": "Readable empty enum proves both a member and a wire-presence transition", "clause": "DESIGN §§5.1 and 5.6 empty enum and signatures, design answer 3",
+    "inputs": [
+      {"fixture": "wire/empty-enum.json", "fields": [], "observed": ["field:resp:GET /loom:200#/x"]},
+      {"fixture": "wire/wax.json", "fields": ["field:resp:GET /loom:200#/x"]}
+    ],
+    "changes": [{"kinds": ["EnumValuesAdded", "FieldAdded"], "before": [null, "Absent"], "after": ["field:resp:GET /loom:200#/x", "Present"], "before_declaration": "field:resp:GET /loom:200#/x", "after_declaration": "field:resp:GET /loom:200#/x", "enum_added": ["wax"], "before_slots": {"enum": []}, "after_slots": {"enum": ["wax"]}}],
+    "limits": [],
+    "reverse": true
+  },
+  "e6": {
+    "case": "An unreadable enum is neither omitted nor a readable member set", "clause": "DESIGN §§5.1 and 5.6 empty enum and signatures, design answer 3 and DESIGN §9 unsupported declarations",
+    "inputs": [{"fixture": "wire/wax.json"}, {"fixture": "wire/bad-enum.json"}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(Enum)", "reason": "enum_unreadable", "pointer": "/x"}],
+    "subset_limits": true, "reverse": true, "controls": ["e2", "e3"]
+  },
+  "evidence-withheld": {
+    "case": "Withholding a previously admitted omission receipt precludes presence changes", "clause": "DESIGN §5.1 JSON media and Element diff, §9 accepted losses",
+    "inputs": [
+      {"fixture": "media/omitted.json", "media_proof": "media/loom-before.json", "fields": ["field:resp:GET /loom:200#/x"]},
+      {"fixture": "media/omitted.json", "fields": [], "observed": ["field:resp:GET /loom:200#/x"]}
+    ],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "media_unverified", "pointer": "/x", "presence": [["field:resp:GET /loom:200#/x", "Present"], [null, "Unknown"]]}],
+    "subset_limits": true, "reverse": true, "controls": ["f2"]
+  },
+  "f2": {
+    "case": "Retained checked response proves name omission", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/no-field.json"}],
+    "changes": [{"kinds": ["FieldRemoved"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": [null, "Absent"]}],
+    "limits": [],
+    "reverse": true
+  },
+  "f2-impossible": {
+    "case": "Provably impossible optional property establishes absence", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/false-field.json"}],
+    "changes": [{"kinds": ["FieldRemoved"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": [null, "Absent"]}],
+    "limits": [],
+    "controls": ["f2"]
+  },
+  "f4": {
+    "case": "A retained checked bodyless status establishes absence", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records",
+    "inputs": [{"fixture": "statuses/no-body.json"}, {"fixture": "wire/string.json"}],
+    "changes": [{"kinds": ["FieldAdded"], "before": [null, "Absent"], "after": ["field:resp:GET /loom:200#/x", "Present"]}],
+    "limits": [],
+    "reverse": true
+  },
+  "f4-dialect": {
+    "case": "A 3.0 GET body is dialect-excluded rather than absent", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records",
+    "inputs": [
+      {"fixture": "wire/request-31.json", "fields": ["field:req:GET /loom#/x", "field:resp:GET /loom:200#/x"]},
+      {"fixture": "wire/request-30.json", "fields": ["field:resp:GET /loom:200#/x"]}
+    ],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:req:GET /loom", "claim": "FieldPresence", "reason": "request_dialect_excluded", "pointer": "/x", "presence": [["field:req:GET /loom#/x", "Present"], [null, "Unknown"]]}],
+    "subset_limits": true, "reverse": true, "controls": ["f4-request"]
+  },
+  "f4-request": {
+    "case": "A retained GET with an eligible but absent request can gain fields", "clause": "DESIGN §5.1 Element diff and wire-tree feasibility, §5.2 side-local records",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/request-31.json"}],
+    "changes": [{"kinds": ["FieldAdded"], "before": [null, "Absent"], "after": ["field:req:GET /loom#/x", "Present"]}],
+    "limits": [],
+    "reverse": true
+  },
+  "formatting-only": {
+    "case": "Whitespace changes only source bytes", "clause": "DESIGN §5.6 byte and canonical content hashes",
+    "inputs": [{"fixture": "control-formatting-only/before.json"}, {"fixture": "control-formatting-only/openapi.json"}],
+    "changes": [],
+    "limits": [],
+    "equal_content": true, "changed_bytes": true, "controls": ["t1"]
+  },
+  "n1": {
+    "case": "A rename also preserves checked wire paths under admitted Swagger media proof", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and DESIGN §5.1 definition identity",
+    "inputs": [
+      {"fixture": "control-definition-rename/before.json", "media_proof": "media/kiln-before.json", "fields": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:200#/stamp/size", "field:resp:GET /kiln:200#/tone"]},
+      {"fixture": "control-definition-rename/swagger.json", "media_proof": "media/kiln-after.json", "fields": ["field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:200#/stamp/size", "field:resp:GET /kiln:200#/tone"]}
+    ],
+    "changes": [],
+    "limits": [],
+    "equal_content": true, "changed_definitions": true, "controls": ["t1"]
+  },
+  "n2": {
+    "case": "Feasible union arm order preserves signed slots and coverage", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and DESIGN §5.1 positive composition",
+    "inputs": [{"fixture": "neutral/union-before.json"}, {"fixture": "neutral/union-after.json"}],
+    "changes": [],
+    "limits": [],
+    "equal_content": true, "changed_bytes": true, "controls": ["t1"]
+  },
+  "n5": {
+    "case": "Type and enum ordering, numeric spelling, and required-name ordering are neutral", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and P1b README signed canonical facts",
+    "inputs": [{"fixture": "neutral/order-before.json"}, {"fixture": "neutral/order-after.json"}],
+    "changes": [],
+    "limits": [],
+    "equal_content": true, "controls": ["t1", "e3"]
+  },
+  "n5-typed-control": {
+    "case": "Numeric and string members remain distinct", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and P1b README typed enum values",
+    "inputs": [{"fixture": "neutral/numeric-enum.json"}, {"fixture": "neutral/string-enum.json"}],
+    "changes": [{"kinds": ["EnumValuesAdded", "EnumValuesRemoved"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"], "enum_added": ["1"], "enum_removed": [1]}],
+    "limits": []
+  },
+  "n8": {
+    "case": "Value-only item bounds stay silent after effective-type pruning", "clause": "DESIGN §5.6 and P1b README value-level limits",
+    "inputs": [{"fixture": "known-limits/fold6-item-value-bounds/narrow.json"}, {"fixture": "known-limits/fold6-item-value-bounds/wide.json"}],
+    "changes": [],
+    "limits": [],
+    "equal_content": true, "changed_bytes": true, "controls": ["control-field-items-only"]
+  },
+  "o1": {
+    "case": "Whole-operation addition owns the status and field detail", "clause": "DESIGN §5.1 Element diff and typed operation identity",
+    "inputs": [{"fixture": "operations/none.json"}, {"fixture": "wire/string.json"}],
+    "changes": [{"kinds": ["OpAdded"], "before": [null, "Absent"], "after": ["op:GET /loom", "Present"], "after_statuses": ["200"], "after_fields": [["field:resp:GET /loom:200#/x", "Present"]]}],
+    "limits": []
+  },
+  "o2": {
+    "case": "Removal owns both checked and withheld fields", "clause": "DESIGN §5.1 Element diff and typed operation identity",
+    "inputs": [
+      {"fixture": "operations/withheld-field.json", "fields": ["field:resp:GET /loom:200#/stable"], "observed": ["field:resp:GET /loom:200#/x"]},
+      {"fixture": "operations/none.json"}
+    ],
+    "changes": [{"kinds": ["OpRemoved"], "before": ["op:GET /loom", "Present"], "after": [null, "Absent"], "before_statuses": ["200"], "before_fields": [["field:resp:GET /loom:200#/stable", "Present"], ["field:resp:GET /loom:200#/x", "Unknown"]]}],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/x"}],
+    "subset_limits": true, "controls": ["o1"]
+  },
+  "o4": {
+    "case": "Unreadable GET stays unknown while the independent POST is added", "clause": "DESIGN §5.1 Element diff and typed operation identity and DESIGN §5.2 incomplete operation scopes",
+    "inputs": [{"fixture": "operations/unreadable-get.json"}, {"fixture": "operations/with-neighbor.json"}],
+    "changes": [{"kinds": ["OpAdded"], "before": [null, "Absent"], "after": ["op:POST /neighbor", "Present"], "after_statuses": ["204"], "after_fields": []}],
+    "limits": [{"side": "Before", "scope": "op:GET /loom", "claim": "OperationPresence", "reason": "operation_unreadable", "presence": [[null, "Unknown"], ["op:GET /loom", "Present"]]}],
+    "subset_limits": true, "reverse": true, "controls": ["o1"]
+  },
+  "p1": {
+    "case": "An admitted effective route priority changed", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/priority.json", "producer": true}],
+    "changes": [{"kinds": ["RouteDeclarationChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true
+  },
+  "p2": {
+    "case": "Corresponding inline validators have different digests", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/validator.json", "producer": true}],
+    "changes": [{"kinds": ["ValidationChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true
+  },
+  "p2-checked-absence": {
+    "case": "Checked validator absence establishes a validation edit", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/no-validator.json", "producer": true}, {"fixture": "producer/baseline.json", "producer": true}],
+    "changes": [{"kinds": ["ValidationChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true, "reverse": true
+  },
+  "p3": {
+    "case": "Resolved handler retarget does not compare the non-corresponding bodies", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/retarget.json", "producer": true}],
+    "changes": [{"kinds": ["HandlerReferenceChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true
+  },
+  "p4": {
+    "case": "Corresponding inline handlers admit a code digest edit", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/inline.json", "producer": true}, {"fixture": "producer/inline-edit.json", "producer": true}],
+    "changes": [{"kinds": ["HandlerCodeChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true
+  },
+  "p5": {
+    "case": "Independent retained producer facts can all change", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/multi-edit.json", "producer": true}],
+    "changes": [{"kinds": ["RouteDeclarationChanged", "ValidationChanged", "HandlerCodeChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true
+  },
+  "p5-partial": {
+    "case": "An ambiguous validator does not block an independently changed route fact", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/ambiguous-validator.json", "producer": true}],
+    "changes": [{"kinds": ["RouteDeclarationChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "op:GET /kiln", "claim": "Producer(Validation)", "reason": "ambiguous_validator"}
+    ],
+    "subset_limits": true, "controls": ["p2"]
+  },
+  "p6": {
+    "case": "A location-only move emits zero edits", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/moved.json", "producer": true}],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true, "controls": ["p4"]
+  },
+  "p6-alias": {
+    "case": "A new alias for the same endpoint emits zero edits", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/alias.json", "producer": true}],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true, "controls": ["p3"]
+  },
+  "p6-inline-reference": {
+    "case": "Inline versus resolved reference changes the endpoint reference", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/inline.json", "producer": true}, {"fixture": "producer/baseline.json", "producer": true}],
+    "changes": [{"kinds": ["HandlerReferenceChanged"], "before": ["op:GET /kiln", "Present"], "after": ["op:GET /kiln", "Present"], "producer_evidence": true}],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"}
+    ],
+    "subset_limits": true, "reverse": true
+  },
+  "p6-withheld": {
+    "case": "One-sided body evidence does not establish a code edit", "clause": "DESIGN §§5.1, 5.2 and 5.3 producer records, design answer 6",
+    "inputs": [{"fixture": "producer/baseline.json", "producer": true}, {"fixture": "producer/missing-code.json", "producer": true}],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "schema", "claim": "Coverage", "reason": "schema_unavailable"},
+      {"side": "After", "scope": "op:GET /kiln", "claim": "Producer(Code)", "reason": "endpoint_body_unavailable"}
+    ],
+    "subset_limits": true, "controls": ["p4"]
+  },
+  "r10": {
+    "case": "Pair proved JSON roots and compare the unaffected sibling", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership and DESIGN §5.2 scoped uncertainty",
+    "inputs": [{"fixture": "pairing/checked-siblings.json"}, {"fixture": "pairing/partial-siblings.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]},
+      {"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:201#/x", "Present"]}
+    ],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:201", "claim": "FieldPresence", "reason": "unsupported_schema_keyword", "pointer": "/box"}],
+    "pairs": [{"operation": "op:GET /loom", "before": "200", "after": "201", "fields": [["field:resp:GET /loom:200#/x", "field:resp:GET /loom:201#/x"]]}], "subset_limits": true, "pair_fields_subset": true, "controls": ["r2"], "forbidden_limit_pointers": ["/x"]
+  },
+  "r2": {
+    "case": "Compare typed sibling paths across paired roots", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership and DESIGN §5.2 original element IDs",
+    "inputs": [{"fixture": "pairing/before-edit.json"}, {"fixture": "pairing/after-edit.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]},
+      {"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/stamp", "Present"], "after": ["field:resp:GET /loom:201#/stamp", "Present"], "before_slots": {"type": "string"}, "after_slots": {"type": "integer"}},
+      {"kinds": ["FieldRemoved"], "before": ["field:resp:GET /loom:200#/old", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["FieldAdded"], "before": [null, "Absent"], "after": ["field:resp:GET /loom:201#/new", "Present"]}
+    ],
+    "limits": [],
+    "pairs": [{"operation": "op:GET /loom", "before": "200", "after": "201", "fields": [["field:resp:GET /loom:200#/stamp", "field:resp:GET /loom:201#/stamp"]]}]
+  },
+  "r6": {
+    "case": "A status replacement lacks equivalent JSON proof", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership and DESIGN §5.1 JSON media and Element diff, §9 accepted losses",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "pairing/media.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [
+      {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "Coverage", "reason": "non_json_media"},
+      {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "RootPairing", "reason": "root_media_incomparable"}
+    ],
+    "subset_limits": true, "reverse": true, "controls": ["control-unique-status-root-replacement"]
+  },
+  "r6-ambiguous": {
+    "case": "A status replacement lacks equivalent JSON proof", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership and DESIGN §5.1 JSON media and Element diff, §9 accepted losses",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "pairing/media-ambiguous.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [
+      {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "Coverage", "reason": "json_media_ambiguous"},
+      {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "RootPairing", "reason": "root_media_incomparable"}
+    ],
+    "subset_limits": true, "reverse": true, "controls": ["control-unique-status-root-replacement"]
+  },
+  "r6-case-equivalent": {
+    "case": "Case-equivalent proved media pairs", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "pairing/case-equivalent.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [],
+    "pairs": [{"operation": "op:GET /loom", "before": "200", "after": "201", "fields": [["field:resp:GET /loom:200#/x", "field:resp:GET /loom:201#/x"]]}]
+  },
+  "r6-media-proof-origin": {
+    "case": "Admitted omission proof and case-equivalent document proof pair", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership and DESIGN §5.1 JSON media and Element diff, §9 accepted losses",
+    "inputs": [
+      {"fixture": "media/omitted.json", "media_proof": "media/loom-before.json", "fields": ["field:resp:GET /loom:200#/x"]},
+      {"fixture": "media/admitted-201.json", "fields": ["field:resp:GET /loom:201#/x"]}
+    ],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [],
+    "pairs": [{"operation": "op:GET /loom", "before": "200", "after": "201", "fields": [["field:resp:GET /loom:200#/x", "field:resp:GET /loom:201#/x"]]}]
+  },
+  "r6-proof-withheld": {
+    "case": "An unavailable omission proof remains a possible candidate", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership and DESIGN §5.1 JSON media and Element diff, §9 accepted losses",
+    "inputs": [{"fixture": "media/omitted.json", "fields": [], "observed": ["field:resp:GET /loom:200#/x"]}, {"fixture": "media/admitted-201.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [
+      {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "media_unverified"},
+      {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "RootPairing", "reason": "root_media_incomparable"}
+    ],
+    "subset_limits": true, "reverse": true, "controls": ["r6-media-proof-origin"]
+  },
+  "r6-wildcard": {
+    "case": "A status replacement lacks equivalent JSON proof", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership and DESIGN §5.1 JSON media and Element diff, §9 accepted losses",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "pairing/media-wildcard.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [
+      {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "Coverage", "reason": "json_media_range_only"},
+      {"side": "After", "scope": "root:resp:GET /loom:201", "claim": "RootPairing", "reason": "root_media_incomparable"}
+    ],
+    "subset_limits": true, "reverse": true, "controls": ["control-unique-status-root-replacement"]
+  },
+  "r7": {
+    "case": "Unmatched exact key owns its new fields while the continuing range keeps its fields", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "pairing/retained-range.json"}, {"fixture": "pairing/retained-range-with-exact.json"}],
+    "changes": [{"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"], "after_fields": [["field:resp:GET /loom:201#/y", "Present"]]}],
+    "limits": [],
+    "reverse": true, "controls": ["r2"]
+  },
+  "r8": {
+    "case": "A body-bearing to bodyless replacement has an unpaired-body limit", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "statuses/204.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:204", "Present"]}
+    ],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "RootPairing", "reason": "root_body_unmatched"}],
+    "subset_limits": true, "reverse": true, "controls": ["s5"]
+  },
+  "r9": {
+    "case": "Transfer to and from retained 2XX blocks the pair", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "pairing/retained-2XX-before.json"}, {"fixture": "pairing/retained-2XX-after.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "RootPairing", "reason": "status_owner_transfer"}],
+    "subset_limits": true, "controls": ["control-unique-status-root-replacement"]
+  },
+  "r9-retained-default": {
+    "case": "Transfer to and from retained default blocks the pair", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "pairing/retained-default-before.json"}, {"fixture": "pairing/retained-default-after.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [
+      {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "RootPairing", "reason": "status_owner_transfer"},
+      {"side": "Before", "scope": "root:resp:GET /loom:default", "claim": "Coverage", "reason": "fallback_success"},
+      {"side": "After", "scope": "root:resp:GET /loom:default", "claim": "Coverage", "reason": "fallback_success"}
+    ],
+    "subset_limits": true, "controls": ["control-unique-status-root-replacement"]
+  },
+  "r9-unknown-peer": {
+    "case": "A third possible body defeats an otherwise unique pairing", "clause": "DESIGN §5.1 Element diff, response-root pairing and eligible ownership",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "pairing/unknown-peer.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:200", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:202", "Present"]}
+    ],
+    "limits": [
+      {"side": "After", "scope": "root:resp:GET /loom:202", "claim": "Coverage", "reason": "media_schema_missing"},
+      {"side": "After", "scope": "root:resp:GET /loom:202", "claim": "RootPairing", "reason": "ambiguous_root_pairing"}
+    ],
+    "subset_limits": true, "controls": ["control-unique-status-root-replacement"]
+  },
+  "s1": {
+    "case": "A new readable success key is independent of the unchanged 400", "clause": "DESIGN §5.1 Messages and status keys, status precedence, and Element diff",
+    "inputs": [{"fixture": "statuses/only-error.json"}, {"fixture": "statuses/body-and-error.json"}],
+    "changes": [{"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:200", "Present"], "after_fields": [["field:resp:GET /loom:200#/x", "Present"]]}],
+    "limits": [],
+    "reverse": true
+  },
+  "s10": {
+    "case": "An active default is a standing coverage limit", "clause": "DESIGN §5.1 Messages and status keys, status precedence, and Element diff and DESIGN §9 fallback_success",
+    "inputs": [{"fixture": "statuses/only-error.json"}, {"fixture": "statuses/fallback.json", "fields": [], "success": []}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:default", "claim": "Coverage", "reason": "fallback_success"}],
+    "reverse": true, "controls": ["s1"]
+  },
+  "s5": {
+    "case": "Bodyless replacement emits only the two status rows", "clause": "DESIGN §5.1 Messages and status keys, status precedence, and Element diff",
+    "inputs": [{"fixture": "statuses/204.json"}, {"fixture": "statuses/205.json"}],
+    "changes": [
+      {"kinds": ["SuccessStatusRemoved"], "before": ["status:GET /loom:204", "Present"], "after": [null, "Absent"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:205", "Present"]}
+    ],
+    "limits": [],
+    "reverse": true
+  },
+  "s6": {
+    "case": "Unresolved response reference leaves the key established", "clause": "DESIGN §5.1 Messages and status keys, status precedence, and Element diff",
+    "inputs": [{"fixture": "statuses/only-error.json"}, {"fixture": "statuses/withheld-and-error.json"}],
+    "changes": [{"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:200", "Present"]}],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "reference_unresolved"}],
+    "subset_limits": true, "reverse": true, "controls": ["s1"]
+  },
+  "s7": {
+    "case": "An unreadable response map withholds membership", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "statuses/unreadable-map.json", "success": []}, {"fixture": "wire/string.json", "success": ["200"]}],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "statuses:GET /loom", "claim": "StatusMembership", "reason": "responses_unreadable"}],
+    "subset_limits": true, "reverse": true, "controls": ["s1"]
+  },
+  "s7-repeated-key": {
+    "case": "Repeated 200 retains membership and withholds its root; readable sibling 201 is added", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "statuses/repeated-key.json", "success": ["200", "201"]}],
+    "changes": [{"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "response_key_ambiguous"}],
+    "subset_limits": true, "reverse": true, "controls": ["s1"]
+  },
+  "s7-repeated-key-added": {
+    "case": "A repeated explicit key still proves membership against checked absence", "clause": "DESIGN §5.1 repeated explicit success keys retain membership and withhold their response root",
+    "inputs": [{"fixture": "statuses/only-error.json", "success": []}, {"fixture": "statuses/repeated-key.json", "success": ["200", "201"]}],
+    "changes": [
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:200", "Present"]},
+      {"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"]}
+    ],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Coverage", "reason": "response_key_ambiguous"}],
+    "reverse": true, "controls": ["s1"], "subset_limits": true
+  },
+  "s7-repeated-map": {
+    "case": "A repeated responses member withholds the entire map", "clause": "DESIGN §5.1 canonical collisions, repeated keys and per-declaration inventories",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "statuses/repeated-map.json"}],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "statuses:GET /loom", "claim": "StatusMembership", "reason": "duplicate_member"}],
+    "subset_limits": true, "reverse": true, "controls": ["s1"]
+  },
+  "s9": {
+    "case": "Exact 201 takes the final body-eligible code from retained 2XX", "clause": "DESIGN §5.1 Messages and status keys, status precedence, and Element diff",
+    "inputs": [
+      {"fixture": "statuses/range-last-code.json", "fields": ["field:resp:GET /loom:2XX#/x"]},
+      {"fixture": "statuses/range-shadowed.json", "fields": ["field:resp:GET /loom:201#/y"]}
+    ],
+    "changes": [{"kinds": ["SuccessStatusAdded"], "before": [null, "Absent"], "after": ["status:GET /loom:201", "Present"], "after_fields": [["field:resp:GET /loom:201#/y", "Present"]], "before_fields": [["field:resp:GET /loom:2XX#/x", "Present"]]}],
+    "limits": [],
+    "reverse": true, "controls": ["s1"]
+  },
+  "t1": {
+    "case": "Compare known effective primitive types", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/integer.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"], "before_slots": {"type": "string"}, "after_slots": {"type": "integer"}}],
+    "limits": []
+  },
+  "t11": {
+    "case": "One field change carries all applicable slot kinds", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values",
+    "inputs": [{"fixture": "wire/before-multiple-slots.json"}, {"fixture": "wire/after-multiple-slots.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged", "FieldFormatChanged", "FieldRequiredAdded"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"], "before_slots": {"type": "string", "format": "date", "required": false}, "after_slots": {"type": "integer", "format": "int64", "required": true}}],
+    "limits": []
+  },
+  "t2": {
+    "case": "A nullable type is a known type set", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and P1b README wire accept-list",
+    "inputs": [{"fixture": "wire/string.json"}, {"fixture": "wire/nullable.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"], "before_slots": {"type": "string"}, "after_slots": {"type": ["null", "string"]}}],
+    "limits": [],
+    "reverse": true
+  },
+  "t2-oas30": {
+    "case": "Same-object 3.0 nullable signs a known type set", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values and P1b README wire accept-list",
+    "inputs": [{"fixture": "wire/string-30.json"}, {"fixture": "wire/nullable-30.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"], "before_slots": {"type": "string"}, "after_slots": {"type": ["null", "string"]}}],
+    "limits": []
+  },
+  "t3": {
+    "case": "Readable but unsigned type can become known", "clause": "DESIGN §§5.1 and 5.6 signed shape slots, §5.2 side-local values",
+    "inputs": [{"fixture": "wire/missing-type.json"}, {"fixture": "wire/string.json"}],
+    "changes": [{"kinds": ["FieldTypeChanged"], "before": ["field:resp:GET /loom:200#/x", "Present"], "after": ["field:resp:GET /loom:200#/x", "Present"], "before_slots": {"type": "missing"}, "after_slots": {"type": "string"}}],
+    "limits": [],
+    "reverse": true
+  },
+  "u1": {
+    "case": "Known type versus a BranchDependent type gets a slot-local limit", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [
+      {"fixture": "wire/string.json", "slots": {"field:resp:GET /loom:200#/x": {"type": "string"}}},
+      {"fixture": "wire/branch.json", "slots": {"field:resp:GET /loom:200#/x": {"type": "branch_dependent"}}}
+    ],
+    "changes": [],
+    "limits": [{"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "branch_dependent", "pointer": "/x"}],
+    "reverse": true, "controls": ["t2"]
+  },
+  "u2": {
+    "case": "Stopped reference leaves requiredness readable while other slots become unknown", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [
+      {"fixture": "wire/branch.json", "slots": {"field:resp:GET /loom:200#/x": {"type": "branch_dependent"}}},
+      {"fixture": "wire/stopped-ref.json", "slots": {"field:resp:GET /loom:200#/x": {"type": "unknown", "required": false}}}
+    ],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "branch_dependent", "pointer": "/x"},
+      {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "reference_unresolved", "pointer": "/x"}
+    ],
+    "subset_limits": true, "reverse": true, "controls": ["t1"]
+  },
+  "u3": {
+    "case": "Equal hashes retain standing limits independently on both sides", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [{"fixture": "wire/branch.json"}, {"fixture": "wire/branch.json"}],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "branch_dependent", "pointer": "/x"},
+      {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "branch_dependent", "pointer": "/x"}
+    ],
+    "equal_content": true, "controls": ["t1"]
+  },
+  "u3-unknown": {
+    "case": "Equal hashes do not clear unresolved reference coverage", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4",
+    "inputs": [{"fixture": "wire/stopped-ref.json"}, {"fixture": "wire/stopped-ref.json"}],
+    "changes": [],
+    "limits": [
+      {"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "reference_unresolved", "pointer": "/x"},
+      {"side": "After", "scope": "root:resp:GET /loom:200", "claim": "Property(Type)", "reason": "reference_unresolved", "pointer": "/x"}
+    ],
+    "equal_content": true, "subset_limits": true, "controls": ["t1"]
+  },
+  "u4": {
+    "case": "Synthetic Missing requiredness is incomparable", "clause": "DESIGN §§5.1, 5.2 and 5.6 scoped claims, design answer 4 and DESIGN §5.6 requiredness",
+    "inputs": [
+      {"fixture": "wire/string.json", "missing_required": true},
+      {"fixture": "wire/string.json", "slots": {"field:resp:GET /loom:200#/x": {"required": false}}}
+    ],
+    "changes": [],
+    "limits": [{"side": "Before", "scope": "root:resp:GET /loom:200", "claim": "Property(Required)", "reason": "requiredness_missing", "pointer": "/x"}],
+    "reverse": true, "controls": ["control-field-required-added"]
+  }
+}
