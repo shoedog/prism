@@ -1,16 +1,21 @@
+mod messages;
 mod openapi;
 mod references;
 mod servers;
-mod site;
+mod signature;
+pub(crate) mod site;
 mod status;
+mod wire;
 
 use crate::element::{CanonicalPath, OperationId, SuccessKey};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fmt;
 
+pub(super) use messages::project;
 pub(super) use openapi::read_operations;
 use servers::Deployment;
+pub use signature::signature;
 use site::{Diagnostic, Site};
 use status::Response;
 
@@ -48,6 +53,8 @@ pub(super) struct Declaration {
     pub referring_site: Site,
     pub site: Site,
     pub reference_chain: Vec<Site>,
+    resource: Option<String>,
+    parameters: Result<Option<(Option<String>, Site)>, ()>,
     pub deployments: Vec<Deployment>,
     pub responses: BTreeMap<String, Response>,
     pub success_keys: Vec<SuccessKey>,
@@ -55,7 +62,7 @@ pub(super) struct Declaration {
 }
 
 #[derive(Debug)]
-pub(super) enum SchemaError {
+pub enum SchemaError {
     Yaml,
     Json(serde_json::Error),
     Dialect,

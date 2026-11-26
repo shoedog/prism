@@ -1,0 +1,169 @@
+id	fixture	expected_ids	expected_warnings	truth	class
+control-f03	fixtures/control-f03/supported.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-f05	fixtures/control-f05/supported-body.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-f06	fixtures/control-f06/supported.json	field:resp:POST /probe:200#/box;field:resp:POST /probe:200#/box/x;op:POST /probe		rule	known_limits_control
+control-fold1-body-presence	fixtures/control-fold1-body-presence/omitted.json	field:req:POST /p#/x;op:POST /p		rule	known_limits_control
+control-fold1-census-scope	fixtures/control-fold1-census-scope/public-wire.json	field:resp:POST /p:200#/x;op:POST /p		rule	known_limits_control
+control-fold1-union-const	fixtures/control-fold1-union-const/before.json	field:resp:POST /p:200#/kind;op:POST /p		rule	known_limits_control
+control-fold2-any-of-arm-only-type	fixtures/control-fold2-any-of-arm-only-type/before.json	field:resp:POST /p:200#/x;field:resp:POST /p:200#/y;op:POST /p	anyOf_union	rule	known_limits_control
+control-fold2-boolean-dialect-root	fixtures/control-fold2-boolean-dialect-root/default-dialect.json	op:POST /p		rule	known_limits_control
+control-fold2-depth-cut-array	fixtures/control-fold2-depth-cut-array/empty-allowed.json	field:resp:POST /p:200#/p;field:resp:POST /p:200#/p/p;field:resp:POST /p:200#/p/p/p;field:resp:POST /p:200#/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p/p/p/p/p;op:POST /p		rule	known_limits_control
+control-fold2-dynamic-ref	fixtures/control-fold2-dynamic-ref/static.json	field:resp:POST /p:200#/x;op:POST /p		rule	known_limits_control
+control-fold2-inferred-object-enum	fixtures/control-fold2-inferred-object-enum/explicit.json	field:resp:POST /p:200#/x;op:POST /p		rule	known_limits_control
+control-fold2-items-dialect	fixtures/control-fold2-items-dialect/default-dialect.json	field:resp:POST /p:200#/x;op:POST /p		rule	known_limits_control
+control-fold2-media-proof-tokens	fixtures/control-fold2-media-proof-tokens/unique-flag.json	field:req:POST /p#/x;op:POST /p		rule	known_limits_control
+control-fold2-one-of-enum-tag	fixtures/control-fold2-one-of-enum-tag/before.json	field:resp:POST /p:200#/kind;field:resp:POST /p:200#/x;field:resp:POST /p:200#/y;op:POST /p	oneOf_union	rule	known_limits_control
+control-fold2-ref-sibling-one-of	fixtures/control-fold2-ref-sibling-one-of/inline.json	field:resp:POST /p:200#/kind;field:resp:POST /p:200#/x;op:POST /p	oneOf_union	rule	known_limits_control
+control-fold2-saturated-empty-enum	fixtures/control-fold2-saturated-empty-enum/spare.json	field:resp:POST /p:200#/x;op:POST /p		rule	known_limits_control
+control-fold2-unrelated-union-const	fixtures/control-fold2-unrelated-union-const/no-union-before.json	field:resp:POST /p:200#/x;op:POST /p		rule	known_limits_control
+control-fold3-root-scalar-slots	fixtures/control-fold3-root-scalar-slots/map-before.json	field:resp:POST /p:200#/*/x;field:resp:POST /p:200#/x;op:POST /p		rule	known_limits_control
+control-fold4-item-enum-slot	fixtures/control-fold4-item-enum-slot/before.json	field:resp:POST /p:200#/x;field:resp:POST /p:200#/x/[]/value;op:POST /p		rule	known_limits_control
+control-fold4-item-format-slot	fixtures/control-fold4-item-format-slot/before.json	field:resp:POST /p:200#/x;field:resp:POST /p:200#/x/[]/value;op:POST /p		rule	known_limits_control
+control-fold6-item-value-bounds	fixtures/control-fold6-item-value-bounds/wide.json	field:req:POST /p#/x;op:POST /p		rule	known_limits_control
+control-i01	fixtures/control-i01/supported.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-i02	fixtures/control-i02/supported.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-i03	fixtures/control-i03/supported.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-i05	fixtures/control-i05/supported.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-i06	fixtures/control-i06/supported.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-i07	fixtures/control-i07/supported.json	field:resp:POST /probe:200#/next;op:POST /probe		rule	known_limits_control
+control-m06	fixtures/control-m06/supported.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-m07	fixtures/control-m07/supported.json	field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-m08	fixtures/control-m08/supported.json	field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-m09	fixtures/control-m09/supported.json	field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-m10	fixtures/control-m10/supported.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-m11	fixtures/control-m11/example.json	field:req:POST /probe#/stable;field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-r04	fixtures/control-r04/absent.json	field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-r05	fixtures/control-r05/supported.json	field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-r07	fixtures/control-r07/supported.json	field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-r08	fixtures/control-r08/supported.json	field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-r09	fixtures/control-r09/supported.json	field:req:POST /probe#/x;op:POST /probe		rule	known_limits_control
+control-s02	fixtures/control-s02/supported-3.0.3.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-s04	fixtures/control-s04/supported.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-s05	fixtures/control-s05/supported-30.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-s10	fixtures/control-s10/supported.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-s12	fixtures/control-s12/supported-2.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-s13	fixtures/control-s13/supported.json	field:resp:POST /probe:200#/stable;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-s17	fixtures/control-s17/supported.json	field:resp:POST /probe:200#/stable;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-s18	fixtures/control-s18/supported.json	field:resp:POST /probe:200#/x;field:resp:POST /probe:200#/x/[]/x;op:POST /probe		rule	known_limits_control
+control-s20	fixtures/control-s20/supported.json	field:resp:POST /probe:200#/[]/x;op:POST /probe		rule	known_limits_control
+control-s24	fixtures/control-s24/supported.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-s26	fixtures/control-s26/supported.json	field:resp:POST /probe:200#/x;field:resp:POST /probe:200#/y;op:POST /probe		rule	known_limits_control
+control-s27	fixtures/control-s27/supported-array.json	field:resp:POST /probe:200#/[]/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-t06-collection	fixtures/control-t06-collection/supported-response.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-t06-duplicate	fixtures/control-t06-duplicate/supported-response.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-t10	fixtures/control-t10/supported.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+control-t11	fixtures/control-t11/supported.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	known_limits_control
+f01	fixtures/f01/no-base.json	field:resp:POST /probe:200#/child;field:resp:POST /probe:200#/child/leaf;field:resp:POST /probe:200#/stable;op:POST /probe		rule	reference
+f02	fixtures/f02/body-missing.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;field:resp:POST /probe:201#/x;op:POST /probe		rule	reference
+f03	fixtures/f03/sibling.json	field:resp:POST /probe:200#/x;field:resp:POST /probe:200#/y;op:POST /probe		loss:ref_siblings_unchecked	known_limits
+f04	fixtures/f04/required.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	reference
+f05	fixtures/f05/body-ref.json	op:POST /probe		loss:reference_siblings_unchecked	known_limits
+f06	fixtures/f06/resource-overrides.json	field:resp:POST /probe:200#/box;field:resp:POST /probe:200#/box/x;field:resp:POST /probe:200#/x;op:POST /probe		loss:schema_dialect_unchecked	known_limits
+f07	fixtures/f07/post.json	field:req:POST /probe#/x;field:resp:GET /stable:200#/x;op:GET /stable;op:POST /probe		rule	reference
+fold1-body-presence	fixtures/fold1-body-presence/oas-false.json	field:req:POST /p#/x;op:POST /p		loss:body_presence_unchecked	known_limits
+fold1-census-scope	fixtures/fold1-census-scope/operation.json	op:POST /p		loss:internal_identity_census	known_limits
+fold1-dialect	fixtures/fold1-dialect/unsupported.json	field:resp:POST /p:200#/stable;field:resp:POST /p:200#/x;op:POST /p		rule	fold1
+fold1-duplicate-members	fixtures/fold1-duplicate-members/schema.json	field:resp:POST /p:200#/stable;field:resp:POST /p:200#/x;op:POST /p		rule	fold1
+fold1-empty-enum	fixtures/fold1-empty-enum/required.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold1
+fold1-null-30	fixtures/fold1-null-30/mixed.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold1
+fold1-null-31	fixtures/fold1-null-31/mixed.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold1
+fold1-required-proof	fixtures/fold1-required-proof/unknown.json	field:resp:POST /p:200#/gate;field:resp:POST /p:200#/stable;op:POST /p		rule	fold1
+fold1-token-kinds	fixtures/fold1-token-kinds/object.json	field:resp:POST /p:200#/stable;field:resp:POST /p:200#/x;field:resp:POST /p:200#/x/%24serde_json%3A%3Aprivate%3A%3ANumber;op:POST /p		rule	fold1
+fold1-union-const	fixtures/fold1-union-const/before.json	field:resp:POST /p:200#/kind;field:resp:POST /p:200#/x;field:resp:POST /p:200#/y;op:POST /p	anyOf_union;oneOf_union	loss:union_const_signature	known_limits
+fold1-union-facts	fixtures/fold1-union-facts/omitted.json	field:resp:POST /p:200#/kind;field:resp:POST /p:200#/x;field:resp:POST /p:200#/y;op:POST /p	anyOf_union;oneOf_union	rule	fold1
+fold2-any-of-arm-only-type	fixtures/fold2-any-of-arm-only-type/before.json	field:resp:POST /p:200#/x;field:resp:POST /p:200#/y;op:POST /p	anyOf_union	loss:union_arm_only_type_signature	known_limits
+fold2-boolean-dialect-root	fixtures/fold2-boolean-dialect-root/draft4.json	op:POST /p		loss:boolean_root_dialect_unchecked	known_limits
+fold2-depth-cut-array	fixtures/fold2-depth-cut-array/nonempty.json	field:resp:POST /p:200#/p;field:resp:POST /p:200#/p/p;field:resp:POST /p:200#/p/p/p;field:resp:POST /p:200#/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /p:200#/p/p/p/p/p/p/p/p/p/p/p/p/p/p/p/p;op:POST /p		loss:depth_cut	known_limits
+fold2-dynamic-ref	fixtures/fold2-dynamic-ref/dynamic.json	field:resp:POST /p:200#/x;op:POST /p		loss:reference_scope	known_limits
+fold2-inferred-object-enum	fixtures/fold2-inferred-object-enum/inferred.json	field:resp:POST /p:200#/x;op:POST /p		loss:inferred_object_enum_type	known_limits
+fold2-items-dialect	fixtures/fold2-items-dialect/unsupported.json	field:resp:POST /p:200#/x;op:POST /p		loss:schema_dialect_unchecked	known_limits
+fold2-media-proof-tokens	fixtures/fold2-media-proof-tokens/duplicate-flag.json	field:req:POST /p#/x;op:POST /p		loss:media_proof_raw_tokens_unchecked	known_limits
+fold2-one-of-enum-tag	fixtures/fold2-one-of-enum-tag/before.json	field:resp:POST /p:200#/kind;field:resp:POST /p:200#/x;field:resp:POST /p:200#/y;op:POST /p	oneOf_union	loss:union_enum_tag_signature	known_limits
+fold2-ref-sibling-one-of	fixtures/fold2-ref-sibling-one-of/ignored.json	field:resp:POST /p:200#/kind;field:resp:POST /p:200#/x;op:POST /p	oneOf_union	loss:one_of_ref_sibling_disjointness	known_limits
+fold2-saturated-empty-enum	fixtures/fold2-saturated-empty-enum/saturated.json	op:POST /p		loss:saturated_empty_enum	known_limits
+fold2-unrelated-union-const	fixtures/fold2-unrelated-union-const/before.json	field:resp:POST /p:200#/x;op:POST /p	anyOf_union	loss:union_const_signature	known_limits
+fold3-items-oas30	fixtures/fold3-items-oas30/before.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold3
+fold3-items-oas31	fixtures/fold3-items-oas31/before.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold3
+fold3-items-order	fixtures/fold3-items-order/forward.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold3
+fold3-items-scalar	fixtures/fold3-items-scalar/before.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold3
+fold3-request-body-reference	fixtures/fold3-request-body-reference/oas31.json	field:req:POST /p#/x;op:POST /missing;op:POST /p;op:POST /wrong-key;op:POST /wrong-kind		rule	fold3
+fold3-response-reference	fixtures/fold3-response-reference/oas31.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold3
+fold3-root-scalar-slots	fixtures/fold3-root-scalar-slots/map-before.json	op:POST /p		loss:root_scalar_slot_absent	known_limits
+fold3-type-sets	fixtures/fold3-type-sets/oas31-before.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold3
+fold4-item-enum-slot	fixtures/fold4-item-enum-slot/before.json	field:resp:POST /p:200#/x;op:POST /p		loss:unnamed_item_value_slot_absent	known_limits
+fold4-item-format-slot	fixtures/fold4-item-format-slot/before.json	field:resp:POST /p:200#/x;op:POST /p		loss:unnamed_item_value_slot_absent	known_limits
+fold4-items-extension	fixtures/fold4-items-extension/before.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold4
+fold4-items-multiple-of	fixtures/fold4-items-multiple-of/before.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold4
+fold4-items-pattern	fixtures/fold4-items-pattern/before.json	field:resp:POST /p:200#/x;op:POST /p		rule	fold4
+fold4-request-body-terminal-types	fixtures/fold4-request-body-terminal-types/oas31.json	field:req:POST /valid#/x;op:POST /bad-content;op:POST /bad-description;op:POST /p;op:POST /valid		rule	fold4
+fold4-response-terminal-types	fixtures/fold4-response-terminal-types/oas31.json	field:resp:POST /p:200#/x;field:resp:POST /p:201#/x;op:POST /p		rule	fold4
+fold6-item-value-bounds	fixtures/fold6-item-value-bounds/narrow.json	field:req:POST /p#/x;op:POST /p		loss:item_value_bounds_signature	known_limits
+i01	fixtures/i01/both.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		loss:direction_flags_unchecked	known_limits
+i02	fixtures/i02/read-only.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		loss:direction_flags_unchecked	known_limits
+i03	fixtures/i03/read-only.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		loss:direction_policy_unchecked	known_limits
+i04	fixtures/i04/mapping.json	field:resp:POST /probe:200#/kind;field:resp:POST /probe:200#/x;field:resp:POST /probe:200#/y;op:POST /probe	oneOf_union	rule	interaction
+i05	fixtures/i05/oas30.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:discriminator_inheritance	known_limits
+i06	fixtures/i06/misplaced.json	field:resp:POST /probe:200#/x;op:POST /probe	oneOf_union	loss:nullable_composition_unchecked	known_limits
+i07	fixtures/i07/required-cycle.json	field:resp:POST /probe:200#/next;op:POST /probe		loss:recursive	known_limits
+i08	fixtures/i08/cut.json	field:resp:POST /probe:200#/p;field:resp:POST /probe:200#/p/[]/*/p;field:resp:POST /probe:200#/p/[]/*/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p/p/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p/p/p/p/p/p/p/p;field:resp:POST /probe:200#/p/[]/*/p/p/p/p/p/p/p/p/p/p/p/p/p;op:POST /probe		rule	interaction
+m01	fixtures/m01/document.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	media
+m02	fixtures/m02/empty.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	media
+m03-codec	fixtures/m03-codec/codec.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	media
+m03-source	fixtures/m03-source/source.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	media
+m04	fixtures/m04/omitted.json	field:req:POST /probe#/x;field:resp:POST /probe:200#/x;op:POST /probe		rule	media
+m05	fixtures/m05/problem-json.json	field:req:POST /probe#/x;op:POST /probe		rule	media
+m06	fixtures/m06/subtype.json	op:POST /probe		loss:json_media_range_only	known_limits
+m07	fixtures/m07/parameterized.json	op:POST /probe		loss:json_media_variant_unchecked	known_limits
+m08	fixtures/m08/lower-first.json	op:POST /probe		loss:json_media_ambiguous	known_limits
+m09	fixtures/m09/missing.json	op:POST /probe		loss:media_schema_missing	known_limits
+m10	fixtures/m10/entry-null.json	op:POST /probe		loss:media_schema_unreadable	known_limits
+m11	fixtures/m11/encoding.json	field:req:POST /probe#/stable;field:req:POST /probe#/x;op:POST /probe		loss:media_encoding_unchecked	known_limits
+r01	fixtures/r01/get.json	field:req:PATCH /probe#/x;field:req:POST /probe#/x;field:req:PUT /probe#/x;op:DELETE /probe;op:GET /probe;op:HEAD /probe;op:OPTIONS /probe;op:PATCH /probe;op:POST /probe;op:PUT /probe		rule	request-body
+r02	fixtures/r02/head.json	field:req:DELETE /probe#/x;field:req:HEAD /probe#/x;field:req:OPTIONS /probe#/x;op:DELETE /probe;op:HEAD /probe;op:OPTIONS /probe		rule	request-body
+r03	fixtures/r03/trace.json	field:req:POST /probe#/x;op:POST /probe;op:TRACE /probe		rule	request-body
+r04	fixtures/r04/false.json	field:req:POST /probe#/x;op:POST /probe		loss:body_presence_unchecked	known_limits
+r05	fixtures/r05/null.json	op:POST /probe		loss:request_body_unreadable	known_limits
+r06	fixtures/r06/override.json	field:req:POST /probe#/selected;field:req:PUT /probe#/inherited;op:POST /probe;op:PUT /probe		rule	request-body
+r07	fixtures/r07/multiple.json	op:POST /probe		loss:body_parameters_unreadable	known_limits
+r08	fixtures/r08/optional.json	field:req:POST /probe#/x;op:POST /probe		loss:body_presence_unchecked	known_limits
+r09	fixtures/r09/inherited-form.json	op:POST /probe		loss:body_form_conflict	known_limits
+r10	fixtures/r10/parameter-content.json	field:req:POST /probe#/x;op:POST /probe		rule	request-body
+s01	fixtures/s01/true-root.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s02	fixtures/s02/false-root.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:schema_form_unchecked	known_limits
+s03	fixtures/s03/absent-type.json	field:resp:POST /probe:200#/[]/y;field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s04	fixtures/s04/false.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:nullable_scope_unchecked	known_limits
+s05	fixtures/s05/empty-oas31.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:required_unreadable	known_limits
+s06	fixtures/s06/limited.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s07	fixtures/s07/limited.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s08	fixtures/s08/omitted.json	field:resp:POST /probe:200#/*/y;field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s09	fixtures/s09/contradiction.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s10	fixtures/s10/custom.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:schema_dialect_unchecked	known_limits
+s11	fixtures/s11/typed.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s12	fixtures/s12/swagger-empty.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:enum_unreadable	known_limits
+s13	fixtures/s13/a.json	field:resp:POST /probe:200#/stable;field:resp:POST /probe:200#/x;op:POST /probe		loss:const_signature_unchecked	known_limits
+s14	fixtures/s14/object-const.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s15	fixtures/s15/minimum.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s16	fixtures/s16/annotation.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s17	fixtures/s17/swagger.json	field:resp:POST /probe:200#/stable;field:resp:POST /probe:200#/x;op:POST /probe		loss:schema_extension_unchecked	known_limits
+s18	fixtures/s18/absent.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:schema_form_unchecked	known_limits
+s19	fixtures/s19/swagger-tuple.json	field:resp:POST /probe:200#/[]/x;op:POST /probe		rule	wire-tree
+s20	fixtures/s20/bound-contradiction.json	op:POST /probe		loss:array_uniqueness_unchecked	known_limits
+s21	fixtures/s21/minimum.json	field:resp:POST /probe:200#/[]/x;field:resp:POST /probe:200#/[]/y;op:POST /probe		rule	wire-tree
+s22	fixtures/s22/different.json	field:resp:POST /probe:200#/x;field:resp:POST /probe:200#/y;op:POST /probe	anyOf_union	rule	wire-tree
+s23	fixtures/s23/optional-tags.json	field:resp:POST /probe:200#/kind;field:resp:POST /probe:200#/x;field:resp:POST /probe:200#/y;op:POST /probe	oneOf_union	rule	wire-tree
+s24	fixtures/s24/any-unresolved.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:composition_unreadable	known_limits
+s25	fixtures/s25/active.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	wire-tree
+s26	fixtures/s26/modern.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:schema_dialect_unchecked	known_limits
+s27	fixtures/s27/oas30-prefix.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:unsupported_schema_keyword	known_limits
+t01	fixtures/t01/boundaries.json	field:resp:POST /probe:200#/status200;field:resp:POST /probe:299#/status299;op:POST /probe		rule	status-keys
+t02	fixtures/t02/bodyless.json	field:resp:POST /probe:201#/y;field:resp:POST /probe:2XX#/x;op:POST /probe		rule	status-keys
+t03	fixtures/t03/exhausted.json	field:resp:POST /probe:2XX#/x;op:POST /probe		rule	status-keys
+t04	fixtures/t04/status-spelling.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	status-keys
+t05	fixtures/t05/full-range.json	field:resp:POST /probe:200#/x;field:resp:POST /probe:2XX#/x;op:POST /probe		rule	status-keys
+t06-collection	fixtures/t06-collection/absent-oas31.json	op:POST /probe		loss:responses_unreadable	known_limits
+t06-duplicate	fixtures/t06-duplicate/duplicate.json	op:POST /probe		loss:response_key_ambiguous	known_limits
+t07	fixtures/t07/shared.json	field:resp:POST /probe:200#/x;field:resp:POST /probe:201#/x;op:POST /probe		rule	status-keys
+t08	fixtures/t08/body-absent.json	field:resp:POST /probe:200#/x;op:POST /probe		rule	status-keys
+t09	fixtures/t09/reset.json	field:resp:POST /probe:200#/x;op:HEAD /probe;op:POST /probe		rule	status-keys
+t10	fixtures/t10/download.json	op:POST /probe		loss:non_json_media	known_limits
+t11	fixtures/t11/link.json	field:resp:POST /probe:200#/x;op:POST /probe		loss:response_link_unchecked	known_limits

@@ -1,7 +1,7 @@
 //! Ordered definition indexes, scoped to one admitted RD invocation.
 use super::{AccessPath, BitSet, DefSite, FlowEdge, Line};
 use crate::access_path::ARRAY_FIELD;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) struct DefinitionBuckets<'a> {
     #[cfg(test)]
@@ -344,4 +344,31 @@ pub(super) fn legacy_kill_sets_with(
     }
 
     (kill, flat_kill)
+}
+
+pub(super) fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
+    let mut unique = Vec::<DefSite>::new();
+    let mut occurrences = BTreeMap::<(AccessPath, Line, usize), usize>::new();
+    for def in defs {
+        let occurrence = (def.path.clone(), def.line, def.start_byte);
+        if let Some(index) = occurrences.get(&occurrence).copied() {
+            unique[index].alias_derived |= def.alias_derived;
+            unique[index].s1_entry |= def.s1_entry;
+        } else {
+            occurrences.insert(occurrence, unique.len());
+            unique.push(def.clone());
+        }
+    }
+    unique
+}
+
+pub(super) fn collapsed_groups(defs: &[DefSite]) -> BTreeSet<(AccessPath, Line)> {
+    let mut counts = BTreeMap::new();
+    for def in defs {
+        *counts.entry((def.path.clone(), def.line)).or_insert(0usize) += 1;
+    }
+    counts
+        .into_iter()
+        .filter_map(|(group, count)| (count >= 2).then_some(group))
+        .collect()
 }

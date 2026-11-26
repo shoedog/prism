@@ -27,6 +27,7 @@ pub struct DfgEdgeRecord {
 }
 
 pub fn dfg_edge_dump(cpg: &CodePropertyGraph) -> Vec<DfgEdgeRecord> {
+    crate::cpg::s1_trace::report_final(cpg);
     let mut records: Vec<_> = cpg
         .graph
         .edge_references()
@@ -34,8 +35,6 @@ pub fn dfg_edge_dump(cpg: &CodePropertyGraph) -> Vec<DfgEdgeRecord> {
             let CpgEdge::DataFlow(confidence) = *edge.weight() else {
                 return None;
             };
-            let from = dfg_endpoint(cpg.node(edge.source()))?;
-            let to = dfg_endpoint(cpg.node(edge.target()))?;
             let (doubt, kill_line) = match confidence {
                 FlowConfidence::Exact => (None, None),
                 FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }) => {
@@ -51,8 +50,8 @@ pub fn dfg_edge_dump(cpg: &CodePropertyGraph) -> Vec<DfgEdgeRecord> {
                 FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => (Some("call_nameonly"), None),
             };
             Some(DfgEdgeRecord {
-                from,
-                to,
+                from: dfg_endpoint(cpg.node(edge.source()))?,
+                to: dfg_endpoint(cpg.node(edge.target()))?,
                 confidence: confidence.level(),
                 doubt,
                 kill_line,

@@ -1,0 +1,111 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "produces": [
+    "application/json"
+  ],
+  "responses": {
+    "WithBody": {
+      "description": "ok",
+      "headers": {},
+      "schema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "string"
+          }
+        }
+      },
+      "x-control": true,
+      "examples": {
+        "application/json": {
+          "x": "sample"
+        }
+      }
+    },
+    "Bodyless": {
+      "description": "empty",
+      "x-control": true
+    },
+    "MissingDescription": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "WrongDescription": {
+      "description": true
+    },
+    "WrongDialect": {
+      "description": "ok",
+      "content": {}
+    }
+  },
+  "definitions": {
+    "WithPayload": {
+      "type": "string",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Bare": {
+      "type": "string"
+    },
+    "WithDescription": {
+      "type": "string",
+      "description": "not a response",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/p": {
+      "post": {
+        "responses": {
+          "200": {
+            "$ref": "#/responses/WithBody"
+          },
+          "201": {
+            "$ref": "#/responses/Bodyless"
+          },
+          "202": {
+            "$ref": "#/definitions/WithPayload"
+          },
+          "203": {
+            "$ref": "#/definitions/Bare"
+          },
+          "206": {
+            "$ref": "#/responses/MissingDescription"
+          },
+          "207": {
+            "$ref": "#/responses/WrongDescription"
+          },
+          "208": {
+            "$ref": "#/responses/WrongDialect"
+          },
+          "226": {
+            "$ref": "#/definitions/WithDescription"
+          }
+        }
+      }
+    }
+  }
+}

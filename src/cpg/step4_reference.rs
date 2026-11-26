@@ -34,7 +34,7 @@ impl CodePropertyGraph {
             .iter()
             .map(|edge| {
                 let confidence = dfg
-                    .label(edge.from, edge.to)
+                    .legacy_label(edge.from, edge.to)
                     .unwrap_or(FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete));
                 (
                     crate::data_flow::ExactFlowEdge::from_refs(edge.from, edge.to),
@@ -84,7 +84,7 @@ impl CodePropertyGraph {
                     &graph,
                 ),
             ) {
-                let confidence = dfg.label(edge.from, edge.to).unwrap_or_else(|| {
+                let confidence = dfg.legacy_label(edge.from, edge.to).unwrap_or_else(|| {
                     dfg_rd_functions_without_cfg.insert((
                         edge.from.file.clone(),
                         edge.from.function.clone(),

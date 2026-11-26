@@ -5,6 +5,7 @@ use crate::ast::ParsedFile;
 use crate::cfg::{self, ArmProvenance, CfgEdge, EdgeOrigin};
 use crate::data_flow::{ExactFlowEdge, FlowEdge, VarLocation};
 use crate::languages::Language;
+use def_buckets::{collapsed_groups, deduplicate_definitions};
 #[cfg(test)]
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -25,9 +26,13 @@ mod d3;
 #[allow(dead_code, unused_imports)] // wired by the opt-in trace (lane 10)
 pub(super) mod element_recall;
 mod preflight;
+#[cfg(test)]
+pub(crate) use preflight::with_availability_limits;
 mod read_index;
 mod refusal_classes;
-pub(crate) use preflight::unavailable_before_edges;
+pub(crate) use preflight::{
+    census_def_cap_overflow, pattern_one_node_refusal, unavailable_before_edges,
+};
 mod cfg_edge_index;
 mod compact_wire;
 mod contribution;
@@ -81,6 +86,8 @@ pub(crate) struct DefSite {
     pub(crate) line: Line,
     pub(crate) start_byte: usize,
     pub(crate) alias_derived: bool,
+    /// An S1 pattern binding's incoming value, before signature writes.
+    pub(crate) s1_entry: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -339,10 +346,21 @@ fn reaching_definitions_impl(
         });
     }
 
-    let node_count = lines.len() + 1;
     let entry = 0;
+    // Legacy signature definitions can already occupy the synthetic entry.
+    // Give S1 its own predecessor so later signature facts can overwrite it.
+    let pattern_entry = defs
+        .iter()
+        .any(|def| def.s1_entry)
+        .then_some(lines.len() + 1);
+    let first_node = pattern_entry.unwrap_or(entry);
+    let node_count = lines.len() + 1 + usize::from(pattern_entry.is_some());
     let mut successors = vec![Vec::new(); node_count];
     let mut predecessors = vec![Vec::new(); node_count];
+    if let Some(pattern_entry) = pattern_entry {
+        successors[pattern_entry].push((entry, false));
+        predecessors[entry].push(pattern_entry);
+    }
     // The field-contribution lane never routes through Go's synthetic
     // return -> defer exit dispatch: defer arguments are evaluated eagerly at
     // the defer statement, and dispatch does not re-enter the body.
@@ -380,7 +398,9 @@ fn reaching_definitions_impl(
     let mapped_defs: Vec<Option<usize>> = defs
         .iter()
         .map(|def| {
-            if def.line == function_start && !line_index.contains_key(&def.line) {
+            if def.s1_entry {
+                pattern_entry
+            } else if def.line == function_start && !line_index.contains_key(&def.line) {
                 Some(entry)
             } else {
                 statements
@@ -429,14 +449,20 @@ fn reaching_definitions_impl(
         def_buckets::DefinitionBuckets::with_kill_only(&defs, n_recorded, writers.as_deref());
     let (kill, flat_kill) = buckets.kill_sets(&defs, &gen, &binding_facts);
 
-    let (in_sets, entry_reachable) =
-        solve_reaching_sets(&gen, &kill, &predecessors, &successors, entry, defs.len());
+    let (in_sets, entry_reachable) = solve_reaching_sets(
+        &gen,
+        &kill,
+        &predecessors,
+        &successors,
+        first_node,
+        defs.len(),
+    );
     let (flat_in_sets, _) = solve_reaching_sets(
         &gen,
         &flat_kill,
         &predecessors,
         &successors,
-        entry,
+        first_node,
         defs.len(),
     );
 
@@ -666,21 +692,6 @@ fn solve_reaching_sets(
     }
 
     (in_sets, reachable)
-}
-
-fn deduplicate_definitions(defs: &[DefSite]) -> Vec<DefSite> {
-    let mut unique = Vec::<DefSite>::new();
-    let mut occurrences = BTreeMap::<(AccessPath, Line, usize), usize>::new();
-    for def in defs {
-        let occurrence = (def.path.clone(), def.line, def.start_byte);
-        if let Some(index) = occurrences.get(&occurrence).copied() {
-            unique[index].alias_derived |= def.alias_derived;
-        } else {
-            occurrences.insert(occurrence, unique.len());
-            unique.push(def.clone());
-        }
-    }
-    unique
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -950,17 +961,6 @@ fn lowest_reachable_kill(
             .then_some(*line)
         })
         .min()
-}
-
-fn collapsed_groups(defs: &[DefSite]) -> BTreeSet<(AccessPath, Line)> {
-    let mut counts = BTreeMap::new();
-    for def in defs {
-        *counts.entry((def.path.clone(), def.line)).or_insert(0usize) += 1;
-    }
-    counts
-        .into_iter()
-        .filter_map(|(group, count)| (count >= 2).then_some(group))
-        .collect()
 }
 
 #[derive(Clone, Copy)]

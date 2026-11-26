@@ -662,7 +662,7 @@ pub enum ChangeKind {
 A schema reader produces the applicable operation/status/field variants. The producer diff can add the
 retained-edit variants when both source records exist. A client change is recorded separately as call
 added/removed/retargeted or a one-sided observation with correspondence unknown. Preserve both sides of a mixed
-enum change. Success-key rows include bodyless declarations. Group a unique comparable replacement for body diffing
+enum change. Success-key rows include bodyless declarations. Group a replacement that DESIGN §5.1's pairing rule proves unique for body diffing
 by relative path and suppress child churn caused only by the root move. For ambiguous or overlapping ranges retain
 the separate status rows and mark body comparison unchecked. An op addition/removal owns its field details.
 
@@ -820,6 +820,12 @@ and readable request components. Assert **Not checked** (`origin_unchecked`), ze
 For the P6 report-route locations, the router and client use `/answer/admin/api/report`, while P1 retains
 Swagger's `/answer/admin/api/report/`. Prove equivalence for this route under a stated rule or explain the miss.
 
+Carry-ins from the P1a review (#936): the checked ids spell a path-parameter capture `{}` (or `.{}`) whatever the
+parameter schema admits. A schema may admit the empty string (`enum: [""]`), so P3's matcher admits an empty capture
+from the parameter schema (for example `/reed/x` and `/reed/x.` under `x{}` and `x.{}`) while the ids stay unchanged;
+the non-empty rule of DESIGN 5.1 is the default for a capture with no such schema evidence, and DESIGN's wording of
+that bullet is reconciled in this slice.
+
 CLI:
 `prism-boundary bind --role consumer --api <name> --repo <tree> --config <toml> [--schema <json>] --caller-depth 2 --out <bindings.json>`.
 
@@ -891,6 +897,9 @@ For service changes compare two service snapshots to one client. For client chan
 service. For joint changes check both actual pairs and both rollout orders. Schema files are required only for
 schema claims. Validate a supplied change list against its admitted sources, expand definition IDs, and apply the
 same coverage checks.
+
+A later slice can sign value-level bounds at the owner's request, informed by the P1b census of unsigned value
+keywords on 171 of 2,421 public golden fields and 57 of 600 OpenAPI 3.x fixture fields.
 
 **Comparison and rendering gates**
 

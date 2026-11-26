@@ -183,7 +183,8 @@ fn unsupported_parameters_are_not_introduced_and_do_not_compress_slots() {
             mixed.iter().any(|(name, _, _)| name == "c"),
             "{language:?}: {mixed:?}"
         );
-        assert!(!mixed.iter().any(|(name, _, _)| name == "optional"));
+        let optional = source.find("optional").unwrap();
+        assert!(mixed.contains(&("optional".into(), optional, optional + 8)));
         let default_middle = parameter_defs(&cpg, "default_middle");
         assert!(default_middle.iter().any(|(name, _, _)| name == "a"));
         assert!(default_middle.iter().any(|(name, _, _)| name == "c"));
@@ -195,14 +196,14 @@ fn unsupported_parameters_are_not_introduced_and_do_not_compress_slots() {
             parameter_defs(&cpg, "rests").contains(&("items".into(), items, items + 5)),
             "{language:?}: identifier rest formal must gain its Def"
         );
-        for (function, forbidden) in [("destructured", "field"), ("constructor", "property")] {
-            assert!(
-                parameter_defs(&cpg, function)
-                    .iter()
-                    .all(|(name, _, _)| name != forbidden),
-                "{language:?}: unsupported {function} parameter gained a Def"
-            );
-        }
+        let field = source.find("field").unwrap();
+        assert!(parameter_defs(&cpg, "destructured").contains(&("field".into(), field, field + 5)));
+        assert!(
+            parameter_defs(&cpg, "constructor")
+                .iter()
+                .all(|(name, _, _)| name != "property"),
+            "{language:?}: unsupported constructor parameter gained a Def"
+        );
         let edges = argument_edges(&cpg, "mixed");
         // Literal defaults are now supported, but only their exact binding token.
         let value = source.find("value = 1").unwrap();

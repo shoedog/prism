@@ -39,6 +39,7 @@ pub(super) fn recorded(parsed: &ParsedFile, owner: &Node<'_>) -> (Vec<DefSite>, 
             line: e.from.line,
             start_byte: e.from.start_byte,
             alias_derived: false,
+            s1_entry: false,
         })
         .collect();
     (defs, edges)
@@ -81,6 +82,7 @@ fn def(id: u32, path: &str, line: usize, byte: usize) -> DefSite {
         line,
         start_byte: byte,
         alias_derived: false,
+        s1_entry: false,
     }
 }
 

@@ -1,0 +1,17 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "paths": {
+    "/probe": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": {}
+      }
+    }
+  }
+}
