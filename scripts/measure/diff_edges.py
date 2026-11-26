@@ -61,7 +61,8 @@ def build_certificate(db, store, context, lane, counts, totals, discarded, reaso
         failures.append(f"forbidden stray edge records: {records['stray']}")
     failures.extend(validation)
     rows, occurrences = db.execute("SELECT count(*), coalesce(sum(count),0) FROM changes").fetchone()
-    if (conservation_failed or rows != analysis["attributed"] + analysis["unattributed"]
+    if (conservation_failed or not edges.conserved(db, totals)
+            or rows != analysis["attributed"] + analysis["unattributed"]
             or occurrences != analysis["occurrences"]):
         failures.append("conservation failure in edge partition")
     return dict(schema="prism.measure.certificate/1", key_mode=context.key_mode,
@@ -125,9 +126,10 @@ def compare_edges(base, head, classifier_path, *, entries=None, key=None, line_r
     with claim_output(out), TemporaryDirectory(prefix=".stage-", dir=out) as temporary:
         stage = Path(temporary)
         with closing(edges.make_database(stage / "work.sqlite3")) as db:
-            mode, discarded, totals = edges.ingest(
-                db, (run.artifact("edges", "output") for run in runs), key, line_reason,
-                runs[0].receipt["options"]["bytes"])
+            sources = [(run.artifact("edges", "output"), run.expected("edges", "output"))
+                       for run in runs]
+            mode, discarded, totals = edges.ingest(db, sources, key, line_reason,
+                                                   runs[0].receipt["options"]["bytes"])
             with classifier.load(classifier_path) as lane:
                 store = TraceStore(db)
                 has_edges = store.read(runs, lane.parse_trace)

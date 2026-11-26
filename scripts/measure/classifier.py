@@ -9,7 +9,7 @@ import hashlib
 import inspect
 from pathlib import Path
 import sys
-from types import ModuleType
+from types import MappingProxyType, ModuleType
 
 from .inputs import PinError, bind_tree
 
@@ -100,9 +100,12 @@ class Context:
         self._source_error = None
         self._store = store
         self.key_mode = mode
-        self.stats_deltas = [row for table in tables.values() for row in table["changed"]]
+        # Hooks get read-only views: a classifier cannot consume or rewrite a
+        # delta that a later hook, the validator included, will read.
+        self.stats_deltas = tuple(MappingProxyType(dict(row)) for table in tables.values()
+                                  for row in table["changed"])
         self.counter_deltas, self.call_counter_deltas = (
-            {row["key"]: row["delta"] for row in tables[kind]["changed"]}
+            MappingProxyType({row["key"]: row["delta"] for row in tables[kind]["changed"]})
             for kind in ("dfg", "call")
         )
 

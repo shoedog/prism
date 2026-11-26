@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, localcontext
+from decimal import Decimal, InvalidOperation, localcontext
+import hashlib
 import json
 from pathlib import Path
 import re
 import sys
 
 from . import receipt
-from .inputs import unique_object
+from .inputs import ArtifactDrift, unique_object
 
-TABLES = {"dfg": "dfg-stats.json", "call": "call-stats.json"}
+TABLES = {"dfg": "dfg-stats", "call": "call-stats"}
 MAX_DIGITS = 1000
 MAX_EXPONENT = 1000
 # Unicode White_Space, plus Cc (C0 and C1). This does not depend on Python's
@@ -31,6 +32,20 @@ class Run:
     def artifact(self, role, field):
         name = next(command[field] for command in self.receipt["commands"] if command["id"] == role)
         return self.directory / name
+
+    def expected(self, role, field):
+        """The receipt's {sha256, bytes} record for one command artifact."""
+        name = next(command[field] for command in self.receipt["commands"] if command["id"] == role)
+        return self.receipt["artifacts"][name]
+
+    def read(self, role, field):
+        """Read an artifact once and verify the very bytes returned."""
+        path = self.artifact(role, field)
+        data = path.read_bytes()
+        record = self.expected(role, field)
+        if hashlib.sha256(data).hexdigest() != record["sha256"] or len(data) != record["bytes"]:
+            raise ArtifactDrift(f"run binding: {path.name} differs from the receipt")
+        return data
 
 
 def admit_pair(base, head, entries):
@@ -53,15 +68,19 @@ def admit_pair(base, head, entries):
 def numeric(text):
     if len(text) > MAX_DIGITS:
         raise ValueError(f"counter number exceeds {MAX_DIGITS} characters")
-    value = Decimal(text)
+    try:
+        value = Decimal(text)
+    except InvalidOperation:
+        raise ValueError("counter number is not a representable decimal") from None
     if not value.is_finite() or abs(value.as_tuple().exponent) > MAX_EXPONENT:
         raise ValueError(f"counter number is non-finite or its quantum exceeds {MAX_EXPONENT}")
     return value if "." in text or "e" in text.lower() else int(text)
 
 
-def leaves(path):
+def leaves(run, role):
+    name = run.artifact(role, "output").name
     try:
-        obj = json.loads(path.read_bytes().decode("utf-8"), object_pairs_hook=unique_object,
+        obj = json.loads(run.read(role, "output").decode("utf-8"), object_pairs_hook=unique_object,
                          parse_int=numeric, parse_float=numeric, parse_constant=numeric)
         if not isinstance(obj, dict):
             raise ValueError("expected a JSON object")
@@ -76,8 +95,10 @@ def leaves(path):
                     yield key, value
 
         return dict(walk(obj, ()))
+    except ArtifactDrift:
+        raise
     except (OSError, ValueError, RecursionError) as error:
-        raise ValueError(f"counter input: {path.name}: {error}") from error
+        raise ValueError(f"counter input: {name}: {error}") from error
 
 
 def encode_component(part):
@@ -157,10 +178,10 @@ def delta(base, head):
 
 def counter_tables(runs, which="both", allowed=None):
     results = {}
-    for kind, file in TABLES.items():
+    for kind, role in TABLES.items():
         if which not in ("both", kind):
             continue
-        base, head = (leaves(run.directory / file) for run in runs)
+        base, head = (leaves(run, role) for run in runs)
         changed = []
         forbidden = []
         # The canonical codec has a round-trip inverse, so its tuple names are injective.

@@ -357,7 +357,7 @@ The reviews of `a0856951d` supplied ten WRONG findings, four material SMELLs and
 | Sol W3 · WRONG | §7 requires correspondence of the annotated operation across both trees or a tree-bound removal proof. Exclude a survivor, insertion or owner replacement that supplies only the same callee. | bn-003 through bn-005, bn-008, bn-027, bn-031, bn-038, terra-bench-006, astra-bn-003 |
 | Sol W4 · WRONG | §6 publishes control scope for a pass that consumed an empty waiver. Gate aggregation counts only identified product steps. | gate-013 through gate-016, gate-020, gate-025, terra-cmp-003 |
 | Sol W5 · WRONG | §2 compares the registered digest of every file/link record before either arm. The perf manifest remains an additional regular-file check. | run-010, run-014, run-020, sol-run-002, terra4-run-001 |
-| Sol W6 · WRONG (round-two Opus S2 / Sol W09) | §3 specifies `inventory-terminal-missing` per required arm. The exact producer and rollout amendment remains in FORMATS. Lane 10 owns its adoption. | cmp-056, cmp-060 |
+| Sol W6 · WRONG (round-two Opus S2 / Sol W09) | §3 specifies `inventory-terminal-missing` per required arm. The exact producer and rollout amendment remains in FORMATS, superseded by the 2026-11-25 erratum; optional for an adopter of the inventory profile. | cmp-056, cmp-060 |
 | Sol W7 · WRONG | A first valid acquisition publishes the computed pin after SRI, extraction and tree verification. Reacquisition checks the stored entry and preserves it on drift. | bn-039, bn-030, sol-bench-009, sol2-bn-008 |
 | Sol W8 · WRONG | §7 resolves each emission first. Exact operation spans survive peer payload differences. A proved match supplies the vulnerable control or fixed finding even beside unresolved peers. | bf-008, bf-009, bf-011, bf-019 through bf-021, bn-033 |
 | Opus S1 · SMELL MATERIAL | §4 admits the callable node's first non-decorator token for a formal def's header line, including a leading `static`. | oracle-056, oracle-058, oracle-063 |
@@ -369,11 +369,11 @@ The reviews of `a0856951d` supplied ten WRONG findings, four material SMELLs and
 
 Sol's table also qualifies `terra4-oracle-002`. With empty fields and the exact bare member token, a different unique property declaration disproves the local claim (WRONG). A structured member path gives UNDECIDED `structured-path` before token reduction. `oracle-052` and `astra-oracle-007` cover the structured case.
 
-**Open lane 10 obligation.** Its S0 plan still needs the [exact S0 producer and rollout text](FORMATS.md#amendment-text-for-lane-10s-plan). Until its producer supplies the independent final counts, even a complete-looking S0 arm fails inventory admission with `inventory-terminal-missing`. Report edge/counter parity separately for S0 against baseline. S1/S0 and S2/S1 each need both terminals before claiming any inventory-dependent zero.
+**Lane 10 amendment (superseded by the 2026-11-25 erratum; optional for an adopter of the inventory profile).** An adopter of the inventory profile needs the [exact S0 producer and rollout text](FORMATS.md#amendment-text-for-lane-10s-plan). Until its producer supplies the independent final counts, even a complete-looking S0 arm fails inventory admission with `inventory-terminal-missing`. Report edge/counter parity separately for S0 against baseline. S1/S0 and S2/S1 each need both terminals before claiming any inventory-dependent zero.
 
 ### Review round 4 dispositions
 
-At `967dd7123` Opus approved with zero WRONG findings. Sol returned FIX with eight. This is the owner-authorised final design fold. Each row names the successor fixture or existing control. The lane 10 producer remains open. [Round-four fixture specifications](FORMATS-LEDGER.md#round-four-fixtures)
+At `967dd7123` Opus approved with zero WRONG findings. Sol returned FIX with eight. This is the owner-authorised final design fold. Each row names the successor fixture or existing control. The lane 10 producer amendment is superseded by the 2026-11-25 erratum; optional for an adopter of the inventory profile. [Round-four fixture specifications](FORMATS-LEDGER.md#round-four-fixtures)
 
 | Finding | Disposition | Fixture and matrix controls |
 |---|---|---|
@@ -382,13 +382,13 @@ At `967dd7123` Opus approved with zero WRONG findings. Sol returned FIX with eig
 | Sol W3 · WRONG | Folded. The reviewed question closure includes declared, digest-bound data. Ambient reads invalidate self-check and grading evidence. | oracle-065, oracle-018, oracle-020, oracle-055 |
 | Sol W4 · WRONG | Folded. At each retained site a reason substitution survives target cancellation and appears once in the call delta. | oracle-066, oracle-024 through oracle-030, oracle-051 |
 | Sol W5 · WRONG | Folded. Both node path columns carry structured components. The validator compares their decoded values and multiplicities at isolated spans. | cmp-061, cmp-056, cmp-057, cmp-060, join-011 |
-| Sol W6 · WRONG | OPEN in lane 10. The orchestrator has requested the S0 amendment. Lane 11 retains its text and rejects any required arm lacking the terminal. | cmp-060, cmp-056 |
+| Sol W6 · WRONG | The lane 10 S0 amendment is superseded by the 2026-11-25 erratum; optional for an adopter of the inventory profile. Lane 11 retains its text and rejects any required arm lacking the terminal. | cmp-060, cmp-056 |
 | Sol W7 · WRONG | Folded. Materialise six individually tree-bound synthetic reach witnesses. Keep the six original summary-only observations as failed-positive controls. | bn-001, bn-002, bn-005, bn-006, bn-007, bn-008, bn-024 |
 | Sol W8 · WRONG | Folded. Reuse one detached scratch clone per ordinal. Verify its complete worktree before and after each arm against the pinned tree. | review-019, review-010, review-011, review-013, review-017, review-018 |
 | Opus S1 · SMELL | Folded in the S3 companion contract. The fixture builder writes a known bundle path which the self-check and oracle receipts bind. | oracle-058, oracle-061 |
 | Opus S2 · SMELL | Folded. A product consumer must check gate scope and its required step IDs. The retrospective exit for gate-005 is unchanged. | gate-005, gate-013, gate-025, gate-026 |
 | Opus S4 · SMELL | Folded. S6a derives and registers the sink-rule table against the replay build and benchmark revision. | bf-008, bf-009, bf-019, bf-020, bf-021 |
-| Opus S5 · SMELL | Tracked with Sol W6. Lane 10 owns the producer and rollout evidence. | cmp-060 |
+| Opus S5 · SMELL | Tracked with Sol W6: the producer and rollout evidence are superseded by the 2026-11-25 erratum; optional for an adopter of the inventory profile. | cmp-060 |
 | Opus S3 · SMELL | Outside this fold. The S6b prediction still depends on the verified subset meeting its registered minimum. | — |
 | Opus S6 · SMELL | Outside this fold. The bn-012 adjudication uses its existing spans. | bn-012 |
 | Opus S7 · SMELL | Outside this fold. The out-of-scope counter applies to the edge census. | oracle-064 |

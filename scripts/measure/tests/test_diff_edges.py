@@ -258,6 +258,7 @@ def validate(bound):
             (zero, "inventory-mode", "1"),
             (b"subscript-inventory-end\tall\tzero\t0\n", "inventory-record", "all"),
             (prefix + b"o.x\t-\n" + one, "inventory-record", "all"),
+            (prefix + b"o.x\t-\n", "inventory-terminal-missing", "all"),
         ):
             write("head", trace, mode)
             self.compare(expected=1, diagnostic=reason)

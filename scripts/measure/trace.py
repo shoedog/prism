@@ -9,10 +9,12 @@ from itertools import groupby, islice
 import json
 import math
 from operator import index as integer_index
+import sqlite3
 
 from .classifier import describe, line_text
 from .edges import BOUNDS, FIELDS, SIDES, canonical, integer, valid_bounds
-from .inputs import transport_lines
+from .inputs import ArtifactDrift, transport_lines
+from .run import OutputError
 
 STATUSES = ("attached", "stray", "ambiguous", "unmatched")
 ARM = ("base", "head")
@@ -118,12 +120,20 @@ class TraceStore:
             CREATE TABLE legacy (tag TEXT, key BLOB, PRIMARY KEY(tag, key)) WITHOUT ROWID;
         """)
 
+    def store(self, sql, params):
+        """Write one row. A storage failure is not a defect of the trace input."""
+        try:
+            return self.db.execute(sql, params)
+        except sqlite3.Error as error:
+            raise OutputError(f"output or storage: {describe(error)}") from error
+
     def read(self, runs, parser):
         has_edges = False
         for arm, run in enumerate(runs):
             number = 0
             try:
-                for number, raw in enumerate(transport_lines(run.artifact("edges", "stderr")), 1):
+                for number, raw in enumerate(transport_lines(run.artifact("edges", "stderr"),
+                                                              run.expected("edges", "stderr")), 1):
                     line = raw.decode("utf-8")
                     if number == 1 and line.startswith("\ufeff"):
                         raise ValueError("UTF-8 BOM is not admitted")
@@ -134,18 +144,20 @@ class TraceStore:
                     kind, payload = record["kind"], canonical(record)
                     is_edge = kind == "edge"
                     has_edges |= is_edge
-                    cursor = self.db.execute(
+                    cursor = self.store(
                         "INSERT INTO records (arm, line, tag, payload, status) VALUES (?, ?, ?, ?, ?)",
                         (arm, number, record["tag"], payload, None if is_edge else "unjoined"))
                     if kind == "node":
                         key = record["key"]
-                        self.db.execute("INSERT INTO nodes VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                        (arm, canonical(key["file"]), canonical(key["start_byte"]),
-                                         canonical(key["end_byte"]), key["access"],
-                                         canonical(key.get("owner")), cursor.lastrowid))
+                        self.store("INSERT INTO nodes VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                   (arm, canonical(key["file"]), canonical(key["start_byte"]),
+                                    canonical(key["end_byte"]), key["access"],
+                                    canonical(key.get("owner")), cursor.lastrowid))
                     if arm == 1 and "legacy_key" in record:
-                        self.db.execute("INSERT OR IGNORE INTO legacy VALUES (?, ?)",
-                                        (record["mechanism"], canonical(record["legacy_key"])))
+                        self.store("INSERT OR IGNORE INTO legacy VALUES (?, ?)",
+                                   (record["mechanism"], canonical(record["legacy_key"])))
+            except (ArtifactDrift, OutputError):
+                raise
             except (Exception, SystemExit) as error:
                 raise ValueError(f"trace input: {ARM[arm]} line {number or 1}: {describe(error)}") from error
         return has_edges
@@ -297,7 +309,7 @@ def parse_subscript(line, arm):
 def inventory_failures(bound, required_arms):
     """Validate completion only on the arms selected by the caller's policy."""
     observations = {arm: {"terminals": 0, "terminal": None, "early": False,
-                          "malformed": None, "def": 0, "use": 0} for arm in required_arms}
+                          "malformed": None, "bad_terminal": False, "def": 0, "use": 0} for arm in required_arms}
     for record, join in zip(bound.records, bound.joins):
         arm, kind = record["arm"], record["kind"]
         if arm not in observations:
@@ -305,6 +317,7 @@ def inventory_failures(bound, required_arms):
         item = observations[arm]
         if kind == "inventory-error":
             item["malformed"] = f"line {join['line']}: {record['error']}"
+            item["bad_terminal"] |= record["tag"] == "subscript-inventory-end"
         elif kind == "node" and record["tag"] == "subscript-site":
             item[record["key"]["access"]] += 1
             item["early"] |= item["terminal"] is not None
@@ -317,7 +330,7 @@ def inventory_failures(bound, required_arms):
         rec = bound.base_receipt if arm == "base" else bound.head_receipt
         mode = rec["options"]["trace_env"].get("PRISM_SUBSCRIPT_TRACE")
         parsed = (item["def"], item["use"])
-        if item["terminal"] is None and item["malformed"] is None:
+        if item["terminal"] is None and not item["bad_terminal"]:
             reason = "inventory-terminal-missing"
         elif item["malformed"] is not None:
             reason = f"inventory-record: {item['malformed']}"

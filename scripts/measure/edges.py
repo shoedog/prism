@@ -7,7 +7,7 @@ from itertools import groupby
 import json
 import sqlite3
 
-from .inputs import jsonl_objects
+from .inputs import ArtifactDrift, NumberToken, jsonl_objects
 
 SIDES = ("from", "to")
 BOUNDS = ("start_byte", "end_byte")
@@ -114,20 +114,23 @@ def make_database(path):
         CREATE TABLE unchanged (key BLOB PRIMARY KEY, bag BLOB) WITHOUT ROWID;
         CREATE TABLE changes (id INTEGER PRIMARY KEY, key BLOB, kind TEXT,
                               base BLOB, head BLOB, count INTEGER, final BLOB);
+        CREATE INDEX changes_key ON changes(key);
         CREATE TABLE assignments (key BLOB, arm INTEGER, change_id INTEGER,
                                   PRIMARY KEY(key, arm)) WITHOUT ROWID;
     """)
     return database
 
 
-def ingest(database, paths, requested, reason, receipt_bytes):
+def ingest(database, sources, requested, reason, receipt_bytes):
     minimum, maximum = 4, 0
     total = [0, 0]
     line_mode = requested == "line"
 
-    def rows(arm, path):
+    def rows(arm, source):
         nonlocal minimum, maximum
-        for number, wire in enumerate(jsonl_objects(path), 1):
+        path, expect = source
+        # Members the projection ignores may hold any finite JSON number.
+        for number, wire in enumerate(jsonl_objects(path, expect, NumberToken), 1):
             try:
                 key, attr, bounds = decode_edge(wire, line_mode=line_mode)
             except (KeyError, ValueError, TypeError) as error:
@@ -140,12 +143,14 @@ def ingest(database, paths, requested, reason, receipt_bytes):
             total[arm] += 1
             yield key, arm, attr, canonical(bounds) if line_mode and (left or right) else b""
 
-    for arm, path in enumerate(paths):
+    for arm, source in enumerate(sources):
         try:
             database.executemany("""
                 INSERT INTO edges VALUES (?, ?, ?, ?, 1)
                 ON CONFLICT (key, arm, attr, bounds) DO UPDATE SET n = n + 1
-            """, rows(arm, path))
+            """, rows(arm, source))
+        except ArtifactDrift:
+            raise
         except (ValueError, RecursionError) as error:
             raise ValueError(f"edge input: {'base' if arm == 0 else 'head'}: {error}") from error
 
@@ -184,17 +189,57 @@ def partition(database, mode, *, track_assignments):
         counts["changed_keys"] += 1
         counts["moved"] += bool(b and h)
         common, changes = residual_rows(base, head)
+        # Wire order: kind, then both serialised bags, then one-based IDs.
+        changes = sorted(((kind, left, right, bag_bytes(left), bag_bytes(right))
+                          for kind, left, right in changes),
+                         key=lambda row: (KINDS.index(row[0]), row[3], row[4]))
         if common:
             database.execute("INSERT INTO unchanged VALUES (?, ?)", (key, bag_bytes(common)))
         rebuilt = [common.copy(), common.copy()]
-        for kind, left, right in changes:
+        for kind, left, right, left_bytes, right_bytes in changes:
             ident += 1
             count = max(sum(left.values()), sum(right.values()))
             database.execute("INSERT INTO changes VALUES (?, ?, ?, ?, ?, ?, NULL)",
-                             (ident, key, kind, bag_bytes(left), bag_bytes(right), count))
+                             (ident, key, kind, left_bytes, right_bytes, count))
             for index, (population, bag) in enumerate(zip((b, h), (left, right))):
                 rebuilt[index].update(bag)
                 if track_assignments and population == 1 and bag:
                     database.execute("INSERT INTO assignments VALUES (?, ?, ?)", (key, index, ident))
         conservation_failed |= rebuilt != arms
     return counts, conservation_failed
+
+
+def conserved(database, totals):
+    """Rebuild every key from the stored unchanged and final rows.
+
+    Compares each arm's stored multiplicity with the decoded total, then each
+    key's stored occurrences with unchanged plus the published bags per arm.
+    """
+    for arm in (0, 1):
+        stored = database.execute("SELECT coalesce(sum(n), 0) FROM edges WHERE arm=?", (arm,)).fetchone()[0]
+        if stored != totals[arm]:
+            return False
+    if database.execute("""
+            SELECT count(*) FROM (SELECT key FROM unchanged UNION SELECT key FROM changes)
+            WHERE key NOT IN (SELECT key FROM edges)""").fetchone()[0]:
+        return False
+    source = database.execute("""
+        SELECT key, arm, attr, sum(n) FROM edges GROUP BY key, arm, attr ORDER BY key, arm, attr
+    """)
+    for key, rows in groupby(source, key=lambda row: row[0]):
+        decoded = [Counter(), Counter()]
+        for _, arm, attr, count in rows:
+            decoded[arm][attr] = count
+        rebuilt = [Counter(), Counter()]
+        row = database.execute("SELECT bag FROM unchanged WHERE key=?", (key,)).fetchone()
+        if row is not None:
+            for member in json.loads(row[0]):
+                rebuilt[0][canonical(member)] += 1
+                rebuilt[1][canonical(member)] += 1
+        for (final,) in database.execute("SELECT final FROM changes WHERE key=? ORDER BY id", (key,)):
+            change = json.loads(final)
+            for index, bag in enumerate(("base_bag", "head_bag")):
+                rebuilt[index].update(canonical(member) for member in change[bag])
+        if rebuilt != decoded:
+            return False
+    return True
