@@ -157,11 +157,13 @@ fn label_dot(
     }
     // Labels require both lists to be readable, including shadowed entries, and
     // a parameter in the operation's document. Withhold if that document has a
-    // resolution keyword, the schema contains a reference, or its type is absent,
-    // malformed, or has anything other than one recognized non-null type name.
+    // resolution or dialect keyword, the schema contains a reference, or its type
+    // is absent, malformed, or has anything other than one recognized non-null type name.
     if !both_lists_complete
         || !std::ptr::eq(parameter.document, operation.document)
-        || parameter.document.has_schema_resolution_keywords()
+        || parameter
+            .document
+            .has_schema_resolution_or_dialect_keywords()
     {
         return None;
     }

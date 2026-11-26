@@ -9,6 +9,7 @@ const CAPTURE_PATH: &str = "/reed/{id}";
 const LABEL_ID: &str = "op:GET /reed/.{}";
 const PLAIN_ID: &str = "op:GET /reed/{}";
 const ENTRY_URI: &str = "https://example.test/openapi.json";
+const CUSTOM_DIALECT: &str = "https://example.test/dialect-without-validation";
 
 fn label(schema: Value) -> Value {
     json!({"in": "path", "name": "id", "required": true, "style": "label", "schema": schema})
@@ -196,8 +197,35 @@ fn label_type_admits_one_recognized_non_null_member() {
 }
 
 #[test]
-fn resolution_keywords_anywhere_disqualify_inline_labels_only() {
-    for keyword in ["$id", "$anchor", "$dynamicRef"] {
+fn label_dialect_document_default_is_withheld() {
+    let mut input = document(json!([label(
+        json!({"type": "string", "not": {"items": false}})
+    )]));
+    input["jsonSchemaDialect"] = json!(CUSTOM_DIALECT);
+    projection(&input, None);
+}
+
+#[test]
+fn label_dialect_schema_override_is_withheld() {
+    let input = document(json!([label(
+        json!({"type": "string", "$schema": CUSTOM_DIALECT})
+    )]));
+    projection(&input, None);
+}
+
+#[test]
+fn label_dialect_implicit_default_stays_checked() {
+    let mut input = document(json!([label(
+        json!({"type": "string", "not": {"items": false}})
+    )]));
+    projection(&input, Some(LABEL_ID));
+    input["x-metadata"] = json!({"jsonSchemaDialect": CUSTOM_DIALECT});
+    projection(&input, Some(LABEL_ID));
+}
+
+#[test]
+fn schema_keywords_anywhere_disqualify_inline_labels_only() {
+    for keyword in ["$id", "$anchor", "$dynamicRef", "$schema"] {
         let mut input = document(json!([label(json!({"type": "string"}))]));
         input["components"]["schemas"]["Other"] = json!({(keyword): "foreign"});
         projection(&input, None);

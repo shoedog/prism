@@ -7,7 +7,7 @@ pub(in crate::schema) struct Document<'a> {
     pub value: Value,
     pub base: Option<Uri>,
     pub(super) blob: Blob<'a>,
-    schema_resolution_keywords: OnceCell<bool>,
+    schema_resolution_or_dialect_keywords: OnceCell<bool>,
 }
 
 impl<'a> Document<'a> {
@@ -16,7 +16,7 @@ impl<'a> Document<'a> {
             blob,
             value,
             base,
-            schema_resolution_keywords: OnceCell::new(),
+            schema_resolution_or_dialect_keywords: OnceCell::new(),
         }
     }
 
@@ -24,10 +24,11 @@ impl<'a> Document<'a> {
         Site::from_blob(self.blob, pointer)
     }
 
-    pub fn has_schema_resolution_keywords(&self) -> bool {
-        *self
-            .schema_resolution_keywords
-            .get_or_init(|| contains_member(&self.value, &["$id", "$anchor", "$dynamicRef"]))
+    pub fn has_schema_resolution_or_dialect_keywords(&self) -> bool {
+        *self.schema_resolution_or_dialect_keywords.get_or_init(|| {
+            self.value.get("jsonSchemaDialect").is_some()
+                || contains_member(&self.value, &["$id", "$anchor", "$dynamicRef", "$schema"])
+        })
     }
 }
 

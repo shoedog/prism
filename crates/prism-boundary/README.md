@@ -35,7 +35,9 @@ that produces zero deployments.
 - An OpenAPI label capture requires an inline parameter and a reference-free
   inline schema with one known non-null type. Ambiguous parameter lists and
   schema resolution keywords can withhold the operation ID.
-  Compared with `1d91916c`, **0 of 1,165 operations withheld** across reachable
+  A top-level `jsonSchemaDialect` or any `$schema` in the document withholds
+  the operation ID for label captures.
+  Compared with `364f31ab`, **0 of 1,165 operations withheld** across reachable
   pinned JSON schema fixtures, including 0 of 187 in the 164 E-1 JSON rows and
   their second-schema companion. The public schema golden was unavailable in
   the fixture and evaluation directories.

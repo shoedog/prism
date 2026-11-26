@@ -166,7 +166,9 @@ incomplete method coverage.
   `(name, in)`, with operation declarations overriding Path Item declarations. Both parameter lists must be
   readable, including shadowed entries, and any list references must resolve within admitted blobs. The effective
   parameter and its schema must be inline in the operation's document. The schema must contain no `$ref` and the
-  document must contain no `$id`, `$anchor`, or `$dynamicRef`. Accept a single recognized non-null type name, or
+  document must contain no `$id`, `$anchor`, or `$dynamicRef`. A top-level `jsonSchemaDialect` or any `$schema` in the
+  document also disqualifies the label because a different dialect can change whether `type` constrains values.
+  Accept a single recognized non-null type name, or
   in OpenAPI 3.1 an array with one such name and optional `"null"`. Scalars add the literal dot. Arrays and objects
   retain `{}`. Inline default, `simple`, and `matrix` styles need no type to retain `{}`. Where a label remains
   possible and the reader cannot establish its spelling, withhold the operation ID and name the capture in
