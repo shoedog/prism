@@ -174,7 +174,9 @@ jobs:
           python3 -m unittest discover -s scripts/perf/cloud -p 'test_*.py'
 
       - name: Measurement kit tests (Python)
-        run: python3 -m unittest discover -s scripts/measure -t scripts -p 'test_*.py'
+        run: |
+          python3 -m unittest discover -s scripts/measure -t scripts -p 'test_*.py'
+          python3 -m unittest discover -s scripts/memguard -p 'test_*.py'
 
       - name: Mutgate quiet wait tests (Python)
         run: python3 -m unittest discover -s scripts/mutgate -p 'test_quiet_wait.py'

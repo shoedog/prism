@@ -2,6 +2,7 @@
 
 > **PROVISIONAL (owner decision, 2026-11-25).** These formats are not a design of record. Six review rounds and four enumeration passes found open-class defects in them that were not folded; the findings are test rows in [FORMATS-OPEN-ROWS.md](FORMATS-OPEN-ROWS.md), each with an owning slice. Each slice freezes the formats it implements, with executable tests, when it lands, and must close or explicitly re-scope every open row it owns. No other lane may depend on a provisional format: lanes 9 and 10 use their own tools until the slice that implements the format they need has landed.
 
+> **Frozen by S1.** §1 `corpora list`, `corpora verify` and `run`, §2 corpus binding, guard status and run receipts, and the §6 decision custody fields written by `run`. See the [S1 row dispositions](FORMATS-OPEN-ROWS.md) for the executable contracts and deferred decisions.
 
 Stage D, lane 11. Option B grades the occurrence and property identified by bound evidence. The owner authorised one final targeted fold at `967dd7123`. See the [round-four dispositions](FORMATS-DECISIONS.md#review-round-4-dispositions) and [fixture specifications](FORMATS-LEDGER.md#round-four-fixtures). Adoption requires a measured differential.
 
