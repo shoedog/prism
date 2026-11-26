@@ -65,6 +65,16 @@ impl<'a, 'site> Sources<'a, 'site> {
             owner,
             path,
         };
+        if matches!(root.kind(), "this" | "super")
+            && operand
+                .binding
+                .is_some_and(syntax::is_class_receiver_region)
+        {
+            return Err(SourceRefusal::Unconnected);
+        }
+        if self.destructuring_store_can_precede(operand) {
+            return Err(SourceRefusal::Ambiguous);
+        }
         let lines = operand_lines(value);
         let full = self.tier(operand, path, lines.iter().copied());
         #[cfg(test)]
@@ -151,11 +161,7 @@ impl<'a, 'site> Sources<'a, 'site> {
     fn binding(&mut self, at: Node<'a>, name: &str) -> Option<Node<'a>> {
         let parsed = self.site.caller;
         if matches!(at.kind(), "this" | "super") {
-            let mut owner = syntax::execution_owner(parsed, at)?;
-            while owner.kind() == "arrow_function" {
-                owner = syntax::execution_owner(parsed, owner)?;
-            }
-            return Some(owner);
+            return syntax::receiver_owner(parsed, at);
         }
         if at.parent().is_some_and(|parent| {
             parent.kind() == "arrow_function" && parent.child_by_field_name("parameter") == Some(at)
@@ -319,6 +325,50 @@ impl<'a, 'site> Sources<'a, 'site> {
             Ok(())
         } else {
             Err(SourceRefusal::Unconnected)
+        }
+    }
+
+    fn destructuring_store_can_precede(&mut self, operand: Operand<'a, '_>) -> bool {
+        let mut current = operand.root;
+        while let Some(parent) = current.parent().filter(|parent| *parent != operand.owner) {
+            if parent.kind() == "assignment_expression"
+                && matches!(current.kind(), "array_pattern" | "object_pattern")
+                && parent.child_by_field_name("left") == Some(current)
+                && self.pattern_store_can_precede(operand, current)
+            {
+                return true;
+            }
+            current = parent;
+        }
+        false
+    }
+
+    fn pattern_store_can_precede(&mut self, operand: Operand<'a, '_>, target: Node<'a>) -> bool {
+        match target.kind() {
+            "array_pattern" | "object_pattern" | "rest_pattern" => target
+                .named_children(&mut target.walk())
+                .filter(|child| !child.is_extra())
+                .any(|child| self.pattern_store_can_precede(operand, child)),
+            "pair_pattern" => target
+                .child_by_field_name("value")
+                .is_some_and(|value| self.pattern_store_can_precede(operand, value)),
+            "assignment_pattern" | "object_assignment_pattern" => {
+                // Every store in this subpattern follows evaluation of its own default.
+                let in_default = target.child_by_field_name("right").is_some_and(|default| {
+                    default.start_byte() <= operand.root.start_byte()
+                        && operand.root.end_byte() <= default.end_byte()
+                });
+                !in_default
+                    && target
+                        .child_by_field_name("left")
+                        .is_some_and(|left| self.pattern_store_can_precede(operand, left))
+            }
+            // Sibling targets are visited in source order. A member target
+            // resolves its receiver and computed key before storing.
+            _ => {
+                target.end_byte() <= operand.root.start_byte()
+                    && self.overlaps_write(operand, target)
+            }
         }
     }
 

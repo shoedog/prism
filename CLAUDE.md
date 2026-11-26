@@ -754,7 +754,13 @@ and unknown writers mask preceding keys, duplicates replace subtrees, emitted
 children replace the explicit prop, and top-level `key`/`ref` are skipped.
 `dfg_props` counts JSX sites, admission, writer, source and read refusals
 (including bracket and zero-width bare reads), and pending edges by destination
-class. The post-assembly guard and trace boundaries still apply.
+class. Proved reads that capture the formal inside a callable nested in the callee
+can receive `cfg_incomplete` edges. A receiver inherited from a class field
+initializer or static block counts `refused_source_unconnected`. An overlapping
+destructuring store that can precede a left-side operand counts
+`refused_source_ambiguous`. The post-assembly guard still applies. A line anchor
+or earlier source representative outside the JSX opening leaves the graph edge
+present and stops trace descent at a boundary.
 
 ### MCP Adapter
 

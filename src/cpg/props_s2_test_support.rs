@@ -148,6 +148,8 @@ const PROP_COUNTER_KEYS: &[&str] = &[
     "refused_member_qualifier",
     "refused_member_not_export",
     "refused_target_identity",
+    "refused_jsx_caller_owner",
+    "refused_jsx_site_syntax",
     "refused_unknown_wrapper",
     "refused_pre_initializer_unproved",
     "refused_bare_formal_skipped",

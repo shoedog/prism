@@ -249,3 +249,199 @@ fn props_s3_live_lookup_pinned_multiline_replays() {
     }
     assert!(errors.is_empty(), "{}", errors.join("\n"));
 }
+
+fn fold_row(source: &str, ext: &str, path: &str, refusal: Option<&str>) -> Result<(), String> {
+    let file_name = format!("m.{ext}");
+    let files =
+        super::props_generated_tests::parse(&BTreeMap::from([(file_name.clone(), source.into())]));
+    let file = &files[&file_name];
+    assert_eq!(file.parse_error_count, 0, "{source}");
+    let start = source.find("<D").unwrap();
+    let end = start + source[start..].find("/>").unwrap() + 2;
+    let (graph, observed) = capture(&files, || CodePropertyGraph::build(&files));
+    let pre = observed.pre_binding.as_ref().unwrap();
+    let site = observed
+        .literal_attempts
+        .iter()
+        .find(|attempt| attempt.bytes == (start, end) && attempt.exact && attempt.refusal.is_none())
+        .ok_or_else(|| format!("UNMET: no admission attempt at {start}..{end}"))?;
+    let dest = matching(
+        pre,
+        &Endpoint {
+            file: file_name.clone(),
+            owner: "D".into(),
+            owner_line: 1,
+            line: 1,
+            name: "a".into(),
+            access: Access::Def,
+            bytes: [13, 14],
+        },
+    )
+    .expect("concrete destination Def");
+    let line = source[..start].bytes().filter(|&ch| ch == b'\n').count() + 1;
+    let want = Endpoint {
+        file: file_name,
+        owner: site.caller.name.clone(),
+        owner_line: site.caller.start_line,
+        line,
+        name: path.into(),
+        access: Access::Use,
+        bytes: [0, 0],
+    };
+    let use_id = indexed(pre, &pre.live_lookup, &want, line)
+        .ok_or_else(|| format!("UNMET: missing masked lookup for {want:?}"))?;
+    let use_site = endpoint(&pre.graph[use_id]).unwrap();
+    let [use_start, use_end] = use_site.bytes;
+    if use_end > start
+        || &source[use_start..use_end] != path
+        || !source[..use_start].ends_with("observe(")
+    {
+        return Err(format!(
+            "UNMET: lookup did not select the earlier read {use_site:?}"
+        ));
+    }
+    let connected = pre
+        .graph
+        .edges_directed(use_id, petgraph::Incoming)
+        .any(|edge| {
+            use petgraph::visit::EdgeRef;
+            edge.weight().is_data_flow()
+                && endpoint(&pre.graph[edge.source()]).is_some_and(|def| {
+                    def.access == Access::Def && def.owner == want.owner && def.name == path
+                })
+        });
+    if !connected {
+        return Err(format!("UNMET: disconnected masked lookup {use_site:?}"));
+    }
+    let pending = super::jsx_props_replay::replay(
+        file,
+        start..end,
+        &graph,
+        &pre.graph,
+        &pre.live_lookup,
+        dest,
+        false,
+    );
+    let live: Vec<_> = graph
+        .graph
+        .edges_connecting(use_id, dest)
+        .filter(|edge| edge.weight().is_data_flow())
+        .map(|edge| edge.weight().clone())
+        .collect();
+    let stats = &graph.dfg_label_stats.dfg_props;
+    let observed = |key: &str| stats.get(key).copied().unwrap_or(0);
+    let expected_edge = CpgEdge::DataFlow(FlowConfidence::Exact);
+    let expected = match refusal {
+        Some(key) => pending.is_empty() && live.is_empty() && observed(key) == 1,
+        None => {
+            pending == [(use_id, dest, expected_edge.clone())]
+                && live == [expected_edge]
+                && observed("refused_source_ambiguous") == 0
+                && observed("refused_source_unconnected") == 0
+        }
+    };
+    if expected {
+        Ok(())
+    } else {
+        Err(format!(
+            "masked Use {use_site:?}, pending={pending:?}, live={live:?}, stats={stats:?}"
+        ))
+    }
+}
+
+#[test]
+fn props_s3_fold_class_receivers() {
+    let forms = [
+        ("instance", "slot = JSX;"),
+        ("static", "static slot = JSX;"),
+        ("block", "static { observe(JSX); }"),
+    ];
+    let mut errors = Vec::new();
+    for ext in ["jsx", "tsx"] {
+        for receiver in ["this", "super"] {
+            let path = format!("{receiver}.v");
+            let jsx = format!("<D a={{{path}}} />");
+            let make = |body: &str| {
+                format!("function D({{ a }}) {{ return use(a); }}\nclass Outer extends Base {{\n run(secret) {{\n  {path} = secret;\n  {body}\n }}\n}}\n")
+            };
+            let mut check = |name: &str, body: &str, refusal| {
+                let case = format!("{name}/{receiver}/{ext}");
+                let result = fold_row(&make(body), ext, &path, refusal);
+                println!("S3_FOLD {case} {result:?}");
+                if let Err(error) = result {
+                    errors.push(format!("{case}: {error}"));
+                }
+            };
+            let refusal = Some("refused_source_unconnected");
+            for (name, template) in forms {
+                let field = template.replace("JSX", &jsx);
+                check(
+                    name,
+                    &format!("observe({path}); class C extends Base {{ {field} }}"),
+                    refusal,
+                );
+                let arrow = format!("(secret) => {{\n    {path} = secret;\n    observe({path}); return {jsx};\n  }}");
+                let field = if name == "block" {
+                    format!("static {{ const slot = {arrow}; }}")
+                } else {
+                    template.replace("JSX", &arrow)
+                };
+                check(
+                    &format!("{name}-arrow"),
+                    &format!("class C extends Base {{ {field} }}"),
+                    refusal,
+                );
+            }
+            check("method", &format!("observe({path}); return {jsx};"), None);
+            check(
+                "key",
+                &format!("observe({path}); class C {{ [observe({jsx})] = 0; }}"),
+                None,
+            );
+            check(
+                "heritage",
+                &format!("observe({path}); class C extends observe({jsx}) {{}}"),
+                None,
+            );
+        }
+    }
+    assert!(errors.is_empty(), "{}", errors.join("\n"));
+}
+
+#[test]
+fn props_s3_fold_destructuring_order() {
+    let forms = [
+        ("array-default", "[x, y = JSX] = [0, undefined];"),
+        (
+            "object-default",
+            "({ first: x, second: y = JSX } = { first: 0 });",
+        ),
+        (
+            "computed-key",
+            "({ first: x, [observe(JSX)]: y } = { first: 0 });",
+        ),
+        ("computed-target", "[x, box[observe(JSX)]] = [0, 1];"),
+        ("rhs", "[x, y] = [0, JSX];"),
+        ("before-store", "[y = JSX, x] = [undefined, 0];"),
+        ("own-default", "[x = JSX, y] = [undefined, 0];"),
+        ("nested-own-default", "[[x] = [JSX], y] = [undefined, 0];"),
+        ("disjoint", "[z, y = JSX] = [0, undefined];"),
+    ];
+    let mut errors = Vec::new();
+    for ext in ["jsx", "tsx"] {
+        for (index, (name, template)) in forms.into_iter().enumerate() {
+            let assignment = template.replace("JSX", "<D a={x} />");
+            let source = format!(
+                "function D({{ a }}) {{ return use(a); }}\nfunction App(x, box) {{\n let y, z;\n observe(x); {assignment}\n return y;\n}}\n"
+            );
+            let case = format!("{name}/{ext}");
+            let refusal = (index < 4).then_some("refused_source_ambiguous");
+            let result = fold_row(&source, ext, "x", refusal);
+            println!("S3_FOLD {case} {result:?}");
+            if let Err(error) = result {
+                errors.push(format!("{case}: {error}"));
+            }
+        }
+    }
+    assert!(errors.is_empty(), "{}", errors.join("\n"));
+}

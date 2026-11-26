@@ -28,7 +28,9 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
     let mut cpg = CodePropertyGraph::build(&files);
     cpg.dfg_label_stats.dfg_props = BTreeMap::from([
         ("sites_literal".into(), 1),
-        ("sites_jsx".into(), 2),
+        ("sites_jsx".into(), 4),
+        ("refused_jsx_caller_owner".into(), 1),
+        ("refused_jsx_site_syntax".into(), 1),
         ("refused_source_ambiguous".into(), 1),
         ("edges_to_def".into(), 2),
     ]);

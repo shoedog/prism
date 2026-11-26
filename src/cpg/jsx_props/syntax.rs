@@ -156,10 +156,38 @@ pub(super) fn execution_owner<'tree>(
     let mut current = node;
     let boundaries = parsed.language.callable_boundary_node_types();
     while let Some(parent) = current.parent() {
-        if boundaries.contains(&parent.kind())
-            && ["body", "parameters", "parameter"]
-                .into_iter()
-                .any(|field| parent.child_by_field_name(field) == Some(current))
+        if callable_region(&boundaries, parent, current) {
+            return Some(parent);
+        }
+        current = parent;
+    }
+    None
+}
+
+fn callable_region(boundaries: &[&str], parent: Node<'_>, child: Node<'_>) -> bool {
+    boundaries.contains(&parent.kind())
+        && ["body", "parameters", "parameter"]
+            .into_iter()
+            .any(|field| parent.child_by_field_name(field) == Some(child))
+}
+
+pub(super) fn is_class_receiver_region(node: Node<'_>) -> bool {
+    matches!(
+        node.kind(),
+        "field_definition" | "public_field_definition" | "class_static_block"
+    )
+}
+
+/// Arrows inherit the receiver. Computed class names and heritage are evaluated
+/// outside the receiver regions introduced by field values and static blocks.
+pub(super) fn receiver_owner<'tree>(parsed: &ParsedFile, node: Node<'tree>) -> Option<Node<'tree>> {
+    let boundaries = parsed.language.callable_boundary_node_types();
+    let mut current = node;
+    while let Some(parent) = current.parent() {
+        if (is_class_receiver_region(parent)
+            && (parent.kind() == "class_static_block"
+                || parent.child_by_field_name("value") == Some(current)))
+            || (parent.kind() != "arrow_function" && callable_region(&boundaries, parent, current))
         {
             return Some(parent);
         }

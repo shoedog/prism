@@ -136,12 +136,14 @@ fn collect_site(
     let Some(opening) = opening_at(site.caller, site.span()) else {
         return;
     };
-    if attributes(opening).is_empty()
-        || syntax::execution_owner(site.caller, opening).is_none_or(|owner| {
-            crate::anon_owner::identity(site.caller, &owner, &site.call.caller.file).as_ref()
-                != Some(&site.call.caller)
-        })
-    {
+    if attributes(opening).is_empty() {
+        return;
+    }
+    if syntax::execution_owner(site.caller, opening).is_none_or(|owner| {
+        crate::anon_owner::identity(site.caller, &owner, &site.call.caller.file).as_ref()
+            != Some(&site.call.caller)
+    }) {
+        record_site_result(output, &site, false, Err("refused_jsx_caller_owner"));
         return;
     }
     output.props.add("sites_jsx", 1);
@@ -162,7 +164,7 @@ fn collect_site(
                 let cell = cache.patterns(callee, file, exact, site.graph);
                 let facts = cell.get().and_then(Option::as_ref);
                 (
-                    facts.is_some(),
+                    true,
                     admit_and_collect(
                         output,
                         &site,
@@ -184,7 +186,7 @@ fn collect_site(
                     })
                     .as_ref();
                 (
-                    facts.is_some(),
+                    true,
                     admit_and_collect(
                         output,
                         &site,
@@ -201,6 +203,15 @@ fn collect_site(
     } else {
         (false, Err("refused_not_exact_singleton"))
     };
+    record_site_result(output, &site, exact, result);
+}
+
+fn record_site_result(
+    output: &mut Step5bOutput,
+    site: &JsxSite<'_>,
+    exact: bool,
+    result: Result<(), &'static str>,
+) {
     if let Err(reason) = result {
         output.props.add(reason, 1);
     }
@@ -216,7 +227,7 @@ fn collect_site(
             refusal: result.err(),
         });
     #[cfg(not(test))]
-    let _ = exact;
+    let _ = (site, exact);
 }
 
 fn admit_and_collect<T>(
@@ -229,9 +240,9 @@ fn admit_and_collect<T>(
     facts: Option<&callee_params::PatternFacts<T>>,
     resolve: impl Fn(&T) -> Option<NodeIndex>,
 ) -> Result<(), &'static str> {
-    let facts = facts.ok_or("refused_not_exact_singleton")?;
+    let facts = facts.ok_or("refused_target_identity")?;
     let callable = syntax::exact_node(file, facts.callable.0..facts.callable.1)
-        .ok_or("refused_not_exact_singleton")?;
+        .ok_or("refused_target_identity")?;
     let tag = opening
         .child_by_field_name("name")
         .ok_or("refused_target_identity")?;
@@ -283,9 +294,8 @@ fn admit_and_collect<T>(
             bare_literal: false,
         }
     };
-    if let Some(writes) = entries(site.caller, site.span()) {
-        collect(output, site, file, target, &writes, resolve);
-    }
+    let writes = entries(site.caller, site.span()).ok_or("refused_jsx_site_syntax")?;
+    collect(output, site, file, target, &writes, resolve);
     Ok(())
 }
 
@@ -369,4 +379,124 @@ impl CodePropertyGraph {
         );
         output.flows.into_iter().map(|flow| flow.edge).collect()
     }
+}
+
+#[cfg(test)]
+#[test]
+fn props_s3_fold_site_refusals() {
+    use super::super::{props_generated_tests::parse, props_s2_test_support::capture};
+
+    let mut failures = Vec::new();
+    for ext in ["jsx", "tsx"] {
+        for (case, target, opening, refusal) in [
+            ("control", "use(a)", "<D a={x} />", None),
+            (
+                "owner",
+                "use(a)",
+                "<D a={x} />",
+                Some("refused_jsx_caller_owner"),
+            ),
+            (
+                "syntax",
+                "use(a)",
+                "<D {x} />",
+                Some("refused_jsx_site_syntax"),
+            ),
+            (
+                "target",
+                "use(a + )",
+                "<D a={x} />",
+                Some("refused_target_identity"),
+            ),
+        ] {
+            let path = format!("main.{ext}");
+            let source = format!("function D({{ a }}) {{ return {target}; }}\nfunction App(x) {{ return {opening}; }}\n");
+            let start = source.find(opening).unwrap();
+            let files = parse(&BTreeMap::from([(path.clone(), source)]));
+            let file = &files[&path];
+            let (built, observed) = capture(&files, || CodePropertyGraph::build(&files));
+            let resolver = &built.call_graph;
+            let pre = observed.pre_binding.unwrap();
+            let mut call = resolver
+                .calls
+                .values()
+                .flatten()
+                .find(|call| {
+                    call.jsx_element
+                        && call.start_byte == start
+                        && call.end_byte == start + opening.len()
+                })
+                .expect("concrete JSX opening recorded by call graph")
+                .clone();
+            let [callee] = resolver.functions["D"].as_slice() else {
+                panic!("unique target callable");
+            };
+            // Replay an Exact selection after parser recovery. The independent
+            // target-identity and entry checks still have to reject it.
+            let resolved = if matches!(case, "target" | "syntax") {
+                vec![ResolvedCallee {
+                    target: callee,
+                    confidence: ResolutionConfidence::Exact,
+                    kind: crate::resolution::ResolutionKind::LocalDef,
+                }]
+            } else {
+                let resolved = resolver.resolve_call_site(&call);
+                assert!(
+                    object_literal_args::exact_singleton(&resolved),
+                    "{case}/{ext}"
+                );
+                assert_eq!(resolved[0].target, callee);
+                resolved
+            };
+            let opening_node = opening_at(file, start..start + opening.len()).unwrap();
+            assert!(!attributes(opening_node).is_empty());
+            assert_eq!(
+                entries(file, start..start + opening.len()).is_none(),
+                case == "syntax"
+            );
+            assert_eq!(
+                callee_params::compute_pattern_formal_nodes(file, callee, &pre.exact, &pre.graph)
+                    .is_none(),
+                case == "target"
+            );
+            if case == "owner" {
+                call.caller.start_line += 1;
+            }
+            let mut output = Step5bOutput::default();
+            let patterns = callee_params::ParamCache::new(&files);
+            collect_site(
+                &mut output,
+                JsxSite::new(&call, file, &pre.graph, &pre.live_lookup),
+                resolver,
+                &resolved,
+                &pre.exact,
+                Patterns::Cached(&patterns),
+            );
+            let mut stats = DfgLabelStats::default();
+            let flows = output.into_flows(&mut stats, None);
+            let recorded: Vec<_> = stats
+                .dfg_props
+                .iter()
+                .filter(|(key, _)| key.starts_with("refused_"))
+                .map(|(key, &count)| (key.as_str(), count))
+                .collect();
+            let expected: Vec<_> = refusal.into_iter().map(|key| (key, 1)).collect();
+            let expected_site_count = (case != "owner").then_some(&1);
+            let passed = recorded == expected
+                && stats.dfg_props.get("sites_jsx") == expected_site_count
+                && flows.len() == usize::from(refusal.is_none());
+            println!(
+                "S3_FOLD {case}/{ext} pass={passed} stats={:?}",
+                stats.dfg_props
+            );
+            if !passed {
+                failures.push(format!(
+                    "{case}/{ext}: {:?}, flows={}",
+                    stats.dfg_props,
+                    flows.len()
+                ));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

@@ -419,6 +419,7 @@ fn props_generated_s3_jsx_cells() {
     let mut receipts = BTreeMap::<String, Receipt>::new();
     let mut ids = BTreeSet::new();
     let mut failures = 0;
+    let mut caller_refusal_cells = 0;
     for row in CASES
         .lines()
         .filter(|row| row.starts_with(r#"{"id":"jsx-"#))
@@ -438,7 +439,24 @@ fn props_generated_s3_jsx_cells() {
         }
         receipt.emitted += 1;
         let want = cell.required_evidence.unwrap();
-        let outcome = cell.expected_outcome.unwrap();
+        let mut outcome = cell.expected_outcome.unwrap();
+        // Each of these class layouts has a second caller record at the same
+        // opening. Its owner is refused alongside the one inventoried site.
+        if matches!(
+            cell.id
+                .strip_prefix("jsx-region/")
+                .and_then(|key| key.split_once('/')),
+            Some((
+                "computed-name" | "constructor" | "field-callable" | "method",
+                _
+            ))
+        ) {
+            assert!(outcome
+                .counters
+                .insert("refused_jsx_caller_owner".into(), 1)
+                .is_none());
+            caller_refusal_cells += 1;
+        }
         let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let files = parse(&cell.files);
             let file = &files[&format!("case.{}", cell.grammar)];
@@ -499,5 +517,6 @@ fn props_generated_s3_jsx_cells() {
         assert_eq!((receipt.emitted, receipt.excluded), expected, "{family}");
     }
     assert_eq!(ids.len(), 5656);
+    assert_eq!(caller_refusal_cells, 32);
     assert_eq!(failures, 0, "{failures} failed generated programs");
 }
