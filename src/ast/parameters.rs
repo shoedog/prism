@@ -46,7 +46,7 @@ impl ParsedFile {
             // js-param-defs PR-A: `x => …` binds exactly one formal; the
             // arrow has no `parameters` list for the loop below to walk.
             let name = self.node_text(&param);
-            if self.js_ts_nested_callable_binds_formal(func_node, name) {
+            if self.js_ts_nested_callable_binds_formal(func_node, param) {
                 return Vec::new();
             }
             return vec![(name.to_string(), param.start_byte(), param.end_byte())];
@@ -65,9 +65,8 @@ impl ParsedFile {
                         && crate::parameter_slots::js_ts_is_last_parameter(params, child))
                     .then(|| self.js_ts_rest_identifier(child))
                     .flatten()
-                    .filter(|name| {
-                        !self.js_ts_nested_callable_binds_formal(func_node, self.node_text(name))
-                    }) {
+                    .filter(|name| !self.js_ts_nested_callable_binds_formal(func_node, *name))
+                    {
                         params_out.push((
                             self.node_text(&name_node).to_string(),
                             name_node.start_byte(),

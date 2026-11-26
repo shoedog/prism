@@ -41,6 +41,7 @@ impl CodePropertyGraph {
     ) -> Vec<PendingArgumentFlow> {
         let mut out = Vec::new();
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
+        let mut rest_cache = BTreeMap::new();
         for site in sites {
             let resolved_site = cg.resolve_call_site(site);
             let literal_ok = object_literal_args::exact_singleton(&resolved_site);
@@ -71,23 +72,24 @@ impl CodePropertyGraph {
                     Some(p) => p,
                     None => continue,
                 };
-                let param_nodes = match param_cache.entry(callee_id.clone()).or_insert_with(|| {
-                    compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
-                }) {
-                    Some(nodes) => nodes.as_slice(),
-                    None => continue,
+                let param_nodes = param_cache
+                    .entry(callee_id.clone())
+                    .or_insert_with(|| {
+                        compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
+                    })
+                    .as_deref()
+                    .unwrap_or_default();
+                let inputs = object_literal_args::SiteInputs {
+                    caller_id,
+                    caller_parsed,
+                    callee_parsed,
+                    args,
+                    var_index,
+                    exact_var_index: exact_var_index,
+                    graph,
+                    cross_file_free_single_exact,
                 };
                 if literal_ok {
-                    let inputs = object_literal_args::SiteInputs {
-                        caller_id,
-                        caller_parsed,
-                        callee_parsed,
-                        args,
-                        var_index,
-                        exact_var_index,
-                        graph,
-                        cross_file_free_single_exact,
-                    };
                     object_literal_args::collect(&mut out, &inputs, param_nodes, |&n| Some(n));
                 }
                 for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
@@ -137,6 +139,21 @@ impl CodePropertyGraph {
                         }
                     }
                 }
+                if !rest_params::admitted(&inputs, site, cg, &resolved, literal_ok) {
+                    continue;
+                }
+                let Some(target) = *rest_cache.entry(callee_id.clone()).or_insert_with(|| {
+                    rest_params::compute_rest_def_node(callee_parsed, callee_id, var_index, graph)
+                }) else {
+                    continue;
+                };
+                rest_params::collect(
+                    &mut out,
+                    &inputs,
+                    target,
+                    offsets,
+                    resolved.confidence.into(),
+                );
             }
         }
         out

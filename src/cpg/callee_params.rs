@@ -14,6 +14,33 @@ pub(super) struct ParamTarget {
 }
 
 impl ParamTarget {
+    fn from_node(node: &CpgNode) -> Self {
+        let CpgNode::Variable {
+            file,
+            function,
+            function_start_line,
+            line,
+            path,
+            access,
+            start_byte,
+            end_byte,
+        } = node
+        else {
+            unreachable!("parameter index must address a variable")
+        };
+        Self {
+            key: (
+                file.clone(),
+                function.clone(),
+                *function_start_line,
+                *line,
+                path.clone(),
+                *access,
+            ),
+            bytes: (*start_byte, *end_byte),
+        }
+    }
+
     pub(super) fn resolve(
         &self,
         index: &VarIndex,
@@ -28,10 +55,12 @@ impl ParamTarget {
 
 type Facts = Option<Vec<Option<ParamTarget>>>;
 pub(super) type FactCell = Arc<OnceLock<Facts>>;
+type RestCell = Arc<OnceLock<Option<(usize, ParamTarget)>>>;
 
 pub(super) struct ParamCache<'a> {
     pub(super) files: &'a BTreeMap<String, ParsedFile>,
     entries: Mutex<BTreeMap<FunctionId, FactCell>>,
+    rest_entries: Mutex<BTreeMap<FunctionId, RestCell>>,
 }
 
 impl<'a> ParamCache<'a> {
@@ -39,6 +68,7 @@ impl<'a> ParamCache<'a> {
         Self {
             files,
             entries: Mutex::new(BTreeMap::new()),
+            rest_entries: Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -62,38 +92,32 @@ impl<'a> ParamCache<'a> {
             compute_param_def_nodes(parsed, callee, index, graph).map(|nodes| {
                 nodes
                     .into_iter()
-                    .map(|node| {
-                        node.map(|idx| {
-                            let CpgNode::Variable {
-                                file,
-                                function,
-                                function_start_line,
-                                line,
-                                path,
-                                access,
-                                start_byte,
-                                end_byte,
-                            } = &graph[idx]
-                            else {
-                                unreachable!("parameter index must address a variable")
-                            };
-                            ParamTarget {
-                                key: (
-                                    file.clone(),
-                                    function.clone(),
-                                    *function_start_line,
-                                    *line,
-                                    path.clone(),
-                                    *access,
-                                ),
-                                bytes: (*start_byte, *end_byte),
-                            }
-                        })
-                    })
+                    .map(|node| node.map(|idx| ParamTarget::from_node(&graph[idx])))
                     .collect()
             })
         });
         cell
+    }
+
+    pub(super) fn rest(
+        &self,
+        callee: &FunctionId,
+        parsed: &ParsedFile,
+        index: &VarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Option<(usize, ParamTarget)> {
+        let cell = self
+            .rest_entries
+            .lock()
+            .expect("rest parameter cache lock")
+            .entry(callee.clone())
+            .or_default()
+            .clone();
+        cell.get_or_init(|| {
+            rest_params::compute_rest_def_node(parsed, callee, index, graph)
+                .map(|(slot, node)| (slot, ParamTarget::from_node(&graph[node])))
+        })
+        .clone()
     }
 }
 

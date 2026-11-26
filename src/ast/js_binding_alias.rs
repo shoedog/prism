@@ -202,7 +202,7 @@ impl ParsedFile {
     }
 
     /// B3's unwrapping minus assignment chains: parentheses and TypeScript assertions.
-    pub(super) fn js_ts_unwrap_value<'a>(&self, mut value: Node<'a>) -> Option<Node<'a>> {
+    pub(crate) fn js_ts_unwrap_value<'a>(&self, mut value: Node<'a>) -> Option<Node<'a>> {
         loop {
             let inner = match value.kind() {
                 "parenthesized_expression"
