@@ -1,0 +1,365 @@
+{
+  "schema": "prism.measure.corpora/1",
+  "corpora": {
+    "C": {
+      "name": "redis",
+      "kind": "git",
+      "url": "https://github.com/redis/redis",
+      "commit": "d2d3390d0c4d01ab7bfb46054ad0d5003d63c11b",
+      "root": "src",
+      "history": true,
+      "local": [
+        "redis",
+        "bench-repos/redis"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "D": {
+      "name": "django",
+      "kind": "git",
+      "url": "https://github.com/django/django",
+      "commit": "e8cff2921ba169d806a15de18304f431f12700f4",
+      "root": ".",
+      "history": false,
+      "local": [
+        "django",
+        "bench-repos/django"
+      ],
+      "manifest_sha256": "275cf4ebc44ee230f2a653aa370426c0962836e0c0d55898f8e559910f140eaa",
+      "cloud_asset": "django-e8cff292.tar.gz",
+      "tree_sha256": null
+    },
+    "EX": {
+      "name": "express",
+      "kind": "git",
+      "url": "https://github.com/expressjs/express",
+      "commit": "18e5985b8a9d5e8423db0a9121f22bdaecd5b120",
+      "root": ".",
+      "history": false,
+      "local": [
+        "express",
+        "bench-repos/express"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": "express-18e5985b.tar.gz",
+      "tree_sha256": null
+    },
+    "G": {
+      "name": "guava",
+      "kind": "git",
+      "url": "https://github.com/google/guava",
+      "commit": "2b2452a0f2102f820a758123b9224c685a03b9f3",
+      "root": "guava/src",
+      "history": false,
+      "local": [
+        "guava",
+        "bench-repos/guava"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "G1": {
+      "name": "caddy",
+      "kind": "git",
+      "url": "https://github.com/caddyserver/caddy",
+      "commit": "77e9ce7404c4a76853e101a9f5687a929ee56654",
+      "root": ".",
+      "history": true,
+      "local": [
+        "caddy",
+        "bench-repos/caddy"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "G2": {
+      "name": "etcd",
+      "kind": "git",
+      "url": "https://github.com/etcd-io/etcd",
+      "commit": "61d518f55effaf5edcedcb2a696504795b4fa7bd",
+      "root": ".",
+      "history": false,
+      "local": [
+        "etcd",
+        "bench-repos/etcd"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "GIN": {
+      "name": "gin",
+      "kind": "git",
+      "url": "https://github.com/gin-gonic/gin",
+      "commit": "d75fcd4c9ab260e5225de590f1f0f8c0e0e12d11",
+      "root": ".",
+      "history": false,
+      "local": [
+        "gin",
+        "bench-repos/gin"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "GO": {
+      "name": "cobra",
+      "kind": "git",
+      "url": "https://github.com/spf13/cobra",
+      "commit": "ad460ea8f249db69c943a365fb84f3a59042d54e",
+      "root": ".",
+      "history": true,
+      "local": [
+        "cobra",
+        "bench-repos/cobra"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "M": {
+      "name": "mypy",
+      "kind": "git",
+      "url": "https://github.com/python/mypy",
+      "commit": "5ef090270579013c337a9bcc79e2c58417f09538",
+      "root": ".",
+      "history": false,
+      "local": [
+        "mypy",
+        "bench-repos/mypy"
+      ],
+      "manifest_sha256": "2c90b4a6d2e8250e76853d77d3c75cd6df0d638be7edf57c9bf820e31ed82bd4",
+      "cloud_asset": "mypy-5ef09027.tar.gz",
+      "tree_sha256": null
+    },
+    "P1": {
+      "name": "apache-superset",
+      "kind": "git",
+      "url": "https://github.com/apache/superset",
+      "commit": "7519fa8b6f5a145097d51e36579240e872044266",
+      "root": ".",
+      "history": true,
+      "local": [
+        "apache-superset",
+        "bench-repos/apache-superset"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "P2": {
+      "name": "saleor-saleor",
+      "kind": "git",
+      "url": "https://github.com/saleor/saleor",
+      "commit": "cc4aea76e397b1dead74363c266c579ae808770f",
+      "root": ".",
+      "history": true,
+      "local": [
+        "saleor-saleor",
+        "bench-repos/saleor-saleor"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "PY": {
+      "name": "flask",
+      "kind": "git",
+      "url": "https://github.com/pallets/flask",
+      "commit": "36e4a824f340fdee7ed50937ba8e7f6bc7d17f81",
+      "root": ".",
+      "history": true,
+      "local": [
+        "flask",
+        "bench-repos/flask"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "R": {
+      "name": "ripgrep",
+      "kind": "git",
+      "url": "https://github.com/BurntSushi/ripgrep",
+      "commit": "82313cf95849bfe425109ad9506a52154879b1b1",
+      "root": ".",
+      "history": false,
+      "local": [
+        "ripgrep",
+        "bench-repos/ripgrep"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "RS": {
+      "name": "ripgrep",
+      "kind": "git",
+      "url": "https://github.com/BurntSushi/ripgrep",
+      "commit": "82313cf95849bfe425109ad9506a52154879b1b1",
+      "root": ".",
+      "history": false,
+      "local": [
+        "ripgrep",
+        "bench-repos/ripgrep"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "T": {
+      "name": "TypeScript",
+      "kind": "git",
+      "url": "https://github.com/microsoft/TypeScript",
+      "commit": "7964e22f2b85f16e520f0e902c7fd7b6f0c15416",
+      "root": "src",
+      "history": false,
+      "local": [
+        "TypeScript",
+        "bench-repos/TypeScript"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": "TypeScript-7964e22f-src.tar.gz",
+      "tree_sha256": null
+    },
+    "X": {
+      "name": "excalidraw",
+      "kind": "git",
+      "url": "https://github.com/excalidraw/excalidraw",
+      "commit": "0642e72cfa2d9a71198200e52f37399384610ee3",
+      "root": ".",
+      "history": false,
+      "local": [
+        "excalidraw",
+        "bench-repos/excalidraw"
+      ],
+      "manifest_sha256": "1a6c4397bfacafc0dc2651d1f65fe4dd7afed60a0fa21f8f928061b9e20968f0",
+      "cloud_asset": "excalidraw-0642e72c.tar.gz",
+      "tree_sha256": null
+    },
+    "apache-answer": {
+      "name": "apache-answer",
+      "kind": "git",
+      "url": "https://github.com/apache/answer",
+      "commit": "6744295fa888e0621fc9f9a8ace04f1a4daf8554",
+      "root": ".",
+      "history": true,
+      "local": [
+        "apache-answer",
+        "bench-repos/apache-answer"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "calcom-cal.com": {
+      "name": "calcom-cal.com",
+      "kind": "git",
+      "url": "https://github.com/calcom/cal.com",
+      "commit": "f972feefa1376cf47631177231c671da9a9dd09f",
+      "root": ".",
+      "history": true,
+      "local": [
+        "calcom-cal.com",
+        "bench-repos/calcom-cal.com"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "clap": {
+      "name": "clap",
+      "kind": "git",
+      "url": "https://github.com/clap-rs/clap",
+      "commit": "8387c812c4b9726474b8407f81ec97f0acf570ed",
+      "root": ".",
+      "history": true,
+      "local": [
+        "clap",
+        "bench-repos/clap"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "click": {
+      "name": "click",
+      "kind": "git",
+      "url": "https://github.com/pallets/click",
+      "commit": "8a1b1a33d739be05b7e91251e3c0dde77c5e152f",
+      "root": ".",
+      "history": true,
+      "local": [
+        "click",
+        "bench-repos/click"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "directus-directus": {
+      "name": "directus-directus",
+      "kind": "git",
+      "url": "https://github.com/directus/directus",
+      "commit": "c40ab79f2c4ac573b2c7424b2c591fd79f7b116f",
+      "root": ".",
+      "history": true,
+      "local": [
+        "directus-directus",
+        "bench-repos/directus-directus"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "httpx": {
+      "name": "httpx",
+      "kind": "git",
+      "url": "https://github.com/encode/httpx",
+      "commit": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254",
+      "root": ".",
+      "history": true,
+      "local": [
+        "httpx",
+        "bench-repos/httpx"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "leveldb": {
+      "name": "leveldb",
+      "kind": "git",
+      "url": "https://github.com/google/leveldb",
+      "commit": "7ee830d02b623e8ffe0b95d59a74db1e58da04c5",
+      "root": ".",
+      "history": true,
+      "local": [
+        "leveldb",
+        "bench-repos/leveldb"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    },
+    "miniflux-v2": {
+      "name": "miniflux-v2",
+      "kind": "git",
+      "url": "https://github.com/miniflux/v2",
+      "commit": "faecfa2fac61a91f4f69550bb1afd506c4b51749",
+      "root": ".",
+      "history": true,
+      "local": [
+        "miniflux-v2",
+        "bench-repos/miniflux-v2"
+      ],
+      "manifest_sha256": null,
+      "cloud_asset": null,
+      "tree_sha256": null
+    }
+  }
+}

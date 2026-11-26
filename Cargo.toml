@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/prism-mcp", "crates/prism-review"]
+members = ["crates/prism-mcp", "crates/prism-review", "crates/prism-boundary"]
 # `cargo build`/`run`/`test` at the root keep building the `prism` CLI and running its tests;
 # prism-mcp stays opt-in (`-p prism-mcp` / `--workspace`), as S4 decided.
 default-members = [".", "crates/prism-review"]
