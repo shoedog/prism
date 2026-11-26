@@ -1,11 +1,6 @@
 # Lane 11 measurement kit: provisional formats for the two adopters
 
-Status: PROVISIONAL (2026-11-24). A consolidation of what `DESIGN.md` section 5 and `PLAN.md` slices S1 to S3
-already fix, plus the additions listed in the change log at the end of this file, written so that lane 10 (comparator) and lane 9 (oracle) can write their classifier and question
-module now. Stage D (`FORMATS.md`) supersedes it and states every difference in its change log; until then a
-name or field here may change only by an entry at the end of this file. Nothing here is built yet: the commands
-exist after S1 (`run`), S2 (`diff-edges`, `diff-stats`) and S3 (`oracle`) merge. Run from `scripts/` as
-`python3 -m measure ...` (standard-library Python 3.9+; the oracle uses Node and the pinned TypeScript 5.9.3).
+**Historical adopter handoff, superseded by stage D.** Lane 10 and lane 9 received this draft on 2026-11-24. Implementers use the command, schema, callback and fixture decisions in [FORMATS.md](FORMATS.md). The archived examples below preserve what the adopters originally received.
 
 ## 1. Inputs the kit reads (shapes of today's binary, verified on `9d1a7d06f`)
 
@@ -127,7 +122,7 @@ library (lane 9's built-in callback question). An unknown verdict string fails t
 must pass first; a lane's question module ships its own self-check cases in the same layout
 (`oracle/selfcheck/<case>/{repo/, input.jsonl, expected.jsonl}`).
 
-## 5. Not yet fixed (stage D decides)
+## 5. Questions left for stage D in the original handoff
 
 The corpus manifest file name and its exact fields, `gate` files and report layout, `review-diff`, and the generic
 classes (if any). Lanes do not depend on them for their classifier or question module.
@@ -136,3 +131,4 @@ classes (if any). Lanes do not depend on them for their classifier or question m
 
 - 2026-11-24: first version, from `DESIGN.md` section 5 and `PLAN.md` S1 to S3 as folded on 2026-11-21.
 - 2026-11-24 (adopter answers): record kind `node` added (lane 10 trace names spans, not edges); question-module `ctx` gains `enclosing_call` by full span and `program_with_default_lib()` (lane 9).
+- Stage D accepted the original wire inputs, run-directory handoff and question-module layout, and revised the comparator, oracle selection and self-check contracts. It accepted all three adopter additions: `node`, `enclosing_call` by full span and `program_with_default_lib()`. Section 8 records each disposition and its effect. [Stage D adopter impact](FORMATS.md#adopter-impact)
