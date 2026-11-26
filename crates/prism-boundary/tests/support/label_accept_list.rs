@@ -128,11 +128,14 @@ fn path_serialization_withholds_text_content_with_label_style() {
 }
 
 #[test]
-fn path_serialization_counts_null_content_as_present() {
-    check_parameter(
-        json!({"in": "path", "name": "id", "required": true, "content": null}),
-        Err(UNSUPPORTED),
-    );
+fn path_serialization_counts_malformed_content_as_present() {
+    for content in [json!(null), json!(["application/json"]), json!("bad")] {
+        check_parameter(
+            json!({"in": "path", "name": "id", "required": true, "content": content}),
+            Err(UNSUPPORTED),
+        );
+    }
+    check_parameter(label(json!({"type": "string"})), Ok(LABEL_ID));
 }
 
 #[test]
@@ -251,7 +254,11 @@ fn path_serialization_withholds_non_string_style() {
 fn path_serialization_withholds_non_boolean_explode() {
     let mut parameter = label(json!({"type": "string"}));
     parameter["explode"] = json!("true");
-    check_parameter(parameter, Err(UNSUPPORTED));
+    check_parameter(parameter.clone(), Err(UNSUPPORTED));
+    parameter["style"] = json!("simple");
+    check_parameter(parameter.clone(), Err(UNSUPPORTED));
+    parameter["explode"] = json!(true);
+    check_parameter(parameter, Ok(PLAIN_ID));
 }
 
 #[test]
@@ -272,6 +279,12 @@ fn path_serialization_keeps_simple_and_scalar_label() {
     array_parameter["schema"] = json!({"type": "array", "items": {"type": "string"}});
     check_parameter(array_parameter, Ok(PLAIN_ID));
     parameter.as_object_mut().unwrap().remove("style");
+    check_parameter(parameter.clone(), Ok(PLAIN_ID));
+    for required in [json!(false), json!("true")] {
+        parameter["required"] = required;
+        check_parameter(parameter.clone(), Ok(PLAIN_ID));
+    }
+    parameter.as_object_mut().unwrap().remove("required");
     check_parameter(parameter, Ok(PLAIN_ID));
 }
 

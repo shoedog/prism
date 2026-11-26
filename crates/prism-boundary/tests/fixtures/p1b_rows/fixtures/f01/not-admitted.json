@@ -1,0 +1,33 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "paths": {
+    "/probe": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stable": {
+                      "type": "string"
+                    },
+                    "child": {
+                      "$ref": "shapes.json#/$defs/Leaf"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

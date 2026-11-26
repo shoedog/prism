@@ -820,6 +820,12 @@ and readable request components. Assert **Not checked** (`origin_unchecked`), ze
 For the P6 report-route locations, the router and client use `/answer/admin/api/report`, while P1 retains
 Swagger's `/answer/admin/api/report/`. Prove equivalence for this route under a stated rule or explain the miss.
 
+Carry-ins from the P1a review (#936): the checked ids spell a path-parameter capture `{}` (or `.{}`) whatever the
+parameter schema admits. A schema may admit the empty string (`enum: [""]`), so P3's matcher admits an empty capture
+from the parameter schema (for example `/reed/x` and `/reed/x.` under `x{}` and `x.{}`) while the ids stay unchanged;
+the non-empty rule of DESIGN 5.1 is the default for a capture with no such schema evidence, and DESIGN's wording of
+that bullet is reconciled in this slice.
+
 CLI:
 `prism-boundary bind --role consumer --api <name> --repo <tree> --config <toml> [--schema <json>] --caller-depth 2 --out <bindings.json>`.
 

@@ -1,0 +1,115 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "$defs": {
+    "Next": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/probe": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "p": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "p": {
+                              "type": "object",
+                              "properties": {
+                                "p": {
+                                  "type": "object",
+                                  "properties": {
+                                    "p": {
+                                      "type": "object",
+                                      "properties": {
+                                        "p": {
+                                          "type": "object",
+                                          "properties": {
+                                            "p": {
+                                              "type": "object",
+                                              "properties": {
+                                                "p": {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "p": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "p": {
+                                                          "type": "object",
+                                                          "properties": {
+                                                            "p": {
+                                                              "type": "object",
+                                                              "properties": {
+                                                                "p": {
+                                                                  "type": "object",
+                                                                  "properties": {
+                                                                    "p": {
+                                                                      "type": "object",
+                                                                      "properties": {
+                                                                        "p": {
+                                                                          "type": "object",
+                                                                          "properties": {
+                                                                            "p": {
+                                                                              "allOf": [
+                                                                                {
+                                                                                  "$ref": "#/$defs/Next"
+                                                                                }
+                                                                              ]
+                                                                            }
+                                                                          }
+                                                                        }
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

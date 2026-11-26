@@ -55,7 +55,7 @@ pub(super) struct Declaration {
 }
 
 #[derive(Debug)]
-pub(super) enum SchemaError {
+pub enum SchemaError {
     Yaml,
     Json(serde_json::Error),
     Dialect,

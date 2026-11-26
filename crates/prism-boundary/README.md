@@ -41,7 +41,9 @@ that produces zero deployments.
   with no matching parameter still give `{}`.
 - Every other parameter object is withheld. The diagnostics inventory counts
   `path_style_unsupported` for content-only parameters, unsupported styles,
-  and malformed `explode` on an otherwise supported declaration. It counts
+  and malformed `explode` on an otherwise supported declaration. Malformed
+  content-only values use the same `path_style_unsupported` family.
+  Path parameter `required` is unchecked, including false, missing and non-boolean values. It counts
   `path_parameter_style_unchecked` for parameters with both `schema` and
   `content` or neither, invalid schema forms, and undeterminable effective
   declarations or label types.
@@ -58,3 +60,23 @@ that produces zero deployments.
 - `ascii_fold` lowercases the hex digits in percent escapes.
 - `tests/identity.rs` includes `schema/mod.rs` through `#[path]` until P1b
   publishes `index_schema`.
+
+## P1b wire accept-list
+
+- Swagger 2 and OpenAPI 3.0/3.1 JSON with admitted entry bytes and static pointer dependencies.
+- Dialect-eligible request bodies and explicit success keys with exact-over-range status selection.
+- Exact `application/json`, effective Swagger media lists, or admitted root-scoped Swagger omission proof.
+- Named property and required edges, homogeneous items, and schema-valued map remainders with typed pointers.
+- Feasible scalar, object, array, `allOf`, `anyOf`, and provably disjoint `oneOf` transitions within 16 edges.
+
+Other inputs have counted partial or withheld coverage at the affected scope. The
+`wire` target reads the pinned ID matrix and the separate P1b enumeration. The
+`known_limits` test pairs conservative dispositions with supported neighbors.
+The enumeration materializes M3 as separate codec and producer-source rows
+and T6 as separate response-collection and duplicate-key rows.
+
+Stage the pinned public schema in `PRISM_BOUNDARY_PUBLIC_SWAGGER`. The byte
+gate uses `PRISM_BOUNDARY_PUBLIC_IDS_TSV` or the default path in the pin manifest
+and checks both SHA-256 pins before comparing the ordered output and final LF.
+For local runs with missing staged input, `PRISM_BOUNDARY_PUBLIC_PENDING_OK=1`
+reports the gate as PENDING and continues.
