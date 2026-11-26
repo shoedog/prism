@@ -1,0 +1,116 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "components": {
+    "requestBodies": {
+      "Valid": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "x-control": true
+      },
+      "Alias": {
+        "$ref": "#/components/requestBodies/Valid"
+      },
+      "MissingContent": {
+        "description": "no content"
+      },
+      "WrongKey": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "headers": {}
+      }
+    },
+    "schemas": {
+      "Pretender": {
+        "type": "string",
+        "description": "not a request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/p": {
+      "post": {
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Alias"
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/missing": {
+      "post": {
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MissingContent"
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/wrong-key": {
+      "post": {
+        "requestBody": {
+          "$ref": "#/components/requestBodies/WrongKey"
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/wrong-kind": {
+      "post": {
+        "requestBody": {
+          "$ref": "#/components/schemas/Pretender"
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  }
+}

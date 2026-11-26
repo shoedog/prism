@@ -20,6 +20,9 @@ mod e5_trace;
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
 
+#[path = "props_binding.rs"]
+mod props_binding;
+
 #[path = "rest_params.rs"]
 mod rest_params;
 
@@ -104,6 +107,10 @@ mod same_line_occurrence_tests;
 #[cfg(test)]
 #[path = "exact_caller_read_tests.rs"]
 mod exact_caller_read_tests;
+
+#[cfg(test)]
+#[path = "props_binding_tests.rs"]
+mod props_binding_tests;
 
 #[path = "statement_calls.rs"]
 mod statement_calls;

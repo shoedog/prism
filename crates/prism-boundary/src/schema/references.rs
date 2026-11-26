@@ -1,8 +1,10 @@
 mod document;
 mod path_item;
+mod raw;
 
 pub(super) use document::{contains_member, Document};
 pub(super) use path_item::{Field, PathItem};
+pub(super) use raw::{parse as parse_json, Parsed};
 
 use super::servers::Uri;
 use super::Site;
@@ -30,6 +32,14 @@ impl<'r, 'a> Located<'r, 'a> {
             site: self.site.child(key),
         })
     }
+
+    pub fn duplicate(&self, member: &str) -> bool {
+        self.document.duplicate(&self.site.pointer, member)
+    }
+
+    pub fn has_duplicates(&self) -> bool {
+        self.document.has_duplicates(&self.site.pointer)
+    }
 }
 
 pub(super) struct ReferenceFailure {
@@ -39,10 +49,10 @@ pub(super) struct ReferenceFailure {
 }
 
 impl<'a> Documents<'a> {
-    pub fn new(input: &AdmittedSchemaInput<'a>, value: Value) -> Self {
+    pub fn new(input: &AdmittedSchemaInput<'a>, parsed: Parsed) -> Self {
         let entry = Document::new(
             input.entry,
-            value,
+            parsed,
             input.retrieval_uri.and_then(Uri::absolute),
         );
         let mut admitted: BTreeMap<String, Vec<Document<'a>>> = BTreeMap::new();
@@ -55,14 +65,40 @@ impl<'a> Documents<'a> {
                 continue;
             }
             // Keep unread blobs in the URI inventory so a conflicting receipt cannot be ignored.
-            let value = if record.blob.format == Format::Json {
-                serde_json::from_slice(record.blob.bytes).unwrap_or(Value::Null)
+            let parsed = if record.blob.format == Format::Json {
+                parse_json(record.blob.bytes).ok()
             } else {
-                Value::Null
+                None
             };
-            entries.push(Document::new(record.blob, value, Some(base)));
+            let readable = parsed.is_some();
+            let mut document = Document::new(record.blob, parsed.unwrap_or_default(), Some(base));
+            document.readable = readable;
+            entries.push(document);
         }
         Self { entry, admitted }
+    }
+
+    pub fn locate(&self, resource: Option<&str>, site: &Site) -> Option<Located<'_, 'a>> {
+        let document = match resource {
+            Some(key) if self.entry.base.as_ref().is_none_or(|uri| uri.key() != key) => {
+                self.admitted.get(key)?.first()?
+            }
+            _ => &self.entry,
+        };
+        Some(Located {
+            value: lookup(&document.value, &site.pointer)?,
+            document,
+            site: site.clone(),
+        })
+    }
+
+    pub fn documents(&self) -> impl Iterator<Item = &Document<'a>> {
+        std::iter::once(&self.entry).chain(self.admitted.values().filter_map(|docs| {
+            match docs.as_slice() {
+                [document] if document.readable => Some(document),
+                _ => None,
+            }
+        }))
     }
 
     pub fn resolve<'r>(
@@ -78,6 +114,9 @@ impl<'a> Documents<'a> {
             }
             if !current.value.is_object() {
                 break ("declaration_unreadable", current.site);
+            }
+            if current.duplicate("$ref") {
+                break ("duplicate_member", current.site);
             }
             let target = current
                 .value
@@ -97,7 +136,7 @@ impl<'a> Documents<'a> {
         Err(Box::new(ReferenceFailure { code, site, chain }))
     }
 
-    fn reference_target<'r>(
+    pub fn reference_target<'r>(
         &'r self,
         document: &'r Document<'a>,
         reference: &Value,
@@ -107,6 +146,9 @@ impl<'a> Documents<'a> {
         let pointer =
             decode_fragment_pointer(fragment).map_err(|_| "reference_pointer_unchecked")?;
         let document = self.document_for(document, address)?;
+        if document.ambiguous_path(&pointer) {
+            return Err("duplicate_member");
+        }
         let value = lookup(&document.value, &pointer).ok_or("reference_pointer_unchecked")?;
         let site = document.site(pointer);
         Ok(Located {
@@ -134,7 +176,7 @@ impl<'a> Documents<'a> {
         match (entry_matches, self.admitted.get(&key).map(Vec::as_slice)) {
             (true, None) => Ok(&self.entry),
             (true, Some([other])) if other.blob == self.entry.blob => Ok(&self.entry),
-            (false, Some([doc])) if doc.value.is_object() => Ok(doc),
+            (false, Some([doc])) if doc.readable => Ok(doc),
             (true, Some(_)) | (false, Some([_, _, ..])) => Err("reference_blob_ambiguous"),
             _ => Err("reference_blob_unchecked"),
         }

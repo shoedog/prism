@@ -1,0 +1,38 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "$defs": {
+    "Node": {
+      "type": "object",
+      "properties": {
+        "next": {
+          "$ref": "#/$defs/Node"
+        }
+      },
+      "required": [
+        "next"
+      ]
+    }
+  },
+  "paths": {
+    "/probe": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/$defs/Node"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

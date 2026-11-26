@@ -1,0 +1,53 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "consumes": [
+    "application/json"
+  ],
+  "parameters": {
+    "B": {
+      "name": "payload",
+      "in": "body",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "inherited": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "C": {
+      "name": "payload",
+      "in": "body",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "selected": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/probe": {
+      "parameters": [
+        {
+          "$ref": "#/parameters/B"
+        }
+      ],
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/C"
+          }
+        ]
+      },
+      "put": {}
+    }
+  }
+}
