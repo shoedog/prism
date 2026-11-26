@@ -29,39 +29,37 @@ pub(super) fn labels<'p>(
     );
     let both_complete = inherited.complete && local.complete;
     let mut labels = Vec::new();
-    let mut unchecked = false;
+    let mut projectable = true;
     for name in path.captures().map(|capture| capture.name.as_str()) {
         let key = (name, "path");
         let (parameter, readable) = match local.entries.get(&key) {
             Some(parameter) => (Some(parameter), local.complete),
             None => (inherited.entries.get(&key), both_complete),
         };
-        // An unread list at or above the effective precedence can hide a label.
-        // Otherwise, an absent parameter or an inline non-label style needs no type.
-        // An effective reference, an unread style, or a label outside the inline
-        // schema accept-list below leaves the capture unchecked.
-        let dot = match (parameter, readable) {
-            (_, false) => None,
-            (None, true) => Some(false),
-            (Some(parameter), true) => label_dot(parameter, operation, dialect, both_complete),
-        };
-        match dot {
-            Some(true) => labels.push(name),
-            Some(false) => {}
-            None => {
-                diagnostics.push(Diagnostic {
-                    capture: Some(name.into()),
-                    ..Diagnostic::new(
-                        "path_parameter_style_unchecked",
-                        "path_parameters",
-                        item.site.clone(),
-                    )
-                });
-                unchecked = true;
+        // An unread list at or above the effective precedence can hide a style override.
+        let serialization = match (parameter, readable) {
+            (_, false) => PathSerialization::Unchecked,
+            (None, true) => PathSerialization::Simple,
+            (Some(parameter), true) => {
+                path_serialization(parameter, operation, dialect, both_complete)
             }
-        }
+        };
+        let code = match serialization {
+            PathSerialization::Simple => continue,
+            PathSerialization::ScalarLabel => {
+                labels.push(name);
+                continue;
+            }
+            PathSerialization::Unsupported => "path_style_unsupported",
+            PathSerialization::Unchecked => "path_parameter_style_unchecked",
+        };
+        diagnostics.push(Diagnostic {
+            capture: Some(name.into()),
+            ..Diagnostic::new(code, "path_parameters", item.site.clone())
+        });
+        projectable = false;
     }
-    (!unchecked).then_some(labels)
+    projectable.then_some(labels)
 }
 
 struct ParameterList<'r, 'a> {
@@ -140,25 +138,53 @@ impl<'r, 'a> ParameterList<'r, 'a> {
     }
 }
 
-fn label_dot(
+enum PathSerialization {
+    Simple,
+    ScalarLabel,
+    Unsupported,
+    Unchecked,
+}
+
+fn path_serialization(
     parameter: &Located<'_, '_>,
     operation: &Located<'_, '_>,
     dialect: Dialect,
     both_lists_complete: bool,
-) -> Option<bool> {
+) -> PathSerialization {
     if parameter.value.get("$ref").is_some() {
-        return None;
+        return PathSerialization::Unchecked;
     }
-    match parameter.value.get("style") {
-        None => return Some(false),
-        Some(style) if style == "simple" || style == "matrix" => return Some(false),
-        Some(style) if style == "label" => {}
-        _ => return None,
+    let serialization = match parameter.value.get("style").map(Value::as_str) {
+        None | Some(Some("simple")) => PathSerialization::Simple,
+        Some(Some("label")) => match label_type(parameter, operation, dialect, both_lists_complete)
+        {
+            Some("string" | "number" | "integer" | "boolean") => PathSerialization::ScalarLabel,
+            Some("array" | "object") => return PathSerialization::Unsupported,
+            _ => return PathSerialization::Unchecked,
+        },
+        _ => return PathSerialization::Unsupported,
+    };
+    // Either boolean explode value preserves the capture spelling for these styles.
+    if parameter
+        .value
+        .get("explode")
+        .is_some_and(|value| !value.is_boolean())
+    {
+        return PathSerialization::Unsupported;
     }
+    serialization
+}
+
+fn label_type<'r>(
+    parameter: &Located<'r, '_>,
+    operation: &Located<'_, '_>,
+    dialect: Dialect,
+    both_lists_complete: bool,
+) -> Option<&'r str> {
     // Labels require both lists to be readable, including shadowed entries, and
     // a parameter in the operation's document. Withhold if that document has a
     // resolution or dialect keyword, the schema contains a reference, or its type
-    // is absent, malformed, or has anything other than one recognized non-null type name.
+    // is absent or malformed. The caller checks the resulting non-null type name.
     if !both_lists_complete
         || !std::ptr::eq(parameter.document, operation.document)
         || parameter
@@ -180,9 +206,5 @@ fn label_dot(
         },
         kind => kind,
     };
-    match kind.as_str()? {
-        "string" | "number" | "integer" | "boolean" => Some(true),
-        "array" | "object" => Some(false),
-        _ => None,
-    }
+    kind.as_str()
 }

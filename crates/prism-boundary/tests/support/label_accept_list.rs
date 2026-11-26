@@ -10,6 +10,8 @@ const LABEL_ID: &str = "op:GET /reed/.{}";
 const PLAIN_ID: &str = "op:GET /reed/{}";
 const ENTRY_URI: &str = "https://example.test/openapi.json";
 const CUSTOM_DIALECT: &str = "https://example.test/dialect-without-validation";
+const UNCHECKED: &str = "path_parameter_style_unchecked";
+const UNSUPPORTED: &str = "path_style_unsupported";
 
 fn label(schema: Value) -> Value {
     json!({"in": "path", "name": "id", "required": true, "style": "label", "schema": schema})
@@ -30,6 +32,10 @@ fn projection(document: &Value, expected: Option<&str>) {
 }
 
 fn assert_projection(inventory: &Inventory, expected: Option<&str>) {
+    assert_serialization(inventory, expected.ok_or(UNCHECKED));
+}
+
+fn assert_serialization(inventory: &Inventory, expected: Result<&str, &str>) {
     assert_eq!(
         inventory
             .operations
@@ -38,18 +44,15 @@ fn assert_projection(inventory: &Inventory, expected: Option<&str>) {
             .collect::<Vec<_>>(),
         ["op:GET /control"]
             .into_iter()
-            .chain(expected)
+            .chain(expected.ok())
             .collect::<Vec<_>>()
     );
     let diagnostics: Vec<_> = inventory
         .diagnostics
         .iter()
-        .filter(|d| d.code == "path_parameter_style_unchecked")
+        .filter(|d| matches!(d.code, UNCHECKED | UNSUPPORTED))
         .collect();
-    if expected.is_some() {
-        assert!(inventory.unprojected.is_empty());
-        assert!(diagnostics.is_empty());
-    } else {
+    if let Err(reason) = expected {
         let [declaration] = inventory.unprojected.as_slice() else {
             panic!(
                 "expected one withheld operation: {:?}",
@@ -65,9 +68,87 @@ fn assert_projection(inventory: &Inventory, expected: Option<&str>) {
                 inventory.diagnostics
             );
         };
+        assert_eq!(diagnostic.code, reason);
+        assert_eq!(diagnostic.scope, "path_parameters");
         assert_eq!(diagnostic.site.pointer, ["paths", CAPTURE_PATH]);
         assert_eq!(diagnostic.capture.as_deref(), Some("id"));
+    } else {
+        assert!(inventory.unprojected.is_empty());
+        assert!(diagnostics.is_empty());
     }
+}
+
+fn check_parameter(parameter: Value, expected: Result<&str, &str>) {
+    let input = document(json!([parameter]));
+    assert_serialization(&json(&serde_json::to_vec(&input).unwrap()), expected);
+}
+
+#[test]
+fn path_serialization_withholds_array_label() {
+    let mut parameter = label(json!({"type": ["null", "array"], "items": {"type": "string"}}));
+    parameter["explode"] = json!(true);
+    check_parameter(parameter, Err(UNSUPPORTED));
+}
+
+#[test]
+fn path_serialization_withholds_object_label() {
+    check_parameter(label(json!({"type": "object"})), Err(UNSUPPORTED));
+}
+
+#[test]
+fn path_serialization_withholds_scalar_matrix() {
+    let mut parameter = label(json!({"type": "string"}));
+    parameter["style"] = json!("matrix");
+    check_parameter(parameter, Err(UNSUPPORTED));
+}
+
+#[test]
+fn path_serialization_withholds_array_matrix() {
+    let mut parameter = label(json!({"type": "array", "items": {"type": "string"}}));
+    parameter["style"] = json!("matrix");
+    parameter["explode"] = json!(true);
+    check_parameter(parameter, Err(UNSUPPORTED));
+}
+
+#[test]
+fn path_serialization_withholds_unknown_style() {
+    let mut parameter = label(json!({"type": "string"}));
+    parameter["style"] = json!("other");
+    check_parameter(parameter, Err(UNSUPPORTED));
+}
+
+#[test]
+fn path_serialization_withholds_non_string_style() {
+    let mut parameter = label(json!({"type": "string"}));
+    parameter["style"] = Value::Null;
+    check_parameter(parameter, Err(UNSUPPORTED));
+}
+
+#[test]
+fn path_serialization_withholds_non_boolean_explode() {
+    let mut parameter = label(json!({"type": "string"}));
+    parameter["explode"] = json!("true");
+    check_parameter(parameter, Err(UNSUPPORTED));
+}
+
+#[test]
+fn path_serialization_leaves_undeterminable_label_unchecked() {
+    check_parameter(label(json!({})), Err(UNCHECKED));
+}
+
+#[test]
+fn path_serialization_keeps_simple_and_scalar_label() {
+    let scalar = label(json!({"type": "string"}));
+    check_parameter(scalar.clone(), Ok(LABEL_ID));
+    let mut parameter = scalar;
+    parameter["explode"] = json!(true);
+    check_parameter(parameter.clone(), Ok(LABEL_ID));
+    parameter["style"] = json!("simple");
+    check_parameter(parameter.clone(), Ok(PLAIN_ID));
+    parameter["schema"] = json!({"type": "array", "items": {"type": "string"}});
+    check_parameter(parameter.clone(), Ok(PLAIN_ID));
+    parameter.as_object_mut().unwrap().remove("style");
+    check_parameter(parameter, Ok(PLAIN_ID));
 }
 
 #[test]
@@ -176,8 +257,6 @@ fn label_type_admits_one_recognized_non_null_member() {
         ("3.1.0", json!(["null", "string"]), Some(LABEL_ID)),
         ("3.1.0", json!(["string"]), Some(LABEL_ID)),
         ("3.0.3", json!("integer"), Some(LABEL_ID)),
-        ("3.1.0", json!("object"), Some(PLAIN_ID)),
-        ("3.1.0", json!(["null", "array"]), Some(PLAIN_ID)),
         ("3.1.0", json!(["string", "integer"]), None),
         ("3.1.0", json!(["array", "object"]), None),
         ("3.1.0", json!(["null", "string", "array"]), None),

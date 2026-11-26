@@ -32,15 +32,18 @@ that produces zero deployments.
 
 ## Known limits
 
-- An OpenAPI label capture requires an inline parameter and a reference-free
-  inline schema with one known non-null type. Ambiguous parameter lists and
-  schema resolution keywords can withhold the operation ID.
-  A top-level `jsonSchemaDialect` or any `$schema` in the document withholds
-  the operation ID for label captures.
-  Compared with `364f31ab`, **0 of 1,165 operations withheld** across reachable
-  pinned JSON schema fixtures, including 0 of 187 in the 164 E-1 JSON rows and
-  their second-schema companion. The public schema golden was unavailable in
-  the fixture and evaluation directories.
+- OpenAPI `simple` path captures use `{}` with an explicit or default style,
+  including for arrays. Scalar `label` captures use `.{}`. Array or object
+  `label`, all `matrix` forms, other or non-string styles, and malformed
+  `explode` on otherwise supported declarations withhold the operation with
+  `path_style_unsupported`.
+- A `label` requires an inline parameter and a reference-free inline schema
+  with one known non-null type. An unreadable override, schema resolution
+  keywords, a top-level `jsonSchemaDialect`, or any `$schema` can make the
+  effective declaration or type undeterminable. Withhold such operations with
+  `path_parameter_style_unchecked`. Both reasons appear in the diagnostics inventory.
+- Compared with `b359cfa8`, **0 of 1,165 pinned operations** and **0 of 199
+  public-pair operations** were withheld or changed.
 - Route projections record `raw_path`, `mount` and `api` without consulting them.
 - Policy values from `route-table.toml` carry no spec hash.
 - A literal `{}` in a schema path prints the same way as a capture and can

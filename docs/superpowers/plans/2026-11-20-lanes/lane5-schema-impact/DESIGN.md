@@ -157,22 +157,25 @@ incomplete method coverage.
   Use the router's own evidenced join, case and slash options for registrations, including Gin's group join and
   Hapi's prefix plus child root. For a case-insensitive declaration use its ASCII-folded key and match under that
   policy. Never fold case across an entire API because one route permits it.
-- Parse captures only in their source dialect. OpenAPI braces, Gin/Express colon captures (including quoted names)
-  and Hapi required captures become `{}` wherever they occur. Keep fixed text and adjacent captures. Simple scalar
-  label serialization adds the literal dot. Retain equality of repeated parameter names and supported
-  serialization/constraint facts as attributes for matching. A literal schema colon stays literal.
+- Parse captures only in their source dialect. Swagger braces, Gin/Express colon captures (including quoted names)
+  and Hapi required captures become `{}` wherever they occur. Keep fixed text and adjacent captures. Retain equality
+  of repeated parameter names and supported serialization/constraint facts as attributes for matching. A literal
+  schema colon stays literal.
 
-  **Accept-list for path parameter type.** For an OpenAPI label capture, select the effective parameter by
-  `(name, in)`, with operation declarations overriding Path Item declarations. Both parameter lists must be
-  readable, including shadowed entries, and any list references must resolve within admitted blobs. The effective
-  parameter and its schema must be inline in the operation's document. The schema must contain no `$ref` and the
-  document must contain no `$id`, `$anchor`, or `$dynamicRef`. A top-level `jsonSchemaDialect` or any `$schema` in the
-  document also disqualifies the label because a different dialect can change whether `type` constrains values.
-  Accept a single recognized non-null type name, or
-  in OpenAPI 3.1 an array with one such name and optional `"null"`. Scalars add the literal dot. Arrays and objects
-  retain `{}`. Inline default, `simple`, and `matrix` styles need no type to retain `{}`. Where a label remains
-  possible and the reader cannot establish its spelling, withhold the operation ID and name the capture in
-  `path_parameter_style_unchecked`. Resolving parameter types through references and unresolved overrides is deferred.
+  **Accept-list for OpenAPI path parameter serialization.** Select the effective parameter by `(name, in)`, with
+  operation declarations overriding Path Item declarations. Explicit or default `simple` uses `{}` for any schema
+  type, including arrays. A `label` with a known scalar type uses `.{}`. Either boolean `explode` value preserves
+  these spellings. Withhold the operation for array or object `label`, any `matrix` style, any other or non-string
+  style, or a malformed `explode` on an otherwise supported declaration. Count these as `path_style_unsupported`.
+
+  For `label`, both parameter lists must be readable, including shadowed entries, and any list references must
+  resolve within admitted blobs. The effective parameter and its schema must be inline in the operation's document.
+  The schema must contain no `$ref` and the document must contain no `$id`, `$anchor`, or `$dynamicRef`. A top-level
+  `jsonSchemaDialect` or any `$schema` in the document also disqualifies the label because a different dialect can
+  change whether `type` constrains values. Read a single recognized non-null type name, or in OpenAPI 3.1 an array with
+  one such name and optional `"null"`. Withhold the operation with `path_parameter_style_unchecked` when the label
+  type or effective declaration is undeterminable. Count both reasons in the diagnostics inventory and name the
+  capture in each diagnostic. Resolving parameter types through references and unresolved overrides is deferred.
 - `{}` matches one non-empty component when it occupies the whole segment. Within a mixed segment its capture
   must consume non-empty text between the fixed parts. An empty capture is admitted only by `{?}` or `{*0+}`.
   Model a whole-component string variable as a non-empty segment parameter (§5.4). Score a possible empty
