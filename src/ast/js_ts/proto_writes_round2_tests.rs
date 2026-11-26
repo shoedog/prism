@@ -165,16 +165,18 @@ fn selectors_include_consumed_values_and_exclude_discarded_inputs() {
         "o[[discard,k].at(-1)][p]=1;\n",
         "o[k === discard][p]=1; o[!k][p]=1; o[k in api][p]=1; o[k instanceof api][p]=1;\n",
         "o[yield k][p]=1;\n",
-        "const s = `${k}!`; const c = o[s];\n c[s] = 1;\n",
+        "const s = `${k}_`; const c = o[s];\n c[s] = 1;\n",
+        "const anchored = `${k}!`; const privateSelection = o[anchored];\n privateSelection[p] = 1;\n",
         "}"
     ));
-    assert_eq!(fact_lines(&file), [3, 4, 5, 6, 7, 8, 9, 10, 14]);
+    assert_eq!(fact_lines(&file), [3, 4, 5, 6, 7, 8, 9, 10, 14, 16]);
     for fact in &file.js_ts_proto_writes()[..8] {
         assert!(selector(fact, fact.line, "k"), "{fact:?}");
         assert!(!selector(fact, fact.line, "discard"), "{fact:?}");
         assert!(!selector(fact, fact.line, "util"), "{fact:?}");
     }
     assert!(selector(&file.js_ts_proto_writes()[8], 14, "s"));
+    assert!(selector(&file.js_ts_proto_writes()[9], 15, "anchored"));
 }
 
 #[test]

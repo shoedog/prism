@@ -677,6 +677,10 @@ percentage. At 20 or more, record a measured shortfall as **below target** and p
 Every in-scope mismatch between the named-input requirement and recorded truth has an `accepted_loss` ID. Each
 row keeps its testable class, guard and sink behaviour. The seeded cases have separate IDs and counts.
 
+The reduced S1a-2 defers private table children, null walks, shared-slot
+proofs, closed-data write-back and intrinsic-trusting key domains. The
+affected safe rows keep their designated facts under R-DEFERRED-PROOF.
+
 | ID | Direction and reason | Rows |
 |---|---|---|
 | M-HELPER | Missed. A separate helper returns a walked object or moves a captured cursor through a named call. | hw01, t2-008 |
@@ -687,7 +691,8 @@ row keeps its testable class, guard and sink behaviour. The seeded cases have se
 | R-COERCE | Reported although JSON-safe. Loose equality or a relational test leaves the property key unproved at an unrestricted API. | g14, t2-045, t3-022 |
 | R-TARGET | Reported although safe. Frozen/shared candidates, proxy effects, a wrapper-built namespace, sibling-pattern effects, logical stores and typed-array views exceed the local receiver proof. Own enumeration of an opaque input lacks a private-child proof even when only that destination is transformed. | t2-111, t2-119, t2-124, t2-127, t2-130, t2-156, t2-172, t3-001, t3-002 |
 | R-SCHEMA | Reported although safe. The checked parallel schema cursor cannot prove ownership of the corresponding destination child. | t2-151 |
-| R-KEY-PROOF | Reported although safe in the run. The receiver of a split, the resulting sequence or the property key reused for a check or installation lacks a local native/primitive proof. | g04, g06, g07, g10, g15–g19, g21–g23, g32, t2-025, t2-029, t2-072, t2-141, t2-167, t2-168, t3-011, t3-012, t3-013, t3-024, t3-056. Also sk04 outside the matrix. |
+| R-KEY-PROOF | Reported although safe in the run. The receiver of a split, the resulting sequence or the property key reused for a check or installation lacks a local native/primitive proof. | g04, g06, g07, g10, g15–g19, g21–g23, g32, t2-025, t2-029, t2-072, t2-078, t2-141, t2-167, t2-168, t3-011, t3-012, t3-013, t3-024, t3-056. Also sk04 outside the matrix. |
+| R-DEFERRED-PROOF | Reported although safe in the run. The receiver or key proof is deferred in the reduced S1a-2. | nk09a, t2-016, t2-057, t2-068, t2-091, t2-093, t2-097, t2-098, t2-113, t2-115, t2-116, t2-117, t2-155, t2-159, t2-160, t2-171, t3-004, t3-005, t3-006, t3-008, t3-009 |
 | R-TEMPLATE | Reported although safe. The prefix/suffix rule keeps the incompatible interior-only template. The compatible neighbour t3-037 is a detection. | t3-007 |
 | R-PAIR | Reported although safe. The two-name strict pair omits the constructor check and relies on an additional object-only step and unproved split domain. | t3-023 |
 | R-CHILD | Reported although safe. A destination-own check without a syntactic private-child proof retains a partial guard (g04 also lacks the split-key proof of R-KEY-PROOF and would stay partial for this reason if split-key proofs are added). | g24, g25 |
@@ -728,6 +733,11 @@ changes, shadowed owners and stable shared RHS reads. The executed 007/037 pair 
 Split-dependent suppression still needs a discriminating pair satisfying its actual premises.
 
 ## 12. Change log
+
+**2026-11-25 · Reduced S1a-2, review round 1 fold.** Record the deferral
+of private table children, null walks, shared-slot proofs, closed-data
+write-back and intrinsic-trusting key domains. Record t2-078 as a listed
+write because the converted key is outside the installation proof.
 
 **2026-11-24 · Stage D, first draft.** Replaced the tentative class and guard readings with sections 5.1–5.3, preserved the
 stage-M populations, and reconciled all 270 fixture expectations and the slice briefs. The row table records 110

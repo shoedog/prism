@@ -12,25 +12,53 @@ use std::{
 };
 use tree_sitter::Node;
 
+mod domains;
 mod operands;
+mod proofs;
+mod receivers;
+mod slots;
 mod store;
 const TARGET_WORK_LIMIT: usize = 16_384;
 const FILE_WORK_LIMIT: usize = 2_000_000;
 const RECEIVER_DEPTH_LIMIT: usize = 128;
 
-type Selectors<'a> = BTreeMap<usize, Node<'a>>;
+type Selectors<'a> = BTreeMap<usize, Selection<'a>>;
 type ReceiverKey = (usize, Option<usize>);
+
+#[derive(Clone, Copy)]
+struct Selection<'a> {
+    object: Node<'a>,
+    key: Node<'a>,
+    nested: bool,
+    shared_link: bool,
+}
 
 #[derive(Clone, Default)]
 struct Relation<'a> {
-    nested: bool,
     selectors: Selectors<'a>,
 }
 
 impl<'a> Relation<'a> {
     fn extend(&mut self, other: Self) {
-        self.nested |= other.nested;
-        self.selectors.extend(other.selectors);
+        for (site, step) in other.selectors {
+            self.selectors
+                .entry(site)
+                .and_modify(|prior| {
+                    prior.nested |= step.nested;
+                    prior.shared_link |= step.shared_link;
+                })
+                .or_insert(step);
+        }
+    }
+
+    fn named_receiver(&mut self) {
+        for step in self.selectors.values_mut() {
+            step.nested = false;
+        }
+    }
+
+    fn nested(&self) -> bool {
+        self.selectors.values().any(|step| step.nested)
     }
 }
 
@@ -72,6 +100,7 @@ pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<Pr
         receivers: RefCell::default(),
         file_work: Cell::new(0),
         target_work: Cell::new(0),
+        proof_work: Cell::new(0),
     };
     let mut result = Vec::new();
     for (owner, mut members) in targets.into_values() {
@@ -106,6 +135,7 @@ struct Classifier<'a, 'b> {
     receivers: RefCell<BTreeMap<ReceiverKey, Rc<Relation<'a>>>>,
     file_work: Cell<usize>,
     target_work: Cell<usize>,
+    proof_work: Cell<usize>,
 }
 
 impl<'a> Classifier<'a, '_> {
@@ -135,17 +165,29 @@ impl<'a> Classifier<'a, '_> {
         let mut relation = self.receiver(object, &mut walk, None);
         let key = field(target, "index");
         if let Some(key) = key.filter(|_| self.advances(store, target)) {
-            self.add_key(key, &mut relation);
+            self.add_key(object, key, false, &mut relation);
         }
         if relation.selectors.is_empty() {
             return None;
         }
 
-        let mut operands = BTreeMap::new();
-        for &node in relation.selectors.values() {
-            self.key_reads(node, KeyRole::Selector, &mut operands, &mut BTreeSet::new());
+        self.proof_work.set(0);
+        relation
+            .selectors
+            .retain(|_, step| !self.excluded_step(*step, target, store));
+        if relation.selectors.is_empty() {
+            return None;
         }
-        if let Some(key) = key {
+        let mut operands = BTreeMap::new();
+        for step in relation.selectors.values() {
+            self.key_reads(
+                step.key,
+                KeyRole::Selector,
+                &mut operands,
+                &mut BTreeSet::new(),
+            );
+        }
+        if let Some(key) = key.filter(|key| !self.numeric_key(*key)) {
             self.key_reads(key, KeyRole::Property, &mut operands, &mut BTreeSet::new());
         }
         self.promote_reused_primitives(&relation.selectors, &mut operands);
@@ -178,7 +220,7 @@ impl<'a> Classifier<'a, '_> {
             owner: AstSpan::from(owner),
             function_start_line: owner.start_position().row + 1,
             function_end_line: owner.end_position().row + 1,
-            class: if relation.nested {
+            class: if relation.nested() {
                 ProtoWriteClass::NestedKeys
             } else {
                 ProtoWriteClass::PathWalk
@@ -260,11 +302,10 @@ impl<'a> Classifier<'a, '_> {
         if aliases.is_empty() {
             return (*relation).clone();
         }
-        let relation = if relation.nested {
-            Rc::new(Relation {
-                nested: false,
-                selectors: relation.selectors.clone(),
-            })
+        let relation = if relation.nested() {
+            let mut walked = (*relation).clone();
+            walked.named_receiver();
+            Rc::new(walked)
         } else {
             relation
         };
@@ -334,13 +375,13 @@ impl<'a> Classifier<'a, '_> {
                                 if self.from_accumulator(source, accumulator, &mut BTreeSet::new())
                                 {
                                     relation.extend(self.receiver(source, walk, accumulator));
-                                    self.add_key(key, &mut relation);
+                                    self.add_key(source, key, false, &mut relation);
                                 }
                             }
                             _ => {}
                         }
                     }
-                    relation.nested = false;
+                    relation.named_receiver();
                 }
             }
             "subscript_expression" | "member_expression" => {
@@ -350,9 +391,14 @@ impl<'a> Classifier<'a, '_> {
                             field(value, "index").filter(|key| self.fixed_key(*key).is_none())
                         {
                             relation = self.receiver(object, walk, accumulator);
-                            relation.nested |= self.add_key(key, &mut relation);
+                            self.add_key(object, key, true, &mut relation);
                         } else if self.shared_link(value) {
                             relation = self.receiver(object, walk, accumulator);
+                            if self.charge(relation.selectors.len()) {
+                                for step in relation.selectors.values_mut() {
+                                    step.shared_link = true;
+                                }
+                            }
                         }
                     }
                 }
@@ -405,12 +451,12 @@ impl<'a> Classifier<'a, '_> {
                 if let Some((object, key)) = self.reflect_get(value) {
                     if self.from_accumulator(object, accumulator, &mut BTreeSet::new()) {
                         relation = self.receiver(object, walk, accumulator);
-                        self.add_key(key, &mut relation);
+                        self.add_key(object, key, false, &mut relation);
                     }
                 } else if accumulator.is_none() {
                     relation = self.reduce(value, walk);
                 }
-                relation.nested = false;
+                relation.named_receiver();
             }
             _ => {}
         }
@@ -447,7 +493,7 @@ impl<'a> Classifier<'a, '_> {
                 .analysis
                 .read(key)
                 .filter(|read| read.resolution_complete)?;
-            if !identifier(key) {
+            if !identifier(key) || self.script_global_binding(read.binding.as_ref()?) {
                 return None;
             }
             let [site] = read.reaching_versions.as_slice() else {
@@ -460,13 +506,19 @@ impl<'a> Classifier<'a, '_> {
         })
     }
 
-    fn add_key(&self, key: Node<'a>, relation: &mut Relation<'a>) -> bool {
-        if self.fixed_key(key).is_some() {
-            return false;
-        }
+    fn add_key(&self, object: Node<'a>, key: Node<'a>, nested: bool, relation: &mut Relation<'a>) {
         let key = peel(key);
-        relation.selectors.insert(key.start_byte(), key);
-        true
+        if self.fixed_key(key).is_none() {
+            relation.selectors.insert(
+                key.start_byte(),
+                Selection {
+                    object,
+                    key,
+                    nested,
+                    shared_link: false,
+                },
+            );
+        }
     }
 
     fn from_accumulator(
