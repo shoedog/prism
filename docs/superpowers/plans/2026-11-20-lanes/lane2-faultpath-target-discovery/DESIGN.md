@@ -1876,6 +1876,24 @@ Their write-target accept-list is:
   `list_pattern`, `pattern_list` or a comma-bearing `tuple_pattern`. Coverage of grouped and starred
   leaves depends on the parser shape, as described below.
 
+The starred vararg annotation recovery accept-list covers names, unformatted literals, displays
+and comprehensions, explicit groups, primary trailers (attribute, subscript, call),
+arithmetic/bitwise operators, and await in an eager annotation in an enclosing async function.
+Lambda, conditional, boolean and comparison operands need grouping. Grouped lambdas admit
+simple, distinct positional names.
+
+Recovery refuses f-strings, walrus expressions, yield expressions and lambda parameters with
+defaults. Validating those operands requires syntax or compiler-scope checks beyond the
+accept-list. A refused annotation emits no row for its call. A recognized call elsewhere in the
+affected function is counted as `parse_error_in_function`.
+
+Two known limits remain in the surrounding signature and scope. In CPython,
+`def inner(*a: *(yield None))` inside `def make() -> Path` makes `make` a generator. The
+helper-result proof misses that yield, so calling `p = make()` and then `p.read_text()` still
+emits a `nameonly` row. Recovery also skips duplicate-parameter validation on the enclosing
+signature. A duplicate name beside a starred annotation can leave an `exact` annotation-call
+row. The `known_limit_*` CLI tests pin both outcomes and the refused operands alongside controls.
+
 For a returned local, R4/R5 recognize evaluated identifier uses and permit same-scope member bases
 and supported literal member writes that leave the required slots intact. In a `match`, the subject
 and guards are walked as expressions, captures enter the binding census, and bare class-pattern

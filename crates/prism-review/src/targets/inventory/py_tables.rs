@@ -245,10 +245,11 @@ pub(super) fn class_object(path: &str) -> &str {
         "httpx._client.AsyncClient" => "httpx.AsyncClient",
         "aiohttp.client.ClientSession" => "aiohttp.ClientSession",
         "urllib3.poolmanager.PoolManager" => "urllib3.PoolManager",
-        "configparser.MutableMapping" | "_collections_abc.MutableMapping" => {
-            "collections.abc.MutableMapping"
-        }
-        "_collections_abc.Mapping" => "collections.abc.Mapping",
+        "configparser.MutableMapping"
+        | "_collections_abc.MutableMapping"
+        | "os.MutableMapping"
+        | "typing.MutableMapping" => "collections.abc.MutableMapping",
+        "_collections_abc.Mapping" | "os.Mapping" | "typing.Mapping" => "collections.abc.Mapping",
         "_collections_abc.Collection" => "collections.abc.Collection",
         "_collections_abc.Sized" => "collections.abc.Sized",
         "_collections_abc.Iterable" => "collections.abc.Iterable",

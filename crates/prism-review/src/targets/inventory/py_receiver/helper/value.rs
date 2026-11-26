@@ -66,12 +66,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 == definition
                     .child(0)
                     .is_some_and(|token| token.kind() == "async");
-        // Require a return witness, or a suite made entirely of pass statements.
-        // Arbitrary control flow with no return does not prove fallthrough.
-        let mut statements = children(body).peekable();
-        let pass_only =
-            statements.peek().is_some() && statements.all(|stmt| stmt.kind() == "pass_statement");
-        let known_none = (!returns.is_empty() || pass_only)
+        let known_none = (!returns.is_empty() || Completion::suite(body).normal)
             && returns
                 .iter()
                 .all(|(value, _, _)| value.is_none_or(|value| value.kind() == "none"));
@@ -187,6 +182,105 @@ impl<'tree> Resolver<'_, 'tree> {
             family,
             caller_cause,
         })
+    }
+}
+
+/// Bounded witnesses for reaching the end of a suite or breaking its enclosing loop.
+#[derive(Default)]
+struct Completion {
+    normal: bool,
+    breaks: bool,
+}
+
+impl Completion {
+    const NORMAL: Self = Self {
+        normal: true,
+        breaks: false,
+    };
+
+    fn suite(body: Node<'_>) -> Self {
+        let mut statements = children(body).peekable();
+        if body.has_error() || statements.peek().is_none() {
+            return Self::default();
+        }
+        let mut exits = Self::NORMAL;
+        for statement in statements {
+            if !exits.normal {
+                break;
+            }
+            let next = Self::statement(statement);
+            exits.normal = next.normal;
+            exits.breaks |= next.breaks;
+        }
+        exits
+    }
+
+    fn statement(statement: Node<'_>) -> Self {
+        match statement.kind() {
+            "expression_statement"
+            | "pass_statement"
+            | "delete_statement"
+            | "import_statement"
+            | "import_from_statement"
+            | "global_statement"
+            | "function_definition" => Self::NORMAL,
+            "break_statement" => Self {
+                normal: false,
+                breaks: true,
+            },
+            "if_statement" => Self::conditional(statement),
+            "while_statement" => match Self::literal_condition(statement) {
+                Some(true) => Self {
+                    normal: Self::body(statement, "body").breaks,
+                    breaks: false,
+                },
+                Some(false) => statement
+                    .child_by_field_name("alternative")
+                    .map_or(Self::NORMAL, |arm| Self::body(arm, "body")),
+                None => Self::default(),
+            },
+            // Transfers and compound statements without a modeled exit (including
+            // try, with and match) do not supply a fallthrough witness.
+            _ => Self::default(),
+        }
+    }
+
+    fn conditional(statement: Node<'_>) -> Self {
+        let arms = std::iter::once(statement).chain(
+            children(statement).filter(|arm| matches!(arm.kind(), "elif_clause" | "else_clause")),
+        );
+        let mut exits = Self::default();
+        for arm in arms {
+            let (field, condition) = if arm.kind() == "else_clause" {
+                ("body", Some(true))
+            } else {
+                ("consequence", Self::literal_condition(arm))
+            };
+            if condition != Some(false) {
+                let branch = Self::body(arm, field);
+                exits.normal |= branch.normal;
+                exits.breaks |= branch.breaks;
+            }
+            if condition == Some(true) {
+                return exits;
+            }
+        }
+        exits.normal = true; // No arm need be taken.
+        exits
+    }
+
+    fn body(statement: Node<'_>, field: &str) -> Self {
+        statement
+            .child_by_field_name(field)
+            .map_or_else(Self::default, Self::suite)
+    }
+
+    fn literal_condition(statement: Node<'_>) -> Option<bool> {
+        match ungroup(statement.child_by_field_name("condition")?).kind() {
+            "true" => Some(true),
+            "false" | "none" => Some(false),
+            _ => None,
+        }
     }
 }
 
