@@ -9,9 +9,9 @@ pub mod revision;
 pub use diff::*;
 pub use inventory::{
     definitions_of, index_schema, operations_reaching, signature, Coverage, DefinitionId,
-    EnumValue, Field, FieldShape, JsonMediaSource, Lookup, MessageCoverage, Operation,
-    OperationSite, Property, RegionLimit, RootKey, SchemaDiagnostic, SchemaIndex, SchemaSite,
-    SchemaSource, StatusInventory,
+    EnumValue, Field, FieldShape, JsonMediaSource, Lookup, MediaDeclarationSource, MessageCoverage,
+    Operation, OperationSite, Property, RegionLimit, RootKey, SchemaDiagnostic, SchemaIndex,
+    SchemaSite, SchemaSource, StatusInventory,
 };
 pub use model::{Binding, BindingStatus, BindingsDocument, ImpactDocument, Unbound};
 pub use revision::{admit_inputs, admit_schema_input, AdmittedSchemaInput, SnapshotInput};

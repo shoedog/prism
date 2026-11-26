@@ -13,24 +13,40 @@ pub(super) fn cutoff(request: &AdmissionRequest) -> Option<DateTime<FixedOffset>
         ReviewMode::HistoricalAsOf => {
             request.subject_head_input_id.as_ref()?;
             let subject = subject(request)?;
-            let SnapshotInput::Commit {
-                committed_at: Some(date),
-                ..
-            } = &subject.snapshot
-            else {
-                return None;
-            };
-            (instant(date)? == cutoff
-                && request
-                    .subject_head_committed_at
-                    .as_deref()
-                    .is_none_or(|legacy| instant(legacy) == Some(cutoff)))
-            .then_some(cutoff)
+            historical_head(&subject.snapshot, cutoff)?;
+            request
+                .subject_head_committed_at
+                .as_deref()
+                .is_none_or(|legacy| instant(legacy) == Some(cutoff))
+                .then_some(cutoff)
         }
         ReviewMode::VersionComparison => {
             (instant(request.selection_time.as_deref()?)? == cutoff).then_some(cutoff)
         }
     }
+}
+
+pub(crate) fn historical_head(
+    snapshot: &SnapshotInput,
+    cutoff: DateTime<FixedOffset>,
+) -> Option<&str> {
+    match snapshot {
+        SnapshotInput::Commit {
+            rev,
+            committed_at: Some(date),
+            ..
+        } if instant(date) == Some(cutoff) && !rev.is_empty() => Some(rev),
+        _ => None,
+    }
+}
+
+pub(crate) fn exact_tree_at_cutoff(
+    origin: &ReceiptOrigin,
+    tree: &str,
+    cutoff: DateTime<FixedOffset>,
+) -> bool {
+    matches!(origin, ReceiptOrigin::IndependentCutoff { evidence, available_at, covered_tree: Some(covered), .. }
+        if covered == tree && !evidence.is_empty() && instant(available_at).is_some_and(|at| at <= cutoff))
 }
 
 pub(crate) fn selection_required(
@@ -86,6 +102,13 @@ pub(super) fn selection(
         side
     } else if subject.is_some_and(|head| head.binding.input_id == *id) {
         Some(ServiceSide::After)
+    } else if side.is_none()
+        && binding.role == Role::Consumer
+        && subject.is_some_and(|head| {
+            head.binding.role == binding.role && head.binding.repo == binding.repo
+        })
+    {
+        Some(ServiceSide::Before)
     } else {
         side
     };
@@ -102,32 +125,43 @@ pub(super) fn selection(
     }
     let recorded_cutoff = cutoff(request).ok_or_else(missing)?;
     let receipt = input.selection.as_ref().ok_or_else(missing)?;
-    let (selected_rev, selected_branch) =
-        receipt
-            .proof(request.mode, recorded_cutoff)
-            .ok_or_else(|| {
-                if *receipt == SelectionReceipt::Unsupported {
-                    Refusal::new("unsupported_kind", id)
-                } else {
-                    missing()
-                }
-            })?;
-    if selected_branch.is_some() && selected_branch != input.binding.branch.as_deref() {
-        return Err(missing());
-    }
-    if Some(selected_rev) != input.binding.rev.as_deref() {
-        return Err(Refusal::mismatch(
-            id,
-            "rev",
-            input.binding.rev.as_deref(),
-            Some(selected_rev),
-        ));
-    }
+    receipt.check(
+        request.mode,
+        recorded_cutoff,
+        id,
+        binding.rev.as_deref(),
+        binding.branch.as_deref(),
+    )?;
     Ok(())
 }
 
 impl SelectionReceipt {
-    pub(crate) fn proof(
+    pub(crate) fn check(
+        &self,
+        mode: ReviewMode,
+        cutoff: DateTime<FixedOffset>,
+        id: &str,
+        rev: Option<&str>,
+        branch: Option<&str>,
+    ) -> Result<(&str, Option<&str>), Refusal> {
+        let proof = self.proof(mode, cutoff).ok_or_else(|| {
+            let code = if *self == Self::Unsupported {
+                "unsupported_kind"
+            } else {
+                "missing_cutoff"
+            };
+            Refusal::new(code, id)
+        })?;
+        if proof.1.is_some() && proof.1 != branch {
+            return Err(Refusal::new("missing_cutoff", id).dimension("branch"));
+        }
+        if rev != Some(proof.0) {
+            return Err(Refusal::mismatch(id, "rev", rev, Some(proof.0)));
+        }
+        Ok(proof)
+    }
+
+    pub(super) fn proof(
         &self,
         mode: ReviewMode,
         cutoff: DateTime<FixedOffset>,
@@ -218,15 +252,46 @@ impl SelectionReceipt {
     }
 }
 
+// Each proof has already been checked against the same report instant.
+pub(crate) fn selection_conflicts<'a>(
+    selections: impl IntoIterator<Item = (&'a str, &'a str, (&'a str, Option<&'a str>))>,
+) -> Vec<Refusal> {
+    let mut by_branch = BTreeMap::<_, Vec<_>>::new();
+    for (id, repo, (rev, branch)) in selections {
+        if let Some(branch) = branch {
+            by_branch.entry((repo, branch)).or_default().push((id, rev));
+        }
+    }
+    let mut conflicts = Vec::new();
+    for observations in by_branch.into_values() {
+        if observations
+            .iter()
+            .any(|(_, rev)| *rev != observations[0].1)
+        {
+            let evidence: Vec<_> = observations
+                .iter()
+                .map(|(id, _)| (*id).to_owned())
+                .collect();
+            for (id, _) in observations {
+                let mut refusal = Refusal::new("receipt_conflict", id).dimension("selection");
+                refusal.evidence.clone_from(&evidence);
+                conflicts.push(refusal);
+            }
+        }
+    }
+    conflicts
+}
+
 pub(super) fn merge<'a>(
     request: &'a AdmissionRequest,
-    snapshot: &SnapshotInput,
+    input: &AdmissionInput,
+    slot: &InputSlot,
 ) -> Result<Option<&'a str>, Refusal> {
     let SnapshotInput::ComputedTree {
         tree,
         computed_at,
         merge_receipt,
-    } = snapshot
+    } = &input.snapshot
     else {
         return Ok(None);
     };
@@ -262,6 +327,15 @@ pub(super) fn merge<'a>(
     }
     if request.mode == ReviewMode::HistoricalAsOf {
         let cutoff = cutoff(request).ok_or_else(|| invalid("cutoff_evidence"))?;
+        if slot.service_side == Some(ServiceSide::After)
+            && !subject(request).is_some_and(|topic| {
+                topic.binding.role == slot.role
+                    && topic.binding.repo == slot.repo
+                    && historical_head(&topic.snapshot, cutoff) == merge.head.as_deref()
+            })
+        {
+            return Err(invalid("head"));
+        }
         let id = merge
             .cutoff_evidence
             .as_deref()
@@ -272,9 +346,7 @@ pub(super) fn merge<'a>(
             "missing_receipt",
         )
         .map_err(|_| invalid("cutoff_evidence"))?;
-        if !matches!(&receipt.origin, ReceiptOrigin::IndependentCutoff { evidence, available_at, covered_tree: Some(covered), .. }
-            if covered == tree && !evidence.is_empty() && instant(available_at).is_some_and(|at| at <= cutoff))
-        {
+        if !exact_tree_at_cutoff(&receipt.origin, tree, cutoff) {
             return Err(invalid("cutoff_evidence"));
         }
         return Ok(Some(id));

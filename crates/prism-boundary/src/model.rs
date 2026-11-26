@@ -23,6 +23,8 @@ pub struct DocumentInput {
     pub input_id: String,
     pub api: String,
     pub repo: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
     pub role: Role,
     #[serde(flatten)]
     pub snapshot: SnapshotInput,

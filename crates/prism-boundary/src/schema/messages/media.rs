@@ -1,7 +1,7 @@
 use super::super::references::Located;
 use super::super::Dialect;
 use crate::element::{OperationId, PointerToken, SuccessKey};
-use crate::inventory::{Coverage, JsonMediaSource, RegionLimit};
+use crate::inventory::{Coverage, JsonMediaSource, MediaDeclarationSource, RegionLimit};
 use crate::revision::AdmittedSchemaInput;
 use serde_json::Value;
 
@@ -10,6 +10,7 @@ pub(super) struct Message<'r, 'a> {
     pub coverage: Coverage,
     pub limits: Vec<RegionLimit>,
     pub declared_media: Vec<String>,
+    pub declaration_source: Option<MediaDeclarationSource>,
     pub json_source: Option<JsonMediaSource>,
     pub blocks: Vec<Vec<PointerToken>>,
 }
@@ -21,6 +22,7 @@ impl Message<'_, '_> {
             coverage: Coverage::Checked,
             limits: Vec::new(),
             declared_media: Vec::new(),
+            declaration_source: None,
             json_source: None,
             blocks: Vec::new(),
         }
@@ -197,20 +199,23 @@ pub(super) fn swagger<'r, 'a>(
     let media = location
         .value
         .get(key)
-        .map(|raw| (raw, JsonMediaSource::OperationMedia))
+        .map(|raw| (raw, MediaDeclarationSource::Operation))
         .or_else(|| {
             location
                 .document
                 .value
                 .get(key)
-                .map(|raw| (raw, JsonMediaSource::DocumentMedia))
+                .map(|raw| (raw, MediaDeclarationSource::Document))
         });
     if let Some((raw, source)) = media {
+        message.declaration_source = Some(source);
         let Some(entries) = raw
             .as_array()
             .and_then(|values| values.iter().map(Value::as_str).collect::<Option<Vec<_>>>())
         else {
-            return Message::withheld("media_unreadable");
+            message.coverage = Coverage::Withheld;
+            message.limit(Vec::new(), "media_unreadable");
+            return message;
         };
         message.declared_media = entries.iter().map(|s| (*s).into()).collect();
         if !entries.iter().any(|entry| json_media(entry)) {
@@ -218,7 +223,10 @@ pub(super) fn swagger<'r, 'a>(
             message.limit(Vec::new(), "non_json_media");
             return message;
         }
-        message.json_source = Some(source);
+        message.json_source = Some(match source {
+            MediaDeclarationSource::Operation => JsonMediaSource::OperationMedia,
+            MediaDeclarationSource::Document => JsonMediaSource::DocumentMedia,
+        });
         if entries.iter().any(|entry| !json_media(entry)) {
             message.partial(Vec::new(), "non_json_media", false);
         }

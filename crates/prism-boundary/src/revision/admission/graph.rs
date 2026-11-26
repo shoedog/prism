@@ -45,19 +45,41 @@ impl<'a> Ledger<'a> {
                         "missing_slot",
                     )
                     .and_then(|input| {
-                        slots::validate_input(request, input)?;
+                        let slot = slots::validate_input(request, input)?;
                         Ok(InputFacts {
                             input,
                             selection: selection::selection(
                                 request,
                                 ledger.subject,
                                 input,
-                                input.binding.service_side,
+                                slot.service_side,
                             ),
-                            merge_cutoff: selection::merge(request, &input.snapshot)?,
+                            merge_cutoff: selection::merge(request, input, slot)?,
                         })
                     })
                 });
+        }
+        if let Some(cutoff) = selection::cutoff(request) {
+            let conflicts =
+                selection::selection_conflicts(ledger.inputs.values().filter_map(|facts| {
+                    let facts = facts.as_ref().ok()?;
+                    facts.selection.as_ref().ok()?;
+                    let input = facts.input;
+                    let proof = input.selection.as_ref()?.proof(request.mode, cutoff)?;
+                    Some((
+                        input.binding.input_id.as_str(),
+                        input.binding.repo.as_str(),
+                        proof,
+                    ))
+                }));
+            for conflict in conflicts {
+                if let Some(Ok(facts)) = ledger
+                    .inputs
+                    .get_mut(conflict.record_id.as_deref().unwrap())
+                {
+                    facts.selection = Err(conflict);
+                }
+            }
         }
         let config_conflicts = ledger.conflicting_configs();
         for receipt in &request.receipts {
@@ -262,13 +284,14 @@ impl<'a> Ledger<'a> {
         &self,
         roots: impl IntoIterator<Item = (&'a str, &'static str)>,
     ) -> (Vec<&'a AdmissionReceipt>, Vec<Refusal>) {
-        self.walk(roots, &BTreeSet::new())
+        self.walk(roots, &BTreeSet::new(), &[])
     }
 
     pub(super) fn walk(
         &self,
         roots: impl IntoIterator<Item = (&'a str, &'static str)>,
-        isolated: &BTreeSet<&str>,
+        optional_media: &BTreeSet<&str>,
+        claim_entries: &[String],
     ) -> (Vec<&'a AdmissionReceipt>, Vec<Refusal>) {
         enum Step<'a> {
             Enter(&'a str, &'static str),
@@ -281,6 +304,7 @@ impl<'a> Ledger<'a> {
         let mut refusals = Vec::new();
         let mut steps: Vec<_> = roots
             .into_iter()
+            .filter(|(id, _)| !optional_media.contains(id))
             .map(|(id, missing)| Step::Enter(id, missing))
             .collect();
         steps.reverse();
@@ -292,7 +316,7 @@ impl<'a> Ledger<'a> {
                     visited.insert(id);
                 }
                 Step::Enter(id, missing) => {
-                    if visited.contains(id) || isolated.contains(id) {
+                    if visited.contains(id) {
                         continue;
                     }
                     if active.contains(id) {
@@ -321,11 +345,16 @@ impl<'a> Ledger<'a> {
                                     }
                                 }
                             }
+                            let schema_entry = record.kind == ReceiptKind::Blob
+                                && claim_entries.contains(&record.id);
                             steps.extend(
                                 record
                                     .dependencies
                                     .iter()
                                     .rev()
+                                    .filter(|dep| {
+                                        !schema_entry || !optional_media.contains(dep.as_str())
+                                    })
                                     .map(|dep| Step::Enter(dep, "missing_dependency")),
                             );
                         }
@@ -364,9 +393,8 @@ impl<'a> Ledger<'a> {
             }
             None => ClaimPurpose::Metadata,
         };
-        if slot.service_side == input.binding.service_side {
-            facts.selection.clone()?;
-        } else {
+        facts.selection.clone()?;
+        if slot.service_side != input.binding.service_side {
             selection::selection(self.request, self.subject, input, slot.service_side)?;
         }
         if purpose == ClaimPurpose::Schema
@@ -383,7 +411,7 @@ impl<'a> Ledger<'a> {
             .iter()
             .map(|id| (id.as_str(), "missing_receipt"))
             .chain(facts.merge_cutoff.map(|id| (id, "missing_dependency")));
-        let isolated = if purpose == ClaimPurpose::Schema {
+        let optional_media = if purpose == ClaimPurpose::Schema {
             self.request
                 .receipts
                 .iter()
@@ -393,9 +421,10 @@ impl<'a> Ledger<'a> {
         } else {
             BTreeSet::new()
         };
-        let (records, closure_refusals) = self.walk(roots.clone(), &isolated);
+        let (records, closure_refusals) =
+            self.walk(roots.clone(), &optional_media, &claim.receipt_ids);
         reasons.extend(closure_refusals);
-        if !isolated.is_empty() && reasons.is_empty() {
+        if !optional_media.is_empty() && reasons.is_empty() {
             let required: BTreeSet<_> = records.iter().map(|record| record.id.as_str()).collect();
             let (_, attached_refusals) = self.closure(roots);
             reasons.extend(attached_refusals.into_iter().filter(|refusal| {
@@ -423,7 +452,7 @@ impl<'a> Ledger<'a> {
         if purpose == ClaimPurpose::Schema && reasons.is_empty() {
             let entry = self.schema_entry(claim, &records);
             match entry.and_then(|entry| {
-                self.resolve_schema(input, entry, &records, &isolated, &scope, claim)
+                self.resolve_schema(input, entry, &records, &optional_media, &scope, claim)
             }) {
                 Ok((resolved, proofs)) => {
                     projection = Some(resolved);

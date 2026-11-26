@@ -251,6 +251,7 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                 feasible,
                 selected_schema,
                 declared_media: message.declared_media,
+                declaration_source: message.declaration_source,
                 json_source: message.json_source,
             });
         }

@@ -55,7 +55,7 @@ impl<'a> Ledger<'a> {
         input: &'a AdmissionInput,
         entry: &'a AdmissionReceipt,
         records: &[&'a AdmissionReceipt],
-        isolated: &BTreeSet<&str>,
+        optional_media: &BTreeSet<&str>,
         scope: &Scope,
         claim: &'a AdmissionClaim,
     ) -> Result<(Projection<'a>, Vec<MediaDecision<'a>>), Refusal> {
@@ -77,7 +77,7 @@ impl<'a> Ledger<'a> {
             config_receipts: Vec::new(),
             media_receipts: Vec::new(),
         };
-        let (entry_closure, _) = self.walk(edges(entry), isolated);
+        let (entry_closure, _) = self.walk(edges(entry), optional_media, &claim.receipt_ids);
         let mut configs = BTreeSet::new();
         let mut matched_config = false;
         for record in records
@@ -148,8 +148,11 @@ impl<'a> Ledger<'a> {
             .flat_map(|record| &record.dependencies)
             .chain(&claim.receipt_ids)
             .map(String::as_str)
-            .filter(|id| isolated.contains(id))
+            .filter(|id| optional_media.contains(id))
             .collect();
+        let root_inventory = (!proof_ids.is_empty())
+            .then(|| crate::index_schema(&output.input()).ok())
+            .flatten();
         let mut decisions = Vec::new();
         for id in proof_ids {
             let (proofs, mut reasons) = self.closure([(id, "missing_receipt")]);
@@ -162,7 +165,11 @@ impl<'a> Ledger<'a> {
                     .as_ref()
                     .ok_or_else(|| Refusal::new("missing_receipt", id).dimension("entry"))
                     .and_then(|(proof, entry)| {
-                        self.media_proof(input, &output, proofs[0], &proofs[1..], *proof, entry)
+                        let root_exists = root
+                            .as_ref()
+                            .zip(root_inventory.as_ref())
+                            .is_some_and(|(root, inventory)| media_root_exists(root, inventory));
+                        self.media_proof(input, &output, &proofs, *proof, entry, root_exists)
                     });
                 match proof {
                     Ok(proof) => output.media_receipts.push(proof),
@@ -205,11 +212,14 @@ impl<'a> Ledger<'a> {
         &self,
         input: &AdmissionInput,
         projection: &Projection<'_>,
-        record: &'a AdmissionReceipt,
-        sources: &[&AdmissionReceipt],
+        receipts: &[&AdmissionReceipt],
         proof: ProducerMediaEvidence<'a>,
         entry: &serde_json::Value,
+        root_exists: bool,
     ) -> Result<ProducerMediaEvidence<'a>, Refusal> {
+        let (record, sources) = receipts
+            .split_first()
+            .expect("media closure includes its root");
         let fail = |code| Refusal::new(code, &record.id);
         if !matches!(&record.origin, ReceiptOrigin::NamedTree { input_id, .. } if input_id == &input.binding.input_id)
         {
@@ -231,14 +241,35 @@ impl<'a> Ledger<'a> {
         if !crate::schema::valid_media_proof(&projection.input(), proof.receipt, entry) {
             return Err(fail("slot_mismatch").dimension("media_proof"));
         }
+        if !root_exists {
+            return Err(fail("slot_mismatch").dimension("media_root"));
+        }
         Ok(proof)
     }
+}
+
+fn media_root_exists(root: &MediaRootEvidence, inventory: &crate::SchemaIndex) -> bool {
+    use crate::RootKey;
+    inventory.operations.iter().any(|operation| {
+        operation.id.to_string() == root.operation_id
+            && operation.declarations.len() == 1
+            && operation.messages.iter().any(|message| {
+                message.selected_schema.is_some()
+                    && match (&message.key, root.direction) {
+                        (RootKey::Request, MediaDirection::Request) => true,
+                        (RootKey::Response(status), MediaDirection::Response) => {
+                            root.status.as_deref() == Some(&status.to_string())
+                        }
+                        _ => false,
+                    }
+            })
+    })
 }
 
 fn media_root(entry: &serde_json::Value) -> Option<MediaRootEvidence> {
     let operation_id = entry["operation"].as_str()?.to_owned();
     let (direction, status) = match entry["direction"].as_str()? {
-        "request" => (MediaDirection::Request, None),
+        "request" if entry.get("status")?.is_null() => (MediaDirection::Request, None),
         "response" => (
             MediaDirection::Response,
             Some(entry["status"].as_str()?.to_owned()),

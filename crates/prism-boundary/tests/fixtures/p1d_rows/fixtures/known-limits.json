@@ -1,27 +1,4 @@
 {
-  "known-limit-01": {
-    "finding": "Sol W12, projection provenance",
-    "fixture": "swagger.json",
-    "input": {
-      "method": "get",
-      "path": "/kiln",
-      "status": "200",
-      "media": "text/plain",
-      "locations": ["document", "operation"]
-    },
-    "observed": {
-      "declared_media": ["text/plain"],
-      "coverage": "withheld",
-      "reader_reason": "non_json_media",
-      "media_source": null
-    },
-    "outside_accept_list": "Non-JSON roots may establish a media limit. They do not establish the source level of a Swagger media declaration.",
-    "control": {
-      "fixture": "swagger.json",
-      "input": "Repeat with application/json.",
-      "observed": ["document_media", "operation_media"]
-    }
-  },
   "known-limit-02": {
     "finding": "Sol S1, seeded B27/B28 projection",
     "fixture": "impact-wire-cases.json",
@@ -39,25 +16,6 @@
       "fixture": "operations-only.json",
       "input": "Project a real empty-to-Swagger diff in fold_root_limit_preserves_unknown_field_details and fold2_operation_addition_without_fields_does_not_inherit_media_limit.",
       "observed": "A root limit links to its unknown field detail and stands alone when the operation has no matching detail."
-    }
-  },
-  "known-limit-03": {
-    "finding": "Sol B, historical computed after-tree",
-    "fixture": "operations-only.json",
-    "input": {
-      "mode": "historical_as_of",
-      "cutoff_at": "2026-11-25T12:00:00Z",
-      "after_snapshot": {"snapshot_kind": "computed_tree", "tree": "service-after-tree", "computed_at": "2026-11-26T11:00:00Z", "merge_receipt": "merge-result"},
-      "after_origin": {"kind": "independent_cutoff", "evidence": "exact result at cutoff", "available_at": "2026-11-25T12:00:00Z", "covered_tree": "service-after-tree"},
-      "topic_head": {"input_id": "topic-head", "rev": "topic-head-rev", "tree": "topic-head-tree", "committed_at": "2026-11-25T12:00:00Z"},
-      "selection": {"subject_head_input_id": "topic-head", "merge_receipt": "merge-result"}
-    },
-    "observed": {"report-cutoff": "unchecked", "counts": {"missing_cutoff": 1}},
-    "outside_accept_list": "The frozen impact validator supports a historical cutoff whose subject head is the effective after commit. It cannot resolve a distinct topic head through merge evidence.",
-    "control": {
-      "fixture": "operations-only.json",
-      "input": "Make service-after the effective subject commit, timestamp it at cutoff and select it as subject_head_input_id.",
-      "observed": {"report-cutoff": "admitted", "counts": {}}
     }
   },
   "known-limit-04": {
@@ -124,27 +82,6 @@
       "fixture": "inventory.json",
       "input": "Use self-contained admitted inventory bytes and their derived signature with otherwise identical saved and selected evidence.",
       "observed": {"status": "binding_current", "admitted_saved_locations": ["saved-site"]}
-    }
-  },
-  "known-limit-08": {
-    "finding": "Sol D, unrelated complete membership region",
-    "fixture": "membership.json",
-    "input": {
-      "binding_fixture": "producer.json",
-      "query_path": "/kiln",
-      "expected_file": "openapi.json",
-      "file_status_scope": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "neighbor"}]]},
-      "file_status": "complete",
-      "input_scope": {"kind": "api"},
-      "operations": [],
-      "query_after_presence": "absent"
-    },
-    "observed": {"unobserved_count": 1, "coverage": []},
-    "outside_accept_list": "A membership negative needs complete evidence across every applicable region. A neighboring prefix supplies no negative evidence for the queried path.",
-    "control": {
-      "fixture": "producer.json",
-      "input": "Use the same empty operations and complete API-wide file_status.",
-      "observed": {"unobserved_count": 1, "coverage": []}
     }
   },
   "known-limit-09": {

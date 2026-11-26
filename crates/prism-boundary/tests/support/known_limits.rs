@@ -1,7 +1,6 @@
 // These tests record observable behavior outside the P1d accept-list.
 use crate::doc_admission::supplied_bytes;
 use crate::doc_cases::{fixture, json_fixture, schema, API};
-use prism_boundary::model::{unobserved_elements, MembershipRequest, RoleSlots};
 use prism_boundary::revision::{
     saved_binding_status, AdmissionRequest, AdmittedSchemaInput, Blob, Format, ReferenceBlob,
     SavedScanEvidence, Snapshot,
@@ -16,7 +15,7 @@ fn known(id: &str) -> Value {
     json_fixture("known-limits.json")[&format!("known-limit-{id}")].clone()
 }
 
-fn admitted_index(bytes_in: &[u8]) -> prism_boundary::SchemaIndex {
+pub(super) fn admitted_index(bytes_in: &[u8]) -> prism_boundary::SchemaIndex {
     let mut input = json_fixture("admission.json");
     input["receipts"][0]["digest"]["value"] = json!(format!("{:x}", Sha256::digest(bytes_in)));
     let request = serde_json::from_value(input).unwrap();
@@ -33,57 +32,6 @@ fn name(value: &Value) -> &str {
 
 fn impact(value: Value) -> ImpactDocument {
     serde_json::from_value(value).unwrap()
-}
-
-#[test]
-fn known_limit_01_non_json_declaration_origin() {
-    let row = known("01");
-    let method = name(&row["input"]["method"]);
-    let path = name(&row["input"]["path"]);
-    let project = |media: &str, document: bool| {
-        let mut swagger = json_fixture(name(&row["fixture"]));
-        let target = if document {
-            &mut swagger
-        } else {
-            &mut swagger["paths"][path][method]
-        };
-        target["produces"] = json!([media]);
-        let bytes = serde_json::to_vec(&swagger).unwrap();
-        let index = admitted_index(&bytes);
-        let mut binding = json_fixture("producer.json");
-        binding["schema"]["source"]["sha256"] = json!(index.byte_sha256);
-        let doc: BindingsDocument = serde_json::from_value(binding).unwrap();
-        let wire = serde_json::to_value(doc.with_schema_inventory(&index).unwrap()).unwrap();
-        wire["operations"][0]["message_roots"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|root| root["status"] == row["input"]["status"])
-            .unwrap()
-            .clone()
-    };
-    let media = name(&row["input"]["media"]);
-    let document = project(media, true);
-    let operation = project(media, false);
-    assert_eq!(document, operation);
-    assert_eq!(
-        document["declared_media"],
-        row["observed"]["declared_media"]
-    );
-    assert_eq!(document["coverage"], row["observed"]["coverage"]);
-    assert!(document["media_source"].is_null());
-    assert_eq!(
-        document["reader_limits"][0]["reason"],
-        row["observed"]["reader_reason"]
-    );
-    assert_eq!(
-        project("application/json", true)["media_source"],
-        "document_media"
-    );
-    assert_eq!(
-        project("application/json", false)["media_source"],
-        "operation_media"
-    );
 }
 
 #[test]
@@ -105,38 +53,6 @@ fn known_limit_02_seeded_link_rows_are_wire_controls() {
         assert!(!patch("/change/elements").as_array().unwrap().is_empty());
         assert!(patch("/coverage")[0]["affected_claims"].is_array());
     }
-}
-
-#[test]
-fn known_limit_03_historical_effective_tree_and_separate_head() {
-    let row = known("03");
-    let mut input = json_fixture(name(&row["fixture"]));
-    let facts = &row["input"];
-    input["mode"] = facts["mode"].clone();
-    input["cutoff_at"] = facts["cutoff_at"].clone();
-    input["inputs"][1]["committed_at"] = facts["cutoff_at"].clone();
-    input["change"]["selection"] = json!({"subject_head_input_id":"service-after"});
-    assert!(impact(input.clone()).validate().counts.is_empty());
-    let mut topic = input["inputs"][1].clone();
-    topic
-        .as_object_mut()
-        .unwrap()
-        .extend(facts["topic_head"].as_object().unwrap().clone());
-    topic["origin"]["input_id"] = topic["input_id"].clone();
-    topic["origin"]["tree"] = topic["tree"].clone();
-    input["inputs"].as_array_mut().unwrap().push(topic);
-    let after = input["inputs"][1].as_object_mut().unwrap();
-    for key in ["rev", "committed_at", "subject"] {
-        after.remove(key);
-    }
-    after.extend(facts["after_snapshot"].as_object().unwrap().clone());
-    after.insert("origin".into(), facts["after_origin"].clone());
-    input["change"]["selection"] = facts["selection"].clone();
-    let report = impact(input).validate();
-    assert_eq!(report.claims["input:service-after"].status, "admitted");
-    assert_eq!(report.claims["input:topic-head"].status, "admitted");
-    assert_eq!(report.claims["report-cutoff"].status, "unchecked");
-    assert_eq!(json!(report.counts), row["observed"]["counts"]);
 }
 
 #[test]
@@ -316,43 +232,6 @@ fn known_limit_07_unadmitted_saved_reference() {
             json!(result.admitted_saved_locations),
             row["observed"]["admitted_saved_locations"]
         );
-    }
-}
-
-#[test]
-fn known_limit_08_negative_uses_neighboring_file_scope() {
-    let row = known("08");
-    let mut change = json_fixture(name(&row["fixture"]))["change"].clone();
-    change["after_presence"] = row["input"]["query_after_presence"].clone();
-    change["after_element_id"] = Value::Null;
-    let change = serde_json::from_value(change).unwrap();
-    let mut wire = json_fixture(name(&row["input"]["binding_fixture"]));
-    wire["operations"] = row["input"]["operations"].clone();
-    for scope in [
-        row["input"]["input_scope"].clone(),
-        row["input"]["file_status_scope"].clone(),
-    ] {
-        wire["file_status"][0]["scope"] = scope;
-        let binding = serde_json::from_value(wire.clone()).unwrap();
-        let result = unobserved_elements(&MembershipRequest {
-            change: &change,
-            producer: &RoleSlots {
-                before_input_id: Some("service-before".into()),
-                after_input_id: None,
-                reason: None,
-            },
-            consumer: None,
-            expected_inputs: &["service-before".into()],
-            admitted_bindings: &[binding],
-            membership_evidence: &[
-                json!({"input_id":"service-before","side":"before","complete":true}),
-            ],
-        });
-        assert_eq!(
-            json!(result["unobserved"].as_array().unwrap().len()),
-            row["observed"]["unobserved_count"]
-        );
-        assert_eq!(result["coverage"], row["observed"]["coverage"]);
     }
 }
 

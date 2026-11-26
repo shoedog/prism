@@ -150,6 +150,7 @@ pub struct MessageCoverage {
     pub feasible: Option<bool>,
     pub selected_schema: Option<SchemaSite>,
     pub declared_media: Vec<String>,
+    pub declaration_source: Option<MediaDeclarationSource>,
     pub json_source: Option<JsonMediaSource>,
 }
 
@@ -173,6 +174,12 @@ pub(crate) struct FieldBlock {
     pub pointer: Vec<PointerToken>,
     pub reason: String,
     pub effect: BlockEffect,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MediaDeclarationSource {
+    Operation,
+    Document,
 }
 
 #[derive(Debug, PartialEq, Eq)]

@@ -8,6 +8,7 @@
   "inputs": [
     {
       "input_id": "service-held",
+      "branch": "main",
       "api": "pilot-api",
       "repo": "pilot-producer",
       "role": "producer",

@@ -414,11 +414,13 @@ bytes and dependency closure. Supported live and historical comparisons use
 the recorded subject snapshots and a mode-appropriate selection receipt for
 each held or cross-repository counterpart relative to one subject head.
 A joint report defaults to the producer after slot when it supplies no subject
-head. A frozen historical review uses
-the effective after commit as the subject head at cutoff. A version comparison
+head. A frozen historical review records the subject commit at cutoff. If the
+effective after input is a computed tree, the merge receipt binds the separate
+topic head and independent cutoff evidence covers the exact after-tree. A version comparison
 records its selection time and a pin or first-parent date-rule receipt for
-each selected input in `change.selection.receipts`. The singular
-`change.selection.input_id` and `receipt` fields can record one input's proof.
+each selected input in `change.selection.receipts`. Branch-based receipts must
+match the frozen input branch. The singular `change.selection.input_id` and
+`receipt` fields can record one input's proof.
 
 `ImpactDocument::validate()` certifies these internal checks on frozen records.
 
@@ -442,13 +444,13 @@ require the original inputs. Use `saved_binding_status` with the
 saved and selected inventories derived from their admitted dependencies for
 saved-status claims. Use `unobserved_elements` with admitted bindings and
 complete evidence for every applicable query region for membership claims.
-For a membership negative, the supported form uses API-wide file coverage.
+Each complete region must cover the API or the queried operation.
 Use the original scan and query region for these checks, even when a frozen
 document already records a negative.
 
 Count each refused or withheld claim under its refusal reason, including claims
 withheld at the accept-list boundary. At ingress, count a decoder error as one
-envelope refusal. The [known-limit rows](tests/fixtures/p1d_rows/fixtures/known-limits.json)
+envelope refusal. The seven [known-limit rows](tests/fixtures/p1d_rows/fixtures/known-limits.json)
 record where the current APIs can accept or refuse an unsupported input and
 pair each case with a supported control. The standalone Draft 2020-12 schema
 checks count bounds and nullability. The typed validator checks count ordering.

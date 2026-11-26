@@ -15,7 +15,9 @@ mod slots;
 pub(super) use graph::Ledger;
 pub(super) use projection::Projection;
 pub use projection::{admit_schema_input, SchemaAdmission};
-pub(crate) use selection::{instant, selection_required};
+pub(crate) use selection::{
+    exact_tree_at_cutoff, historical_head, instant, selection_conflicts, selection_required,
+};
 
 use super::{ReviewMode, Role, SnapshotInput};
 use serde::{Deserialize, Serialize};

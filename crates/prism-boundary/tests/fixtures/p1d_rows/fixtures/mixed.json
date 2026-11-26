@@ -100,6 +100,7 @@
     },
     {
       "input_id": "client-before",
+      "branch": "main",
       "occurrence_ids": ["call-before"],
       "api": "pilot-api",
       "repo": "pilot-consumer",
@@ -133,6 +134,7 @@
     },
     {
       "input_id": "client-after",
+      "branch": "topic",
       "occurrence_ids": ["call-after"],
       "api": "pilot-api",
       "repo": "pilot-consumer",
@@ -335,7 +337,7 @@
       "subject_head_input_id": "service-after",
       "receipts": {
         "client-before": {"kind": "live_ref", "branch": "main", "rev": "client-before-rev", "observed_at": "2026-11-26T12:00:00Z"},
-        "client-after": {"kind": "live_ref", "branch": "main", "rev": "client-after-rev", "observed_at": "2026-11-26T12:00:00Z"}
+        "client-after": {"kind": "live_ref", "branch": "topic", "rev": "client-after-rev", "observed_at": "2026-11-26T12:00:00Z"}
       }
     }
   },

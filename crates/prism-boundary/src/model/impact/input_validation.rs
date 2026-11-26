@@ -1,8 +1,9 @@
 use super::*;
 use crate::revision::{
-    instant, selection_required, Availability, ClaimDecision, ReceiptOrigin, Refusal, Role,
-    ServiceSide, SnapshotInput,
+    exact_tree_at_cutoff, historical_head, instant, selection_conflicts, selection_required,
+    Availability, ClaimDecision, ReceiptOrigin, Refusal, Role, ServiceSide, SnapshotInput,
 };
+use chrono::{DateTime, FixedOffset};
 use std::collections::BTreeSet;
 
 type Inputs<'a> = BTreeMap<&'a str, &'a DocumentInput>;
@@ -202,7 +203,20 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
         .collect();
     let subject = match subject_id {
         Some(id) if subject_after_ids.contains(&id) => inputs.get(id),
-        _ if mode == ReviewMode::HistoricalAsOf => return missing(),
+        Some(id) if mode == ReviewMode::HistoricalAsOf => inputs.get(id).filter(|head| {
+            let Some(selection) = selection else { return false };
+            let Some(head_rev) = historical_head(&head.snapshot, cutoff) else { return false };
+            selection.proposed_head.as_deref() == Some(head_rev)
+                && subject_after_ids.iter().filter_map(|id| inputs.get(id)).any(|after| {
+                    matches!(&after.snapshot, SnapshotInput::ComputedTree { tree, merge_receipt, computed_at }
+                        if after.repo == head.repo
+                            && after.role == head.role
+                            && selection.merge_receipt.as_ref() == Some(merge_receipt)
+                            && instant(computed_at).is_some()
+                            && exact_tree_at_cutoff(&after.origin, tree, cutoff))
+                })
+        }),
+        None if mode == ReviewMode::HistoricalAsOf => return missing(),
         Some(id) if !inputs.contains_key(id) => {
             return vec![Refusal::new("missing_slot", id).dimension("subject_head_input_id")];
         }
@@ -212,10 +226,9 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
         None => subject_after_ids.first().and_then(|id| inputs.get(id)),
     };
     if mode == ReviewMode::HistoricalAsOf
-        && !subject.is_some_and(|subject| {
-            matches!(&subject.snapshot,
-                SnapshotInput::Commit { committed_at: Some(date), .. } if instant(date) == Some(cutoff))
-        })
+        && subject
+            .and_then(|head| historical_head(&head.snapshot, cutoff))
+            .is_none()
     {
         return missing();
     }
@@ -253,24 +266,36 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
     }
     let mut reasons = Vec::new();
     if let Some(selection) = selection {
-        reasons.extend(check_recorded_selection(selection, inputs, doc));
-        for (id, receipt) in &selection.receipts {
-            match inputs.get(id.as_str()) {
-                None => reasons.push(Refusal::new("missing_slot", id).dimension("selection")),
-                Some(_) if selection.input_id.as_deref() == Some(id) => {
-                    reasons.push(Refusal::new("receipt_conflict", id).dimension("selection"));
-                }
-                Some(input) => {
-                    let rev = input.snapshot.identity().and_then(|(_, rev)| rev);
-                    if !receipt
-                        .proof(mode, cutoff)
-                        .is_some_and(|(selected, _)| rev == Some(selected))
-                    {
-                        reasons.push(Refusal::new("missing_cutoff", id).dimension("selection"));
-                    }
-                }
+        reasons.extend(check_recorded_selection(selection, inputs));
+        let mut observations = Vec::new();
+        let receipts = selection
+            .receipts
+            .iter()
+            .map(|(id, receipt)| (id, Some(receipt)))
+            .chain(
+                selection
+                    .input_id
+                    .iter()
+                    .filter(|id| !selection.receipts.contains_key(*id))
+                    .map(|id| (id, selection.receipt.as_ref())),
+            );
+        for (id, receipt) in receipts {
+            let Some(input) = inputs.get(id.as_str()) else {
+                reasons.push(Refusal::new("missing_slot", id).dimension("selection"));
+                continue;
+            };
+            let singular = selection.input_id.as_ref() == Some(id);
+            if singular && selection.receipts.contains_key(id) {
+                reasons.push(Refusal::new("receipt_conflict", id).dimension("selection"));
+                continue;
+            }
+            let proof = check_selection_receipt(selection, input, singular, receipt, mode, cutoff);
+            match proof {
+                Ok(proof) => observations.push((id.as_str(), input.repo.as_str(), proof)),
+                Err(reason) => reasons.push(reason),
             }
         }
+        reasons.extend(selection_conflicts(observations));
     }
     for id in required {
         if !selection.is_some_and(|selection| {
@@ -282,65 +307,78 @@ pub(super) fn slot_cutoff(doc: &ImpactDocument, inputs: &Inputs<'_>) -> Vec<Refu
     reasons
 }
 
-fn check_recorded_selection(
-    selection: &ChangeSelection,
-    inputs: &Inputs<'_>,
-    doc: &ImpactDocument,
-) -> Vec<Refusal> {
+fn check_recorded_selection(selection: &ChangeSelection, inputs: &Inputs<'_>) -> Vec<Refusal> {
+    let mut reasons = Vec::new();
     if let Some(merge_id) = &selection.merge_receipt {
         if !inputs.values().any(|input| {
             matches!(&input.snapshot,
-            SnapshotInput::ComputedTree { merge_receipt, .. } if merge_receipt == merge_id)
+                SnapshotInput::ComputedTree { merge_receipt, .. } if merge_receipt == merge_id)
         }) {
-            return vec![Refusal::new("missing_dependency", merge_id).dimension("merge_receipt")];
+            reasons.push(Refusal::new("missing_dependency", merge_id).dimension("merge_receipt"));
         }
     }
-    let details_present = selection.branch.is_some()
+    let has_singular_details = selection.branch.is_some()
         || selection.observed_tip.is_some()
         || selection.observed_at.is_some()
         || selection.requested_rev.is_some()
         || selection.receipt.is_some()
         || selection.availability_status.is_some();
-    if selection.input_id.is_none() && !details_present {
-        return Vec::new();
+    if selection.input_id.is_none() && has_singular_details {
+        reasons.push(Refusal::new("missing_slot", "change.selection").dimension("selection"));
     }
-    let id = selection.input_id.as_deref().unwrap_or("change.selection");
-    let Some(input) = inputs.get(id) else {
-        return vec![Refusal::new("missing_slot", id).dimension("selection")];
-    };
+    reasons
+}
+
+fn check_selection_receipt<'a>(
+    selection: &ChangeSelection,
+    input: &DocumentInput,
+    singular: bool,
+    receipt: Option<&'a crate::revision::SelectionReceipt>,
+    mode: ReviewMode,
+    cutoff: DateTime<FixedOffset>,
+) -> Result<(&'a str, Option<&'a str>), Refusal> {
+    let id = &input.input_id;
+    let missing = || Refusal::new("missing_cutoff", id).dimension("selection");
     let rev = input.snapshot.identity().and_then(|(_, rev)| rev);
-    let cutoff = instant(&doc.cutoff_at);
-    let valid = doc
-        .mode
-        .zip(cutoff)
-        .zip(selection.receipt.as_ref())
-        .and_then(|((mode, cutoff), receipt)| receipt.proof(mode, cutoff))
-        .is_some_and(|(selected, branch)| {
-            rev == Some(selected)
-                && selection
-                    .branch
-                    .as_deref()
-                    .is_none_or(|expected| branch == Some(expected))
-        });
-    if valid
-        && selection.availability_status.as_deref() != Some("unchecked")
-        && selection
-            .requested_rev
-            .as_deref()
-            .is_none_or(|requested| rev == Some(requested))
-        && selection
-            .observed_tip
-            .as_deref()
-            .is_none_or(|tip| rev == Some(tip))
-        && selection
-            .observed_at
-            .as_deref()
-            .is_none_or(|observed| instant(observed) == cutoff)
+    let expected_branch = input.branch.as_deref().or_else(|| {
+        if singular {
+            selection.branch.as_deref()
+        } else {
+            None
+        }
+    });
+    let proof = receipt
+        .ok_or_else(missing)?
+        .check(mode, cutoff, id, rev, expected_branch)
+        .map_err(|reason| {
+            if reason.dimension.as_deref() == Some("branch") {
+                reason
+            } else {
+                missing()
+            }
+        })?;
+    if singular
+        && (selection.availability_status.as_deref() == Some("unchecked")
+            || selection
+                .branch
+                .as_deref()
+                .is_some_and(|branch| proof.1 != Some(branch))
+            || selection
+                .requested_rev
+                .as_deref()
+                .is_some_and(|requested| rev != Some(requested))
+            || selection
+                .observed_tip
+                .as_deref()
+                .is_some_and(|tip| rev != Some(tip))
+            || selection
+                .observed_at
+                .as_deref()
+                .is_some_and(|at| instant(at) != Some(cutoff)))
     {
-        Vec::new()
-    } else {
-        vec![Refusal::new("missing_cutoff", id).dimension("selection")]
+        return Err(missing());
     }
+    Ok(proof)
 }
 
 pub(super) fn validate_status(
@@ -417,7 +455,17 @@ pub(super) fn validate_status(
                 || status.reason.is_some()
                 || located.is_none_or(|location| location.grade != "bound")
                 || shapes.is_none_or(|(before, after)| {
-                    (before == after) != (status.status == "binding_current")
+                    let current = status.status == "binding_current";
+                    (before == after) != current
+                        || current
+                            && located.is_none_or(|location| {
+                                crate::revision::normalize_saved_shape(
+                                    &status.element_id,
+                                    &location.signature,
+                                )
+                                .as_ref()
+                                    != Some(before)
+                            })
                 })
             {
                 reasons.push(Refusal::new("slot_mismatch", &key).dimension("binding_status"));

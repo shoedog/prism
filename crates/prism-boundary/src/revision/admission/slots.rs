@@ -162,10 +162,10 @@ pub(super) fn project_scope(
     Ok((scope, remainder))
 }
 
-pub(super) fn validate_input(
-    request: &AdmissionRequest,
+pub(super) fn validate_input<'a>(
+    request: &'a AdmissionRequest,
     input: &AdmissionInput,
-) -> Result<(), Refusal> {
+) -> Result<&'a InputSlot, Refusal> {
     let binding = &input.binding;
     let id = &binding.input_id;
     if input.snapshot == SnapshotInput::InvalidMetadata {
@@ -208,7 +208,7 @@ pub(super) fn validate_input(
     if !supported {
         return Err(Refusal::new("unsupported_kind", id).dimension("authority"));
     }
-    Ok(())
+    Ok(slot)
 }
 
 pub(super) fn unique<'a, T: PartialEq + 'a>(

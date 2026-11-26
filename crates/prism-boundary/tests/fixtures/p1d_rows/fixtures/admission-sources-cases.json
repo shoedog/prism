@@ -342,6 +342,7 @@
           "reasons": ["media_unverified"],
           "success": {"op:GET /kiln": ["200", "204"]}
         },
+        "expect": {"/counts": {"slot_mismatch": 1}},
         "admitted": true
       },
       {

@@ -12,6 +12,10 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
+pub(crate) fn normalize_saved_shape(element_id: &str, signature: &Value) -> Option<Value> {
+    ElementKey::parse(element_id)?.normalized_shape(signature)
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SavedScan {
     pub scan_id: String,

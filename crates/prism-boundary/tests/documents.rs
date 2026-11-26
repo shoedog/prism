@@ -279,3 +279,6 @@ mod fold2;
 
 #[path = "support/known_limits.rs"]
 mod known_limits;
+
+#[path = "support/fold3.rs"]
+mod fold3;

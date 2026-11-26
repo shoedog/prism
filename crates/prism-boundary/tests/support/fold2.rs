@@ -7,12 +7,12 @@ use prism_boundary::{
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-fn admission(input: Value) -> prism_boundary::revision::AdmissionReport {
+pub(super) fn admission(input: Value) -> prism_boundary::revision::AdmissionReport {
     let request = serde_json::from_value(input).unwrap();
     admit_inputs(&request, &supplied_bytes(&Value::Null))
 }
 
-fn live_pin(rev: &str) -> Value {
+pub(super) fn live_pin(rev: &str) -> Value {
     json!({"kind":"live_ref","rev":rev,"branch":"main","observed_at":"2026-11-26T12:00:00Z"})
 }
 
@@ -21,7 +21,7 @@ fn version_pin(rev: &str) -> Value {
         "selected_by":"reviewer","selection_reason":"compare releases"})
 }
 
-fn impact(input: Value) -> ImpactDocument {
+pub(super) fn impact(input: Value) -> ImpactDocument {
     serde_json::from_value(input).unwrap()
 }
 
@@ -163,7 +163,7 @@ fn fold2_version_document_checks_each_selected_side() {
     assert!(decoded.is_ok(), "{decoded:?}");
 }
 
-fn media_request() -> (Value, std::collections::BTreeMap<String, Vec<u8>>) {
+pub(super) fn media_request() -> (Value, std::collections::BTreeMap<String, Vec<u8>>) {
     let mut input = json_fixture("admission.json");
     input["inputs"][1]["selection"] = live_pin("client-before-rev");
     let mut bytes = supplied_bytes(&Value::Null);
@@ -243,7 +243,7 @@ fn fold2_media_cycle_crossing_required_dependency_refuses_entry() {
     assert_eq!(report.counts.get("dependency_cycle"), Some(&1));
 }
 
-fn admission_with_bytes(
+pub(super) fn admission_with_bytes(
     input: Value,
     bytes: &std::collections::BTreeMap<String, Vec<u8>>,
 ) -> prism_boundary::revision::AdmissionReport {
@@ -347,11 +347,13 @@ fn fold2_direct_dto_still_needs_wire_closure() {
 #[test]
 fn fold2_joint_document_uses_recorded_subject_anchor() {
     let mut wire = json_fixture("mixed.json");
+    let mut client_after = live_pin("client-after-rev");
+    client_after["branch"] = json!("topic");
     wire["change"]["selection"] = json!({
         "subject_head_input_id":"service-after",
         "receipts":{
             "client-before":live_pin("client-before-rev"),
-            "client-after":live_pin("client-after-rev")
+            "client-after":client_after
         }
     });
     assert!(impact(wire.clone()).validate().counts.is_empty());

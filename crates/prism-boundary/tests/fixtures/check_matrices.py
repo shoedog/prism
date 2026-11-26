@@ -353,8 +353,10 @@ def check_p1d_rows():
 def check_p1d_known_limits(root, rows):
     fixtures = root / "fixtures"
     cases = json.loads((fixtures / "known-limits.json").read_text(encoding="utf-8"))
-    if not rows or rows.keys() != cases.keys():
-        raise ValueError(f"p1d_rows: known-limit IDs differ {sorted(rows.keys() ^ cases.keys())}")
+    expected = {f"known-limit-{number:02d}" for number in (2, 4, 5, 6, 7, 9, 10)}
+    if rows.keys() != expected or cases.keys() != expected:
+        raise ValueError(f"p1d_rows: known-limit row IDs differ {sorted(rows.keys() ^ expected)}, "
+                         f"JSON IDs differ {sorted(cases.keys() ^ expected)}")
     findings = set()
     for row_id, (label, row) in rows.items():
         case = cases[row_id]

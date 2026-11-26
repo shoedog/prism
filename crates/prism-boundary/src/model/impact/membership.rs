@@ -306,6 +306,13 @@ fn covers(doc: &BindingsDocument, operation: &str, element: &str) -> bool {
         // A spelled ID cannot distinguish literal braces from a typed capture.
         return false;
     }
+    let path = operation
+        .strip_prefix("op:")
+        .and_then(|operation| operation.split_once(' '))
+        .map(|(_, path)| path)
+        // A spelled capture does not prove the typed path.
+        .filter(|path| path.starts_with('/') && !path.contains(['{', '}']))
+        .map(|path| crate::element::schema_path(path, "", &[]));
     !doc.expected_files.is_empty()
         && doc
             .expected_files
@@ -317,12 +324,18 @@ fn covers(doc: &BindingsDocument, operation: &str, element: &str) -> bool {
             .chain(&doc.entries)
             .chain(&doc.unaccounted_scopes)
             .all(|region| {
-                region.status == ExtractionStatus::Complete
-                    || !region.possible_keys.is_empty()
+                if region.status == ExtractionStatus::Complete {
+                    matches!(region.scope, Scope::Api)
+                        || path
+                            .as_ref()
+                            .is_some_and(|path| region.scope.contains_prefix(&path.segments))
+                } else {
+                    !region.possible_keys.is_empty()
                         && !region
                             .possible_keys
                             .iter()
                             .any(|key| key == element || key == operation)
+                }
             })
 }
 

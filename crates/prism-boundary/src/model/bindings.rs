@@ -2,7 +2,7 @@ use super::{DocumentError, DocumentInput, EvidenceRecord, ExtractionRegion, Sour
 use super::{SchemaOrigin, WireSignature};
 use crate::element::MessageRoot;
 use crate::revision::SavedScan;
-use crate::{Coverage, Field, JsonMediaSource, RootKey, SchemaIndex};
+use crate::{Coverage, Field, JsonMediaSource, MediaDeclarationSource, RootKey, SchemaIndex};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -231,12 +231,20 @@ impl BindingsDocument {
                             Coverage::Withheld => "withheld",
                         }
                         .into(),
-                        media_source: message.json_source.as_ref().map(|source| match source {
-                            JsonMediaSource::MessageContent => MediaSource::MessageContent,
-                            JsonMediaSource::OperationMedia => MediaSource::OperationMedia,
-                            JsonMediaSource::DocumentMedia => MediaSource::DocumentMedia,
-                            JsonMediaSource::Producer { .. } => MediaSource::Producer,
-                        }),
+                        media_source: match message.declaration_source {
+                            Some(MediaDeclarationSource::Operation) => {
+                                Some(MediaSource::OperationMedia)
+                            }
+                            Some(MediaDeclarationSource::Document) => {
+                                Some(MediaSource::DocumentMedia)
+                            }
+                            None => message.json_source.as_ref().map(|source| match source {
+                                JsonMediaSource::MessageContent => MediaSource::MessageContent,
+                                JsonMediaSource::OperationMedia => MediaSource::OperationMedia,
+                                JsonMediaSource::DocumentMedia => MediaSource::DocumentMedia,
+                                JsonMediaSource::Producer { .. } => MediaSource::Producer,
+                            }),
+                        },
                         selected_schema: message.selected_schema.as_ref().map(|site| {
                             SchemaLocation {
                                 tree: site.tree.clone(),
