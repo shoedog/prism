@@ -130,7 +130,7 @@ impl<'r, 'a> Reader<'r, 'a> {
         nodes: &[Node<'r, 'a>],
         edge: Edge,
         tree: &mut Tree,
-    ) -> (bool, Property<String>) {
+    ) -> (bool, Property<Vec<String>>) {
         let (minimum, maximum) = constraints::limits(nodes, "minItems", "maxItems");
         if minimum > maximum {
             return (false, Property::Missing);
@@ -152,16 +152,7 @@ impl<'r, 'a> Reader<'r, 'a> {
         let item_type = child
             .shape
             .as_ref()
-            .map(|shape| match &shape.field_type {
-                Property::Known(types) => match types.as_slice() {
-                    [name] => Property::Known(name.clone()),
-                    // The item summary is scalar. The item field signs the full set.
-                    _ => Property::BranchDependent,
-                },
-                Property::Missing => Property::Missing,
-                Property::BranchDependent => Property::BranchDependent,
-                Property::Unknown => Property::Unknown,
-            })
+            .map(|shape| shape.field_type.clone())
             .unwrap_or(Property::Unknown);
         let feasible = minimum == 0 || child.feasible;
         tree.child(PointerToken::ListItem, child, edge.depth);

@@ -73,15 +73,16 @@ byte SHA-256 and the canonical inventory hash are independent.
 - OpenAPI request fields come from a readable JSON request body on a method eligible in that dialect.
 - Swagger request fields come from one effective body parameter with JSON media evidence and a readable schema.
 - Response fields come from an explicit success key that owns at least one body-eligible status, with exact status keys taking precedence over ranges in OpenAPI.
+- Response references used for wire projection end at a Response Object with a string description and dialect-appropriate keys. OpenAPI request-body references end at a Request Body Object with content. Both allow `x-` extensions.
 - OpenAPI message fields use a single unambiguous `application/json` representation with a readable schema.
 - Swagger message fields use an effective media list containing JSON or admitted omission evidence for that operation and message root. Request evidence also establishes Content-Type selection.
 - Schema objects use the governing dialect. OpenAPI 3.1 accepts boolean schemas, the implicit and explicit 3.1 base dialect, and the supported JSON Schema 2020-12 dialect.
 - Named object properties contribute fields when capacity and required-value witnesses support their presence. Readable directional flags refine requiredness where the dialect defines it.
-- Homogeneous array items contribute fields where an item can occur. The parent item-type slot summarizes a single readable item type.
+- Homogeneous array items contribute descendant fields where an item can occur. A named array field signs its known item type or type set in the item slot.
 - Schema-valued object remainders contribute map-value fields when the object has capacity and the remainder is feasible.
 - Inventory paths retain typed property, item and map edges through depth 16. The reader checks object feasibility at edge 17 before recording a depth cut.
 - Recognized types, readable format labels, exact scalar enum members and established field requiredness contribute signature facts. An empty enum declaration can be retained as an observation where the edge survives capacity checks.
-- A known effective nullable type set in OpenAPI 3.1 or same-object OpenAPI 3.0 `nullable: true` signs as `["known", <sorted type set>]` when it has multiple members. A single type keeps the scalar encoding, such as `["known","null"]`.
+- Known effective type sets from OpenAPI 3.1 and Swagger 2.0 type arrays or same-object OpenAPI 3.0 `nullable: true` sign as `["known", <sorted type set>]` in both type slots. A single member keeps the scalar encoding, such as `["known","null"]`.
 - Supported scalar, object and array bounds contribute feasibility evidence where the reader can establish a witness or contradiction.
 - Nonempty `allOf` contributes the conjunction of readable arms within the composition budget.
 - Nonempty `anyOf` contributes feasible arms within the 128-alternative budget.
@@ -138,7 +139,7 @@ coverage. A readable neighboring field or root may still be comparable.
 - `reference_pointer_unchecked` stops declaration references with unparseable pointers or missing targets.
 - `reference_scope` stops traversal through resource boundaries, anchors and dynamic or recursive reference keywords.
 - `reference_siblings_unchecked` withholds OpenAPI 3.1 message references with siblings beyond summary or description.
-- `reference_unresolved` stops unreadable or missing schema or message targets. A stopped schema reference preserves edge requiredness and signs unreadable slots `unknown`.
+- `reference_unresolved` stops unreadable or missing targets and targets outside the referenced message's object shape. A stopped schema reference preserves edge requiredness and signs unreadable slots `unknown`.
 - `reference_uri_unchecked` counts an unparseable declaration reference address.
 - `request_body_unreadable` withholds unreadable request body or content declarations.
 - `required_unreadable` withholds requiredness from malformed lists under the governing dialect.
@@ -162,6 +163,7 @@ The matrix pins the outputs below beside supported controls. The eleven
 fold 2 cases require uncommon or contradictory shapes. The pinned public
 Swagger contains none of them, so excluding each would withhold zero of
 its 199 operations and zero of its 2,421 fields.
+The price comes from scanning the pinned public Swagger 2.0 for each shape. The price for OpenAPI 3.x producers is unmeasured.
 
 - `fold1-union-const` pins equal hashes for edited union `const` discriminants. Union consts, enum tags and per-arm type, format, enum or item-type changes can leave `content_hash` unchanged because the union signature records shared facts and payload-free branch dependence.
 - `fold1-body-presence` pins authored true and false request presence under the standing counted limit because P1b compares the fields inside the selected body.
@@ -177,6 +179,7 @@ its 199 operations and zero of its 2,421 fields.
 - KNOWN-LIMIT `fold2-any-of-arm-only-type` retains an equal hash after a type edit in a single feasible arm. Removing that field changes the projected inventory and hash.
 - KNOWN-LIMIT `fold2-one-of-enum-tag` retains an equal hash after changing one of two disjoint enum tags. Removing an arm-only field changes the projected inventory and hash.
 - KNOWN-LIMIT `fold2-items-dialect` retains the parent item type despite an unsupported items dialect. The accepted form supplies the item schema under the supported default dialect.
+- KNOWN-LIMIT `fold3-root-scalar-slots` pins equal hashes for scalar map-value type edits and root scalar-array item type edits. The DESIGN signature tuple lacks a slot for either type. The controls sign a property below a map value and the item type of a named array field.
 
 The `wire` target reads the pinned ID matrix and the P1b enumeration.
 The enumeration materializes M3 as separate codec and producer-source rows

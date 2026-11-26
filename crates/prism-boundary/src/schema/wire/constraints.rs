@@ -70,18 +70,7 @@ pub(super) fn types(nodes: &[Node<'_, '_>], dialect: Dialect) -> (u8, Property<V
         }
     }
     if explicit {
-        let nonnull = types & !NULL;
-        let name = match nonnull {
-            OBJECT => "object",
-            ARRAY => "array",
-            STRING => "string",
-            INTEGER => "integer",
-            NUMBER | FRACTION => "number",
-            BOOLEAN => "boolean",
-            0 if types == NULL => "null",
-            _ => return (types, Property::BranchDependent),
-        };
-        return (types, Property::Known(vec![name.into()]));
+        return (types, type_set(types));
     }
     let shape = match inferred {
         OBJECT => Property::Known(vec!["object".into()]),
@@ -92,8 +81,11 @@ pub(super) fn types(nodes: &[Node<'_, '_>], dialect: Dialect) -> (u8, Property<V
     (types, shape)
 }
 
-pub(super) fn nullable_types(types: u8) -> Vec<String> {
-    [
+pub(super) fn type_set(types: u8) -> Property<Vec<String>> {
+    if types == 0 {
+        return Property::BranchDependent;
+    }
+    let names = [
         (ARRAY, "array"),
         (BOOLEAN, "boolean"),
         (INTEGER, "integer"),
@@ -105,7 +97,8 @@ pub(super) fn nullable_types(types: u8) -> Vec<String> {
     .into_iter()
     .filter(|&(bit, _)| types & bit != 0 && (bit != INTEGER || types & FRACTION == 0))
     .map(|(_, name)| name.into())
-    .collect()
+    .collect();
+    Property::Known(names)
 }
 
 pub(super) fn limits(nodes: &[Node<'_, '_>], min: &str, max: &str) -> (u64, u64) {

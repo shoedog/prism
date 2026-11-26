@@ -4,8 +4,8 @@ use prism_boundary::revision::{
     Blob, DependencyReceipt, Format, ProducerMediaEvidence, ReferenceBlob,
 };
 use prism_boundary::{
-    index_schema, Coverage, EnumValue, JsonMediaSource, MessageCoverage, Property, RegionLimit,
-    RootKey, SchemaIndex,
+    index_schema, signature, Coverage, EnumValue, JsonMediaSource, MessageCoverage, Property,
+    RegionLimit, RootKey, SchemaIndex,
 };
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -231,6 +231,24 @@ pub fn check(row: &Row<'_>, input: &Value, failures: &mut Vec<String>) {
             check_message(message, expectation, &format!("{label}/{key}"), failures);
         }
     }
+    for (key, expected) in members(&input["signatures"]) {
+        let actual = index
+            .fields
+            .iter()
+            .find(|field| field.id.to_string() == *key)
+            .map(|field| signature(&field.shape));
+        compare(
+            failures,
+            &label,
+            &format!("signature {key}"),
+            actual.as_deref(),
+            expected.as_str(),
+        );
+    }
+    let type_value = |types: &Vec<String>| match types.as_slice() {
+        [name] => json!(name),
+        _ => json!(types),
+    };
     for (key, shape) in members(&input["shapes"]) {
         let Some(field) = index
             .fields
@@ -243,13 +261,7 @@ pub fn check(row: &Row<'_>, input: &Value, failures: &mut Vec<String>) {
         };
         let shape_found = &field.shape;
         let values = [
-            (
-                "type",
-                property(&shape_found.field_type, |types| match types.as_slice() {
-                    [name] => json!(name),
-                    _ => json!(types),
-                }),
-            ),
+            ("type", property(&shape_found.field_type, type_value)),
             ("format", property(&shape_found.format, |s| json!(s))),
             ("required", property(&shape_found.required, |b| json!(b))),
             (
@@ -260,7 +272,7 @@ pub fn check(row: &Row<'_>, input: &Value, failures: &mut Vec<String>) {
                     json!(values)
                 }),
             ),
-            ("item_type", property(&shape_found.item_type, |s| json!(s))),
+            ("item_type", property(&shape_found.item_type, type_value)),
         ];
         for (name, actual) in values {
             if let Some(expected) = shape.get(name) {

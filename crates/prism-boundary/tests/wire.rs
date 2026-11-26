@@ -158,7 +158,12 @@ fn pinned_message_status_and_wire_rows() {
 #[test]
 fn enumerated_wire_cases() {
     check_enumeration(
-        |row| !matches!(row.class, "fold1" | "known_limits" | "known_limits_control"),
+        |row| {
+            !matches!(
+                row.class,
+                "fold1" | "fold3" | "known_limits" | "known_limits_control"
+            )
+        },
         40,
     );
 }
@@ -169,10 +174,15 @@ fn fold1() {
 }
 
 #[test]
+fn fold3() {
+    check_enumeration(|row| row.class == "fold3", 7);
+}
+
+#[test]
 fn known_limits() {
     check_enumeration(
         |row| matches!(row.class, "known_limits" | "known_limits_control"),
-        72 + 6 + 22,
+        72 + 6 + 22 + 2,
     );
 }
 
@@ -243,10 +253,15 @@ fn check_enumeration(select: impl Fn(&Row<'_>) -> bool, count: usize) {
             check(&row, input, &mut failures);
             for (relation, equal) in [("same_hash_as", true), ("different_hash_from", false)] {
                 if let Some(peer) = input[relation].as_str() {
-                    let peer = inputs.iter().find(|case| case["fixture"] == peer).unwrap();
                     let hash = wire_cases::run(&row, input).unwrap().content_hash;
-                    let peer_hash = wire_cases::run(&row, peer).unwrap().content_hash;
-                    assert_eq!(hash == peer_hash, equal, "{} {relation}", row.id);
+                    let peer_input = inputs.iter().find(|case| case["fixture"] == peer).unwrap();
+                    let peer_hash = wire_cases::run(&row, peer_input).unwrap().content_hash;
+                    if (hash == peer_hash) != equal {
+                        failures.push(format!(
+                            "{}/{}: {relation} {peer}: {} vs {}",
+                            row.id, input["fixture"], hash, peer_hash
+                        ));
+                    }
                 }
             }
         }

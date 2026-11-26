@@ -6,7 +6,7 @@
 //! Comparable fields use supported dialects and feasible required-value witnesses.
 //! Union facts are shared across feasible arms within the per-union budget.
 //! Exact JSON numbers and structural token kinds are preserved; repeated members are counted at their declaration boundary.
-//! Empty enum declarations and effective nullable type sets contribute to field signatures.
+//! Empty enum declarations and effective type sets contribute to field signatures.
 //! Stopped reference expansions retain edge requiredness and tag unreadable shape slots unknown.
 //! A feasible edge beyond the inventory depth earns a counted cut after object feasibility is checked.
 //! Swagger request omission proof establishes Content-Type selection. Status records use canonical JSON strings.
@@ -470,9 +470,7 @@ impl<'r, 'a> Reader<'r, 'a> {
             ));
         }
         let (mut types, mut field_type) = constraints::types(nodes, self.dialect);
-        let mixed_null = types & NULL != 0
-            && types != NULL
-            && nodes.iter().any(|node| node.get("type").is_some());
+        let multi_type = matches!(&field_type, Property::Known(names) if names.len() > 1);
         let blocked = observed || tree.stops.iter().any(|stop| stop.1 != Effect::Notice);
         let feasibility = constraints::feasible(nodes, types, self.dialect);
         if !blocked && feasibility.unknown {
@@ -500,9 +498,9 @@ impl<'r, 'a> Reader<'r, 'a> {
                 item_type = item;
             }
         }
-        if mixed_null && types & NULL != 0 {
+        if multi_type {
             field_type = if types == NULL || !blocked && !feasibility.unknown {
-                Property::Known(constraints::nullable_types(types))
+                constraints::type_set(types)
             } else {
                 Property::BranchDependent
             };

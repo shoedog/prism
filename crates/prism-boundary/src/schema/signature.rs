@@ -4,18 +4,7 @@ use std::fmt::Write;
 
 pub fn signature(shape: &FieldShape) -> String {
     let properties = [
-        tagged(&shape.field_type, |types| {
-            let mut names: Vec<_> = types.iter().map(String::as_str).collect();
-            names.sort_unstable();
-            names.dedup();
-            match names.as_slice() {
-                [name] => string(name),
-                _ => {
-                    let encoded: Vec<_> = names.into_iter().map(string).collect();
-                    format!("[{}]", encoded.join(","))
-                }
-            }
-        }),
+        tagged(&shape.field_type, |types| type_set(types)),
         tagged(&shape.format, |s| string(s)),
         tagged(&shape.required, bool::to_string),
         tagged(&shape.enum_values, |values| {
@@ -24,9 +13,22 @@ pub fn signature(shape: &FieldShape) -> String {
             values.dedup();
             format!("[{}]", values.join(","))
         }),
-        tagged(&shape.item_type, |s| string(s)),
+        tagged(&shape.item_type, |types| type_set(types)),
     ];
     format!("[{}]", properties.join(","))
+}
+
+fn type_set(types: &[String]) -> String {
+    let mut names: Vec<_> = types.iter().map(String::as_str).collect();
+    names.sort_unstable();
+    names.dedup();
+    match names.as_slice() {
+        [name] => string(name),
+        _ => {
+            let encoded: Vec<_> = names.into_iter().map(string).collect();
+            format!("[{}]", encoded.join(","))
+        }
+    }
 }
 
 fn tagged<T>(property: &Property<T>, encode: impl FnOnce(&T) -> String) -> String {

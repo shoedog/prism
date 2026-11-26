@@ -10,6 +10,7 @@ use crate::inventory::{
 };
 use crate::revision::{AdmittedSchemaInput, Snapshot};
 use media::Message;
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, SchemaError> {
@@ -250,7 +251,7 @@ fn request<'r, 'a>(
     }
     let raw = location.child("requestBody")?;
     Some(
-        match resolve_message(documents, dialect, raw, "request_body_unreadable") {
+        match resolve_message(documents, dialect, raw, MessageRole::RequestBody) {
             Ok(body) => media::openapi(body, true, dialect),
             Err(reason) => Message::withheld(reason),
         },
@@ -266,7 +267,7 @@ fn response<'r, 'a>(
     raw: Located<'r, 'a>,
 ) -> Message<'r, 'a> {
     let dialect = operation.dialect;
-    let response = match resolve_message(documents, dialect, raw, "response_unreadable") {
+    let response = match resolve_message(documents, dialect, raw, MessageRole::Response) {
         Ok(response) => response,
         Err(reason) => return Message::withheld(reason),
     };
@@ -277,17 +278,58 @@ fn response<'r, 'a>(
     }
 }
 
+#[derive(Clone, Copy)]
+enum MessageRole {
+    RequestBody,
+    Response,
+    SwaggerParameter,
+}
+
+impl MessageRole {
+    const fn unreadable(self) -> &'static str {
+        match self {
+            Self::RequestBody => "request_body_unreadable",
+            Self::Response => "response_unreadable",
+            Self::SwaggerParameter => "body_parameters_unreadable",
+        }
+    }
+
+    fn admits_terminal(self, dialect: Dialect, value: &Value) -> bool {
+        let (has_required, allowed): (bool, &[&str]) = match self {
+            Self::Response => (
+                value["description"].is_string(),
+                if dialect == Dialect::Swagger2 {
+                    &["description", "schema", "headers", "examples"]
+                } else {
+                    &["description", "headers", "content", "links"]
+                },
+            ),
+            Self::RequestBody => (
+                value.get("content").is_some(),
+                &["description", "content", "required"],
+            ),
+            Self::SwaggerParameter => return true,
+        };
+        has_required
+            && value.as_object().is_some_and(|object| {
+                object
+                    .keys()
+                    .all(|key| allowed.contains(&key.as_str()) || key.starts_with("x-"))
+            })
+    }
+}
+
 fn resolve_message<'r, 'a>(
     documents: &'r Documents<'a>,
     dialect: Dialect,
     raw: Located<'r, 'a>,
-    unreadable: &'static str,
+    role: MessageRole,
 ) -> Result<Located<'r, 'a>, &'static str> {
     if raw.has_duplicates() {
         return Err("duplicate_member");
     }
     if !raw.value.is_object() {
-        return Err(unreadable);
+        return Err(role.unreadable());
     }
     let mut chain = documents
         .resolve(raw)
@@ -295,14 +337,12 @@ fn resolve_message<'r, 'a>(
     if chain.iter().any(Located::has_duplicates) {
         return Err("duplicate_member");
     }
-    if chain.len() > 1
-        && unreadable == "request_body_unreadable"
-        && chain.last().unwrap().value.get("content").is_none()
-    {
+    let terminal = chain.pop().unwrap();
+    if !chain.is_empty() && !role.admits_terminal(dialect, terminal.value) {
         return Err("reference_unresolved");
     }
     if dialect == Dialect::OpenApi31
-        && chain[..chain.len() - 1].iter().any(|node| {
+        && chain.iter().any(|node| {
             node.value
                 .as_object()
                 .unwrap()
@@ -312,7 +352,7 @@ fn resolve_message<'r, 'a>(
     {
         return Err("reference_siblings_unchecked");
     }
-    Ok(chain.pop().unwrap())
+    Ok(terminal)
 }
 
 enum Body<'r, 'a> {
@@ -326,7 +366,7 @@ fn swagger_body<'r, 'a>(
     declaration: &Declaration,
     operation: &Located<'r, 'a>,
 ) -> Result<Body<'r, 'a>, &'static str> {
-    const UNREADABLE: &str = "body_parameters_unreadable";
+    const UNREADABLE: &str = MessageRole::SwaggerParameter.unreadable();
     let path = declaration
         .parameters
         .as_ref()
@@ -349,7 +389,7 @@ fn swagger_body<'r, 'a>(
                     document: list.document,
                     site: list.site.child(&i.to_string()),
                 },
-                UNREADABLE,
+                MessageRole::SwaggerParameter,
             )
             .map_err(|reason| {
                 if reason == "duplicate_member" {

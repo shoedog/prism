@@ -158,7 +158,7 @@ pub struct FieldShape {
     pub format: Property<String>,
     pub required: Property<bool>,
     pub enum_values: Property<Vec<EnumValue>>,
-    pub item_type: Property<String>,
+    pub item_type: Property<Vec<String>>,
 }
 
 pub fn index_schema(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, SchemaError> {
