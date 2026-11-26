@@ -12,9 +12,21 @@ pub(super) fn check_call(op: Node<'_>, head: Node<'_>) -> Result<(), Reason> {
     Ok(())
 }
 
+pub(super) fn declaration_file(path: &str) -> bool {
+    [".d.ts", ".d.mts", ".d.cts"]
+        .iter()
+        .any(|suffix| path.ends_with(suffix))
+}
+
 pub(super) fn erased_edge(parent: Node<'_>, child: Node<'_>) -> bool {
     match parent.kind() {
-        "type_query"
+        "ambient_declaration"
+        | "interface_declaration"
+        | "object_type"
+        | "abstract_method_signature"
+        | "method_signature"
+        | "function_signature"
+        | "type_query"
         | "type_annotation"
         | "omitting_type_annotation"
         | "adding_type_annotation"
@@ -26,6 +38,7 @@ pub(super) fn erased_edge(parent: Node<'_>, child: Node<'_>) -> bool {
         | "implements_clause"
         | "index_type_query"
         | "lookup_type" => true,
+        "public_field_definition" => has_token(parent, "declare") || has_token(parent, "abstract"),
         "type_alias_declaration" => parent.child_by_field_name("value") == Some(child),
         "as_expression" | "satisfies_expression" => named(parent).get(1) == Some(&child),
         _ => false,
@@ -64,11 +77,11 @@ fn has_optional_receiver_call(mut node: Node<'_>) -> bool {
     }
 }
 
-pub(super) fn callee(head: Node<'_>) -> Result<Path<'_>, Reason> {
+pub(super) fn callee(head: Node<'_>, ordinary_call: bool) -> Result<Path<'_>, Reason> {
     if has_optional_receiver_call(head) {
         return Err(Reason::CalleeKindUnlisted);
     }
-    let receiver = head.child_by_field_name("object");
+    let receiver = head.child_by_field_name("object").filter(|_| ordinary_call);
     match head.kind() {
         "identifier" => Ok(Path::plain(head)),
         "member_expression" => property(head)
@@ -141,6 +154,19 @@ pub(super) fn attribute_spread(node: Node<'_>) -> bool {
         && attribute_tag(node).is_some()
 }
 
+fn has_jsx_body_children(parsed: &ParsedFile, tag: Node<'_>) -> bool {
+    tag.parent().is_some_and(|element| {
+        element.kind() == "jsx_element"
+            && element.child_by_field_name("open_tag") == Some(tag)
+            && named(element).into_iter().any(|child| match child.kind() {
+                "jsx_element" | "jsx_self_closing_element" | "html_character_reference" => true,
+                "jsx_expression" => !named(child).is_empty(),
+                "jsx_text" => !parsed.node_text(&child).trim().is_empty(),
+                _ => false,
+            })
+    })
+}
+
 pub(super) fn attribute_value<'tree>(
     parsed: &ParsedFile,
     op: Node<'tree>,
@@ -151,6 +177,9 @@ pub(super) fn attribute_value<'tree>(
     }
     let tag = attribute_tag(op).ok_or(Reason::RoleNotBound)?;
     let spelling = parsed.node_text(&name);
+    if spelling == "children" && has_jsx_body_children(parsed, tag) {
+        return Err(Reason::AttributeOverwritten);
+    }
     for later in fields(tag, "attribute")
         .into_iter()
         .skip_while(|node| *node != op)

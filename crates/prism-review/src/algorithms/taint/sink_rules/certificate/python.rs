@@ -1,4 +1,6 @@
 use super::*;
+use std::collections::HashSet;
+use unicode_normalization::UnicodeNormalization;
 
 pub(super) fn erased_edge(parent: Node<'_>, child: Node<'_>) -> bool {
     parent.kind() == "type"
@@ -16,7 +18,7 @@ pub(super) fn callee<'tree>(parsed: &ParsedFile, head: Node<'tree>) -> Result<Pa
             let keys = fields(head, "subscript");
             match keys.as_slice() {
                 [key] if !has_token(head, ",") && plain_string(parsed, *key) => {
-                    Ok(Path::literal_key(*key, head.child_by_field_name("value")))
+                    Ok(Path::literal_key(*key, None))
                 }
                 _ => Err(Reason::SubscriptKeyNotPlainLiteral),
             }
@@ -59,6 +61,29 @@ pub(super) fn value(parsed: &ParsedFile, node: Node<'_>) -> bool {
         "string" => plain_string(parsed, node),
         _ => member(node),
     }
+}
+
+pub(super) fn check_argument_layout(parsed: &ParsedFile, slots: &[Node<'_>]) -> Result<(), Reason> {
+    let mut keywords = HashSet::new();
+    let mut unpacked_keywords = false;
+    for &slot in slots {
+        match slot.kind() {
+            "keyword_argument" => {
+                let name = field(slot, "name", "identifier").ok_or(Reason::SlotMismatch)?;
+                let normalized: String = parsed.node_text(&name).nfkc().collect();
+                if !keywords.insert(normalized) {
+                    return Err(Reason::SlotMismatch);
+                }
+            }
+            "dictionary_splat" => unpacked_keywords = true,
+            "list_splat" if !unpacked_keywords => {}
+            "list_splat" => return Err(Reason::SlotMismatch),
+            _ if positional_spread(slot) => return Err(Reason::OperandSpread),
+            _ if unpacked_keywords || !keywords.is_empty() => return Err(Reason::SlotMismatch),
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn positional_spread(mut node: Node<'_>) -> bool {

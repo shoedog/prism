@@ -58,7 +58,7 @@ pub(super) fn call_path<'tree>(
     };
     let path = match parsed.language {
         Python => python::callee(parsed, head),
-        JavaScript | TypeScript | Tsx => js::callee(head),
+        JavaScript | TypeScript | Tsx => js::callee(head, shape.form == Form::Call),
         Go => go::callee(head),
         Java => java::method(shape.operation, head),
         C | Cpp => c_family::callee(parsed.language, head),

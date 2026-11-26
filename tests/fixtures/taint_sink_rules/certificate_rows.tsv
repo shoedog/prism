@@ -1,4 +1,4 @@
-id	language	source	operation	target	operand	role	expect	reason	kind	note
+id	language	source	operation	target	operand	role	expect	reason	kind	note	reached
 python-A-arg-id	python	def g(x):\n    eval(x)\n	eval(x)	eval	x	arg:0	accept		accept_cell	A arg id
 python-N-arg-id	python	def g(x):\n    eval(x)\n	eval(x)	eval	x	arg:1	refuse	slot_mismatch	near_negative	Neighbor of python-A-arg-id
 python-A-kw-id	python	def g(x):\n    eval(k=x)\n	eval(k=x)	eval	x	kw:k	accept		accept_cell	A kw id
@@ -485,9 +485,9 @@ python-A-recv-dot-whole	python	def g(x):\n    x.eval(y)\n	x.eval(y)	x.eval	x	rec
 python-N-recv-dot-whole	python	def g(x):\n    x.eval(y)\n	x.eval(y)	x.eval	y	receiver	refuse	role_not_bound	near_negative	Neighbor of python-A-recv-dot-whole
 python-A-recv-dot-wrapped	python	def g(x):\n    (x.eval)(y)\n	(x.eval)(y)	eval	x	receiver	accept		accept_cell	A recv dot wrapped
 python-N-recv-dot-wrapped	python	def g(x):\n    (x.eval)(y)\n	(x.eval)(y)	eval	y	receiver	refuse	role_not_bound	near_negative	Neighbor of python-A-recv-dot-wrapped
-python-A-recv-key	python	def g(x):\n    x["eval"](y)\n	x["eval"](y)	"eval"	x	receiver	accept		accept_cell	A recv key
+python-A-recv-key	python	def g(x):\n    x["eval"](y)\n	x["eval"](y)	"eval"	x	receiver	refuse	role_not_bound	pass_wrong	review r1 W4
 python-N-recv-key	python	def g(x):\n    x["eval"](y)\n	x["eval"](y)	"eval"	y	receiver	refuse	role_not_bound	near_negative	Neighbor of python-A-recv-key
-python-A-recv-key-wrapped	python	def g(x):\n    (x["eval"])(y)\n	(x["eval"])(y)	"eval"	x	receiver	accept		accept_cell	A recv key wrapped
+python-A-recv-key-wrapped	python	def g(x):\n    (x["eval"])(y)\n	(x["eval"])(y)	"eval"	x	receiver	refuse	role_not_bound	pass_wrong	review r1 W4
 python-N-recv-key-wrapped	python	def g(x):\n    (x["eval"])(y)\n	(x["eval"])(y)	"eval"	y	receiver	refuse	role_not_bound	near_negative	Neighbor of python-A-recv-key-wrapped
 python-A-assign-id	python	def g(x):\n    eval = x\n	eval = x	eval	x	assign	accept		accept_cell	A assign id
 python-N-assign-id	python	def g(x):\n    eval = (x)\n	eval = (x)	eval	x	assign	refuse	operand_not_direct_child	near_negative	Neighbor of python-A-assign-id
@@ -1305,7 +1305,7 @@ hcl-A-P1-41	hcl	output "result" {\n  value = eval(x)\n}\n	eval(x)	eval	x	arg:0	a
 python-N-parse-identity	python	def g(x):\n    eval(x)\n	eval(x)	eval	x	arg:0	refuse	parse_recovery	near_negative	Operation, target and operand belong to a second clean parse of this same source
 python-N-kw-ambiguous	python	def g(x):\n    eval(k=x, k=0)\n	eval(k=x, k=0)	eval	x	kw:k	refuse	slot_mismatch	near_negative	N kw ambiguous
 python-N-kw-dict	python	def g(x):\n    eval(k=x, **kwargs)\n	eval(k=x, **kwargs)	eval	x	kw:k	refuse	operand_spread	near_negative	N kw dict
-python-A-arg-skips-keyword	python	def g(x):\n    eval(k=0, x)\n	eval(k=0, x)	eval	x	arg:0	accept		accept_cell	A arg skips keyword
+python-A-arg-skips-keyword	python	def g(x):\n    eval(k=0, x)\n	eval(k=0, x)	eval	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6
 python-N-arg-skips-keyword	python	def g(x):\n    eval(k=0, x)\n	eval(k=0, x)	eval	x	arg:1	refuse	slot_mismatch	near_negative	Neighbor of python-A-arg-skips-keyword
 python-A-kw-before-splat	python	def g(x):\n    eval(k=x, *xs)\n	eval(k=x, *xs)	eval	x	kw:k	accept		accept_cell	A kw before splat
 python-N-kw-before-splat	python	def g(x):\n    eval(k=x, *xs)\n	eval(k=x, *xs)	eval	x	kw:z	refuse	slot_mismatch	near_negative	Neighbor of python-A-kw-before-splat
@@ -1426,3 +1426,97 @@ python-N-kw-label	python	def g(x):\n    eval(k=x)\n	eval(k=x)	eval	k	kw:k	refuse
 hcl-N-assign-label	hcl	locals {\n  eval = x\n}\n	eval = x	eval	eval	assign	refuse	operand_label	near_negative	N assign label
 tsx-L-census-jsx-call-value	tsx	function g(x: any) {\n  <X dangerouslySetInnerHTML={trustIcon(x)}></X>;\n}\n	dangerouslySetInnerHTML={trustIcon(x)}	dangerouslySetInnerHTML	trustIcon(x)	attr	refuse	operand_kind_unlisted	over_refusal	TSX census: 13 of 14 misses are this idiom (a call returning the html object); nested-call value, owned by the JSX attribute rule, withheld here
 tsx-L-census-location-call-value	tsx	function g(x: any) {\n  window.location.href = x.toString();\n}\n	window.location.href = x.toString()	href	x.toString()	assign	refuse	operand_kind_unlisted	over_refusal	TSX census: location assignment with a call value; the assignment-style DOM/location rule owns it, withheld here
+r1-w2-javascript-receiver	javascript	new box.Sink(1);	new box.Sink(1)	box.Sink	box	receiver	refuse	role_not_bound	pass_wrong	review r1 W2
+r1-w2-javascript-argument	javascript	new box.Sink(1);	new box.Sink(1)	box.Sink	1	arg:0	accept		accept_cell	review r1 W2
+r1-w2-typescript-receiver	typescript	new box["Sink"](1);	new box["Sink"](1)	"Sink"	box	receiver	refuse	role_not_bound	pass_wrong	review r1 W2
+r1-w2-typescript-argument	typescript	new box["Sink"](1);	new box["Sink"](1)	"Sink"	1	arg:0	accept		accept_cell	review r1 W2
+r1-w2-tsx-receiver	tsx	new (box.Sink!)(1);	new (box.Sink!)(1)	Sink	box	receiver	refuse	role_not_bound	pass_wrong	review r1 W2
+r1-w2-tsx-argument	tsx	new (box.Sink!)(1);	new (box.Sink!)(1)	Sink	1	arg:0	accept		accept_cell	review r1 W2
+r1-w2-js-private-object	javascript	class C { #Sink; m(box) { new box.#Sink(1); } }	new box.#Sink(1)	#Sink	box	receiver	refuse	role_not_bound	pass_wrong	review r1 W2
+r1-w4-python-raw	python	def g(x):\n    d[r"f"](x)\n	d[r"f"](x)	r"f"	d	receiver	refuse	role_not_bound	pass_wrong	review r1 W4
+r1-w4-python-unicode	python	def g(x):\n    d[u"f"](x)\n	d[u"f"](x)	u"f"	d	receiver	refuse	role_not_bound	pass_wrong	review r1 W4
+r1-w4-python-wrapped	python	def g(x):\n    (d["f"])(x)\n	(d["f"])(x)	"f"	d	receiver	refuse	role_not_bound	pass_wrong	review r1 W4
+r1-w4-python-argument	python	def g(x):\n    d["f"](x)\n	d["f"](x)	"f"	x	arg:0	accept		accept_cell	review r1 W4
+r1-w4-js-receiver	javascript	d["f"](x);	d["f"](x)	"f"	d	receiver	accept		accept_cell	review r1 W4
+r1-w1-typescript-heritage	typescript	declare class C extends sink(1) {}	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-typescript-new	typescript	declare class C extends new Sink(1) {}	new Sink(1)	Sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-typescript-assign	typescript	declare class C extends (out = x) {}	out = x	out	x	assign	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-typescript-namespace	typescript	declare namespace N { const v = sink(1); }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-typescript-module	typescript	declare module "m" { export const v = sink(1); }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-typescript-function	typescript	declare function f() { sink(1); }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-typescript-global	typescript	declare global { const v = sink(1); }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-typescript-implicit.d.ts	typescript	class C extends sink(1) {}	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-typescript-interface	typescript	interface I { [f(x)]: number }	f(x)	f	x	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 S2
+r1-w1-typescript-type-literal	typescript	type T = { [f(x)]: number };	f(x)	f	x	arg:0	refuse	op_context_non_runtime	near_negative	review r1 S2
+r1-w1-typescript-runtime	typescript	class C extends sink(1) {}	sink(1)	sink	1	arg:0	accept		accept_cell	review r1 W1
+r1-w1-typescript-runtime-key	typescript	class C { [f(x)] = 1; }	f(x)	f	x	arg:0	accept		accept_cell	review r1 S2
+r1-w1-tsx-heritage	tsx	declare class C extends sink(1) {}	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-tsx-new	tsx	declare class C extends new Sink(1) {}	new Sink(1)	Sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-tsx-assign	tsx	declare class C extends (out = x) {}	out = x	out	x	assign	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-tsx-namespace	tsx	declare namespace N { const v = sink(1); }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-tsx-module	tsx	declare module "m" { export const v = sink(1); }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-tsx-function	tsx	declare function f() { sink(1); }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-tsx-global	tsx	declare global { const v = sink(1); }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-tsx-implicit.d.ts	tsx	class C extends sink(1) {}	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1
+r1-w1-tsx-interface	tsx	interface I { [f(x)]: number }	f(x)	f	x	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 S2
+r1-w1-tsx-type-literal	tsx	type T = { [f(x)]: number };	f(x)	f	x	arg:0	refuse	op_context_non_runtime	near_negative	review r1 S2
+r1-w1-tsx-runtime	tsx	class C extends sink(1) {}	sink(1)	sink	1	arg:0	accept		accept_cell	review r1 W1
+r1-w1-tsx-runtime-key	tsx	class C { [f(x)] = 1; }	f(x)	f	x	arg:0	accept		accept_cell	review r1 S2
+r1-w3-go-sizeof	go	package p\nfunc g() { unsafe.Sizeof(sink(1)) }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W3
+r1-w3-go-alignof	go	package p\nfunc g() { u.Alignof(sink(1)) }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W3
+r1-w3-go-offsetof	go	package p\nfunc g() { a.b.Offsetof(sink(1).field) }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W3
+r1-w3-go-unqualified	go	package p\nfunc g() { (Sizeof)(sink(1)) }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W3
+r1-w3-go-ordinary	go	package p\nfunc g() { u.Measure(sink(1)) }	sink(1)	sink	1	arg:0	accept		accept_cell	review r1 W3
+r1-w5-go-blank	go	package p\nfunc g(x int) { _ = x }	_ = x	_	x	assign	refuse	role_not_bound	pass_wrong	review r1 W5
+r1-w5-go-blank-short	go	package p\nfunc g(x int) { _ := x }	_ := x	_	x	assign	refuse	role_not_bound	pass_wrong	review r1 W5
+r1-w5-go-ordinary	go	package p\nfunc g(x int) { y = x }	y = x	y	x	assign	accept		accept_cell	review r1 W5
+r1-w5-go-ordinary-short	go	package p\nfunc g(x int) { y := x }	y := x	y	x	assign	accept		accept_cell	review r1 W5
+r1-w6-python-positional-after-keyword	python	def g(x):\n    sink(k=0, x)\n	sink(k=0, x)	sink	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6
+r1-w6-python-keyword-before-positional	python	def g(x):\n    sink(k=0, x)\n	sink(k=0, x)	sink	0	kw:k	refuse	slot_mismatch	pass_wrong	review r1 W6
+r1-w6-python-positional-before-invalid-tail	python	def g(x):\n    sink(x, k=0, y)\n	sink(x, k=0, y)	sink	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6
+r1-w6-python-duplicate-other-slot	python	def g(x):\n    sink(x, k=0, k=1)\n	sink(x, k=0, k=1)	sink	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6
+r1-w6-python-duplicate-other-keyword	python	def g(x):\n    sink(q=x, k=0, k=1)\n	sink(q=x, k=0, k=1)	sink	x	kw:q	refuse	slot_mismatch	pass_wrong	review r1 W6
+r1-w6-python-duplicate-receiver	python	def g(x):\n    obj.sink(k=0, k=1)\n	obj.sink(k=0, k=1)	sink	obj	receiver	refuse	slot_mismatch	pass_wrong	review r1 W6
+r1-w6-python-ordered	python	def g(x):\n    sink(x, k=0)\n	sink(x, k=0)	sink	x	arg:0	accept		accept_cell	review r1 W6
+r1-w6-python-unique	python	def g(x):\n    sink(x, k=0, q=1)\n	sink(x, k=0, q=1)	sink	0	kw:k	accept		accept_cell	review r1 W6
+r1-w6-python-legal-starred	python	def g(x):\n    sink(k=0, *(x,))\n	sink(k=0, *(x,))	sink	x	arg:0	refuse	operand_spread	near_negative	review r1 W6
+r1-w7-javascript-text	javascript	<X children="explicit">actual</X>;	children="explicit"	children	"explicit"	attr	refuse	attribute_overwritten	pass_wrong	review r1 W7
+r1-w7-javascript-expression	javascript	<X children={x}>{y}</X>;	children={x}	children	x	attr	refuse	attribute_overwritten	pass_wrong	review r1 W7
+r1-w7-javascript-element	javascript	<X children={x}><Y /></X>;	children={x}	children	x	attr	refuse	attribute_overwritten	pass_wrong	review r1 W7
+r1-w7-javascript-empty	javascript	<X children={x}></X>;	children={x}	children	x	attr	accept		accept_cell	review r1 W7
+r1-w7-javascript-whitespace	javascript	<X children={x}>\n   \n</X>;	children={x}	children	x	attr	accept		accept_cell	review r1 W7
+r1-w7-javascript-self-closing	javascript	<X children={x} />;	children={x}	children	x	attr	accept		accept_cell	review r1 W7
+r1-w7-javascript-other-attribute	javascript	<X payload={x}>actual</X>;	payload={x}	payload	x	attr	accept		accept_cell	review r1 W7
+r1-w7-tsx-text	tsx	<X children="explicit">actual</X>;	children="explicit"	children	"explicit"	attr	refuse	attribute_overwritten	pass_wrong	review r1 W7
+r1-w7-tsx-expression	tsx	<X children={x}>{y}</X>;	children={x}	children	x	attr	refuse	attribute_overwritten	pass_wrong	review r1 W7
+r1-w7-tsx-element	tsx	<X children={x}><Y /></X>;	children={x}	children	x	attr	refuse	attribute_overwritten	pass_wrong	review r1 W7
+r1-w7-tsx-empty	tsx	<X children={x}></X>;	children={x}	children	x	attr	accept		accept_cell	review r1 W7
+r1-w7-tsx-whitespace	tsx	<X children={x}>\n   \n</X>;	children={x}	children	x	attr	accept		accept_cell	review r1 W7
+r1-w7-tsx-self-closing	tsx	<X children={x} />;	children={x}	children	x	attr	accept		accept_cell	review r1 W7
+r1-w7-tsx-other-attribute	tsx	<X payload={x}>actual</X>;	payload={x}	payload	x	attr	accept		accept_cell	review r1 W7
+r1-w8-js-comment	javascript	sink(obj /*span*/ . x);	sink(obj /*span*/ . x)	sink	obj /*span*/ . x	arg:0	refuse	operand_comment	pass_wrong	review r1 W8	/*span*/
+r1-w8-js-read	javascript	sink(obj /*span*/ . x);	sink(obj /*span*/ . x)	sink	obj /*span*/ . x	arg:0	accept		accept_cell	review r1 W8	obj
+r1-sibling-ts-declare-field	typescript	class C { declare [sink(1)]: number; }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1 sibling
+r1-sibling-ts-abstract-method	typescript	abstract class C { abstract [sink(1)](): void; }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1 sibling
+r1-sibling-ts-abstract-field	typescript	abstract class C { abstract [sink(1)]: number; }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1 sibling
+r1-sibling-ts-overload-method	typescript	class C { [sink(1)](): void; m() {} }	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1 sibling
+r1-sibling-ts-overload-function	typescript	function f(a = sink(1)): void;	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1 sibling
+r1-sibling-ts-implicit.d.mts	typescript	class C extends sink(1) {}	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1 sibling
+r1-sibling-ts-implicit.d.cts	typescript	class C extends sink(1) {}	sink(1)	sink	1	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W1 sibling
+r1-sibling-ts-runtime-signature	typescript	function f(a = sink(1)) {}	sink(1)	sink	1	arg:0	accept		accept_cell	review r1 W1 sibling
+r1-sibling-go-direct-query	go	package p\nfunc g(x int, xs []int) { unsafe.Sizeof(x) }	unsafe.Sizeof(x)	Sizeof	x	arg:0	refuse	op_context_non_runtime	pass_wrong	review r1 W3 sibling
+r1-sibling-go-nested-assignment	go	package p\nfunc g(x int, xs []int) { unsafe.Sizeof((func() int { y = x; return y })()) }	y = x	y	x	assign	refuse	op_context_non_runtime	pass_wrong	review r1 W3 sibling
+r1-sibling-go-blank-selector	go	package p\nfunc g(x int, xs []int) { box._ = x }	box._ = x	_	x	assign	refuse	role_not_bound	pass_wrong	review r1 W5 sibling
+r1-sibling-go-variadic-before-positional	go	package p\nfunc g(x int, xs []int) { sink(x, xs..., x) }	sink(x, xs..., x)	sink	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6 sibling
+r1-sibling-go-repeated-variadic	go	package p\nfunc g(x int, xs []int) { sink(x, xs..., xs...) }	sink(x, xs..., xs...)	sink	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6 sibling
+r1-sibling-go-variadic-last	go	package p\nfunc g(x int, xs []int) { sink(x, xs...,) }	sink(x, xs...,)	sink	x	arg:0	accept		accept_cell	review r1 W6 sibling
+r1-sibling-python-normalized-duplicate	python	def g(x):\n    sink(x, K=0, K=1)\n	sink(x, K=0, K=1)	sink	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6 sibling
+r1-sibling-python-star-after-kwargs	python	def g(x):\n    sink(x, **kw, *args)\n	sink(x, **kw, *args)	sink	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6 sibling
+r1-sibling-python-positional-after-kwargs	python	def g(x):\n    sink(x, **kw, y)\n	sink(x, **kw, y)	sink	x	arg:0	refuse	slot_mismatch	pass_wrong	review r1 W6 sibling
+r1-sibling-python-kwargs-after-star	python	def g(x):\n    sink(x, *args, **kw)\n	sink(x, *args, **kw)	sink	x	arg:0	accept		accept_cell	review r1 W6 sibling
+r1-sibling-javascript-jsx-entity	javascript	<X children={x}>&#32;</X>;	children={x}	children	x	attr	refuse	attribute_overwritten	pass_wrong	review r1 W7 sibling
+r1-sibling-javascript-jsx-comment	javascript	<X children={x}>{/* body */}</X>;	children={x}	children	x	attr	accept		accept_cell	review r1 W7 sibling
+r1-sibling-tsx-jsx-entity	tsx	<X children={x}>&#32;</X>;	children={x}	children	x	attr	refuse	attribute_overwritten	pass_wrong	review r1 W7 sibling
+r1-sibling-tsx-jsx-comment	tsx	<X children={x}>{/* body */}</X>;	children={x}	children	x	attr	accept		accept_cell	review r1 W7 sibling
+r1-sibling-python-parenthesized-star	python	def g(x):\n    sink(x, (*args))\n	sink(x, (*args))	sink	x	arg:0	refuse	operand_spread	pass_wrong	review r1 W6 sibling
+r1-sibling-python-tuple-star-control	python	def g(x):\n    sink(x, (*args,))\n	sink(x, (*args,))	sink	x	arg:0	accept		accept_cell	review r1 W6 sibling

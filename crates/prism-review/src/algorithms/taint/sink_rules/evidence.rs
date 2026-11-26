@@ -1,4 +1,4 @@
-use super::certificate::{self, Refusals};
+use super::certificate::{self, Reason, Refusals};
 use super::FindingKey;
 use crate::algorithms::taint::cleansing::node_contains_line;
 use prism::ast::ParsedFile;
@@ -231,6 +231,10 @@ impl<'a, 'p> Occurrence<'a, 'p> {
             refusals.record(reason);
             return false;
         }
+        if !has_read_content(self.reached) {
+            refusals.record(Reason::OperandComment);
+            return false;
+        }
 
         let opening_line = operation.start_position().row + 1;
         let structured = matches!(detector, Detector::Structured { .. });
@@ -310,6 +314,24 @@ impl<'a, 'p> Occurrence<'a, 'p> {
 
 fn ancestors(node: Node<'_>) -> impl Iterator<Item = Node<'_>> {
     successors(Some(node), Node::parent)
+}
+
+fn has_read_content(node: Node<'_>) -> bool {
+    let mut cursor = node.walk();
+    loop {
+        let child = cursor.node();
+        if !child.is_extra() && !child.kind().ends_with("comment") {
+            if !cursor.goto_first_child() {
+                return true;
+            }
+            continue;
+        }
+        while !cursor.goto_next_sibling() {
+            if !cursor.goto_parent() {
+                return false;
+            }
+        }
+    }
 }
 
 fn is_current_node(root: Node<'_>, node: Node<'_>) -> bool {

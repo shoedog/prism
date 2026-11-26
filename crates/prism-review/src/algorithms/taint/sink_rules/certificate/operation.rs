@@ -177,12 +177,17 @@ fn check_call(parsed: &ParsedFile, op: Node<'_>, form: Form, head: Node<'_>) -> 
 }
 
 fn non_runtime(parsed: &ParsedFile, operation: Node<'_>) -> bool {
+    match parsed.language {
+        Language::TypeScript | Language::Tsx if js::declaration_file(&parsed.path) => return true,
+        Language::Go if go::size_query(parsed, operation) => return true,
+        _ => {}
+    }
     let children = ancestors(operation);
     for (child, parent) in children.zip(ancestors(operation).skip(1)) {
         let excluded = match parsed.language {
             Language::TypeScript | Language::Tsx => js::erased_edge(parent, child),
             Language::Python => python::erased_edge(parent, child),
-            Language::Go => go::non_runtime_edge(parent, child),
+            Language::Go => go::non_runtime_edge(parsed, parent, child),
             Language::Java => {
                 matches!(
                     parent.kind(),

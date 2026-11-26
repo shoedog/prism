@@ -15,11 +15,20 @@ pub(in super::super) fn certify_operand(
     {
         return Err(Reason::RoleNotBound);
     }
+    let slots = shape.arguments.map(|arguments| arguments.slots());
+    let slots = slots.as_deref();
+    match (parsed.language, slots) {
+        (Language::Python, Some(slots)) => python::check_argument_layout(parsed, slots)?,
+        (Language::Go, Some(slots)) => go::check_argument_layout(slots)?,
+        _ => {}
+    }
     check_operand_position(parsed.language, operation, operand)?;
     let value = match (shape.form, role) {
-        (_, Role::Argument(slot)) => positional(parsed, shape, operand, slot)?,
+        (_, Role::Argument(slot)) => {
+            positional(parsed, slots.ok_or(Reason::RoleNotBound)?, operand, slot)?
+        }
         (_, Role::KeywordArgument(name)) if parsed.language == Language::Python => {
-            keyword(parsed, shape, operand, name)?
+            keyword(parsed, slots.ok_or(Reason::RoleNotBound)?, operand, name)?
         }
         (_, Role::ReceiverValue) => {
             let path = callee::call_path(parsed, shape)?
@@ -29,7 +38,7 @@ pub(in super::super) fn certify_operand(
         }
         (Form::Assignment | Form::HclAttribute, Role::AssignmentValue) => {
             let (lhs, rhs) = assignment(parsed.language, shape)?;
-            if !assignment_target(parsed.language, lhs, target) {
+            if !assignment_target(parsed, lhs, target) {
                 return Err(Reason::RoleNotBound);
             }
             rhs
@@ -92,11 +101,10 @@ fn require_exact(operand: Node<'_>, value: Node<'_>) -> Result<(), Reason> {
 
 fn positional<'tree>(
     parsed: &ParsedFile,
-    shape: &OperationShape<'tree>,
+    slots: &[Node<'tree>],
     operand: Node<'_>,
     claimed: usize,
 ) -> Result<Node<'tree>, Reason> {
-    let slots = shape.arguments.ok_or(Reason::RoleNotBound)?.slots();
     let index = slots
         .iter()
         .position(|&slot| within(operand, slot))
@@ -161,23 +169,22 @@ fn positional_spread(parsed: &ParsedFile, slot: Node<'_>) -> bool {
 
 fn keyword<'tree>(
     parsed: &ParsedFile,
-    shape: &OperationShape<'tree>,
+    slots: &[Node<'tree>],
     operand: Node<'_>,
     claimed: &str,
 ) -> Result<Node<'tree>, Reason> {
-    let slots = shape.arguments.ok_or(Reason::RoleNotBound)?.slots();
     if slots.iter().any(|node| node.kind() == "dictionary_splat") {
         return Err(Reason::OperandSpread);
     }
-    let mut matches = slots.into_iter().filter(|&slot| {
-        slot.kind() == "keyword_argument"
-            && field(slot, "name", "identifier")
-                .is_some_and(|name| parsed.node_text(&name) == claimed)
-    });
-    let slot = matches.next().ok_or(Reason::SlotMismatch)?;
-    if matches.next().is_some() {
-        return Err(Reason::SlotMismatch);
-    }
+    let slot = slots
+        .iter()
+        .copied()
+        .find(|&slot| {
+            slot.kind() == "keyword_argument"
+                && field(slot, "name", "identifier")
+                    .is_some_and(|name| parsed.node_text(&name) == claimed)
+        })
+        .ok_or(Reason::SlotMismatch)?;
     let value = slot
         .child_by_field_name("value")
         .ok_or(Reason::RoleNotBound)?;
@@ -242,17 +249,20 @@ fn assignment_rhs(language: Language, op: Node<'_>) -> Option<Node<'_>> {
     }
 }
 
-fn assignment_target(language: Language, lhs: Node<'_>, target: Node<'_>) -> bool {
+fn assignment_target(parsed: &ParsedFile, lhs: Node<'_>, target: Node<'_>) -> bool {
     use Language::*;
+    let language = parsed.language;
     if lhs.kind() == "identifier" && !matches!(language, Bash) {
-        return same_node(lhs, target);
+        return same_node(lhs, target) && (language != Go || parsed.node_text(&lhs) != "_");
     }
     let terminal = match language {
         Python if python::member(lhs) => lhs.child_by_field_name("attribute"),
         JavaScript | TypeScript | Tsx if js::assignment_member(lhs) => {
             lhs.child_by_field_name("property")
         }
-        Go if go::member(lhs) => lhs.child_by_field_name("field"),
+        Go if go::member(lhs) => lhs
+            .child_by_field_name("field")
+            .filter(|name| parsed.node_text(name) != "_"),
         Java if java::member(lhs) => lhs.child_by_field_name("field"),
         C | Cpp if c_family::member(lhs) => lhs.child_by_field_name("field"),
         Rust if rust::member(lhs) => lhs.child_by_field_name("field"),

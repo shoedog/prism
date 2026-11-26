@@ -14,6 +14,7 @@ struct Row<'a> {
     operation: &'a str,
     target: &'a str,
     operand: &'a str,
+    reached: Option<&'a str>,
     role: Role<'a>,
     accept: bool,
     reason: &'a str,
@@ -23,10 +24,18 @@ struct Row<'a> {
 impl<'a> Row<'a> {
     fn read(line: &'a str) -> Result<Self, String> {
         let fields: Vec<_> = line.split('\t').collect();
-        let [id, language, source, operation, target, operand, role, expect, reason, kind, note] =
+        let [id, language, source, operation, target, operand, role, expect, reason, kind, note, optional @ ..] =
             fields.as_slice()
         else {
-            return Err(format!("expected 11 fields, found {}", fields.len()));
+            return Err(format!(
+                "expected at least 11 fields, found {}",
+                fields.len()
+            ));
+        };
+        let reached = match optional {
+            [] => None,
+            [selector] if !selector.is_empty() => Some(*selector),
+            _ => return Err("expected at most one nonempty reached selector".into()),
         };
         let language = match *language {
             "python" => Language::Python,
@@ -66,6 +75,11 @@ impl<'a> Row<'a> {
                 ))
             }
         }
+        if reached.is_some() && *expect == "refuse" && *reason != "operand_comment" {
+            return Err(format!(
+                "invalid refusal reason for reached selector in {id}"
+            ));
+        }
         Ok(Self {
             id,
             language,
@@ -73,6 +87,7 @@ impl<'a> Row<'a> {
             operation,
             target,
             operand,
+            reached,
             role,
             accept: *expect == "accept",
             reason,
@@ -128,7 +143,8 @@ impl<'a> Row<'a> {
                 if self.kind == "control_owner" {
                     return Ok(());
                 }
-                let expected = if self.accept {
+                // An explicit reached selector tests the receipt after a valid binding.
+                let expected = if self.accept || self.reached.is_some() {
                     Ok(())
                 } else {
                     Err((reason_table(self.reason)?, self.reason))
@@ -145,7 +161,12 @@ impl<'a> Row<'a> {
                 }
             }
             Assertion::EndToEnd => {
-                let line = operand.start_position().row + 1;
+                let reached = self
+                    .reached
+                    .map(|selector| fixture_node(parsed, operand, selector))
+                    .transpose()?
+                    .unwrap_or(operand);
+                let line = reached.start_position().row + 1;
                 let bound = Bound::from_binder(operation, target, operand, self.role, FLAT);
                 // The synthetic path nominates the exact read. Literal fixtures may have no
                 // corresponding variable definition.
@@ -153,8 +174,8 @@ impl<'a> Row<'a> {
                     .ok()
                     .filter(|node| node.end_byte() <= operation.start_byte())
                     .unwrap_or(operand);
-                let path = path_to(parsed, definition, operand);
-                let witness = receipt(parsed, line, bound, operand, FLAT, destination(&path));
+                let path = path_to(parsed, definition, reached);
+                let witness = receipt(parsed, line, bound, reached, FLAT, destination(&path));
                 let mut refusals = Refusals::default();
                 let rules = super::super::collect_rules(
                     parsed,
@@ -312,7 +333,7 @@ fn check_rows(assertion: Assertion) {
     let mut lines = TSV.lines();
     assert_eq!(
         lines.next(),
-        Some("id\tlanguage\tsource\toperation\ttarget\toperand\trole\texpect\treason\tkind\tnote")
+        Some("id\tlanguage\tsource\toperation\ttarget\toperand\trole\texpect\treason\tkind\tnote\treached")
     );
     let mut seen = BTreeSet::new();
     let mut counts = BTreeMap::new();

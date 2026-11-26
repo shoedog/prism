@@ -1,13 +1,46 @@
 use super::*;
 
-pub(super) fn non_runtime_edge(parent: Node<'_>, child: Node<'_>) -> bool {
+pub(super) fn non_runtime_edge(parsed: &ParsedFile, parent: Node<'_>, child: Node<'_>) -> bool {
     let field = match parent.kind() {
         "array_type" => "length",
         "const_spec" => "value",
         "type_arguments" => return true,
+        "call_expression" if parent.child_by_field_name("arguments") == Some(child) => {
+            return size_query(parsed, parent);
+        }
         _ => return false,
     };
     parent.child_by_field_name(field) == Some(child)
+}
+
+// The certificate cannot resolve imports or distinguish ordinary calls by this name.
+pub(super) fn size_query(parsed: &ParsedFile, op: Node<'_>) -> bool {
+    if op.kind() != "call_expression" {
+        return false;
+    }
+    let Some(head) = op
+        .child_by_field_name("function")
+        .and_then(|head| callee::unwrap_head(Language::Go, head))
+    else {
+        return false;
+    };
+    let terminal = match head.kind() {
+        "identifier" => Some(head),
+        "selector_expression" => field(head, "field", "field_identifier"),
+        _ => None,
+    };
+    terminal
+        .is_some_and(|name| matches!(parsed.node_text(&name), "Sizeof" | "Alignof" | "Offsetof"))
+}
+
+pub(super) fn check_argument_layout(slots: &[Node<'_>]) -> Result<(), Reason> {
+    if slots
+        .split_last()
+        .is_some_and(|(_, prefix)| prefix.iter().any(|node| node.kind() == "variadic_argument"))
+    {
+        return Err(Reason::SlotMismatch);
+    }
+    Ok(())
 }
 
 pub(super) fn check_call(parsed: &ParsedFile, op: Node<'_>, head: Node<'_>) -> Result<(), Reason> {

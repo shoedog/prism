@@ -445,8 +445,8 @@ explanation are in the PRICE paragraph at the end of this subsection.
 For the next fold, certify the operation, target and operand against three closed tables for the
 parsed language. The claimed role selects the applicable rows. An omitted shape earns no receipt.
 Count the first applicable refusal per candidate in table order (a), (b), (c), with specific rows
-before each table's default. Report a reason with no reachable input and remove it from the
-vocabulary. Report receipt refusals separately from the joined counts in F. Keep the current-tree,
+before each table's default. Keep the vocabulary for the dormant tables as documented below.
+Report receipt refusals separately from the joined counts in F. Keep the current-tree,
 owner, reached-read and admission-route checks. Reject parse recovery on the certificate path.
 
 The interface checks the operation's syntactic form and context, the target's exact node position,
@@ -503,7 +503,13 @@ Require a runtime production and placement as well as the listed operation kind.
 shares a kind with a non-runtime production, use its pinned production and enclosing field path.
 Withhold unproved placements, including erased TS/TSX `type_query`, `type_alias_declaration.value`
 and `type_annotation` positions such as the aliased `call_expression` in `import("m").T`, and
-Python `type_alias_statement.right`.
+Python `type_alias_statement.right`. TS/TSX also withhold operations within ambient declarations
+or declaration files (`.d.ts`, `.d.mts`, `.d.cts`), interfaces and object types (including computed
+keys), abstract or bodyless signatures, and `declare` or `abstract` class fields. Ordinary class
+heritage and runtime computed member names remain eligible. For Go, refuse calls with terminal
+name `Sizeof`, `Alignof` or `Offsetof` and every operation within their argument lists. This is a
+conservative name-based refusal that covers aliases, unqualified heads and unrelated same-name
+functions or methods, because the certificate does not resolve imports or bindings.
 Withhold Java `annotation` arguments, Rust `attribute_item` and `inner_attribute_item`, and
 C/C++ `attribute_specifier`, `attribute_declaration`, `attribute` and `alignas_qualifier`.
 For C/C++ exclude `preproc_if.condition`, `preproc_elif.condition`, `preproc_def.value` and
@@ -550,12 +556,17 @@ call head in the pinned schema. Java's row covers the reachable use of that kind
 
 **(c) Operand and position.** An ordinary positional operand is the direct named slot child
 and must match one value row below. Comments do not consume slots. Withhold a comment as
-operand or reached token at any depth, and never count a label or attribute token as a value.
-Compute ordinals from positional children, skipping Python keyword nodes. Withhold expansion
-nodes and any positional claim at or after an expansion that can change its slot. For Python
-keywords require a unique `keyword_argument.name` and exact direct `keyword_argument.value`, and
-withhold keyword claims in the presence of `dictionary_splat`. The interface checks the raw name
-node and spelling. The adapter supplies Python NFKC identity for rule selection. HCL and Bash
+operand or reached token at any depth. The receipt also withholds a reached node whose subtree
+contains only comments or extras. Labels and attribute tokens do not count as values.
+Compute ordinals from positional children. Before binding any role on a Python call, reject
+bare positional slots after keyword arguments or `dictionary_splat`, duplicate keyword names
+under NFKC, and `list_splat` after `dictionary_splat` with `slot_mismatch`. Reject the grammar's
+parenthesized list-splat alias with `operand_spread`, including for earlier claims. A legal
+`list_splat` after a keyword remains subject to the expansion rule. Withhold expansion nodes and
+any positional claim at or after an expansion that can change its slot. For Python keyword claims,
+bind the exact direct `keyword_argument.value` by raw name spelling and withhold claims in the
+presence of `dictionary_splat`. The adapter supplies NFKC identity for rule selection. Go requires
+a `variadic_argument`, if present, to be the final slot. HCL and Bash
 use the explicit wrapper/field exceptions below. A parenthesized identifier is withheld as an
 operand, whether the claim names the wrapper or the identifier inside it.
 
@@ -584,9 +595,9 @@ promote it to a slot. Receiver and assignment operands use the same value rows.
 
 | Language | `ReceiverValue` | `AssignmentValue` |
 |---|---|---|
-| Python | `attribute.object`, `subscript.value` | `assignment.right` paired with `left` |
-| JavaScript, TypeScript, TSX | `member_expression.object`, `subscript_expression.object` | `assignment_expression.right` paired with `left` |
-| Go | `selector_expression.operand` | `assignment_statement.right` or `short_var_declaration.right`, sole `expression_list` child paired with sole child of `left` |
+| Python | `attribute.object` | `assignment.right` paired with `left` |
+| JavaScript, TypeScript, TSX | `member_expression.object` or `subscript_expression.object` on an ordinary `call_expression` | `assignment_expression.right` paired with `left` |
+| Go | `selector_expression.operand` | `assignment_statement.right` or `short_var_declaration.right`, sole `expression_list` child paired with sole child of `left`, excluding the blank target `_` |
 | Java | `method_invocation.object` | `assignment_expression.right` paired with `left` |
 | C, C++ | `field_expression.argument` | `assignment_expression.right` paired with `left` |
 | Rust | `field_expression.value` | `assignment_expression.right` paired with `left` |
@@ -594,9 +605,10 @@ promote it to a slot. Receiver and assignment operands use the same value rows.
 | Bash | — | `variable_assignment.value` paired with `name:variable_name` |
 | HCL | — | `attribute > expression` paired with its preceding `identifier` |
 
-Bind the receiver to that exact field of the classified callee in (b), including through admitted
-callee wrappers. This permits receiver/target overlap only for a receiver inside the submitted
-whole member path. An explicit receiver in the argument list has only its ordinary argument
+Python literal-key callees and JS-family `new_expression` forms still admit their explicit
+argument slots. Bind the receiver to the listed field of the classified callee in (b), including
+through admitted callee wrappers. This permits receiver/target overlap only for a receiver
+inside the submitted whole member path. An explicit receiver in the argument list has only its ordinary argument
 slot. Bind an assignment target to the single identifier or admitted member path on the LHS,
 or its terminal name, and the value to that assignment's exact RHS. Reject patterns, paired
 lists, parallel assignment and other unlisted LHS forms before binding. For Bash and HCL use
@@ -610,13 +622,20 @@ the exact name positions in the table. All other roles are withheld except `Attr
 The attribute must be the final writer of its name within that tag. Table (a) refuses a spread
 as the operation. Withhold a candidate followed by a same-name `jsx_attribute` or any
 `jsx_expression > spread_element` attribute. Earlier spreads cannot overwrite a later explicit
-attribute. JSX attribute names and `pair.key` are labels, never value operands.
+attribute. Also withhold `children` on a paired JSX tag with non-whitespace text, a character
+reference, an expression with a value or an element in the body. Empty bodies, indentation-only
+text, comment-only expression containers and self-closing tags supply no body child in this check.
+JSX attribute names and `pair.key` are labels, never value operands.
 
 | Table | Counted reasons |
 |---|---|
 | (a) | `op_kind_unlisted` (operation omitted), `op_context_non_runtime` (type, unevaluated, attribute or preprocessing position), `op_special_form` (call-shaped special form or unsupported modifier), `op_arguments_unlisted` (container or delimiters), `op_type_arguments` (explicit type argument list on TS/TSX or Go call-shaped operation), `attribute_spread` (spread in place of `jsx_attribute`) |
 | (b) | `callee_kind_unlisted` (head, wrapper or path omitted), `callee_target_unlisted` (claim names a different part of a listed path), `callee_type_unlisted` (unlisted constructor or conversion head), `subscript_key_not_plain_literal` (invalid key shape), `subscript_c_family` (no C/C++ key row), `member_pointer_operator` (C++ `.*`) |
-| (c) | `operand_kind_unlisted` (value omitted), `operand_not_direct_child` (claim under a slot outside its exact path), `operand_spread` (expansion or unproved word count), `operand_label`, `operand_comment`, `operand_attribute` (argument metadata), `operand_macro_block`, `role_not_bound` (missing role or field relation), `slot_mismatch` (ordinal or raw keyword spelling), `parallel_assignment`, `attribute_overwritten` |
+| (c) | `operand_kind_unlisted` (value omitted), `operand_not_direct_child` (claim under a slot outside its exact path), `operand_spread` (expansion or unproved word count), `operand_label`, `operand_comment`, `operand_attribute` (argument metadata), `operand_macro_block`, `role_not_bound` (missing role or field relation), `slot_mismatch` (argument layout, ordinal or raw keyword spelling), `parallel_assignment`, `attribute_overwritten` |
+
+`callee_type_unlisted`, `subscript_c_family`, `member_pointer_operator`, `operand_attribute`
+and `operand_macro_block` are dormant-language reasons. They remain in the vocabulary for
+the dormant tables and are unreachable on the five in-use languages.
 
 `callee_equality_before_class` has no reason row. The order of checks is an invariant and
 the rejected shape reports its callee reason.
