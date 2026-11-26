@@ -132,6 +132,8 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
         && !dimensions.route.split('+').includes('call'))
       || (familyName === 'region' && ['generator', 'async-generator', 'declarator', 'field-callable'].includes(dimensions.region)
         && (dimensions.layout === 'own' || dimensions.operand === 'multiline'))
+      || (familyName === 'region' && dimensions.operand === 'multiline'
+        && ['field-initializer', 'static-field', 'formal-default'].includes(dimensions.region))
       || (familyName === 't3' && dimensions.layout === 'own' && (
         (dimensions.panel === 'statement' && ['declaration', 'method', 'stored-block'].includes(dimensions.owner)
           && !['return', 'assignment'].includes(dimensions.slot))
@@ -139,19 +141,27 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
           || (dimensions.panel === 'expression' && !['call', 'optional-call', 'assignment'].includes(dimensions.slot))))
       ))
     );
-    function markSource(value, earlier = false) {
+    function markSource(value, earlier = false, conflictRead = null) {
       const { declaration, def } = sourceDef(value);
-      const read = earlier ? all.find(node => ts.isIdentifier(node) && node.getText() === value.getText()
+      const read = conflictRead ?? (earlier ? all.find(node => ts.isIdentifier(node) && node.getText() === value.getText()
         && ts.isCallExpression(node.parent) && node.parent.expression.getText() === 'see'
         && checker.getSymbolAtLocation(node) === checker.getSymbolAtLocation(value)
-        && node.getStart(tree) < value.getStart(tree) && line(node) === line(value)) : value;
+        && node.getStart(tree) < value.getStart(tree) && line(node) === line(value)) : value);
       const use = caller && read ? endpoint(read, caller, 'use') : null;
       if (anchored && use) {
         const { line: row } = tree.getLineAndCharacterOfPosition(read.getStart(tree));
         const start = Buffer.byteLength(source.slice(0, tree.getPositionOfLineAndCharacter(row, 0)), 'utf8');
         use.bytes = [start, start];
       }
-      operands.push({ bytes: span(value), binding: span(declaration.name), use });
+      const operand = { bytes: span(value), binding: span(declaration.name), use };
+      if (input.refusedLookup) {
+        assert(use && line(read) === line(value), id);
+        const readDeclaration = sourceDef(read).declaration;
+        const disconnected = input.refusedLookup === 'disconnected';
+        assert.equal(readDeclaration === declaration, disconnected, id);
+        operand.refused_lookup = { binding: span(readDeclaration.name), disconnected };
+      }
+      operands.push(operand);
       if (use && def) sourceInputs.set(JSON.stringify(use), def);
       return use;
     }
@@ -162,6 +172,10 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
     const registered = input.registered !== false && caller !== null;
     if (registered) outcome.counters.sites_jsx = 1;
     if (registered && input.refusal) outcome.counters[input.refusal] = 1;
+    if (familyName === 'core' && dimensions.route === 'object+call') {
+      outcome.counters.sites_literal = 1;
+      outcome.counters.refused_not_exact_singleton = 1;
+    }
     const attrs = site.attributes.properties;
     let replay = null;
     let multilineLookup = null;
@@ -244,7 +258,13 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
       }
     } else {
       const value = attrs[0].initializer.expression;
-      const from = markSource(value, input.earlier);
+      let conflictRead = null;
+      if (input.refusedLookup === 'method-read') {
+        const method = all.find(node => ts.isMethodDeclaration(node) && node.name.getText() === 'm');
+        conflictRead = method.body.statements[0].expression;
+        assert(ts.isIdentifier(conflictRead) && conflictRead.getText() === value.getText(), id);
+      }
+      const from = markSource(value, input.earlier, conflictRead);
       if (registered && !input.refusal) {
         assert(from, id);
         outcome.edges.push({ from, to: targetDef(formal.elements[0].name), label: 'exact' });
@@ -260,7 +280,8 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
     }
     const syntax = ts.isJsxOpeningElement(site) ? site.parent : site;
     const incomplete = (familyName === 'region'
-        && ['assignment', 'computed-name', 'decorator', 'heritage'].includes(dimensions.region))
+        && ['assignment', 'computed-name', 'decorator', 'heritage', 'field-initializer',
+          'static-field', 'static-block', 'formal-default'].includes(dimensions.region))
       || (familyName === 't3' && dimensions.panel === 'signature' && dimensions.owner.endsWith('-block'));
     const sourceLabels = incomplete ? ['cfg_incomplete'] : ['exact', 'same_line'];
     return { ...header, files: { [file]: source }, required_evidence: {

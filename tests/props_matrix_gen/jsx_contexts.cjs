@@ -36,14 +36,18 @@ function* core() {
               for (const slot of route) expr = slots[slot].replace('E', `(${expr})`);
               const host = template.replace('E', expr) + '\n';
               const timing = order === 'after' && ['declaration', 'map-expression', 'map-block'].includes(owner);
+              const concise = owner.endsWith('-expression') || owner === 'stored';
+              const hasCall = route.includes('call');
               const refusal = timing ? 'refused_pre_initializer_unproved' :
                 layout === 'write' ? 'refused_source_ambiguous' :
-                layout === 'capture' ? (owner.endsWith('-expression') || owner === 'stored'
+                layout === 'capture' ? (concise && !hasCall
                   ? 'refused_source_in_enclosing_owner' : 'refused_source_unconnected') : null;
               yield {
                 grammar, dimensions: { route: route.join('+'), owner, tag, layout, order },
                 source: order === 'before' ? coreTarget + host : host + coreTarget,
                 refusal, earlier: ['earlier', 'write'].includes(layout),
+                refusedLookup: layout === 'capture' && concise && hasCall
+                  && refusal === 'refused_source_unconnected' ? 'disconnected' : null,
               };
             }
 }
@@ -84,12 +88,18 @@ function* region() {
           if (layout === 'earlier') expr = `(see(x), ${expr})`;
           const inner = template.replace('E', expr);
           const module = name === 'module';
-          const refusal = ['field-initializer', 'static-field', 'static-block', 'formal-default', 'catch-default'].includes(name)
-            ? 'refused_source_not_found' : null;
+          const field = name === 'field-initializer' || name === 'static-field';
+          const compact = operand === 'compact';
+          const conflict = field && compact && layout === 'own';
+          const disconnected = name === 'catch-default' && compact && layout === 'earlier';
+          const missing = name === 'catch-default' || (name === 'formal-default' && compact);
+          const refusal = conflict ? 'refused_source_ambiguous' :
+            disconnected ? 'refused_source_unconnected' : missing ? 'refused_source_not_found' : null;
           yield {
             grammar: 'tsx', dimensions: { region: name, layout, operand, tag },
             source: target + (module ? inner : `function App(x) {\n  ${inner}\n}\n`),
-            registered: !module, refusal, earlier: layout === 'earlier' && operand === 'compact',
+            registered: !module, refusal, earlier: layout === 'earlier' && compact,
+            refusedLookup: conflict ? 'method-read' : disconnected ? 'disconnected' : null,
           };
         }
 }

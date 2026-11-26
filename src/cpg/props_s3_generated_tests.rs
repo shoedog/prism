@@ -38,6 +38,13 @@ struct Operand {
     binding: Span,
     #[serde(rename = "use")]
     source: Option<Endpoint>,
+    refused_lookup: Option<RefusedLookup>,
+}
+
+#[derive(Deserialize)]
+struct RefusedLookup {
+    binding: Span,
+    disconnected: bool,
 }
 
 #[derive(Deserialize)]
@@ -216,6 +223,30 @@ fn observe_evidence(
             } else {
                 let representative = exact_node(file, source.bytes);
                 assert_eq!(file.node_text(&representative), source.name);
+            }
+        }
+        if let Some(witness) = &operand.refused_lookup {
+            let source = operand.source.as_ref().expect("marked refused Use");
+            let idx = indexed(pre, &pre.live_lookup, source, source.line)
+                .expect("refused Use in masked lookup");
+            assert_eq!(endpoint(&pre.graph[idx]).as_ref(), Some(source));
+            let read = exact_node(file, source.bytes);
+            let marked_binding = exact_node(file, witness.binding);
+            let (_, declaration) = file
+                .js_ts_site_declaration(read, &source.name, &mut cache)
+                .expect("refused representative has a lexical binding");
+            assert!(
+                declaration.start_byte() <= marked_binding.start_byte()
+                    && marked_binding.end_byte() <= declaration.end_byte()
+            );
+            assert_eq!(witness.binding == operand.binding, witness.disconnected);
+            if witness.disconnected {
+                assert!(
+                    !pre.graph
+                        .edges_directed(idx, petgraph::Incoming)
+                        .any(|edge| edge.weight().is_data_flow()),
+                    "refused candidate must have no contributing Def: {source:?}"
+                );
             }
         }
     }
