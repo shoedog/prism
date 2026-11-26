@@ -150,7 +150,12 @@ component prefixes ending in `.*`; prefixes require an additional component.
   Paths keep their strings and fields without normalization or dot splitting.
   Additional members are ignored for comparison, and a finite number in
   one (integer or float, of any size) is never converted: only projected
-  fields are. Resident edge storage is
+  fields are. A projected integer (`line`, `start_byte`, `end_byte`,
+  `kill_line`) is converted, so one of more than 4,300 decimal digits is
+  refused as `edge input` where the interpreter enforces CPython's integer
+  string conversion limit (3.11 and the 3.7.14, 3.8.14, 3.9.14 and 3.10.7
+  security releases onward); an interpreter without the limit, such as an
+  earlier 3.9 patch release, has no limit and admits it. Resident edge storage is
   bounded by SQLite caches and the current key's bags and attached records.
 - **Counters.** Each selected stats file is one strict UTF-8 JSON object.
   Descend nested objects and count integer, decimal and exponent tokens.

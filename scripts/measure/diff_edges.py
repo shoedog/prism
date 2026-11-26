@@ -6,13 +6,14 @@ from contextlib import closing
 import json
 import os
 from pathlib import Path
+import sqlite3
 from tempfile import TemporaryDirectory
 
 from . import classifier, edges
 from .diff_stats import admit_pair, counter_tables
 from .inputs import sha256_file
 from .receipt import gate_binding
-from .run import claim_output
+from .run import OutputError, claim_output
 from .trace import STATUSES, TraceStore
 
 
@@ -123,23 +124,27 @@ def compare_edges(base, head, classifier_path, *, entries=None, key=None, line_r
     gate_binding(gate_sha256, gate_step_id)
     runs = admit_pair(base, head, entries)
     tables = counter_tables(runs)
-    with claim_output(out), TemporaryDirectory(prefix=".stage-", dir=out) as temporary:
-        stage = Path(temporary)
-        with closing(edges.make_database(stage / "work.sqlite3")) as db:
-            sources = [(run.artifact("edges", "output"), run.expected("edges", "output"))
-                       for run in runs]
-            mode, discarded, totals = edges.ingest(db, sources, key, line_reason,
-                                                   runs[0].receipt["options"]["bytes"])
-            with classifier.load(classifier_path) as lane:
-                store = TraceStore(db)
-                has_edges = store.read(runs, lane.parse_trace)
-                counts, conservation_failed = edges.partition(db, mode, track_assignments=has_edges)
-                store.join(mode, has_edges)
-                context = classifier.Context(runs, mode, store, tables)
-                certificate = build_certificate(db, store, context, lane, counts, totals, discarded,
-                                                line_reason, conservation_failed, runs, out,
-                                                gate_sha256, gate_step_id)
-                classes = write_evidence(db, stage, out, certificate)
+    try:
+        with claim_output(out), TemporaryDirectory(prefix=".stage-", dir=out) as temporary:
+            stage = Path(temporary)
+            with closing(edges.make_database(stage / "work.sqlite3")) as db:
+                sources = [(run.artifact("edges", "output"), run.expected("edges", "output"))
+                           for run in runs]
+                mode, discarded, totals = edges.ingest(db, sources, key, line_reason,
+                                                       runs[0].receipt["options"]["bytes"])
+                with classifier.load(classifier_path) as lane:
+                    store = TraceStore(db)
+                    has_edges = store.read(runs, lane.parse_trace)
+                    counts, conservation_failed = edges.partition(db, mode, track_assignments=has_edges)
+                    store.join(mode, has_edges)
+                    context = classifier.Context(runs, mode, store, tables)
+                    certificate = build_certificate(db, store, context, lane, counts, totals, discarded,
+                                                    line_reason, conservation_failed, runs, out,
+                                                    gate_sha256, gate_step_id)
+                    classes = write_evidence(db, stage, out, certificate)
+    except sqlite3.Error as error:
+        # A storage failure anywhere in the comparison is not a failed comparison.
+        raise OutputError(f"output or storage: {type(error).__name__}: {error}") from error
     order = lane.legacy_order.get(runs[1].receipt["corpus"]["key"], ())
     display(certificate, counts, classes, out, listing, order)
     return certificate

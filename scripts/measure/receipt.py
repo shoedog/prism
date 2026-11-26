@@ -18,6 +18,22 @@ COMMIT_TOKEN = re.compile(r"[0-9a-fA-F]{7,40}")
 STEP_ID = re.compile(r"[A-Za-z0-9_-]+")
 VERSION = "version.stdout"
 VERSION_STDERR = "version.stderr"
+ARTIFACT_KEYS = frozenset({"sha256", "bytes"})
+# FORMATS section 2 record shapes: (required, optional). Optional members are the
+# additive S1 fields, validated when present. Nothing else may appear.
+TOP_KEYS = (frozenset({"schema", "kit_commit", "start", "end", "status", "binary", "corpus",
+                       "prediction", "gate_sha256", "gate_step_id", "options", "version_command",
+                       "commands", "guard", "host", "artifacts"}), frozenset({"kit_dirty"}))
+BINARY_KEYS = (frozenset({"path", "sha256", "version"}), frozenset())
+CORPUS_KEYS = (frozenset({"key", "commit", "root", "pin_check", "manifest_sha256", "tree_sha256",
+                          "input_sha256", "end_input_sha256", "input_state_sha256",
+                          "end_input_state_sha256"}), frozenset())
+VERSION_KEYS = (frozenset({"argv", "env", "exit", "guard_status", "start", "end", "stdout_sha256",
+                           "stdout_bytes", "stderr"}), frozenset())
+COMMAND_KEYS = (frozenset({"id", "argv", "env", "output", "output_sha256", "bytes", "stderr",
+                           "exit", "guard_status", "start", "end"}), frozenset())
+GUARD_KEYS = (frozenset({"path", "limit_gb"}), frozenset({"sha256", "quiet_helper_sha256"}))
+HOST_KEYS = (frozenset({"platform", "cpus", "env"}), frozenset())
 GUARD_EXITS = {"host_quiet": 75, "rss_unavailable": 76, "rss_limit": 137, "guard_error": 1}
 
 
@@ -56,6 +72,14 @@ def matches_version(version, pin):
         return False
     return token == pin or bool(COMMIT_TOKEN.fullmatch(commit) and COMMIT_TOKEN.fullmatch(pin)
                                 and commit.lower().startswith(pin.lower()))
+
+
+def closed(record, shape, name):
+    """Require a JSON object with exactly the declared members, optional ones aside."""
+    required, optional = shape
+    if not isinstance(record, dict) or not required <= record.keys() <= required | optional:
+        raise ValueError(f"invalid {name} record: members must be exactly those defined")
+    return record
 
 
 def shell_exit(code):
@@ -116,8 +140,9 @@ def verified_bytes(path, record):
     if not stat.S_ISREG(path.lstat().st_mode):
         raise ValueError(f"unbound measurement artifact: {path.name}")
     data = path.read_bytes()
-    if (not isinstance(record, dict) or record.get("sha256") != hashlib.sha256(data).hexdigest()
-            or type(record.get("bytes")) is not int or record["bytes"] != len(data)):
+    if (not isinstance(record, dict) or record.keys() != ARTIFACT_KEYS
+            or record["sha256"] != hashlib.sha256(data).hexdigest()
+            or type(record["bytes"]) is not int or record["bytes"] != len(data)):
         raise ValueError(f"unbound measurement artifact: {path.name}")
     return data
 
@@ -214,6 +239,10 @@ def _admit(directory, selected, entries):
     if receipt.get("schema") != SCHEMA or receipt.get("status") != "ok":
         raise ValueError("expected a successful supported measurement receipt")
 
+    closed(receipt, TOP_KEYS, "receipt")
+    for name, shape in (("binary", BINARY_KEYS), ("corpus", CORPUS_KEYS), ("guard", GUARD_KEYS),
+                        ("host", HOST_KEYS), ("version_command", VERSION_KEYS)):
+        closed(receipt[name], shape, name)
     gate_binding(receipt["gate_sha256"], receipt["gate_step_id"])
     _check_provenance(receipt)
     binary, corpus, options = (receipt[key] for key in ("binary", "corpus", "options"))
@@ -258,7 +287,8 @@ def _admit(directory, selected, entries):
         path = directory / name
         record = artifacts[name]
         if (not stat.S_ISREG(path.lstat().st_mode) or not isinstance(record, dict)
-                or type(record.get("bytes")) is not int or artifact(path) != record):
+                or record.keys() != ARTIFACT_KEYS or type(record["bytes"]) is not int
+                or artifact(path) != record):
             raise ValueError(f"unbound measurement artifact: {name}")
 
     version = receipt["version_command"]
@@ -273,6 +303,7 @@ def _admit(directory, selected, entries):
     if selected - {entry[0] for entry in expected}:
         raise ValueError("selected measurement output was not requested")
     for command, (name, argv, env, stdout, stderr) in zip(commands, expected):
+        closed(command, COMMAND_KEYS, "command")
         _check_command(command, argv, env, stderr)
         if command.get("id") != name or command.get("output") != stdout:
             raise ValueError("analysis command has the wrong output role")
