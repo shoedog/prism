@@ -181,3 +181,15 @@ sys.exit(code)
 
     def fake_log(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
+
+
+def perf_manifest_hash():
+    """The perf-cloud reference hash, loaded by path so a foreign `perf` module cannot shadow it."""
+    import importlib.util
+
+    path = REPO / "scripts" / "perf" / "cloud" / "fetch_corpora.py"
+    spec = importlib.util.spec_from_file_location("_perf_cloud_fetch_corpora", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module.manifest_hash

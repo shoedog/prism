@@ -20,7 +20,8 @@ class CorporaTests(Workbench):
 
     def test_manifest_hash_matches_perf_cloud(self):
         from measure.inputs import manifest_hash
-        from perf.cloud.fetch_corpora import manifest_hash as perf_hash
+        from .helpers import perf_manifest_hash as _load
+        perf_hash = _load()
 
         self.fresh_tree(files={"a.ts": "a", "sub/b.ts": "b", "a\\b": "c", "a\nb": "d"},
                         links={"alias.ts": "a.ts"})
@@ -259,7 +260,8 @@ class CorporaTests(Workbench):
 
     def test_git_metadata_in_extraction_refuses_with_perf_manifest(self):
         from measure.inputs import manifest_hash
-        from perf.cloud.fetch_corpora import manifest_hash as perf_hash
+        from .helpers import perf_manifest_hash as _load
+        perf_hash = _load()
 
         self.fresh_tree(files={"a.ts": "a"})
         self.entry["manifest_sha256"] = perf_hash(self.source)

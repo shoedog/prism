@@ -132,7 +132,8 @@ class MatrixTests(Workbench):
         if "manifest_sha256" in truth:
             # §8 replaces Stage T's archive-only success with two distinct checks.
             from measure.inputs import manifest_hash
-            from perf.cloud.fetch_corpora import manifest_hash as perf_hash
+            from .helpers import perf_manifest_hash as _load
+            perf_hash = _load()
 
             self.entry["manifest_sha256"] = truth["manifest_sha256"]
             self.write_manifest()
