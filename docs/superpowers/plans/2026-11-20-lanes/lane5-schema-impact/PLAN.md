@@ -1163,6 +1163,21 @@ a gate miss with its cause even when the live review contains a new supported re
 - [ ] Close the tracking issue with the acceptance numbers; file follow-ups for protobuf, federation, MCP
       exposure and a Go or Python service-consumer adapter as separate issues, not started.
 
+### Open design questions from the P1c product run (OWNER, not decided)
+
+Run: the P1c diff on the 37 usable producer revision pairs of the public pair (`docs/swagger.json` at the commit and
+its first-parent parent; all 74 documents admitted; 105 operations added, 18 removed; 618 change entries).
+
+1. For P2/P4 (reports): the diff carries 5,564 standing coverage limits on those pairs (`body_presence_unchecked` 4,423,
+   `media_unverified` 918, `ref_siblings_unchecked` 109, `non_json_media` 114), against 618 change entries. A report
+   must count and show standing limits separately from limits on changed elements, or they drown the changes.
+   Open: the counting rule and where standing limits are shown (appendix count, per-root note, or both).
+2. For P3/P6 (retention gate, 153 of 161): 7 of the prototype's 18 operation removals appear in the product's diff one
+   revision later than in the prototype's replay, because the generated spec is regenerated one commit after the
+   annotation commit (an eighth is the known trailing-slash miss). Open: how a prediction is aligned to a revision
+   (same commit, or a stated window of N first-parent commits) must be stated BEFORE the product is scored against
+   153 of 161.
+
 ## Acceptance for the lane
 
 The memo records feasibility separately from owner ratings. D-census is due before P1. Product acceptance
