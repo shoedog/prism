@@ -210,8 +210,9 @@ incomplete method coverage.
   evidence and `duplicate_operation`. Do not combine the two wire trees or certify a unique producer. A collision group proved to share a typed operation key establishes that key's presence, including against
   checked absence. Certify a status present only when every possible declaration proves it present, and absent only when
   every candidate is accounted for and proves it absent. Preserve disagreements and unavailable candidate inventories as
-  unknown. A repeated JSON member withholds the affected declaration, including a repeated explicit status key, while
-  independently readable siblings survive. A literal `{}` and a capture sharing printed text do not prove typed identity. Distinct
+  unknown. A repeated JSON member withholds the affected declaration; a repeated explicit status key withholds that key's
+  response root while its membership and the operation's readable siblings remain established. Per-declaration status
+  inventories (readable or withheld) are part of the index evidence. A literal `{}` and a capture sharing printed text do not prove typed identity. Distinct
   sites on route-table entries remain individually visible. Repeated server alternatives of the same declaration
   deduplicate with their provenance.
 
@@ -319,14 +320,17 @@ rule cases.
 **Element diff.** Emit additions and removals for operations and named fields on established presence/absence at
 the stated authority and scope. Independently emit added and removed success keys at retained operations, even for
 bodyless responses. Compare like message roots. Pair exactly one outgoing and one incoming root with proved equivalent JSON media after excluding proved bodyless or
-ineligible candidates. A possible extra candidate, overlapping changed range, or transfer of an affected body-eligible
-code to or from a retained range or `default` blocks pairing. Compare typed relative paths with both original IDs and
+ineligible candidates. Calculate ownership on each side by exact, then `2XX`, then `default` precedence over body-eligible 2xx codes; a range or fallback is excluded only when its eligible ownership is proved empty (a fully shadowed fallback cannot block pairing; unknown ownership keeps the scoped limit). A possible extra candidate, overlapping changed range, or transfer of an affected body-eligible
+code to or from an added, removed or retained range or `default` blocks pairing. Compare typed relative paths with both original IDs and
 limit only affected subtrees. Keep all established status rows and record the reason for an unpaired two-sided
 replacement whenever either side could carry a body. Fields of a whole operation addition/removal are detail. An
 unmatched explicit success-key change owns its side-local field detail, including the affected fields of a retained
 range that loses or regains its last body-eligible code. A request root excluded by a dialect change carries a
 side-local coverage limit. A checked empty or absent body at a comparable retained root can establish field additions
-or removals. For retained comparable fields compare type, format,
+or removals; a range whose body-eligible domain empties or returns is not a comparable retained root for that
+transition. Ineligible candidates are non-success keys, `default`, and roots with proved non-JSON media; withheld or
+unknown-media roots stay candidates. A changed range is an added or removed range key. A root move adds no inferred
+child edits. For retained comparable fields compare type, format,
 required in parent (both directions), enum values added **and** removed, and list item type. Emit all applicable
 kinds and both values. Record `EnumDeclarationChanged` when the enum list changes between absent and declared, including
 absent ↔ empty with no member delta. Record member deltas independently for comparable sets. An unreadable side
@@ -1304,8 +1308,8 @@ added, removed and retained-but-edited declarations. Its **First cut for the pro
 inputs can support in both directions. Sections 5.1–5.6 and PLAN P1/P4 implement this contract for the both-pair order in §7.2.
 
 - **§5.1, status and method identity.** Keep the status in each response field ID. At a retained operation emit
-  independent added and removed success-status rows, including bodyless statuses. Group a unique comparable
-  replacement and diff its fields by relative path. A route-table star with evidenced all-method semantics has ID `op:* <canonical path>`.
+  independent added and removed success-status rows, including bodyless statuses. Group a replacement that the
+  §5.1 pairing rule proves unique and diff its fields by relative path. A route-table star with evidenced all-method semantics has ID `op:* <canonical path>`.
 - **§§5.2 and 5.4, documents and matching.** Record versioned authorities, declaration sites, status sets, body
   media and field evidence, every observed client call, original and mapped addresses, mapping entry and source,
   and per-file/per-entry coverage. Validate each document's API, role, tree and dependencies. Match both service
