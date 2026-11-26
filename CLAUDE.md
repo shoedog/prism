@@ -141,7 +141,7 @@ The review layer is the workspace crate `crates/prism-review` (package `prism-re
   the preloaded entries `run_review_authorized` and `run_algorithm_authorized` through the captured inputs. `context_run.rs` owns
   expansion and its completed maps. `context_view.rs` selects them for taint after
   successful admission and union. Other algorithms use the original maps.
-- `targets/` — `prism targets`: projects findings into the instrumentation-targets contract (`mod.rs`: `project`/`TargetsMeta`/id/dedupe/warnings; `model.rs`: schema DTOs; `mapping.rs`: category table, hint parsers, language lowering). Schema at `docs/contracts/targets.schema.json`.
+- `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in `inventory/` producer uses Python ASTs to identify root-proven HTTP calls and can run on its own or merge with projected findings. Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses `docs/contracts/targets-1.1.schema.json` (1.1).
   `project_in_context` uses the selected maps for the enclosing site, dependency hint and
   parse grade while keeping the original diff metadata.
 
