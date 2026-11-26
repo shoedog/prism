@@ -143,7 +143,14 @@ The review layer is the workspace crate `crates/prism-review` (package `prism-re
   the preloaded entries `run_review_authorized` and `run_algorithm_authorized` through the captured inputs. `context_run.rs` owns
   expansion and its completed maps. `context_view.rs` selects them for taint after
   successful admission and union. Other algorithms use the original maps.
-- `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in `inventory/` producer uses Python ASTs to identify root-proven HTTP calls and can run on its own or merge with projected findings. Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses `docs/contracts/targets-1.1.schema.json` (1.1).
+- `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in
+  `inventory/` producer uses same-file Python ASTs to identify listed HTTP calls. Imported roots,
+  direct construction, sole named construction and matching context-bound construction can prove
+  `exact` under the static-binding contract. An eligible annotated assignment or same-file helper
+  with a construction witness can prove `nameonly`. Owning-field ties and other failed tied identities
+  contribute per-file counts by cause. Inventory runs on its own or merges with projected findings.
+  Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses
+  `docs/contracts/targets-1.1.schema.json` (1.1).
   `project_in_context` uses the selected maps for the enclosing site, dependency hint and
   parse grade while keeping the original diff metadata.
 
@@ -563,7 +570,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v190) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v192) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -653,6 +660,17 @@ standard array iterator, as slice A offsets do. A replacement of the standard it
 statements after the call needs a second invocation and is not checked (disclosed residual). See the
 known-gaps document for the iteration proof's coverage.
 
+An ordinary JS/TS/TSX bare-arrow argument (lane 9, slice C) binds at its exact runtime offset
+to the entry Def for the identifier's byte span. The locator requires a unique named implementation
+or an independently resolved positional anonymous owner. Exact input needs a complete singleton
+pool, excludes foreign `free_single` targets, and requires a matching value-export witness for
+`import_qualified`. Same-file ordinary NameOnly targets retain the call's label. The
+`inferred_from_enclosing_call` refusal applies because an inferred name from an enclosing call
+does not prove the call returned the callback. A refused incoming transfer leaves its Def
+available. The outgoing source guard also checks each bare literal-leaf edge's read.
+Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
+call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
+
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals
 flatten to `k.j`) gets `Use(v) -> Use(p.<read>)` edges to the formal's reads that the definition
@@ -664,7 +682,7 @@ fed, and a leaf at or below a written path feeds no read). The label is the call
 the definition edge's. A spread or computed key refuses every key written before it; for duplicate keys the last
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
 non-data values (calls, arithmetic, arrays), a spread argument before the literal, NameOnly or
-multi-target calls, and destructured, rest or bare-arrow formals bind nothing. A mixed formal's reads
+multi-target calls, and destructured or rest formals bind nothing. A mixed formal's reads
 in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
 are not fed (known gap).
 

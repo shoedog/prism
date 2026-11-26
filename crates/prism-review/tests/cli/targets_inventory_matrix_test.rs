@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Component, Path};
 
 pub(super) const FIXTURE_REPO: &str = "tests/targets_inventory/py";
@@ -9,7 +9,7 @@ const ROWS: &str = include_str!(concat!(
     "/../../tests/targets_inventory/rows.jsonl"
 ));
 const GROUPS: &[&str] = &["http.root", "http.receiver", "stdlib"];
-const ENABLED_GROUPS: &[&str] = &["http.root"];
+const ENABLED_GROUPS: &[&str] = &["http.root", "http.receiver"];
 const FAMILIES: &[&str] = &["http", "filesystem", "parse", "config"];
 const REASONS: &[&str] = &[
     "parse_error_in_function",
@@ -27,12 +27,13 @@ const CAUSES: &[&str] = &[
     "binding_unavailable",
     "member_rebound",
     "receiver_not_unique",
+    "receiver_is_none",
     "annotation_conflict",
     "helper_unannotated",
     "helper_not_admissible",
     "receiver_value_unproven",
-    "receiver_is_none",
 ];
+const IDENTITY_WARNING: &str = "inventory: identity unproven: ";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -251,10 +252,134 @@ fn matrix_rows_match() {
 
     // Each unsupported target answers at most one row (DESIGN 6.8: rows consume actual targets).
     let mut used = vec![false; targets.len()];
-    for row in rows
+    let enabled: Vec<_> = rows
         .iter()
         .filter(|row| ENABLED_GROUPS.contains(&row.group.as_str()))
-    {
+        .collect();
+    assert_eq!(enabled.len(), 594);
+    assert_eq!(
+        identity_warning_lines(warnings),
+        expected_identity_warnings(&enabled),
+        "matrix warning totals and causes"
+    );
+    for row in enabled {
+        check_row(row, targets, &document["warnings"], &mut used);
+    }
+}
+
+fn expected_identity_warnings(rows: &[&Row]) -> Vec<String> {
+    let mut counts = BTreeMap::<&str, BTreeMap<&str, usize>>::new();
+    for row in rows {
+        if let Want::None(Some(cause)) = row.expectation() {
+            *counts
+                .entry(&row.fixture)
+                .or_default()
+                .entry(cause)
+                .or_default() += 1;
+        }
+    }
+    // DESIGN §6.5 also counts a parameter call alongside each constructor row.
+    for file in ["http_receiver/as1-19.py", "http_receiver/as2-27.py"] {
+        if rows.iter().any(|row| row.fixture == file) {
+            *counts
+                .entry(file)
+                .or_default()
+                .entry("receiver_value_unproven")
+                .or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .map(|(file, causes)| {
+            let total: usize = causes.values().sum();
+            let detail = CAUSES
+                .iter()
+                .filter_map(|&cause| causes.get(cause).map(|count| format!("{cause}: {count}")))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{IDENTITY_WARNING}{file}: {total} ({detail})")
+        })
+        .collect()
+}
+
+fn identity_warning_lines(warnings: &[Value]) -> Vec<&str> {
+    let mut lines: Vec<_> = warnings
+        .iter()
+        .map(|warning| warning.as_str().unwrap())
+        .filter(|warning| warning.starts_with(IDENTITY_WARNING))
+        .collect();
+    lines.sort_unstable();
+    lines
+}
+
+#[test]
+fn inline_constructor_pins() {
+    check_receiver_pins(&[
+        "h10", "sl1-28", "sl2-16", "as2-27", "wf29", "esc06", "as5-08",
+    ]);
+}
+
+#[test]
+fn named_constructor_pins() {
+    check_receiver_pins(&[
+        "h05", "h06", "h11", "o05", "o07", "n06", "e01", "e05a", "e05b", "e05c", "e05d", "e05e",
+        "tr3-19", "tr4-10", "tr5-03", "sl1-29", "sl1-30", "sl1-31", "sl2-21", "sl4-08", "sl5-11",
+        "as1-18", "as2-13", "as2-14", "as2-16", "as3-23", "as4-11", "as5-04", "wf30", "wf31",
+        "wf35", "wf36", "wf37", "wf38", "wf39", "wf52", "wf92", "wf94", "esc07", "esc08", "esc10",
+        "esc20", "esc28", "esc29", "esc30",
+    ]);
+}
+
+#[test]
+fn field_receiver_pins() {
+    check_receiver_pins(&[
+        "h07", "e06", "e07", "tr1-10", "tr1-11", "tr2-48", "tr2-49", "tr2-50", "tr2-51", "tr3-20",
+        "tr3-21", "as2-18", "as4-15", "wf40", "wf41", "wf42", "wf43", "sl4-09", "sl5-13", "sl2-17",
+        "sl2-18", "as1-21", "as5-09", "as2-25", "as3-21", "as1-20", "esc27", "wf32",
+    ]);
+}
+
+#[test]
+fn helper_value_direct_pins() {
+    check_receiver_pins(&[
+        "h08", "h09", "n07", "e09a", "e09b", "e09c", "e09d", "o26", "tr1-13", "tr2-57", "tr2-58",
+        "tr2-59", "tr2-60", "tr3-22", "tr3-23", "tr4-01", "tr4-02", "tr4-03", "tr5-04", "sl1-35",
+        "sl1-36", "sl1-37", "sl1-38", "sl1-39", "sl1-40", "sl1-41", "sl2-22", "sl3-16", "sl3-17",
+        "sl4-13", "as1-14", "as1-16", "as1-17", "as2-19", "as2-22", "as2-23", "as2-24", "as3-15",
+        "as3-17", "as3-18", "as3-19", "as3-22", "as4-24", "as5-06", "wf33", "wf34", "wf44", "wf45",
+        "wf46", "wf47", "wf54", "wf55", "wf56", "wf57", "wf58", "wf59", "wf61", "wf63", "wf64",
+        "wf66", "wf67", "wf69", "wf70", "wf71", "wf73", "esc01", "esc02", "esc03", "esc04",
+        "esc05", "esc09", "esc24",
+    ]);
+}
+
+#[test]
+fn helper_returned_local_pins() {
+    check_receiver_pins(&[
+        "esc23", "esc31", "esc32", "esc33", "esc34", "pin01", "pin09", "pin02",
+    ]);
+}
+
+fn check_receiver_pins(ids: &[&str]) {
+    let rows: Vec<_> = read_rows()
+        .into_iter()
+        .filter(|row| ids.contains(&row.id.as_str()))
+        .collect();
+    assert_eq!(rows.len(), ids.len());
+    let files = rows
+        .iter()
+        .map(|row| row.fixture.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>()
+        .join(",");
+    let document = super::targets_inventory_test::document(&super::targets_inventory_test::run(
+        Path::new(FIXTURE_REPO),
+        &["--files", &files],
+    ));
+    let targets = document["targets"].as_array().unwrap();
+    let mut used = vec![false; targets.len()];
+    for row in &rows {
         check_row(row, targets, &document["warnings"], &mut used);
     }
 }
@@ -341,7 +466,7 @@ fn check_row(row: &Row, targets: &[Value], warnings: &Value, used: &mut [bool]) 
 }
 
 fn has_unproven_cause(warnings: &Value, fixture: &str, cause: &str) -> bool {
-    let prefix = format!("inventory: identity unproven: {fixture}: ");
+    let prefix = format!("{IDENTITY_WARNING}{fixture}: ");
     warnings
         .as_array()
         .into_iter()
@@ -353,4 +478,32 @@ fn has_unproven_cause(warnings: &Value, fixture: &str, cause: &str) -> bool {
         .flat_map(|(_, causes)| causes.split(", "))
         .filter_map(|entry| entry.split_once(": "))
         .any(|(name, count)| name == cause && positive_integer(count).is_some())
+}
+
+#[test]
+fn matrix_rejects_incorrect_warning_counts() {
+    let rows = read_rows();
+    let fixture_rows: Vec<_> = rows
+        .iter()
+        .filter(|row| matches!(row.id.as_str(), "sl1-67" | "sl1-68" | "sl1-69"))
+        .collect();
+    assert_eq!(fixture_rows.len(), 3);
+    let prefix = format!("{IDENTITY_WARNING}{}: ", fixture_rows[0].fixture);
+    let expected = expected_identity_warnings(&fixture_rows);
+    assert_eq!(
+        expected,
+        [format!("{prefix}3 (shadowed_root: 2, not_imported: 1)")]
+    );
+    let control = [Value::from(expected[0].clone())];
+    assert_eq!(identity_warning_lines(&control), expected);
+    for detail in [
+        "4 (shadowed_root: 2, not_imported: 1)",
+        "3 (shadowed_root: 1, not_imported: 2)",
+        "3 (not_imported: 1, shadowed_root: 2)",
+    ] {
+        let altered = [Value::from(format!("{prefix}{detail}"))];
+        assert_ne!(identity_warning_lines(&altered), expected);
+    }
+    let duplicated = [control[0].clone(), control[0].clone()];
+    assert_ne!(identity_warning_lines(&duplicated), expected);
 }

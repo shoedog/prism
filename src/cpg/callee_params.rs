@@ -1,20 +1,36 @@
 //! Demand-only parameter targets shared across callers within one assembly.
 use super::*;
+use crate::languages::js_inferred_name::{js_inferred_name_source, JsInferredNameSource};
 use std::sync::{Arc, Mutex, OnceLock};
+use tree_sitter::Node;
 
 #[cfg(test)]
 #[path = "callee_param_cache_tests.rs"]
 mod tests;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct BareSlot {
+    pub declaration: (usize, usize),
+    pub formal: (usize, usize),
+    pub inferred_from_enclosing_call: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct ParamDef {
+    pub node: NodeIndex,
+    pub bare: Option<BareSlot>,
+}
 
 /// Coordinates in the immutable input graph, never a retained graph index.
 #[derive(Clone)]
 pub(super) struct ParamTarget {
     key: LegacyVarKey,
     bytes: (usize, usize),
+    pub bare: Option<BareSlot>,
 }
 
 impl ParamTarget {
-    fn from_node(node: &CpgNode) -> Self {
+    fn from_node(node: &CpgNode, bare: Option<BareSlot>) -> Self {
         let CpgNode::Variable {
             file,
             function,
@@ -38,6 +54,7 @@ impl ParamTarget {
                 *access,
             ),
             bytes: (*start_byte, *end_byte),
+            bare,
         }
     }
 
@@ -92,7 +109,7 @@ impl<'a> ParamCache<'a> {
             compute_param_def_nodes(parsed, callee, index, graph).map(|nodes| {
                 nodes
                     .into_iter()
-                    .map(|node| node.map(|idx| ParamTarget::from_node(&graph[idx])))
+                    .map(|node| node.map(|def| ParamTarget::from_node(&graph[def.node], def.bare)))
                     .collect()
             })
         });
@@ -115,7 +132,7 @@ impl<'a> ParamCache<'a> {
             .clone();
         cell.get_or_init(|| {
             rest_params::compute_rest_def_node(parsed, callee, index, graph)
-                .map(|(slot, node)| (slot, ParamTarget::from_node(&graph[node])))
+                .map(|(slot, node)| (slot, ParamTarget::from_node(&graph[node], None)))
         })
         .clone()
     }
@@ -128,7 +145,7 @@ pub(super) fn compute_param_def_nodes(
     callee: &FunctionId,
     var_index: &VarIndex,
     graph: &DiGraph<CpgNode, CpgEdge>,
-) -> Option<Vec<Option<NodeIndex>>> {
+) -> Option<Vec<Option<ParamDef>>> {
     #[cfg(test)]
     super::callee_cost_tests::record("parameters", callee);
     if !matches!(
@@ -143,24 +160,36 @@ pub(super) fn compute_param_def_nodes(
                 .into_iter()
                 .map(|name| {
                     let path = AccessPath::simple(name);
-                    (callee.start_line..=callee.end_line).find_map(|line| {
-                        var_index.get_ref(
-                            graph,
-                            VarKeyRef {
-                                file: &callee.file,
-                                function: &callee.name,
-                                function_start_line: callee.start_line,
-                                line,
-                                path: &path,
-                                access: VarAccess::Def,
-                            },
-                        )
-                    })
+                    (callee.start_line..=callee.end_line)
+                        .find_map(|line| {
+                            var_index.get_ref(
+                                graph,
+                                VarKeyRef {
+                                    file: &callee.file,
+                                    function: &callee.name,
+                                    function_start_line: callee.start_line,
+                                    line,
+                                    path: &path,
+                                    access: VarAccess::Def,
+                                },
+                            )
+                        })
+                        .map(|node| ParamDef { node, bare: None })
                 })
                 .collect(),
         );
     }
 
+    let function = locate_function(parsed, callee)?;
+    formal_def_nodes(parsed, callee, &function, var_index, graph)
+}
+
+fn locate_function<'a>(parsed: &'a ParsedFile, callee: &FunctionId) -> Option<Node<'a>> {
+    if crate::anon_owner::is_anonymous_owner_name(&callee.name) {
+        // No fixed slots are opened by the newly reachable anonymous lookup.
+        return crate::anon_owner::node_for_id(parsed, callee)
+            .filter(|node| parsed.js_ts_bare_arrow_parameter(node).is_some());
+    }
     let mut functions = parsed.all_functions().into_iter().filter(|node| {
         parsed.node_line_range(node) == (callee.start_line, callee.end_line)
             && parsed
@@ -169,35 +198,57 @@ pub(super) fn compute_param_def_nodes(
                 .is_some_and(|name| parsed.node_text(&name) == callee.name)
     });
     let function = functions.next()?;
-    if functions.next().is_some() {
-        return None;
-    }
-    // Slots and occurrences have distinct contracts. Defaults and refused
-    // optional forms may occupy slots without a supported Def. Never compress
-    // those holes, nor fall back to FunctionInfo names or body definitions.
-    let slots = parsed.function_parameter_slot_occurrences(&function)?;
-    // js-param-defs PR-A (SPEC D12): the bare arrow formal (`x => …`) has a
-    // Def but stays a Step-5b hole. The call ladder admits name-inferred
-    // callables (`{ write: s => … }`, `o.f = x => …`) as `free_single` Exact
-    // targets of unrelated bare calls, so filling this slot minted Exact
-    // argument edges the checker refutes (MEASUREMENTS-prA §3).
-    let bare_formal = parsed
-        .js_ts_bare_arrow_parameter(&function)
-        .map(|param| (param.start_byte(), param.end_byte()));
+    functions.next().is_none().then_some(function)
+}
+
+fn formal_def_nodes(
+    parsed: &ParsedFile,
+    callee: &FunctionId,
+    function: &Node<'_>,
+    var_index: &VarIndex,
+    graph: &DiGraph<CpgNode, CpgEdge>,
+) -> Option<Vec<Option<ParamDef>>> {
+    // Unsupported occurrences retain their positional holes. The entry Def
+    // must match the runtime slot, and a bare slot must match the identifier.
+    let slots = parsed.function_parameter_slot_occurrences(function)?;
     let supported: BTreeSet<_> = parsed
-        .function_parameter_occurrences(&function)
+        .function_parameter_occurrences(function)
         .into_iter()
-        .filter(|occurrence| Some((occurrence.1, occurrence.2)) != bare_formal)
         .collect();
+    let bare = parsed
+        .js_ts_bare_arrow_parameter(function)
+        .map(|identifier| {
+            let formal = (identifier.start_byte(), identifier.end_byte());
+            let occurrence = (
+                parsed.node_text(&identifier).to_string(),
+                formal.0,
+                formal.1,
+            );
+            let inferred_from_enclosing_call = js_inferred_name_source(*function)
+                .is_some_and(|inferred| inferred.source == JsInferredNameSource::WrappedDeclarator);
+            (
+                occurrence,
+                BareSlot {
+                    declaration: (function.start_byte(), function.end_byte()),
+                    formal,
+                    inferred_from_enclosing_call,
+                },
+            )
+        });
     Some(
         slots
             .into_iter()
             .map(|slot| {
-                if !supported.contains(&slot) {
+                if !supported.contains(&slot)
+                    || bare
+                        .as_ref()
+                        .is_some_and(|(occurrence, _)| occurrence != &slot)
+                {
                     return None;
                 }
+                let bare = bare.as_ref().map(|(_, marker)| *marker);
                 let path = AccessPath::simple(&slot.0);
-                let idx = var_index.get_ref(
+                let node = var_index.get_ref(
                     graph,
                     VarKeyRef {
                         file: &callee.file,
@@ -208,7 +259,7 @@ pub(super) fn compute_param_def_nodes(
                         access: VarAccess::Def,
                     },
                 )?;
-                matches!(graph.node_weight(idx), Some(CpgNode::Variable {
+                matches!(graph.node_weight(node), Some(CpgNode::Variable {
                     file, function, function_start_line, line, path: actual_path,
                     access: VarAccess::Def, start_byte, end_byte,
                 }) if file == &callee.file && function == &callee.name
@@ -216,7 +267,7 @@ pub(super) fn compute_param_def_nodes(
                     && *line == callee.start_line && actual_path == &path
                     && (*start_byte, *end_byte) == (slot.1, slot.2)
                 )
-                .then_some(idx)
+                .then_some(ParamDef { node, bare })
             })
             .collect(),
     )

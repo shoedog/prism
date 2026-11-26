@@ -40,11 +40,12 @@ impl CodePropertyGraph {
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingArgumentFlow> {
         let mut out = Vec::new();
-        let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<NodeIndex>>>> = BTreeMap::new();
+        let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<callee_params::ParamDef>>>> =
+            BTreeMap::new();
         let mut rest_cache = BTreeMap::new();
         for site in sites {
             let resolved_site = cg.resolve_call_site(site);
-            let literal_ok = object_literal_args::exact_singleton(&resolved_site);
+            let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
             let mut call_args = None;
             for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
@@ -89,11 +90,32 @@ impl CodePropertyGraph {
                     graph,
                     cross_file_free_single_exact,
                 };
-                if literal_ok {
-                    object_literal_args::collect(&mut out, &inputs, param_nodes, |&n| Some(n));
-                }
+                let bare = param_nodes
+                    .first()
+                    .and_then(Option::as_ref)
+                    .and_then(|t| t.bare);
+                let admission = bare_param_admission::Admission::new(
+                    bare,
+                    site,
+                    cg,
+                    &resolved,
+                    exact_singleton,
+                    cross_file_free_single_exact,
+                );
+                object_literal_args::collect(
+                    &mut out,
+                    &inputs,
+                    param_nodes,
+                    &admission,
+                    |t| t.bare,
+                    |t| Some(t.node),
+                );
                 for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
-                    let Some(&param_idx) = slot.and_then(|slot| param_nodes.get(slot)) else {
+                    let Some(param) = slot
+                        .and_then(|slot| param_nodes.get(slot))
+                        .and_then(Option::as_ref)
+                        .filter(|target| admission.ordinary(target.bare))
+                    else {
                         continue;
                     };
                     // Field-sensitive arg binding (from PR #113): prefer the full access path
@@ -126,20 +148,19 @@ impl CodePropertyGraph {
                             )
                         })
                         .collect();
-                    if let Some(to) = param_idx {
-                        for from in arg_idxs {
-                            out.push(PendingArgumentFlow {
-                                edge: (
-                                    from,
-                                    to,
-                                    CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
-                                ),
-                                cross_file_free_single_exact,
-                            });
-                        }
+                    for from in arg_idxs {
+                        out.push(PendingArgumentFlow {
+                            edge: (
+                                from,
+                                param.node,
+                                CpgEdge::DataFlow(FlowConfidence::from(resolved.confidence)),
+                            ),
+                            cross_file_free_single_exact,
+                            bare_literal: false,
+                        });
                     }
                 }
-                if !rest_params::admitted(&inputs, site, cg, &resolved, literal_ok) {
+                if !rest_params::admitted(&inputs, site, cg, &resolved, exact_singleton) {
                     continue;
                 }
                 let Some(target) = *rest_cache.entry(callee_id.clone()).or_insert_with(|| {
