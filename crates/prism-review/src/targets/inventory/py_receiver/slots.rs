@@ -42,7 +42,11 @@ impl Slot {
 
     pub(super) fn matches_member(&self, object: &str, key: &str) -> bool {
         matches!(self, Self::Member { object: written, key: member, .. }
-            if written.as_deref().is_none_or(|path| py_tables::class_object(path) == py_tables::class_object(object))
+            if written.as_deref().is_none_or(|path| {
+                py_tables::class_object(path) == py_tables::class_object(object)
+                    // The inventory profile does not select a target platform.
+                    || (object == "os.path" && matches!(path, "posixpath" | "ntpath"))
+            })
             && member.as_deref().is_none_or(|member| member == key))
     }
 
@@ -122,7 +126,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 direct: direct(self.walk.scopes[binding.scope].body, binding.node),
             };
             for key in parts {
-                if self.reads_member_at(&owner, key, captured, member_read, |_| true) {
+                if self.import_member_rebound(&owner, key, captured, member_read) {
                     return true;
                 }
                 owner.push('.');
@@ -134,13 +138,24 @@ impl<'tree> Resolver<'_, 'tree> {
 
         let read = self.read(at, scope);
         for key in rest {
-            if self.reads_member_at(&owner, key, read, member_read, |_| true) {
+            if self.import_member_rebound(&owner, key, read, member_read) {
                 return true;
             }
             owner.push('.');
             owner.push_str(key);
         }
         false
+    }
+
+    fn import_member_rebound(&self, owner: &str, key: &str, read: Read, mode: MemberRead) -> bool {
+        self.reads_member_at(owner, key, read, mode, |_| true)
+            || ((owner, key) == ("os.environ", "get")
+                && self.instance_method_rebound_at("os._Environ", key, read))
+    }
+
+    pub(super) fn instance_method_rebound_at(&self, class: &str, method: &str, read: Read) -> bool {
+        self.reads_instance_member_at(class, "__getattribute__", read, |_| true)
+            || self.reads_instance_member_at(class, method, read, |_| true)
     }
 
     pub(super) fn reads_member(&self, object: &str, key: &str, read: Read) -> bool {

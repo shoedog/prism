@@ -100,12 +100,12 @@ impl<'tree> Resolver<'_, 'tree> {
                 position != DeclarationPosition::Module || *family != Family::Http
             });
         let declared_family = declared_method.as_ref().map(|(family, _)| *family);
-        let annotation_ties = declared_family.is_some() && chosen.is_some();
+        let caller_declaration = chosen.filter(|_| declared_family.is_some());
         let declaration_cause = declared_method.and_then(|(_, declaration)| declaration.err());
         let helper_call = value.and_then(|value| self.helper_call(value));
         let helper = helper_call.and_then(|helper| {
-            (local || annotation_ties)
-                .then(|| self.helper_value(helper, value_scope, Some(method), annotation_ties))
+            (local || caller_declaration.is_some())
+                .then(|| self.helper_value(helper, value_scope, method, caller_declaration))
                 .flatten()
         });
         let family =
@@ -126,9 +126,10 @@ impl<'tree> Resolver<'_, 'tree> {
         let origin = if let Some(owner) = self.owning_self(binding) {
             Instance::OwningSelf(owner)
         } else {
-            let helper_origin = helper_call.filter(|_| local);
             Instance::Constructed(
-                helper_origin.map_or(binding.node.id(), |helper| helper.call.id()),
+                self.construction_origin(binding, alt.owner)
+                    .or_else(|| helper_call.filter(|_| local).map(|helper| helper.call.id()))
+                    .unwrap_or_else(|| binding.node.id()),
             )
         };
         let fresh_instance = fresh.filter(|_| self.unescaped_before(binding, key, at, scope));
@@ -195,7 +196,6 @@ impl<'tree> Resolver<'_, 'tree> {
             });
         }
         causes.extend(declaration_cause);
-        let caller_declaration = chosen.filter(|_| annotation_ties);
         if let Some(declaration) = caller_declaration {
             if let Some(value) = value {
                 if position != DeclarationPosition::Parameter && value.kind() == "none" {
@@ -208,6 +208,13 @@ impl<'tree> Resolver<'_, 'tree> {
                         }
                         Err(cause) => causes.push(cause),
                         _ => {}
+                    }
+                }
+                if let Some(cause) = helper.as_ref().and_then(|helper| helper.caller_cause) {
+                    if position != DeclarationPosition::Parameter {
+                        causes.push(cause);
+                    } else if cause == UnprovenCause::AnnotationConflict || !declaration.nullable {
+                        causes.push(UnprovenCause::AnnotationConflict);
                     }
                 }
                 if contradicts_literal(value, declaration.nullable)
@@ -239,6 +246,9 @@ impl<'tree> Resolver<'_, 'tree> {
                     self.prove_instance_method(&declaration.class, method, at, scope)
                         .err(),
                 );
+                if self.instance_context_rebound(&declaration.class, &origin, binding, at, scope) {
+                    causes.push(UnprovenCause::MemberRebound);
+                }
                 if selected_family != Family::Http && causes.is_empty() {
                     return Some(Resolution {
                         family: selected_family,
@@ -341,7 +351,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 let constructed = bindings.into_iter().any(|(binding, visible)| {
                     visible
                         && self
-                            .helper_definition(binding, visible, helper.awaited, None, false)
+                            .helper_definition(binding, visible, helper.awaited, None, None)
                             .is_some_and(|helper| {
                                 matches!(helper.value, Ok(HelperResult::Constructed(_)))
                             })
@@ -417,13 +427,13 @@ impl<'tree> Resolver<'_, 'tree> {
         &self,
         helper: HelperCall<'tree>,
         scope: ScopeId,
-        method: Option<&str>,
-        use_declaration: bool,
+        method: &str,
+        caller: Option<&super::annotation::Declaration<'tree>>,
     ) -> Option<HelperValue<'tree>> {
         self.helper_bindings(helper, scope)
             .into_iter()
             .filter_map(|(binding, visible)| {
-                self.helper_definition(binding, visible, helper.awaited, method, use_declaration)
+                self.helper_definition(binding, visible, helper.awaited, Some(method), caller)
             })
             .min_by_key(|helper| match &helper.value {
                 Ok(HelperResult::Constructed(_)) => (0, None),

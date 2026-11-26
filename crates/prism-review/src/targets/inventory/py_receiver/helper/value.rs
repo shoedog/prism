@@ -16,6 +16,7 @@ pub(super) struct HelperValue<'tree> {
     pub(super) declaration: Option<Declaration<'tree>>,
     pub(super) value: Result<HelperResult<'tree>, UnprovenCause>,
     pub(super) family: Option<Family>,
+    pub(super) caller_cause: Option<UnprovenCause>,
 }
 
 impl<'tree> Resolver<'_, 'tree> {
@@ -25,8 +26,9 @@ impl<'tree> Resolver<'_, 'tree> {
         visible: bool,
         awaited: bool,
         method: Option<&str>,
-        use_declaration: bool,
+        caller: Option<&Declaration<'tree>>,
     ) -> Option<HelperValue<'tree>> {
+        let use_declaration = caller.is_some();
         let definition = binding.node;
         let scope = *self.census.definition_scopes.get(&definition.id())?;
         let body = self.walk.scopes[scope].body;
@@ -55,6 +57,42 @@ impl<'tree> Resolver<'_, 'tree> {
                 (value, constructor, family)
             })
             .collect();
+        let admissible = visible
+            && !facts.yields
+            && definition
+                .parent()
+                .is_none_or(|parent| parent.kind() != "decorated_definition")
+            && awaited
+                == definition
+                    .child(0)
+                    .is_some_and(|token| token.kind() == "async");
+        // Require a return witness, or a suite made entirely of pass statements.
+        // Arbitrary control flow with no return does not prove fallthrough.
+        let mut statements = children(body).peekable();
+        let pass_only =
+            statements.peek().is_some() && statements.all(|stmt| stmt.kind() == "pass_statement");
+        let known_none = (!returns.is_empty() || pass_only)
+            && returns
+                .iter()
+                .all(|(value, _, _)| value.is_none_or(|value| value.kind() == "none"));
+        // Decision K admits opaque declared stdlib receivers. The S2b HTTP
+        // refusal precedence remains the one recorded in DESIGN 10.2.
+        let caller_cause = caller
+            .filter(|caller| admissible && py_tables::declaration_only_class(&caller.class))
+            .and_then(|caller| {
+                if known_none {
+                    return Some(UnprovenCause::ReceiverIsNone);
+                }
+                returns
+                    .iter()
+                    .any(|(value, constructor, _)| {
+                        matches!(constructor, Some(Ok(class)) if *class != caller.class)
+                            || value.map_or(!caller.nullable, |value| {
+                                contradicts_literal(value, caller.nullable)
+                            })
+                    })
+                    .then_some(UnprovenCause::AnnotationConflict)
+            });
         let matches_method =
             |class: &str| method.is_none_or(|method| py_tables::constructor_method(class, method));
         let direct_ties = returns.iter().any(|(_, constructor, family)| {
@@ -78,6 +116,7 @@ impl<'tree> Resolver<'_, 'tree> {
             .or(declared_family);
         if !direct_ties
             && !local_ties
+            && caller_cause.is_none()
             && declaration_cause.is_none()
             && !declaration
                 .as_ref()
@@ -103,16 +142,7 @@ impl<'tree> Resolver<'_, 'tree> {
             if declaration.is_none() {
                 causes.push(UnprovenCause::HelperUnannotated);
             }
-            if !visible
-                || facts.yields
-                || definition
-                    .parent()
-                    .is_some_and(|parent| parent.kind() == "decorated_definition")
-                || awaited
-                    != definition
-                        .child(0)
-                        .is_some_and(|token| token.kind() == "async")
-            {
+            if !admissible {
                 causes.push(UnprovenCause::HelperNotAdmissible);
             }
             if let Some(cause) = causes.into_iter().min() {
@@ -121,14 +151,7 @@ impl<'tree> Resolver<'_, 'tree> {
             let declaration = declaration
                 .as_ref()
                 .expect("missing declarations are refused");
-            let can_fall_through = children(body)
-                .last()
-                .is_none_or(|stmt| stmt.kind() != "raise_statement");
-            if (!returns.is_empty() || can_fall_through)
-                && returns
-                    .iter()
-                    .all(|(value, _, _)| value.is_none_or(|value| value.kind() == "none"))
-            {
+            if known_none {
                 return Err(UnprovenCause::ReceiverIsNone);
             }
             if final_return {
@@ -162,6 +185,7 @@ impl<'tree> Resolver<'_, 'tree> {
             declaration,
             value,
             family,
+            caller_cause,
         })
     }
 }

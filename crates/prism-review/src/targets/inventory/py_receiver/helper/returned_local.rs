@@ -55,18 +55,21 @@ impl<'tree> Resolver<'_, 'tree> {
             .min();
         let refuse = |cause| Some((family, Err(cause)));
         let mut causes = Vec::new();
-        for (_, _, call, _, class) in &constructions {
-            if let Err(cause) = class {
-                causes.push(*cause);
-                continue;
-            }
-            if self.instance_rebound(
-                &Instance::Constructed(call.id()),
-                method,
-                returned,
-                scope,
-                None,
-            ) {
+        for (binding, _, call, _, class) in &constructions {
+            let class = match class {
+                Ok(class) => class,
+                Err(cause) => {
+                    causes.push(*cause);
+                    continue;
+                }
+            };
+            let origin = Instance::Constructed(call.id());
+            // The write index asks for origins without a selected method.
+            // Context-use lookup itself consults that index of origins.
+            if self.instance_rebound(&origin, method, returned, scope, None)
+                || (method.is_some()
+                    && self.instance_context_rebound(class, &origin, binding, returned, scope))
+            {
                 causes.push(UnprovenCause::MemberRebound);
             }
         }

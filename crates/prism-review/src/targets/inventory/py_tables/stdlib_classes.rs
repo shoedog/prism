@@ -5,6 +5,7 @@ const POSIX_PATH: &str = "pathlib.PosixPath";
 const WINDOWS_PATH: &str = "pathlib.WindowsPath";
 const CONFIG: &str = "configparser.ConfigParser";
 const RAW_CONFIG: &str = "configparser.RawConfigParser";
+const ENVIRON: &str = "os._Environ";
 
 // CPython 3.11.11, Lib/pathlib.py and Lib/configparser.py. Record the
 // full MRO once, then stop at the defining owner for each required read.
@@ -34,6 +35,17 @@ const CONFIG_MRO: &[&str] = &[
     "collections.abc.Container",
     "builtins.object",
 ];
+// CPython 3.11 Lib/os.py and Lib/_collections_abc.py.
+const ENVIRON_MRO: &[&str] = &[
+    ENVIRON,
+    "collections.abc.MutableMapping",
+    "collections.abc.Mapping",
+    "collections.abc.Collection",
+    "collections.abc.Sized",
+    "collections.abc.Iterable",
+    "collections.abc.Container",
+    "builtins.object",
+];
 
 pub(super) fn constructor(class: &str) -> bool {
     matches!(class, PATH | CONFIG | RAW_CONFIG)
@@ -54,6 +66,7 @@ pub(super) fn method_owners(class: &str, member: &str) -> Option<&'static [&'sta
         WINDOWS_PATH => (WINDOWS_MRO, 2),
         CONFIG => (CONFIG_MRO, 2),
         RAW_CONFIG => (&CONFIG_MRO[1..], 1),
+        ENVIRON => (ENVIRON_MRO, 3),
         _ => return None,
     };
     let end = match class {
@@ -61,6 +74,11 @@ pub(super) fn method_owners(class: &str, member: &str) -> Option<&'static [&'sta
             "__getattribute__" | "__init__" => mro.len(),
             "__new__" | "__enter__" | "__exit__" | "home" => class_owner,
             _ if PATH_METHODS.contains(&member) => class_owner,
+            _ => return None,
+        },
+        ENVIRON => match member {
+            "__getattribute__" => mro.len(),
+            "get" => class_owner,
             _ => return None,
         },
         _ => match member {

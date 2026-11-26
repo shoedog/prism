@@ -111,10 +111,7 @@ impl<'tree> Resolver<'_, 'tree> {
         at: Node<'tree>,
         scope: ScopeId,
     ) -> Result<(), UnprovenCause> {
-        let read = self.read(at, scope);
-        if self.reads_instance_member_at(class, "__getattribute__", read, |_| true)
-            || self.reads_instance_member_at(class, method, read, |_| true)
-        {
+        if self.instance_method_rebound_at(class, method, self.read(at, scope)) {
             return Err(UnprovenCause::MemberRebound);
         }
         Ok(())
