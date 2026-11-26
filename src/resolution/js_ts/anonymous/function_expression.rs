@@ -47,7 +47,7 @@ impl ExpressionScopes {
 impl CallGraph {
     fn expression_private_name(&self, id: &FunctionId) -> bool {
         self.js_anonymous
-            .0
+            .files
             .get(&id.file)
             .is_some_and(|proof| proof.expression_scopes.contains(id))
     }

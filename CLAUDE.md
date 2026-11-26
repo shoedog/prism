@@ -639,6 +639,13 @@ residual list. `PRISM_RD_CENSUS_TRACE=1` names the owners as
 `rd-census-owner<TAB>param-alias|param-bare<TAB>file<TAB>owner<TAB>first<TAB>last`. See
 `docs/features/language-coverage/js-ts-known-gaps.md` §6.
 
+JS/TS/TSX argument-follow evidence (lane 9, E1, cache v195) records each eligible parameter
+invocation by full bytes and callee, with the holder, runtime slot, selection path and binding
+declaration. Singleton Exact Source callers ground at most one relay and eight distinct
+callable declarations per site. `nav call-stats` reports the `js_arg_follow` facts and refusal
+counts. `PRISM_E_ARG_FOLLOW_TRACE=1` writes each decision as JSON to stderr. Call resolution
+and DataFlow continue through the existing routes.
+
 JS/TS/TSX positional bindings read the argument list by the call node's full byte span and source
 callee name, so inner and outer calls in a chain have separate arguments. A dense array-literal
 spread such as `f(...[0, 1], x)` advances the fixed-slot offset by its syntactic length, including

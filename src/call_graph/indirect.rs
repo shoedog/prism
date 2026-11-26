@@ -15,9 +15,12 @@ impl CallGraph {
         self.apply_indirect_call_sites(sites);
         self.level3_indirect_resolved = level3_telemetry.edges;
         self.go_level3_b1_telemetry = level3_telemetry;
+        let _profile = crate::profile::Phase::serial("call_graph.js_arg_follow");
+        self.js_anonymous.arg_follow = crate::resolution::js_ts::arg_follow::compute(self, files);
     }
 
     pub(super) fn clear_indirect_calls(&mut self) {
+        self.js_anonymous.arg_follow = Default::default();
         self.level3_indirect_resolved = 0;
         self.go_level3_b1_telemetry = Default::default();
         for sites in self.calls.values_mut() {

@@ -30,7 +30,7 @@ mod props_binding;
 mod rest_params;
 
 #[path = "spread_args.rs"]
-mod spread_args;
+pub(crate) mod spread_args;
 
 #[cfg(test)]
 #[path = "mem_s1_tests.rs"]

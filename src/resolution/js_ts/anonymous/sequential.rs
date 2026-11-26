@@ -90,7 +90,7 @@ where
             let mut cursor = node.walk();
             stack.extend(node.named_children(&mut cursor));
         }
-        result.0.insert(file.clone(), proof);
+        result.files.insert(file.clone(), proof);
     }
     result
 }

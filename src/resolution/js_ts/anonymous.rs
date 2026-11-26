@@ -68,7 +68,10 @@ struct FileProofs {
     returns: BTreeMap<FunctionId, (bool, Vec<ImportEvidence>)>,
 }
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct ProofIndex(BTreeMap<String, FileProofs>);
+pub(crate) struct ProofIndex {
+    files: BTreeMap<String, FileProofs>,
+    pub(crate) arg_follow: super::arg_follow::ArgIndex,
+}
 
 impl ProofIndex {
     pub(crate) fn build(files: &BTreeMap<String, ParsedFile>) -> Self {
@@ -82,10 +85,11 @@ impl ProofIndex {
         collect(files, build_file)
     }
     pub(crate) fn remove_files(&mut self, files: &BTreeSet<String>) {
+        self.arg_follow = Default::default();
         // Dependencies may cross file boundaries; invalidate all authority on any removal.
         if !files.is_empty() {
-            self.0.retain(|file, _| !files.contains(file));
-            for proof in self.0.values_mut() {
+            self.files.retain(|file, _| !files.contains(file));
+            for proof in self.files.values_mut() {
                 let property_methods = std::mem::take(&mut proof.property_methods);
                 let expression_scopes = std::mem::take(&mut proof.expression_scopes);
                 *proof = FileProofs {
@@ -97,15 +101,16 @@ impl ProofIndex {
         }
     }
     pub(crate) fn merge(&mut self, other: Self) {
-        self.0.extend(other.0);
+        self.arg_follow = Default::default();
+        self.files.extend(other.files);
     }
     pub(crate) fn is_property_method(&self, id: &FunctionId) -> bool {
-        self.0
+        self.files
             .get(&id.file)
             .is_some_and(|p| p.property_methods.contains(id))
     }
     fn site(&self, site: &CallSite) -> Option<&BindingEvidence> {
-        let file = self.0.get(&site.caller.file)?;
+        let file = self.files.get(&site.caller.file)?;
         if !file.owners.get(&site.caller).copied().unwrap_or(false) {
             return None;
         }
@@ -142,7 +147,7 @@ where
     let mut result = ProofIndex::default();
     for ((file, _), proof) in files.into_iter().zip(per_file) {
         if let Some(proof) = proof {
-            result.0.insert(file.clone(), proof);
+            result.files.insert(file.clone(), proof);
         }
     }
     result
@@ -284,7 +289,7 @@ impl CallGraph {
             .filter(|id| id.name == "super" || !self.js_anonymous.is_property_method(id))
             .filter(|id| {
                 self.js_anonymous
-                    .0
+                    .files
                     .get(&id.file)
                     .is_none_or(|proof| proof.expression_scopes.visible_at(id, site))
             })
@@ -380,7 +385,7 @@ impl CallGraph {
         !anonymous(site)
             || self
                 .js_anonymous
-                .0
+                .files
                 .get(&hook.file)
                 .and_then(|f| f.returns.get(hook))
                 .is_some_and(|(safe, imports)| {
@@ -486,7 +491,7 @@ fn export_matches(
 impl CallGraph {
     fn anonymous_target_supported(&self, target: &FunctionId) -> bool {
         self.js_anonymous
-            .0
+            .files
             .get(&target.file)
             .and_then(|f| f.owners.get(target))
             .copied()
@@ -518,7 +523,7 @@ impl CallGraph {
         }
         if !self
             .js_anonymous
-            .0
+            .files
             .get(file)
             .is_some_and(|f| f.program_supported)
         {
