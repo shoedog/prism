@@ -9,7 +9,7 @@ const ROWS: &str = include_str!(concat!(
     "/../../tests/targets_inventory/rows.jsonl"
 ));
 const GROUPS: &[&str] = &["http.root", "http.receiver", "stdlib"];
-const ENABLED_GROUPS: &[&str] = &[];
+const ENABLED_GROUPS: &[&str] = &["http.root"];
 const FAMILIES: &[&str] = &["http", "filesystem", "parse", "config"];
 const REASONS: &[&str] = &[
     "parse_error_in_function",
@@ -242,6 +242,12 @@ fn matrix_rows_match() {
     let targets = document["targets"]
         .as_array()
         .expect("inventory document must include a targets array");
+    let warnings = document["warnings"].as_array().expect("inventory warnings");
+    let unique: HashSet<_> = warnings
+        .iter()
+        .map(|warning| warning.as_str().unwrap())
+        .collect();
+    assert_eq!(warnings.len(), unique.len(), "duplicate inventory warning");
 
     // Each unsupported target answers at most one row (DESIGN 6.8: rows consume actual targets).
     let mut used = vec![false; targets.len()];
