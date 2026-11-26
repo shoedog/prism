@@ -3,7 +3,7 @@ use crate::targets::inventory::{
     py_receiver::{
         census::{Binding, Import, Kind},
         lookup::{args, direct, Alternative},
-        slots::Read,
+        slots::{Instance, Read},
     },
     python::{
         source::{children, name, ungroup},
@@ -15,7 +15,9 @@ use tree_sitter::Node;
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(super) struct Objects {
     paths: Vec<String>,
+    instances: Vec<Instance>,
     unknown: bool,
+    untracked_parameter: bool,
     other: bool,
 }
 
@@ -23,6 +25,13 @@ impl Objects {
     fn imported(path: String) -> Self {
         Self {
             paths: vec![path],
+            ..Self::default()
+        }
+    }
+
+    fn instance(origin: Instance) -> Self {
+        Self {
+            instances: vec![origin],
             ..Self::default()
         }
     }
@@ -44,16 +53,27 @@ impl Objects {
 
     fn extend(&mut self, other: &Self) {
         self.unknown |= other.unknown;
+        self.untracked_parameter |= other.untracked_parameter;
         self.other |= other.other;
         for path in &other.paths {
             if !self.paths.contains(path) {
                 self.paths.push(path.clone());
             }
         }
+        for origin in &other.instances {
+            if !self.instances.contains(origin) {
+                self.instances.push(origin.clone());
+            }
+        }
     }
 
     pub(super) fn slots(self, key: Option<String>) -> Vec<Slot> {
-        let definite = self.paths.len() == 1 && !self.unknown && !self.other && key.is_some();
+        let definite = self.paths.len() == 1
+            && self.instances.is_empty()
+            && !self.unknown
+            && !self.untracked_parameter
+            && !self.other
+            && key.is_some();
         self.paths
             .into_iter()
             .map(Some)
@@ -63,11 +83,28 @@ impl Objects {
                 key: key.clone(),
                 definite,
             })
+            .chain(
+                (self.untracked_parameter && !self.unknown)
+                    .then(|| Slot::ParameterMember { key: key.clone() }),
+            )
+            .chain(self.instances.into_iter().map(|origin| Slot::Instance {
+                origin,
+                key: key.clone(),
+            }))
             .collect()
     }
 }
 
 impl<'tree> Resolver<'_, 'tree> {
+    pub(in crate::targets::inventory::py_receiver) fn names_instance(
+        &self,
+        node: Node<'tree>,
+        scope: ScopeId,
+        origin: &Instance,
+    ) -> bool {
+        self.objects(node, scope, true).instances.contains(origin)
+    }
+
     pub(super) fn objects(&self, node: Node<'tree>, scope: ScopeId, alias: bool) -> Objects {
         let node = ungroup(node);
         if self.implicit_builtins(node, scope) {
@@ -188,17 +225,40 @@ impl<'tree> Resolver<'_, 'tree> {
                     continue;
                 }
                 unavailable |= !self.available(binding, at, scope);
-                let value = match &binding.kind {
-                    Kind::Import(import) => self.import_objects(import, binding),
-                    Kind::Assigned(Some(value)) if alias => {
-                        self.objects(*value, binding.scope, false)
+                let origin = self
+                    .owning_self(binding)
+                    .map(Instance::OwningSelf)
+                    .or_else(|| {
+                        self.construction_origin(binding, alt.owner)
+                            .map(Instance::Constructed)
+                    })
+                    .or_else(|| {
+                        self.declared_origin(binding, alt.owner)
+                            .map(Instance::Constructed)
+                    });
+                let value = if let Some(origin) = origin {
+                    Objects::instance(origin)
+                } else {
+                    match &binding.kind {
+                        Kind::Import(import) => self.import_objects(import, binding),
+                        Kind::Assigned(Some(value)) if alias => {
+                            let mut objects = self.objects(*value, binding.scope, false);
+                            if !matches!(ungroup(*value).kind(), "identifier" | "attribute") {
+                                objects.instances.clear();
+                            }
+                            objects
+                        }
+                        Kind::Parameter => Objects {
+                            untracked_parameter: true,
+                            ..Objects::default()
+                        },
+                        Kind::Delete => Objects::other(),
+                        _ => Objects::unknown(),
                     }
-                    Kind::Delete => Objects::other(),
-                    _ => Objects::unknown(),
                 };
                 resolved.extend(&value);
             }
-            if unavailable && resolved.paths.is_empty() {
+            if unavailable && resolved.paths.is_empty() && resolved.instances.is_empty() {
                 resolved.unknown = true;
             }
             objects.extend(&resolved);
@@ -209,6 +269,7 @@ impl<'tree> Resolver<'_, 'tree> {
     fn member_objects(&self, base: Objects, key: &str, read: Read) -> Objects {
         let mut objects = Objects {
             unknown: base.unknown,
+            untracked_parameter: base.untracked_parameter,
             other: base.other,
             ..Objects::default()
         };
@@ -218,6 +279,14 @@ impl<'tree> Resolver<'_, 'tree> {
             objects.extend(&effects);
             if replacement.is_none() {
                 objects.extend(&Objects::imported(format!("{path}.{key}")));
+            }
+        }
+        for origin in base.instances {
+            if let Instance::OwningSelf(owner) = origin {
+                objects.extend(&Objects::instance(Instance::Field {
+                    owner,
+                    name: key.to_owned(),
+                }));
             }
         }
         objects
@@ -265,6 +334,9 @@ impl<'tree> Resolver<'_, 'tree> {
                 continue;
             }
             values.extend(&write.effect);
+            // A parameter is not a tracked write target. An explicit
+            // replacement with that parameter can still obscure provenance.
+            values.unknown |= write.effect.untracked_parameter;
         }
         (values, last)
     }

@@ -1,5 +1,6 @@
 mod objects;
 mod strings;
+pub(super) use strings::literal as string_literal;
 
 use super::{
     lookup::args,
@@ -18,6 +19,7 @@ pub(super) struct Write {
     pub slot: Slot,
     effect: Objects,
     read_point: Read,
+    suite: Option<usize>,
 }
 
 impl Write {
@@ -33,6 +35,12 @@ impl Write {
             && self.read_point.direct
             && read.scope == 0
             && self.read_point.byte <= read.byte
+    }
+
+    pub(super) fn follows_in_suite(&self, read: Read, suite: Node<'_>) -> bool {
+        self.read_point.scope == read.scope
+            && self.read_point.byte > read.byte
+            && self.suite == Some(suite.id())
     }
 }
 
@@ -140,10 +148,15 @@ impl<'tree> Resolver<'_, 'tree> {
             } else {
                 value.map_or_else(Objects::unknown, |value| self.objects(value, scope, true))
             };
+            let suite = std::iter::successors(node.parent(), Node::parent)
+                .find(|parent| matches!(parent.kind(), "block" | "module"))
+                .filter(|suite| super::lookup::direct(*suite, node))
+                .map(|suite| suite.id());
             self.writes.extend(slots.into_iter().map(|slot| Write {
                 slot,
                 effect: effect.clone(),
                 read_point,
+                suite,
             }));
         }
     }
@@ -211,6 +224,34 @@ impl<'tree> Resolver<'_, 'tree> {
                 key,
             }]
         })
+    }
+
+    pub(super) fn literal_receiver_write(&self, receiver: Node<'tree>, scope: ScopeId) -> bool {
+        let Some(call) = receiver.parent().and_then(|args| args.parent()) else {
+            return false;
+        };
+        if call.kind() != "call" || args(call).next() != Some(receiver) {
+            return false;
+        }
+        if self.reflection_write(call, scope).is_some() {
+            return true;
+        }
+        let Some(target) = call.parent().filter(|parent| {
+            parent.kind() == "subscript" && parent.child_by_field_name("value") == Some(call)
+        }) else {
+            return false;
+        };
+        self.reflection_helper(call, scope, "vars")
+            && self.subscript_write(target, scope, false).is_some()
+            && target.parent().is_some_and(|parent| match parent.kind() {
+                "assignment" | "augmented_assignment" => {
+                    parent.child_by_field_name("left") == Some(target)
+                        && (parent.child_by_field_name("type").is_none()
+                            || parent.child_by_field_name("right").is_some())
+                }
+                "delete_statement" => true,
+                _ => false,
+            })
     }
 
     fn reflection_write(
