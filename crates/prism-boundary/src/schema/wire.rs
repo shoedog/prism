@@ -202,6 +202,7 @@ pub(super) fn read<'r, 'a>(
 struct Edge {
     depth: usize,
     property: bool,
+    list_item: bool,
     required: bool,
     overlap: bool,
     union: bool,
@@ -212,6 +213,7 @@ impl Edge {
         Self {
             depth: 0,
             property: false,
+            list_item: false,
             required: false,
             overlap: false,
             union: false,
@@ -222,6 +224,7 @@ impl Edge {
         Self {
             depth: self.depth + 1,
             property,
+            list_item: false,
             required,
             overlap,
             union: self.union && property && required,
@@ -498,8 +501,10 @@ impl<'r, 'a> Reader<'r, 'a> {
                 item_type = item;
             }
         }
-        if multi_type {
-            field_type = if types == NULL || !blocked && !feasibility.unknown {
+        let type_set_unchecked = blocked || feasibility.unknown;
+        // The parent item slot retains the declared set under item-level limits.
+        if multi_type && (!edge.list_item || !type_set_unchecked) {
+            field_type = if types == NULL || !type_set_unchecked {
                 constraints::type_set(types)
             } else {
                 Property::BranchDependent

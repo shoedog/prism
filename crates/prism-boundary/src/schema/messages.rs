@@ -295,27 +295,35 @@ impl MessageRole {
     }
 
     fn admits_terminal(self, dialect: Dialect, value: &Value) -> bool {
-        let (has_required, allowed): (bool, &[&str]) = match self {
-            Self::Response => (
-                value["description"].is_string(),
-                if dialect == Dialect::Swagger2 {
-                    &["description", "schema", "headers", "examples"]
-                } else {
-                    &["description", "headers", "content", "links"]
-                },
-            ),
-            Self::RequestBody => (
-                value.get("content").is_some(),
-                &["description", "content", "required"],
-            ),
+        let required = match self {
+            Self::Response => "description",
+            Self::RequestBody => "content",
             Self::SwaggerParameter => return true,
         };
-        has_required
-            && value.as_object().is_some_and(|object| {
-                object
-                    .keys()
-                    .all(|key| allowed.contains(&key.as_str()) || key.starts_with("x-"))
-            })
+        value.as_object().is_some_and(|object| {
+            object.contains_key(required)
+                && object.iter().all(|(key, member)| {
+                    if key.starts_with("x-") {
+                        return true;
+                    }
+                    match (self, dialect, key.as_str()) {
+                        (_, _, "description") => member.is_string(),
+                        (Self::Response, Dialect::Swagger2, "schema") => {
+                            member.is_object() || member.is_boolean()
+                        }
+                        (Self::Response, Dialect::Swagger2, "examples")
+                        | (
+                            Self::Response,
+                            Dialect::OpenApi30 | Dialect::OpenApi31,
+                            "content" | "links",
+                        )
+                        | (Self::Response, _, "headers")
+                        | (Self::RequestBody, _, "content") => member.is_object(),
+                        (Self::RequestBody, _, "required") => member.is_boolean(),
+                        _ => false,
+                    }
+                })
+        })
     }
 }
 

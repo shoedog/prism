@@ -161,7 +161,7 @@ fn enumerated_wire_cases() {
         |row| {
             !matches!(
                 row.class,
-                "fold1" | "fold3" | "known_limits" | "known_limits_control"
+                "fold1" | "fold3" | "fold4" | "known_limits" | "known_limits_control"
             )
         },
         40,
@@ -179,10 +179,15 @@ fn fold3() {
 }
 
 #[test]
+fn fold4() {
+    check_enumeration(|row| row.class == "fold4", 5);
+}
+
+#[test]
 fn known_limits() {
     check_enumeration(
         |row| matches!(row.class, "known_limits" | "known_limits_control"),
-        72 + 6 + 22 + 2,
+        72 + 6 + 22 + 2 + 4,
     );
 }
 

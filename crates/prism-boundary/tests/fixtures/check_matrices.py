@@ -128,7 +128,7 @@ def check_p1b_rows():
                 or control != f"control-{row_id}"
                 or rows[control][1]["class"] != "known_limits_control"):
                 raise ValueError(f"{label}: missing reason or supported control")
-            if row_id.startswith(("fold2-", "fold3-")) and (
+            if row_id.startswith(("fold2-", "fold3-", "fold4-")) and (
                 not entry["case"].startswith("KNOWN-LIMIT ")
                 or not isinstance(entry.get("counted", True), bool)
             ):
@@ -151,12 +151,17 @@ def check_p1b_rows():
     fold3_counts = Counter(rows[row_id][1]["class"] for row_id in fold3)
     if fold3_counts != {"fold3": 7, "known_limits": 1, "known_limits_control": 1}:
         raise ValueError(f"p1b_rows: fold3 class counts differ: {fold3_counts}")
-    previous = fold | fold2 | fold3
+    fold4 = {row_id for row_id in rows if row_id.removeprefix("control-").startswith("fold4-")}
+    fold4_counts = Counter(rows[row_id][1]["class"] for row_id in fold4)
+    if fold4_counts != {"fold4": 5, "known_limits": 2, "known_limits_control": 2}:
+        raise ValueError(f"p1b_rows: fold4 class counts differ: {fold4_counts}")
+    previous = fold | fold2 | fold3 | fold4
     new = len(rows.keys() - previous) - len(controls - previous)
     if new != 76:
         raise ValueError(f"p1b_rows: counted {new} NEW rows, expected 76")
     known_limits = counts["known_limits"] - sum(
-        fold_count["known_limits"] for fold_count in (fold_counts, fold2_counts, fold3_counts)
+        fold_count["known_limits"]
+        for fold_count in (fold_counts, fold2_counts, fold3_counts, fold4_counts)
     )
     print(f"p1b_rows: {new} NEW rows, "
           f"{known_limits} known_limits, "
@@ -166,6 +171,8 @@ def check_p1b_rows():
     print(f"p1b_rows: fold2 {fold2_counts['known_limits']} known limits with controls — OK")
     print(f"p1b_rows: fold3 {fold3_counts['fold3']} rule rows and "
           f"{fold3_counts['known_limits']} known limit with control — OK")
+    print(f"p1b_rows: fold4 {fold4_counts['fold4']} rule rows and "
+          f"{fold4_counts['known_limits']} known limits with controls — OK")
 
 
 def main():

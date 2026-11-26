@@ -73,12 +73,17 @@ byte SHA-256 and the canonical inventory hash are independent.
 - OpenAPI request fields come from a readable JSON request body on a method eligible in that dialect.
 - Swagger request fields come from one effective body parameter with JSON media evidence and a readable schema.
 - Response fields come from an explicit success key that owns at least one body-eligible status, with exact status keys taking precedence over ranges in OpenAPI.
-- Response references used for wire projection end at a Response Object with a string description and dialect-appropriate keys. OpenAPI request-body references end at a Request Body Object with content. Both allow `x-` extensions.
+- Response and request-body reference terminals must match the role's key and value-type description. Each role allows `x-` extensions.
+  - OpenAPI 3.x Response requires a string `description`. Optional `headers`, `content`, and `links` are objects.
+  - Swagger 2.0 Response requires a string `description`. Optional `headers` and `examples` are objects. An optional `schema` is an object or boolean at terminal admission.
+  - OpenAPI Request Body requires an object `content`. Optional `description` is a string and optional `required` is a boolean.
+  - A terminal outside this description withholds projection with `reference_unresolved`. Other malformed-document shapes, including violations in unchecked roles, are outside the model.
 - OpenAPI message fields use a single unambiguous `application/json` representation with a readable schema.
 - Swagger message fields use an effective media list containing JSON or admitted omission evidence for that operation and message root. Request evidence also establishes Content-Type selection.
 - Schema objects use the governing dialect. OpenAPI 3.1 accepts boolean schemas, the implicit and explicit 3.1 base dialect, and the supported JSON Schema 2020-12 dialect.
 - Named object properties contribute fields when capacity and required-value witnesses support their presence. Readable directional flags refine requiredness where the dialect defines it.
 - Homogeneous array items contribute descendant fields where an item can occur. A named array field signs its known item type or type set in the item slot.
+- Under an item-level stop or unknown feasibility, a readable declared item type set signs in the parent item slot while the item limit remains counted.
 - Schema-valued object remainders contribute map-value fields when the object has capacity and the remainder is feasible.
 - Inventory paths retain typed property, item and map edges through depth 16. The reader checks object feasibility at edge 17 before recording a depth cut.
 - Recognized types, readable format labels, exact scalar enum members and established field requiredness contribute signature facts. An empty enum declaration can be retained as an observation where the edge survives capacity checks.
@@ -179,7 +184,12 @@ The price comes from scanning the pinned public Swagger 2.0 for each shape. The 
 - KNOWN-LIMIT `fold2-any-of-arm-only-type` retains an equal hash after a type edit in a single feasible arm. Removing that field changes the projected inventory and hash.
 - KNOWN-LIMIT `fold2-one-of-enum-tag` retains an equal hash after changing one of two disjoint enum tags. Removing an arm-only field changes the projected inventory and hash.
 - KNOWN-LIMIT `fold2-items-dialect` retains the parent item type despite an unsupported items dialect. The accepted form supplies the item schema under the supported default dialect.
-- KNOWN-LIMIT `fold3-root-scalar-slots` pins equal hashes for scalar map-value type edits and root scalar-array item type edits. The DESIGN signature tuple lacks a slot for either type. The controls sign a property below a map value and the item type of a named array field.
+- KNOWN-LIMIT Facts below a list-item or map-value edge with no named field can leave the hash unchanged. This includes item enum, item format, arrays of arrays, and maps of arrays. `fold3-root-scalar-slots` pins equal hashes for scalar map-value and root scalar-array item type edits. `fold4-item-enum-slot` and `fold4-item-format-slot` pin checked coverage, zero limits, and equal hashes for item enum widening and item format changes. The controls sign the corresponding facts when a named field has a slot for them.
+
+Open questions for the design seat
+
+- How should signatures represent edited union const discriminants?
+- Should the signature tuple gain a slot for facts on unnamed list items and map values?
 
 The `wire` target reads the pinned ID matrix and the P1b enumeration.
 The enumeration materializes M3 as separate codec and producer-source rows

@@ -145,7 +145,11 @@ impl<'r, 'a> Reader<'r, 'a> {
         if items.is_empty() {
             return (true, Property::Missing);
         }
-        let child = self.visit(items, edge.child(false, false, false));
+        let item_edge = Edge {
+            list_item: true,
+            ..edge.child(false, false, false)
+        };
+        let child = self.visit(items, item_edge);
         if !child.feasible && !child.has_limits() {
             return (minimum == 0, Property::Missing);
         }
