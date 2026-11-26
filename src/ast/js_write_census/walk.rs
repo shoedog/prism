@@ -122,6 +122,15 @@ fn text<'s>(src: &'s [u8], n: Node<'_>) -> &'s str {
 
 /// Owner-level preconditions (DESIGN.md 4.4): parse quality and escape-free NAME tokens.
 pub(crate) fn precondition(t: &Tables, owner: Node<'_>, src: &[u8]) -> Option<Refusal> {
+    target_precondition(t, owner, src, false)
+}
+
+fn target_precondition(
+    t: &Tables,
+    owner: Node<'_>,
+    src: &[u8],
+    decode_escaped_paths: bool,
+) -> Option<Refusal> {
     if owner.has_error() {
         return Some(Refusal::Parse);
     }
@@ -138,7 +147,8 @@ pub(crate) fn precondition(t: &Tables, owner: Node<'_>, src: &[u8]) -> Option<Re
         {
             return Some(Refusal::Target("using".to_string()));
         }
-        if descended
+        if !decode_escaped_paths
+            && descended
             && n.child_count() == 0
             && n.is_named()
             && t.is_name_token(n.kind())
@@ -197,9 +207,24 @@ pub(crate) fn census_mapped(
     owner: Node<'_>,
     mapping: Mapping<'_>,
 ) -> Census {
+    walk_targets(parsed, t, owner, mapping, false)
+}
+
+/// Pattern-formal consumers decode each path component before comparing identities.
+pub(crate) fn census_pattern_formals(parsed: &ParsedFile, owner: Node<'_>) -> Census {
+    walk_targets(parsed, Tables::shared(), owner, Mapping::None, true)
+}
+
+fn walk_targets(
+    parsed: &ParsedFile,
+    t: &Tables,
+    owner: Node<'_>,
+    mapping: Mapping<'_>,
+    decode_escaped_paths: bool,
+) -> Census {
     let src = parsed.source.as_bytes();
     let mut out = Census::default();
-    if let Some(r) = precondition(t, owner, src) {
+    if let Some(r) = target_precondition(t, owner, src, decode_escaped_paths) {
         out.refusals.push(r);
         return out;
     }

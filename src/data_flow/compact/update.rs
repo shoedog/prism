@@ -127,6 +127,7 @@ pub(in crate::data_flow) fn combine(parts: Vec<CompactDfg>) -> Result<CompactDfg
         backward,
         labels: reduced,
         exact_labels,
+        signature_pairs: Default::default(),
         rd_function_stats: stats,
         rust_macro_census_digest: digest,
         c_macro_census_digest: c_digest,
