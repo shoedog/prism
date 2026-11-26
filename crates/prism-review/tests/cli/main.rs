@@ -35,6 +35,7 @@ mod taint_sink_strength_view_test;
 mod targets_inventory_constructors_test;
 mod targets_inventory_fields_test;
 mod targets_inventory_helpers_test;
+mod targets_inventory_known_limits_test;
 mod targets_inventory_receiver_guards_test;
 mod targets_inventory_receiver_projection_test;
 mod targets_inventory_s2b_fold_test;

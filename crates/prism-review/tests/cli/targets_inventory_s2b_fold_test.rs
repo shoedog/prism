@@ -86,6 +86,42 @@ fn unproven_origins_keep_s2a_write_vetoes() {
     cases.finish();
 }
 
+#[test]
+fn context_targets_need_entry_proof_to_narrow_write_vetoes() {
+    let mut cases = Cases::default();
+    for (module, class, asynchronous) in [
+        ("requests", "Session", false),
+        ("httpx", "Client", false),
+        ("urllib3", "PoolManager", false),
+        ("httpx", "AsyncClient", true),
+        ("aiohttp", "ClientSession", true),
+    ] {
+        let (prefix, enter, exit) = if asynchronous {
+            ("async ", "__aenter__", "__aexit__")
+        } else {
+            ("", "__enter__", "__exit__")
+        };
+        for (label, slot, member, expected) in [
+            ("unmodified", None, "get", ROOT),
+            ("exit only", Some(exit), "get", ROOT),
+            ("entry with sibling write", Some(enter), "post", ROOT),
+            ("entry with selected write", Some(enter), "get", REBOUND),
+        ] {
+            let mut source = format!("import requests\nfrom {module} import {class} as C\n");
+            if let Some(slot) = slot {
+                source.push_str(&format!(
+                    "{prefix}def replacement(self, *args):\n    return requests\nC.{slot} = replacement\n"
+                ));
+            }
+            source.push_str(&format!(
+                "{prefix}def use():\n    {prefix}with C() as v:\n        v.{member} = len\n    requests.get('u')\n"
+            ));
+            cases.check(&format!("{module}.{class}/{label}"), &source, expected);
+        }
+    }
+    cases.finish();
+}
+
 fn returned_local(statement: &str) -> String {
     format!("from requests import Session\ndef make(flag=None, obj=None) -> Session:\n    v = Session()\n    {statement}\n    return v\ndef use():\n    c = make()\n    c.get('u')\n")
 }

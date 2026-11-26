@@ -16,27 +16,31 @@ use tree_sitter::Node;
 
 struct Construction<'tree> {
     call: Node<'tree>,
-    context: Option<(Node<'tree>, Protocol)>,
+    context: Option<ContextUse<'tree>>,
 }
 
 impl<'tree> Construction<'tree> {
     fn from_binding(binding: &Binding<'tree>) -> Option<Self> {
-        let (call, context) = match binding.kind {
+        let (call, manager) = match binding.kind {
             Kind::Assigned(Some(value)) => (value, None),
             Kind::Context => {
                 let manager = std::iter::successors(binding.node.parent(), Node::parent)
                     .find(|node| node.kind() == "with_statement")?;
-                let protocol = Protocol::at(manager);
-                (children(binding.node).next()?, Some((manager, protocol)))
+                (children(binding.node).next()?, Some(manager))
             }
             _ => return None,
         };
-        let call = assignment_value(call)?;
-        (call.kind() == "call").then_some(Self { call, context })
+        let call = assignment_value(call).filter(|call| call.kind() == "call")?;
+        let context = manager.map(|manager| ContextUse {
+            manager,
+            value: call,
+            scope: binding.scope,
+        });
+        Some(Self { call, context })
     }
 
     fn protocol(&self) -> Option<Protocol> {
-        self.context.map(|(_, protocol)| protocol)
+        self.context.map(|entry| Protocol::at(entry.manager))
     }
 }
 
@@ -73,13 +77,8 @@ impl<'tree> Resolver<'_, 'tree> {
                         return Err(UnprovenCause::BindingUnavailable);
                     }
                     self.prove_instance_method(&class, &method, callee, scope)?;
-                    if let Some((manager, _)) = construction.context {
-                        let before_exit = binding.scope == scope && contains(manager, callee);
-                        let entry = ContextUse {
-                            manager,
-                            value: construction.call,
-                            scope: binding.scope,
-                        };
+                    if let Some(entry) = construction.context {
+                        let before_exit = entry.scope == scope && contains(entry.manager, callee);
                         if self.context_slots_rebound(&class, entry, !before_exit) {
                             return Err(UnprovenCause::MemberRebound);
                         }
@@ -139,13 +138,21 @@ impl<'tree> Resolver<'_, 'tree> {
             return None;
         }
         let construction = Construction::from_binding(binding)?;
-        self.constructor(
-            construction.call,
-            binding.scope,
-            None,
-            construction.protocol(),
-        )?
-        .ok()?;
+        let class = self
+            .constructor(
+                construction.call,
+                binding.scope,
+                None,
+                construction.protocol(),
+            )?
+            .ok()?;
+        // The entry slot determines which object the context target names.
+        if construction
+            .context
+            .is_some_and(|entry| self.context_slots_rebound(&class, entry, false))
+        {
+            return None;
+        }
         Some(construction.call.id())
     }
 
@@ -173,7 +180,7 @@ impl<'tree> Resolver<'_, 'tree> {
         if matches!(binding.kind, Kind::Context)
             && Construction::from_binding(binding)?
                 .context?
-                .0
+                .manager
                 .child_by_field_name("body")
                 == Some(suite)
         {
