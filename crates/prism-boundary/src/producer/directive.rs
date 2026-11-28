@@ -36,8 +36,9 @@ pub(super) fn recognise(comment: &str) -> Option<Directive> {
     let invalid = |reason, method: Option<&str>, path: Option<&str>| {
         Some(Directive::Invalid {
             reason,
-            method: method.map(Into::into),
-            path: path.map(Into::into),
+            // The wire schema forbids an empty string; the record's `raw` keeps the spelling.
+            method: method.filter(|m| !m.is_empty()).map(Into::into),
+            path: path.filter(|p| !p.is_empty()).map(Into::into),
         })
     };
     if slashes != 2 || word != "@Router" {

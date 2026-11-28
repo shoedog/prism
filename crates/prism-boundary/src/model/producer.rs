@@ -4,7 +4,11 @@
 use super::SourceSite;
 use serde::{Deserialize, Serialize};
 
-/// How an annotation names its operation. `Bound` is the only unique grade.
+/// How an annotation names its operation. `Bound` is the only unique grade: one handler
+/// declaration names the operation and every possible competitor was accounted for (no tie, no
+/// expected file left unread, no gap that is keyless or names the operation). A `Candidate` keeps
+/// the observed site and carries the condition in the row's `evidence`
+/// (`competing_handlers`, `competitor_unread`).
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum EdgeGrade {

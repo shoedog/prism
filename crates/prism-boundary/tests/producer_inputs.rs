@@ -70,9 +70,10 @@ fn d12_a_file_whose_blob_or_tree_differs_is_refused_for_that_file_only() {
         .unwrap();
         assert_eq!(status(&doc, "a.go"), (S::Unknown, Some(reason.into())));
         assert_eq!(status(&doc, "b.go"), (S::Complete, None));
+        // Fold 1: the refused file could hide a competitor, so b.go's edge is only a candidate.
         assert_eq!(
             edges(&doc),
-            [("op:GET /y".into(), Some(EdgeGrade::Bound), "K".into())]
+            [("op:GET /y".into(), Some(EdgeGrade::Candidate), "K".into())]
         );
         assert!(
             records(&doc).iter().all(|r| r.site.file == "b.go"),
@@ -163,9 +164,10 @@ fn d01_missing_unexpected_duplicate_and_unreadable_files_have_their_own_status()
         (S::Skipped, Some("not_in_expected_inventory".into()))
     );
     assert_eq!(doc.expected_files, ["bin.go", "dup.go", "gone.go", "ok.go"]);
+    // Fold 1: three expected files were never read, so ok.go's edge is not unique.
     assert_eq!(
         edges(&doc),
-        [("op:GET /x".into(), Some(EdgeGrade::Bound), "H".into())]
+        [("op:GET /x".into(), Some(EdgeGrade::Candidate), "H".into())]
     );
     assert_wire_round_trip(&doc);
 }
@@ -213,13 +215,13 @@ fn a15_same_named_handlers_stay_distinct_and_a_skipped_competitor_blocks_the_neg
     let doc = run(&[("p.go", H), ("q.go", b"package q\n\xff")], &schema);
     assert_eq!(
         edges(&doc),
-        [("op:GET /x".into(), Some(EdgeGrade::Bound), "H".into())]
+        [("op:GET /x".into(), Some(EdgeGrade::Candidate), "H".into())],
+        "the observed edge is kept, but the unreadable competitor withholds uniqueness"
     );
-    assert_eq!(
-        status(&doc, "q.go").0,
-        S::Unreadable,
-        "the competitor is unaccounted, uniqueness is not claimed"
-    );
+    assert_eq!(status(&doc, "q.go").0, S::Unreadable);
+    assert!(rows(&doc)[0]
+        .evidence
+        .contains(&"competitor_unread".to_string()));
 }
 
 #[test]

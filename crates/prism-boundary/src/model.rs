@@ -44,13 +44,16 @@ pub struct DocumentInput {
 
 impl DocumentInput {
     pub(super) fn matches_schema_source(&self, source: &crate::inventory::SchemaSource) -> bool {
-        if self.role != Role::Producer
-            || self.api != source.api
-            || self.operation_authority != source.authority
-            || self.snapshot.identity() != Some((&source.tree, source.commit.as_deref()))
-        {
-            return false;
-        }
+        self.role == Role::Producer
+            && self.api == source.api
+            && self.operation_authority == source.authority
+            && self.snapshot.identity() == Some((&source.tree, source.commit.as_deref()))
+            && self.declares_schema_source(source)
+    }
+
+    /// Whether the schema this document declares (path, blob, repo, tree; or the named-tree
+    /// entry when it carries no schema evidence) is the one `source` indexed.
+    pub(crate) fn declares_schema_source(&self, source: &crate::inventory::SchemaSource) -> bool {
         match self.schema.as_ref().map(|schema| &schema.source) {
             Some(SchemaOrigin::File {
                 path,

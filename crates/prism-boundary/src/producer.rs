@@ -115,15 +115,29 @@ pub fn bind_producer(
         .snapshot
         .identity()
         .ok_or(ProducerError::UnsupportedSnapshot)?;
+    // The index must be the schema this document declares, indexed under the schema authority
+    // for the same region; an annotation binding to any other index would be unfounded.
     let admitted = schema.source.as_ref().is_some_and(|source| {
-        source.api == input.api && source.tree == tree && source.commit.as_deref() == commit
+        source.api == input.api
+            && source.tree == tree
+            && source.commit.as_deref() == commit
+            && source.authority == "schema"
+            && input.declares_schema_source(source)
+            && input.scope.same_region(&schema.scope)
     });
 
-    let expected: BTreeMap<&str, &str> = inputs
-        .expected
-        .iter()
-        .map(|file| (file.path, file.blob))
-        .collect();
+    // One path listed with two different blobs contradicts itself: `None` marks it.
+    let mut expected: BTreeMap<&str, Option<&str>> = BTreeMap::new();
+    for file in inputs.expected {
+        expected
+            .entry(file.path)
+            .and_modify(|blob| {
+                if *blob != Some(file.blob) {
+                    *blob = None;
+                }
+            })
+            .or_insert(Some(file.blob));
+    }
     let mut supplied: BTreeMap<&str, Vec<&SourceBlob<'_>>> = BTreeMap::new();
     for file in inputs.files {
         supplied.entry(file.path).or_default().push(file);
@@ -138,7 +152,18 @@ pub fn bind_producer(
     };
     let mut file_status = Vec::new();
     let mut scans = Vec::new();
+    let mut unread = false;
     for (&path, &blob) in &expected {
+        let Some(blob) = blob else {
+            unread = true;
+            file_status.push(region(
+                path,
+                Status::Unknown,
+                Some("duplicate_expected_entry"),
+                None,
+            ));
+            continue;
+        };
         let found = supplied.get(path).map(Vec::as_slice).unwrap_or_default();
         let refusal = match found {
             [] => Some((Status::Unknown, "file_not_supplied", None)),
@@ -155,18 +180,22 @@ pub fn bind_producer(
             [_] => None,
         };
         if let Some((status, reason, evidence)) = refusal {
+            unread = true;
             file_status.push(region(path, status, Some(reason), evidence));
             continue;
         }
         let file = found[0];
         let source = std::str::from_utf8(file.bytes).expect("checked above");
         match scan::scan(path, source) {
-            None => file_status.push(region(
-                path,
-                Status::Unreadable,
-                Some("parse_failed"),
-                Some(blob),
-            )),
+            None => {
+                unread = true;
+                file_status.push(region(
+                    path,
+                    Status::Unreadable,
+                    Some("parse_failed"),
+                    Some(blob),
+                ));
+            }
             Some(scan) => {
                 let (status, reason) = if scan.has_errors {
                     (Status::Partial, Some("parse_error"))
@@ -195,7 +224,7 @@ pub fn bind_producer(
     }
     file_status.sort_by(|a, b| a.path.cmp(&b.path));
 
-    let outcome = bind::bind(&scans, schema, admitted);
+    let outcome = bind::bind(&scans, schema, admitted, unread);
     let entries = outcome
         .gaps
         .iter()

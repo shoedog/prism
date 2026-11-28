@@ -137,12 +137,11 @@ fn g04_annotation_without_operation_in_a_complete_inventory() {
         (record.disposition, record.reason.as_deref()),
         (D::NotChecked, Some("schema_operations_incomplete"))
     );
+    // The base path is ambiguous (duplicate member), so the projected ids cannot be listed:
+    // the gap is keyless and blocks every negative.
     assert_eq!(
         entries(&doc, "i.go"),
-        [(
-            "annotation_not_checked".to_string(),
-            vec!["op:GET /new".to_string()]
-        )]
+        [("annotation_not_checked".to_string(), Vec::<String>::new())]
     );
 }
 
@@ -232,7 +231,9 @@ fn a02_block_comments_are_an_unsupported_form_not_a_guess() {
     // DESIGN 5.3: only `//` lines attach. A block comment is kept raw, with its span, as a gap.
     let src = go("a02");
     let doc = one("a02", &[("GET", "/x"), ("GET", "/y"), ("GET", "/z")]);
-    assert_eq!(edges(&doc), [bound("op:GET /z", "Line")]);
+    // Fold 1: a keyless gap in the document could hide a competitor, so the observed edge is
+    // kept as a candidate (competitor_unread) rather than a unique binding.
+    assert_eq!(edges(&doc), [candidate("op:GET /z", "Line")]);
     let block = record(&doc, "/x");
     assert_eq!(
         (block.disposition, block.reason.as_deref()),
@@ -257,7 +258,9 @@ fn a02_block_comments_are_an_unsupported_form_not_a_guess() {
 #[test]
 fn a03_a_split_directive_is_malformed_and_its_sibling_still_binds() {
     let doc = one("a03", &[("GET", "/x"), ("GET", "/y")]);
-    assert_eq!(edges(&doc), [bound("op:GET /y", "Sibling")]);
+    // Fold 1: a keyless gap in the document could hide a competitor, so the observed edge is
+    // kept as a candidate (competitor_unread) rather than a unique binding.
+    assert_eq!(edges(&doc), [candidate("op:GET /y", "Sibling")]);
     let split = record_of(&doc, "Split");
     assert_eq!(
         (split.disposition, split.reason.as_deref()),
@@ -298,11 +301,13 @@ fn a04_directives_outside_a_declaration_comment_block_are_unattached() {
 fn a05_only_the_canonical_spelling_binds() {
     // Case, slashes and trailing text are not guessed; Go whitespace around the directive is fine.
     let doc = one("a05", &[("GET", "/d"), ("GET", "/e")]);
+    // Fold 1: a keyless gap in the document could hide a competitor, so the observed edge is
+    // kept as a candidate (competitor_unread) rather than a unique binding.
     assert_eq!(
         edges(&doc),
         [
-            bound("op:GET /d", "Indented"),
-            bound("op:GET /e", "TabAfter")
+            candidate("op:GET /d", "Indented"),
+            candidate("op:GET /e", "TabAfter")
         ]
     );
     for needle in ["/a [get]", "/b [get]", "/c [get]"] {
@@ -317,7 +322,9 @@ fn a05_only_the_canonical_spelling_binds() {
 #[test]
 fn a06_methods_fold_by_case_and_other_forms_are_gaps() {
     let doc = one("a06", &[("GET", "/x")]);
-    assert_eq!(edges(&doc), [bound("op:GET /x", "Fold")]);
+    // Fold 1: a keyless gap in the document could hide a competitor, so the observed edge is
+    // kept as a candidate (competitor_unread) rather than a unique binding.
+    assert_eq!(edges(&doc), [candidate("op:GET /x", "Fold")]);
     assert_eq!(
         rows(&doc)[0].original_method,
         "GeT",
@@ -374,7 +381,9 @@ fn a08_capture_names_and_repeats_are_compared_not_just_printed_ids() {
 #[test]
 fn a09_only_absolute_literal_paths_are_read() {
     let doc = one("a09", &[("GET", "/x/{id}"), ("GET", "/x/%7Bid%7D")]);
-    assert_eq!(edges(&doc), [bound("op:GET /x/%7Bid%7D", "Encoded")]);
+    // Fold 1: a keyless gap in the document could hide a competitor, so the observed edge is
+    // kept as a candidate (competitor_unread) rather than a unique binding.
+    assert_eq!(edges(&doc), [candidate("op:GET /x/%7Bid%7D", "Encoded")]);
     for handler in ["Relative", "Absolute", "Query", "Fragment"] {
         let record = record_of(&doc, handler);
         assert_eq!(

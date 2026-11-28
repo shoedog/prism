@@ -26,6 +26,40 @@ pub(super) fn typed_id(method: &str, path: &str) -> String {
     OperationId::new(&method.to_ascii_uppercase(), &schema_path(path, "", &[])).to_string()
 }
 
+/// The ids `resolve` could return for `method path` across every projection of the schema's
+/// servers and base path, or `None` when they cannot be enumerated (an incomplete operation
+/// domain, or no declaration to learn a projection from).
+pub(super) fn projected_ids(schema: &SchemaIndex, method: &str, path: &str) -> Option<Vec<String>> {
+    let upper = method.to_ascii_uppercase();
+    if schema.operation_coverage_incomplete
+        || schema
+            .operation_gaps
+            .iter()
+            .any(|gap| gap.method.as_deref().is_none_or(|m| m == upper))
+    {
+        return None;
+    }
+    let mut prefixes = BTreeSet::new();
+    for op in &schema.operations {
+        for declaration in &op.declarations {
+            let authored = schema_path(&declaration.path, "", &[]).to_string();
+            let prefix = op.id.path().strip_suffix(authored.as_str())?;
+            let rebuilt = schema_path(&declaration.path, prefix, &[]).to_string();
+            if rebuilt != op.id.path() {
+                return None;
+            }
+            prefixes.insert(prefix.to_string());
+        }
+    }
+    let mut ids: Vec<String> = prefixes
+        .iter()
+        .map(|prefix| OperationId::new(&upper, &schema_path(path, prefix, &[])).to_string())
+        .collect();
+    ids.sort();
+    ids.dedup();
+    (!ids.is_empty()).then_some(ids)
+}
+
 /// Which operations the annotation `method path` names. The typed authored path is compared,
 /// never a collapsed or base-adjusted one.
 pub(super) fn resolve(
@@ -130,7 +164,26 @@ struct Edge {
     record_ids: Vec<usize>,
 }
 
-pub(super) fn bind(files: &[FileScan<'_>], schema: &SchemaIndex, admitted: bool) -> Outcome {
+/// Entry-level gap about operations the annotation could also name under deployments the schema
+/// did not project. It does not hide a competitor handler for the known projection.
+const DEPLOYMENTS_UNPROJECTED: &str = "annotation_deployments_unprojected";
+
+/// A gap key list for a directive the schema could not decide: the projected ids, or keyless
+/// (it blocks everything) when they cannot be enumerated or the schema was not admitted.
+fn gap_keys(schema: &SchemaIndex, admitted: bool, method: &str, path: &str) -> Vec<String> {
+    if !admitted {
+        return Vec::new();
+    }
+    projected_ids(schema, method, path).unwrap_or_default()
+}
+
+/// `unread`: an expected file's text was never read, so a competitor could hide there.
+pub(super) fn bind(
+    files: &[FileScan<'_>],
+    schema: &SchemaIndex,
+    admitted: bool,
+    unread: bool,
+) -> Outcome {
     let mut records = Vec::new();
     let mut gaps = Vec::new();
     let mut edges: BTreeMap<(String, String, usize), Edge> = BTreeMap::new();
@@ -180,11 +233,13 @@ pub(super) fn bind(files: &[FileScan<'_>], schema: &SchemaIndex, admitted: bool)
                 Kind::Directive(Directive::Canonical { method, path }) => {
                     record.raw_method = Some(method.clone());
                     record.raw_path = Some(path.clone());
-                    let key = typed_id(method, path);
                     if let Some(reason) = found.unattached {
                         record.disposition = D::Unattached;
                         record.reason = Some(reason.into());
-                        gap("annotation_unattached", vec![key]);
+                        gap(
+                            "annotation_unattached",
+                            gap_keys(schema, admitted, method, path),
+                        );
                     } else {
                         match resolve(schema, admitted, method, path) {
                             Resolution::Without => {
@@ -193,7 +248,13 @@ pub(super) fn bind(files: &[FileScan<'_>], schema: &SchemaIndex, admitted: bool)
                             Resolution::NotChecked(reason) => {
                                 record.disposition = D::NotChecked;
                                 record.reason = Some(reason.into());
-                                gap("annotation_not_checked", vec![key]);
+                                let keys = match reason {
+                                    // The annotation already spells the projected id.
+                                    "annotation_path_includes_base" => vec![typed_id(method, path)],
+                                    "schema_not_admitted" => Vec::new(),
+                                    _ => gap_keys(schema, admitted, method, path),
+                                };
+                                gap("annotation_not_checked", keys);
                             }
                             Resolution::Operations(ids) => {
                                 let decl = found.handler.expect("attached");
@@ -214,6 +275,9 @@ pub(super) fn bind(files: &[FileScan<'_>], schema: &SchemaIndex, admitted: bool)
                                 }
                                 record.disposition = D::Bound;
                                 record.operation_ids = ids;
+                                if schema.diagnostics.iter().any(|d| d.scope == "server") {
+                                    gap(DEPLOYMENTS_UNPROJECTED, Vec::new());
+                                }
                             }
                         }
                     }
@@ -229,12 +293,20 @@ pub(super) fn bind(files: &[FileScan<'_>], schema: &SchemaIndex, admitted: bool)
     let mut rows = Vec::new();
     for ((id, _, _), edge) in &edges {
         let tie = handlers[id.as_str()].len() > 1;
-        if tie {
+        // Uniqueness needs every possible competitor accounted for: an expected file never
+        // read, or a gap that is keyless or names this operation, could hide one.
+        let hidden = unread
+            || gaps.iter().any(|gap| {
+                gap.reason != DEPLOYMENTS_UNPROJECTED
+                    && (gap.keys.is_empty() || gap.keys.contains(id))
+            });
+        if tie || hidden {
             for &r in &edge.record_ids {
                 records[r].disposition = D::Candidate;
             }
         }
         let mut evidence = BTreeSet::new();
+        evidence.extend(hidden.then_some("competitor_unread"));
         evidence.extend(tie.then_some("competing_handlers"));
         evidence.extend(edge.generated.then_some("generated_file"));
         evidence.extend(edge.bodyless.then_some("bodyless_declaration"));
@@ -251,7 +323,7 @@ pub(super) fn bind(files: &[FileScan<'_>], schema: &SchemaIndex, admitted: bool)
             message_roots: Vec::new(),
             fields: Vec::new(),
             observed_fields: Vec::new(),
-            grade: Some(if tie {
+            grade: Some(if tie || hidden {
                 EdgeGrade::Candidate
             } else {
                 EdgeGrade::Bound
