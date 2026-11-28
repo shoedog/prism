@@ -113,6 +113,7 @@ impl Objects {
                 object,
                 key: key.clone(),
                 definite,
+                readonly_class_namespace: false,
             })
             .chain(
                 (self.untracked_parameter && !self.unknown)

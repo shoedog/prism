@@ -1,6 +1,6 @@
 mod objects;
 mod strings;
-pub(super) use strings::literal as string_literal;
+pub(super) use strings::{is_literal_string, literal as string_literal};
 
 use super::{
     lookup::args,
@@ -20,9 +20,24 @@ pub(super) struct Write {
     effect: Objects,
     read_point: Read,
     suite: Option<usize>,
+    occurrence: usize,
 }
 
 impl Write {
+    pub(super) fn at(&self, node: Node<'_>) -> bool {
+        self.occurrence == node.id()
+    }
+
+    pub(super) fn field_visible(&self) -> bool {
+        !matches!(
+            self.slot,
+            Slot::Member {
+                readonly_class_namespace: true,
+                ..
+            }
+        )
+    }
+
     pub(super) fn reaches(&self, read: Read) -> bool {
         let write = self.read_point;
         // Module initialization is ordered. A deferred activation can see
@@ -157,6 +172,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 effect: effect.clone(),
                 read_point,
                 suite,
+                occurrence: node.id(),
             }));
         }
     }
@@ -209,28 +225,81 @@ impl<'tree> Resolver<'_, 'tree> {
             return None;
         }
         if let Some(object) = self.vars_target(value, target, scope) {
-            return Some(
-                self.objects(object, scope, true)
-                    .slots(key, WriteAccess::Namespace),
-            );
+            return Some(self.namespace_slots(object, scope, key));
         }
         if value.kind() == "attribute" {
             let attribute = value.child_by_field_name("attribute")?;
             if name(self.parsed.node_text(&attribute), self.walk.class(scope)) == "__dict__" {
                 let object = value.child_by_field_name("object")?;
-                return Some(
-                    self.objects(object, scope, true)
-                        .slots(key, WriteAccess::Namespace),
-                );
+                return Some(self.namespace_slots(object, scope, key));
             }
         }
         self.implicit_builtins(value, scope).then(|| {
             vec![Slot::Member {
                 object: Some("builtins".to_owned()),
                 definite: key.is_some(),
+                readonly_class_namespace: false,
                 key,
             }]
         })
+    }
+
+    fn namespace_slots(
+        &self,
+        object: Node<'tree>,
+        scope: ScopeId,
+        key: Option<String>,
+    ) -> Vec<Slot> {
+        let mut slots = self
+            .objects(object, scope, true)
+            .slots(key, WriteAccess::Namespace);
+        if self.field_rows && self.readonly_local_class(object, scope, true) {
+            for slot in &mut slots {
+                if let Slot::Member {
+                    readonly_class_namespace,
+                    ..
+                } = slot
+                {
+                    *readonly_class_namespace = true;
+                }
+            }
+        }
+        slots
+    }
+
+    // A proven, ordinary class has a mappingproxy even if the usual write
+    // index tracks the object as unknown. Only the field route uses this fact.
+    fn readonly_local_class(&self, object: Node<'tree>, scope: ScopeId, alias: bool) -> bool {
+        let object = ungroup(object);
+        if object.kind() != "identifier" {
+            return false;
+        }
+        let key = name(self.parsed.node_text(&object), self.walk.class(scope));
+        let alternatives = self.lookup(scope, &key, object);
+        let [alt] = alternatives.as_slice() else {
+            return false;
+        };
+        let [binding] = alt.bindings.as_slice() else {
+            return false;
+        };
+        if !self.available(binding, object, scope)
+            || self.name_rebound(alt.owner, &key, object, scope)
+        {
+            return false;
+        }
+        if alias {
+            if let super::census::Kind::Assigned(Some(rhs)) = binding.kind {
+                return self.readonly_local_class(rhs, binding.scope, false);
+            }
+        }
+        binding.node.kind() == "class_definition"
+            && self
+                .walk
+                .scopes
+                .iter()
+                .enumerate()
+                .find(|(_, class)| class.node == binding.node)
+                .is_some_and(|(scope, _)| self.field_owner_shape(scope))
     }
 
     pub(super) fn literal_receiver_write(&self, receiver: Node<'tree>, scope: ScopeId) -> bool {

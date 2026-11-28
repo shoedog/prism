@@ -39,6 +39,8 @@ pub(super) struct Resolution {
     pub receiver: Option<super::evidence::ReceiverProof>,
     #[cfg(any(test, feature = "inventory-evidence"))]
     pub declaration: Option<super::evidence::ClassSource>,
+    #[cfg(any(test, feature = "inventory-evidence"))]
+    pub field: Option<Box<super::evidence::FieldProof>>,
 }
 
 impl Resolution {
@@ -53,6 +55,8 @@ impl Resolution {
             receiver: None,
             #[cfg(any(test, feature = "inventory-evidence"))]
             declaration: None,
+            #[cfg(any(test, feature = "inventory-evidence"))]
+            field: None,
         }
     }
 
@@ -85,7 +89,8 @@ enum PathUse<'a> {
         method: Option<&'a str>,
         static_only: bool,
     },
-    Optional {
+    Typing {
+        path: &'static str,
         static_only: bool,
     },
 }
@@ -94,7 +99,7 @@ enum PathUse<'a> {
 enum PathMatch {
     Root(Family),
     Class(Option<Family>),
-    Optional,
+    Typing,
 }
 
 impl PathUse<'_> {
@@ -118,7 +123,7 @@ impl PathUse<'_> {
                 class(method)
             }
             Self::Declaration { method, .. } => class(method),
-            Self::Optional { .. } => (path == "typing.Optional").then_some(PathMatch::Optional),
+            Self::Typing { path: expected, .. } => (path == expected).then_some(PathMatch::Typing),
         }
     }
 
@@ -128,7 +133,10 @@ impl PathUse<'_> {
             Self::Declaration {
                 static_only: true,
                 ..
-            } | Self::Optional { static_only: true }
+            } | Self::Typing {
+                static_only: true,
+                ..
+            }
         )
     }
 }
@@ -140,6 +148,9 @@ pub(super) struct Resolver<'a, 'tree> {
     roots: Vec<String>,
     census: Census<'tree>,
     writes: Vec<writes::Write>,
+    field_rows: bool,
+    #[cfg(any(test, feature = "inventory-evidence"))]
+    source: &'a super::python::source::Source<'a>,
 }
 
 impl<'a, 'tree> Resolver<'a, 'tree> {
@@ -148,6 +159,10 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
         walk: &'a Walk<'tree>,
         repo: &'a Path,
         file: &str,
+        field_rows: bool,
+        #[cfg(any(test, feature = "inventory-evidence"))] source: &'a super::python::source::Source<
+            'a,
+        >,
     ) -> Self {
         let mut roots = vec![String::new()];
         if repo.join("src").is_dir() {
@@ -169,6 +184,9 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
             roots,
             census: Census::new(parsed, walk),
             writes: Vec::new(),
+            field_rows,
+            #[cfg(any(test, feature = "inventory-evidence"))]
+            source,
         };
         resolver.index_writes();
         resolver
@@ -190,6 +208,8 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
                     receiver: None,
                     #[cfg(any(test, feature = "inventory-evidence"))]
                     declaration: None,
+                    #[cfg(any(test, feature = "inventory-evidence"))]
+                    field: None,
                     identity,
                 })
             });

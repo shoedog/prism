@@ -46,6 +46,7 @@ fn review_focus_6_line_anchor_occurrence() {
             &parsed,
             &repo,
             &BTreeSet::from([Family::Http]),
+            false,
             &mut result,
         );
         let [occurrence] = result.occurrences.as_slice() else {
@@ -72,6 +73,7 @@ fn normalized_bounds_and_original_crlf_span() {
         &parsed,
         Path::new("."),
         &BTreeSet::from([Family::Http]),
+        false,
         &mut result,
     );
     assert_eq!(
@@ -323,6 +325,7 @@ fn http_anchor_label(input: &str, line: usize, callee: &str) -> Vec<Option<Unsup
         &parsed,
         Path::new("."),
         &BTreeSet::from([Family::Http]),
+        false,
         &mut out,
     );
     out.occurrences
