@@ -1,4 +1,4 @@
-use super::{writes::string_literal, PathMatch, PathUse, Resolver};
+use super::{writes::string_literal, FieldRows, PathMatch, PathUse, Resolver};
 use crate::targets::inventory::{
     python::{
         source::{chain, children, has_comma, name, scalar_subscript, ungroup},
@@ -238,6 +238,13 @@ impl<'tree> Resolver<'_, 'tree> {
                 ));
             }
         }
+        // A file whose type syntax the grammar may misread has an unreadable
+        // binding census: no declaration in it proves a receiver.
+        let class = if self.field_rows == FieldRows::Refused {
+            class.and(Err(UnprovenCause::ReceiverNotUnique))
+        } else {
+            class
+        };
         Some((family, class))
     }
 }

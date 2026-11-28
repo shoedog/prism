@@ -217,13 +217,21 @@ impl<'tree> Census<'tree> {
                     }
                 }
                 "type_alias_statement" => {
-                    let target = if field_rows {
-                        alias_name(node)
-                    } else {
-                        children(node).next().and_then(first_identifier)
-                    };
-                    if let Some(target) = target {
+                    if !field_rows {
+                        if let Some(target) = children(node).next().and_then(first_identifier) {
+                            this.add(parsed, walk, scope, target, node, Kind::Other);
+                        }
+                    } else if let Some(target) = alias_name(node) {
+                        // A PEP 695 `type NAME [params] = value`.
                         this.add(parsed, walk, scope, target, node, Kind::Other);
+                    } else {
+                        // The grammar also reads `type(x).attr = v` as an alias
+                        // statement. It is an assignment whose operands the
+                        // walk skips, so every name in it is unreadable and
+                        // refuses (a walrus on the right rebinds a name).
+                        for target in identifiers(node) {
+                            this.add(parsed, walk, scope, target, node, Kind::Other);
+                        }
                     }
                 }
                 _ => {}
@@ -354,6 +362,14 @@ pub(super) fn parameter_name(node: Node<'_>) -> Option<Node<'_>> {
             children(node).next().and_then(parameter_name)
         }
         _ => None,
+    }
+}
+
+fn identifiers(node: Node<'_>) -> Vec<Node<'_>> {
+    if node.kind() == "identifier" {
+        vec![node]
+    } else {
+        children(node).flat_map(identifiers).collect()
     }
 }
 

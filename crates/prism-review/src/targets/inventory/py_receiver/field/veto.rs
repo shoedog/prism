@@ -105,12 +105,12 @@ impl<'tree> Resolver<'_, 'tree> {
                         .into_iter()
                         .flat_map(children)
                         .map(ungroup)
-                        .filter_map(|base| {
-                            if base.kind() == "subscript" {
-                                base.child_by_field_name("value").map(ungroup)
-                            } else {
-                                Some(base)
+                        .filter_map(|mut base| {
+                            // `C[T][int]` nests one subscript per level.
+                            while base.kind() == "subscript" {
+                                base = ungroup(base.child_by_field_name("value")?);
                             }
+                            Some(base)
                         })
                         .any(|base| {
                             if base.kind() == "attribute" {
