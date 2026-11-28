@@ -22,9 +22,6 @@ use tree_sitter::Node;
 impl<'tree> Resolver<'_, 'tree> {
     pub(super) fn field_receiver(&self, callee: Node<'tree>, scope: ScopeId) -> Option<Resolution> {
         let constructor = self.field_constructor_diagnostic(callee, scope);
-        if self.field_rows == FieldRows::Disabled {
-            return constructor;
-        }
         // Preserve the existing constructor diagnostic when it already has a
         // tie. Relaxed discovery also covers shapes that never had one.
         let search_constructors = constructor.is_none();

@@ -156,7 +156,6 @@ pub(super) struct Resolver<'a, 'tree> {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FieldRows {
-    Disabled,
     Enabled,
     Refused,
 }
@@ -167,7 +166,6 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
         walk: &'a Walk<'tree>,
         repo: &'a Path,
         file: &str,
-        field_rows: bool,
         source: &'a Source<'a>,
     ) -> Self {
         let mut roots = vec![String::new()];
@@ -183,9 +181,7 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
                 roots.push(directory.into_owned());
             }
         }
-        let field_rows = if !field_rows {
-            FieldRows::Disabled
-        } else if has_ambiguous_type_syntax(source.parsed()) {
+        let field_rows = if has_ambiguous_type_syntax(source.parsed()) {
             FieldRows::Refused
         } else {
             FieldRows::Enabled
@@ -195,9 +191,8 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
             walk,
             repo,
             roots,
-            census: Census::new(parsed, walk, field_rows != FieldRows::Disabled),
+            census: Census::new(parsed, walk),
             writes: Vec::new(),
-            field_rows,
             #[cfg(any(test, feature = "inventory-evidence"))]
             source,
         };
