@@ -581,9 +581,10 @@ def report(a):
         reasons.append(f"no flood evidence for full-loader corpora {', '.join(lacking)}")
     surv_path = prep / "survivors.jsonl"
     if surv_path.exists():
-        if digest(surv_path.read_bytes()) != meta.get("survivors_sha256"):
+        surv_bytes = surv_path.read_bytes()  # one read: the bytes hashed are the bytes parsed
+        if digest(surv_bytes) != meta.get("survivors_sha256"):
             raise ValueError("survivors.jsonl does not match prepared.json")
-        survivors = jsonl(surv_path)
+        survivors = precision.rows_of(surv_bytes)
     else:
         survivors = None
     print("precision populations (owner decision pending; neither is selected here):")

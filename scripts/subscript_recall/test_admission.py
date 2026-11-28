@@ -831,6 +831,29 @@ class AdmissionTests(unittest.TestCase):
                 self.assertNotIn("I2: ADMITTED", out)
                 self.assertIn("survivors.jsonl does not match prepared.json", out + err)
 
+    def test_report_parses_the_bytes_it_hashed(self):
+        w = self.prepared_population()
+        good = w.precision()
+        surv = w.root / "adm" / "survivors.jsonl"
+        original = surv.read_bytes()
+        seen, real_line, real_digest = [], ad.population_line, ad.digest
+
+        def swap_after_hash(data):
+            out = real_digest(data)
+            if data == original:  # a writer replaces the file right after its hash was taken
+                surv.write_text("\n".join(original.decode().splitlines()[:-1]) + "\n")
+            return out
+
+        def spy(name, rows, *rest):
+            seen.append((name, len(rows)))
+            return real_line(name, rows, *rest)
+
+        with mock.patch.object(ad, "GATE", 1), mock.patch.object(ad, "digest", swap_after_hash), \
+                mock.patch.object(ad, "population_line", spy):
+            w.report(precision=good, approved="a-credit")
+        expected = len(original.decode().splitlines())
+        self.assertIn(("all-survivors", expected), seen)
+
     def test_other_gates_still_block_an_approved_population(self):
         w = self.prepared_population()
         good = w.precision()
