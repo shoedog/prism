@@ -85,6 +85,8 @@ def decode(raw, *, mode=None):
         if multi and not _multi_marker(envelope):
             raise ValueError("review-envelope-malformed")
         mode = "single" if single else "multi"
+    if envelope.get("errors") not in (None, []):
+        raise ValueError("review-algorithm-errors")
     field = {"single": "findings", "multi": "all_findings"}.get(mode)
     if field is None or not isinstance(envelope.get(field), list):
         raise ValueError("review-findings-unusable")

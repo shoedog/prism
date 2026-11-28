@@ -632,6 +632,27 @@ with open({str(self.log)!r}, encoding="utf-8") as prior:
         self.assertIn("review-envelope-contradictory", row["reason"])
         self.assert_null_metrics(row)
 
+    def test_algorithm_errors_in_a_zero_exit_envelope_fail_the_arm(self):
+        """A multi-algorithm run can exit 0 and report per-algorithm errors; those earn no coverage."""
+        self.make_population()
+        multi = {"algorithms_run": ["taint"], "results": [], "all_findings": []}
+        self.make_arm("base", multi)
+        self.make_arm("head", {**multi, "errors": [{"algorithm": "taint", "error": "boom"}]})
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["arms"]["head"]["status"]), ("failed", "failed"))
+        self.assertIn("review-algorithm-errors", row["reason"])
+        self.assert_null_metrics(row)
+
+    def test_empty_errors_array_is_a_clean_run(self):
+        self.make_population()
+        multi = {"algorithms_run": ["taint"], "results": [], "all_findings": [], "errors": []}
+        self.make_arm("base", multi)
+        self.make_arm("head", multi)
+        self.review()
+        row, = self.read_rows()
+        self.assertEqual(row["status"], "ok")
+
     def test_description_and_message_change_together(self):
         """open-n1-29: a change to both text fields is text-only."""
         self.make_population()

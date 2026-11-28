@@ -291,13 +291,13 @@ stdout and stderr. A launched child failure retains both streams.
 
 Exit 0 means all selected ordinals completed, with or without findings.
 Exit 1 means a selected ordinal failed or was refused, or a storage error
-interrupted publication after the arms ran. Exit 2 means invocation
+interrupted enumeration or publication. Exit 2 means invocation
 or population admission failed. A host-quiet interruption exits 75 and
 marks all remaining selected ordinals refused. A guard that returns no status
 while the child wrote output or errors keeps both streams and fails the arm
 (`review-guard-status-missing`).
 
-The S4 fixture suite (`test_population` and `test_review_diff`) contains 69 tests, including two skips, owned by S5, for
+The S4 fixture suite (`test_population` and `test_review_diff`) contains 71 tests, including two skips, owned by S5, for
 environment recording and arm-specific literal `::` arguments. It also runs
 15 review matrix rows and the `review-019` worktree drift ledger case. See
 [the review format](../../docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md#5-review-population-and-comparison).
