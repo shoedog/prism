@@ -834,3 +834,34 @@ Input contract of `review-diff` (FORMATS §5): (i) the patch bytes are the outpu
 Known limits (PROVISIONAL; zero incidence: 120 of 120 real patches regenerate their pinned specs and the two real 120-ordinal runs produced only tool-written receipts; rows and pinning tests in FORMATS-OPEN-ROWS.md): known-s4-4, patches Git does not produce are admitted when they keep the pinned spec (regressing preimage ranges, two pure deletions at one point, record names that differ from the ---/+++ names, `diff --git a/ b/`, an unterminated record quote, arbitrary metadata, context under `-U0`, a premature no-newline marker, a nonzero start or two absent sides), and a Git record from a non-UTF-8 old name refuses the ordinal exactly when it carries an old `---` header (non-empty text deletion, rename with changed lines); a header-less record (pure rename, binary or empty-file deletion) is admitted and measures nothing; known-s4-5, `admit` accepts internally contradictory receipts (a success after a quiet ordinal, a wrong quiet reason, a quiet tail with the wrong reason, quiet without a guard event, a non-quiet guard error labelled refused, an `ok` base with an unusable envelope while the head failed, a failed head whose pre-arm digest differs from the base's), and with a missing guard status only non-empty captures are kept while a guard-only diagnostic appears under `commands`; known-s4-6, a persistent guard or helper change during `--version` is not rechecked before the quiet result is honoured. Owner: S5 where S5 binds identities.
 
 Known limit (PROVISIONAL, known-s4-1, issue #992): `review-diff` refuses an ordinal whose pinned tree holds a gitlink, so the 20 apache/superset ordinals of `602-m2-120.json` are REFUSED and the command exits 1 on the full population (100 of 120 measured).
+
+## Run a measurement gate
+
+```sh
+python3 -m measure gate STUDY/gate.json --out OUT \
+  --binary base=BIN_BASE --binary head=BIN_HEAD --corpora-root CORPORA \
+  --decision-pin SHA256
+```
+
+A gate file declares a UTF-8 prediction, named binaries with version pins, and
+an ordered step graph. Step kinds are `corpora-list`, `corpora-verify`, `run`,
+`diff-edges`, `diff-stats`, `oracle ts-edges`, `oracle ts-calls` and
+`review-diff`. Each dependency names an earlier step. Review arms use literal
+argument arrays. Metrics can have numeric expectations, and oracle steps can
+declare scoped quality or absence. See the lane 11 FORMATS §6 for the input
+contract, decision projection, receipt shapes and credit rules.
+
+Copy `measure/examples/gate_783_4b.json` and its neighboring
+`classify_783_4b.py` into the study directory. Supply the controller-authored
+`PREDICTION.md`, the pinned R4B corpus and the two executable paths. Use the
+controller's independently registered decision digest for prospective
+comparison. A prospective reused run additionally requires the original
+receipt's SHA-256 in `reuse.receipt_sha256`. `--retrospective` permits a
+retrospective evaluation with no prospective claim credit.
+
+The output includes `decision.json`, per-step receipts, `REPORT.md` and
+`gate.json`. Exit 0 indicates a prospective pass, including controls.
+Exit 1 indicates a measurement or threshold failure or a retrospective
+result. Exit 2 indicates refusal. Exit 75 indicates a structured host-quiet
+interruption. Product consumers check the result's `claim_scope` and the
+specific IDs in `product_steps`.

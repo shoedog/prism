@@ -120,7 +120,8 @@ def display(certificate, counts, classes, out, listing, order):
 
 
 def compare_edges(base, head, classifier_path, *, entries=None, key=None, line_reason=None,
-                  out=Path("diff-edges"), listing=False, gate_sha256=None, gate_step_id=None):
+                  out=Path("diff-edges"), listing=False, gate_sha256=None, gate_step_id=None,
+                  classifier_runs=None, recheck_classifier=None, classifier_package=None):
     gate_binding(gate_sha256, gate_step_id)
     runs = admit_pair(base, head, entries)
     tables = counter_tables(runs)
@@ -132,15 +133,17 @@ def compare_edges(base, head, classifier_path, *, entries=None, key=None, line_r
                            for run in runs]
                 mode, discarded, totals = edges.ingest(db, sources, key, line_reason,
                                                        runs[0].receipt["options"]["bytes"])
-                with classifier.load(classifier_path) as lane:
+                with classifier.load(classifier_path, package=classifier_package) as lane:
                     store = TraceStore(db)
                     has_edges = store.read(runs, lane.parse_trace)
                     counts, conservation_failed = edges.partition(db, mode, track_assignments=has_edges)
                     store.join(mode, has_edges)
-                    context = classifier.Context(runs, mode, store, tables)
+                    context = classifier.Context(runs, mode, store, tables, classifier_runs)
                     certificate = build_certificate(db, store, context, lane, counts, totals, discarded,
                                                     line_reason, conservation_failed, runs, out,
                                                     gate_sha256, gate_step_id)
+                    if recheck_classifier is not None:
+                        recheck_classifier()
                     classes = write_evidence(db, stage, out, certificate)
     except sqlite3.Error as error:
         # A storage failure anywhere in the comparison is not a failed comparison.

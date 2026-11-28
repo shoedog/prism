@@ -89,6 +89,7 @@ class GateReviewTests(GateFixture, ReviewFixture):
         self.assertEqual((step["metrics"]["ok"], step["claim_scope"]), (1, "control"))
         self.assertEqual(self.result()["product_steps"], [])
         self.next_output("populated")
+        self.parent = self.commit
         self.make_population()
         plan = self.review_plan()
         step = self.gate_review(plan)

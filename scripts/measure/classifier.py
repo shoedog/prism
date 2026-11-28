@@ -42,9 +42,12 @@ class Classifier:
 
 
 @contextmanager
-def load(path):
+def load(path, *, package=None):
     module = ModuleType("_measure_classifier")
     name = f"{module.__name__}_{id(module):x}"
+    if package is not None:
+        name = f"{package}.{name}"
+        module.__package__ = package
     module.__name__ = name
     sys.modules[name] = module
     try:
@@ -106,13 +109,14 @@ class Frozen:
 
 class Context(Frozen):
     __slots__ = ("_runs", "_requested", "_verified", "_source_error", "_store", "_key_mode",
-                 "_stats_deltas", "_counter_deltas", "_call_counter_deltas")
+                 "_stats_deltas", "_counter_deltas", "_call_counter_deltas", "run_views")
 
-    def __init__(self, runs, mode, store, tables):
+    def __init__(self, runs, mode, store, tables, run_views=None):
         def put(name, value):
             object.__setattr__(self, name, value)
 
         put("_runs", runs)
+        put("run_views", run_views)
         put("_requested", set())
         put("_verified", set())
         put("_source_error", None)
@@ -181,12 +185,12 @@ class Context(Frozen):
     @property
     def base_run(self):
         self._source(0)
-        return self._runs[0].directory
+        return self.run_views[0] if self.run_views is not None else self._runs[0].directory
 
     @property
     def head_run(self):
         self._source(1)
-        return self._runs[1].directory
+        return self.run_views[1] if self.run_views is not None else self._runs[1].directory
 
     @property
     def base_receipt(self):
@@ -257,7 +261,10 @@ def validate(classifier, context):
         return []
     try:
         result = classifier.validate(context)
-        if not isinstance(result, list) or not all(map(line_text, result)):
+        if not isinstance(result, list):
+            raise ValueError("validate must return a list of nonempty single-line strings")
+        result = list(result)
+        if not all(map(line_text, result)):
             raise ValueError("validate must return a list of nonempty single-line strings")
         return result
     except SourceBinding:

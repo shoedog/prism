@@ -1,0 +1,17 @@
+{
+  "schema": "prism.measure.gate/1",
+  "lane": "783-4b-r4b",
+  "prediction": "PREDICTION.md",
+  "binaries": {
+    "base": {"path": "bin/prism-base", "expect_version": "4f9e3a3e"},
+    "head": {"path": "bin/prism-head", "expect_version": "1f2ad1cc"}
+  },
+  "steps": [
+    {"id": "base", "do": "run", "binary": "base", "corpus": "R4B"},
+    {"id": "head", "do": "run", "binary": "head", "corpus": "R4B",
+     "trace_env": ["PRISM_RD_CENSUS_TRACE=1"]},
+    {"id": "edges", "do": "diff-edges", "base": "base", "head": "head",
+     "classifier": "classify_783_4b.py", "key": "bytes",
+     "expect": {"unattributed": 0, "by_class.kill:alias.keys": 23, "by_class.alias-d3.keys": 55}}
+  ]
+}

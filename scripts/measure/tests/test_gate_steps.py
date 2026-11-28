@@ -125,7 +125,7 @@ class GateStepsTests(GateWorkbench):
             self.gate(plan, expected=2, pin=pin)
             self.assertEqual((self.result()["result"], self.step("grade")["child_exit"]), ("refused", 3))
             oracle.selfcheck()
-            self.next_output("node-exit")
+            self.next_output("node-failure")
             (self.work / "node-exit").write_text("75")
             self.gate(plan, expected=1, pin=pin)
             self.assertEqual((self.result()["result"], self.step("grade")["child_exit"]), ("fail", 75))

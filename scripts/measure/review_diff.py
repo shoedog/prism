@@ -22,12 +22,13 @@ QUIET = "host-quiet"
 INPUT_DRIFT = "review-input-changed"
 
 
-def register(commands):
+def register(commands, *, structured=False):
     parser = commands.add_parser("review-diff", help="compare two review arms over a pinned diff population")
     for flag in ("--population", "--clones", "--out"):
         parser.add_argument(flag, type=Path, required=True)
-    parser.add_argument("--arm", action="append", required=True, metavar="NAME=BIN[::ARG...]",
-                        help="specify two arms in base/head order, with literal :: separators")
+    if not structured:
+        parser.add_argument("--arm", action="append", required=True, metavar="NAME=BIN[::ARG...]",
+                            help="specify two arms in base/head order, with literal :: separators")
     parser.add_argument("--review-args", default=DEFAULT_SHARED, metavar="STRING",
                         help="shared arguments in POSIX shell quoting")
     parser.add_argument("--only", metavar="N,M,...", help="select existing population ordinals")
@@ -38,15 +39,22 @@ def register(commands):
 
 
 def _arms(specifications, shared_args):
-    if len(specifications) != 2:
-        raise ValueError("exactly two review arms are required")
-    check_args(shared_args)
-    arms = {}
-    for role, value in zip(ROLES, specifications):
+    parsed = []
+    for value in specifications:
         name, separator, command = value.partition("=")
         executable, *args = command.split("::")
         if not separator or not text(name) or not executable:
             raise ValueError("expected a named arm NAME=BIN[::ARG...]")
+        parsed.append((name, executable, args))
+    return build_arms(parsed, shared_args)
+
+
+def build_arms(specifications, shared_args):
+    if len(specifications) != 2:
+        raise ValueError("exactly two review arms are required")
+    check_args(shared_args)
+    arms = {}
+    for role, (name, executable, args) in zip(ROLES, specifications):
         check_args(args)
         binary = Path(executable).resolve()
         arms[role] = {
@@ -92,13 +100,21 @@ class ReviewExecution:
         self.arms = arms
         self.artifacts = {}
         self.version_failures = {}
+        self.version_mismatches = set()
+        self.version_pins = {}
+        self.observed = None
         self.guard_sha = run.executable_hash(guard)
         self.helper_sha = run.quiet_helper_hash(guard)
         host = {name: os.environ[name] for name in receipt.HOST_ENV if name in os.environ}
         self.env = run.guard_env({**host, "LC_ALL": "C"}, {}, guard)
 
     def _guarded(self, argv, stdout, stderr):
-        return run.guarded(self.guard, GUARD_LIMIT_GB, argv, self.env, stdout, stderr)
+        attempt = run.guarded(self.guard, GUARD_LIMIT_GB, argv, self.env, stdout, stderr)
+        if self.observed is not None:
+            self.observed["attempt"] = attempt
+            if (attempt["guard_status"] or {}).get("child_exit") == 75:
+                self.observed["child_75"] = attempt
+        return attempt
 
     def _recheck(self, binary):
         run.recheck_guard(self.guard, self.guard_sha, self.helper_sha)
@@ -107,6 +123,8 @@ class ReviewExecution:
     def _version(self, role, binary, observed):
         if binary["version"] is not None:
             return None
+        if role in self.version_mismatches:
+            return "refused", "review-version-pin-mismatch"
         if role not in self.version_failures:
             stdout, stderr = (self.stage / f"version.{suffix}" for suffix in ("stdout", "stderr"))
             attempt = self._guarded([binary["path"], "--version"], stdout, stderr)
@@ -122,6 +140,10 @@ class ReviewExecution:
             except (OSError, ValueError) as error:
                 self.version_failures[role] = f"review-version-failed: {error}"
             else:
+                if not receipt.matches_version(version, self.version_pins.get(role)):
+                    self.observed["pin_refused"] = True
+                    self.version_mismatches.add(role)
+                    return "refused", "review-version-pin-mismatch"
                 binary["version"] = version
                 return None
         return "failed", self.version_failures[role]
@@ -213,6 +235,8 @@ class ReviewExecution:
                 spec.chmod(0o400)
             except (OSError, ValueError) as error:
                 row.update(status="refused", reason=str(error))
+                if self.observed is not None:
+                    self.observed.setdefault("review_prelaunch", {})[pin["ordinal"]] = str(error)
                 return
             state = None
             findings = []
@@ -234,7 +258,11 @@ def review(args, *, gate_sha256=None, gate_step_id=None):
     selected = _selection(args.only, registered.diffs)
     if args.sample < 0:
         raise ValueError("--sample must be nonnegative")
-    arms = _arms(args.arm, shlex.split(args.review_args))
+    gate_context = getattr(args, "gate_context", None)
+    if gate_context is None:
+        arms = _arms(args.arm, shlex.split(args.review_args))
+    else:
+        arms = build_arms(*gate_context["review_plan"])
     if args.out.is_symlink():
         raise ValueError("review output directory may not be a symlink")
     clones, out = args.clones.resolve(), args.out.resolve()
@@ -245,6 +273,10 @@ def review(args, *, gate_sha256=None, gate_step_id=None):
         raise ValueError("review output directory is inside a source clone")
     with run.claim_output(out), TemporaryDirectory(prefix=".stage-", dir=out) as temp:
         execution = ReviewExecution(Path(temp), run.DEFAULT_GUARD, arms)
+        if gate_context is not None:
+            execution.observed = gate_context
+            execution.version_pins = gate_context["version_pins"]
+            gate_context["review_guard"] = (execution.guard_sha, execution.helper_sha)
         rows = []
         quiet = False
         try:
@@ -262,4 +294,6 @@ def review(args, *, gate_sha256=None, gate_step_id=None):
         except (OSError, ValueError) as error:
             print(f"measure review-diff: {error}", file=sys.stderr)
             return 75 if quiet else 1
+    if gate_context is not None and gate_context.get("pin_refused"):
+        return 2
     return 75 if quiet else int(any(row["status"] in ("failed", "refused") for row in rows))

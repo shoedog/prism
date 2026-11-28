@@ -498,6 +498,8 @@ class GateMatrixTests(GateWorkbench):
         contents = mutation.get("before", prediction["contents"])
         if contents is not None:
             self.prediction.write_bytes(contents.encode())
+        else:
+            self.prediction.unlink(missing_ok=True)
         steps, binaries = [], {}
         for step in template["steps"]:
             ident, kind = step["id"], step["do"]

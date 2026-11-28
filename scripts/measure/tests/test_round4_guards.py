@@ -47,12 +47,16 @@ class ReadmeAndRowsTests(unittest.TestCase):
         for row in rows:
             self.assertTrue("closed keys" in row or "free-form" in row, row)
 
-    def test_the_two_s2_findings_are_open_rows(self):
+    def test_the_two_s2_findings_have_executable_closures(self):
         rows = {line.split("|")[1].strip(): line for line in ROWS.read_text().splitlines()
                 if line.startswith("| open-s2-")}
-        self.assertEqual(set(rows), {"open-s2-1", "open-s2-2"})
-        for line in rows.values():
-            self.assertTrue(line.rstrip().endswith("| WRONG IMMATERIAL | open |"))
+        closures = {
+            "open-s2-1": "test_validator_list_is_materialized_inside_validation",
+            "open-s2-2": "test_inventory_paths_are_closed_but_raw_edge_and_generic_trace_are_extensible",
+        }
+        self.assertEqual(set(rows), set(closures))
+        for ident, test in closures.items():
+            self.assertTrue(rows[ident].rstrip().endswith(f"| WRONG IMMATERIAL | closed: `{test}` |"))
 
 
 if __name__ == "__main__":

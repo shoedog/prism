@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime
 import hashlib
 import re
@@ -20,10 +22,12 @@ VERSION = "version.stdout"
 VERSION_STDERR = "version.stderr"
 ARTIFACT_KEYS = frozenset({"sha256", "bytes"})
 # FORMATS section 2 record shapes: (required, optional). Optional members are the
-# additive S1 fields, validated when present. Nothing else may appear.
+# additive fields, validated when present. Nothing else may appear.
 TOP_KEYS = (frozenset({"schema", "kit_commit", "start", "end", "status", "binary", "corpus",
                        "prediction", "gate_sha256", "gate_step_id", "options", "version_command",
-                       "commands", "guard", "host", "artifacts"}), frozenset({"kit_dirty"}))
+                       "commands", "guard", "host", "artifacts"}), frozenset({"kit_dirty", "runtime"}))
+LEGACY_FIELDS = frozenset({"prediction", "gate_sha256", "gate_step_id"})
+LEGACY_GATE_RECEIPTS = ContextVar("legacy_gate_receipts", default=False)
 BINARY_KEYS = (frozenset({"path", "sha256", "version"}), frozenset())
 CORPUS_KEYS = (frozenset({"key", "commit", "root", "pin_check", "manifest_sha256", "tree_sha256",
                           "input_sha256", "end_input_sha256", "input_state_sha256",
@@ -190,7 +194,7 @@ def _check_provenance(record):
     _check_times(record)
     if not COMMIT.fullmatch(record["kit_commit"]):
         raise ValueError("invalid kit commit")
-    guard, host, prediction = (record[key] for key in ("guard", "host", "prediction"))
+    guard, host, prediction = record["guard"], record["host"], record.get("prediction")
     env = host["env"]
     # Additive fields: validated when present.
     if "sha256" in guard and not is_digest(guard["sha256"]):
@@ -200,6 +204,10 @@ def _check_provenance(record):
         raise ValueError("invalid quiet helper digest")
     if "kit_dirty" in record and type(record["kit_dirty"]) is not bool:
         raise ValueError("invalid kit dirty flag")
+    if "runtime" in record:
+        runtime = closed(record["runtime"], ({"python"}, set()), "run runtime")
+        if not isinstance(runtime["python"], str) or not runtime["python"]:
+            raise ValueError("invalid run runtime")
     if (not isinstance(guard["path"], str) or not guard["path"]
             or type(guard["limit_gb"]) is not int or guard["limit_gb"] < 1
             or not isinstance(host["platform"], str) or not host["platform"]
@@ -209,7 +217,7 @@ def _check_provenance(record):
             or any(not isinstance(value, str) for value in env.values())):
         raise ValueError("invalid guard or host provenance")
     if prediction is None:
-        if record["gate_sha256"] is not None:
+        if record.get("gate_sha256") is not None:
             raise ValueError("gate receipt is missing its frozen prediction")
     elif (set(prediction) != {"path", "sha256"} or not isinstance(prediction["path"], str)
             or not prediction["path"] or not is_digest(prediction["sha256"])):
@@ -247,6 +255,16 @@ def admit(directory, *, selected=(), entries=None, with_digest=False):
         raise ValueError(f"invalid measurement receipt: {error}") from error
 
 
+@contextmanager
+def legacy_gate_receipts(enabled):
+    """Permit missing legacy custody fields while a retrospective graph runs."""
+    token = LEGACY_GATE_RECEIPTS.set(enabled)
+    try:
+        yield
+    finally:
+        LEGACY_GATE_RECEIPTS.reset(token)
+
+
 def _admit(directory, selected, entries):
     path = directory / "receipt.json"
     if not stat.S_ISREG(path.lstat().st_mode):
@@ -256,11 +274,16 @@ def _admit(directory, selected, entries):
     if receipt.get("schema") != SCHEMA or receipt.get("status") != "ok":
         raise ValueError("expected a successful supported measurement receipt")
 
-    closed(receipt, TOP_KEYS, "receipt")
+    required, optional = TOP_KEYS
+    if LEGACY_GATE_RECEIPTS.get():
+        required, optional = required - LEGACY_FIELDS, optional | LEGACY_FIELDS
+    closed(receipt, (required, optional), "receipt")
     for name, shape in (("binary", BINARY_KEYS), ("corpus", CORPUS_KEYS), ("guard", GUARD_KEYS),
                         ("host", HOST_KEYS), ("version_command", VERSION_KEYS)):
         closed(receipt[name], shape, name)
-    gate_binding(receipt["gate_sha256"], receipt["gate_step_id"])
+    if ("gate_sha256" in receipt) != ("gate_step_id" in receipt):
+        raise ValueError("incomplete measurement gate binding")
+    gate_binding(receipt.get("gate_sha256"), receipt.get("gate_step_id"))
     _check_provenance(receipt)
     binary, corpus, options = (receipt[key] for key in ("binary", "corpus", "options"))
     if (not is_digest(binary["sha256"]) or not isinstance(binary["path"], str)

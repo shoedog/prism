@@ -58,7 +58,7 @@ def stage_kit(kit, stage):
     return root / "ts_oracle.cjs"
 
 
-def launch(request, stage):
+def launch(request, stage, *, observed=None):
     host = {key: os.environ[key] for key in HOST_ENV if key in os.environ}
     host["LC_ALL"] = "C"
     entry = stage_kit(request["kit"], stage)
@@ -71,6 +71,8 @@ def launch(request, stage):
     attempt = guarded(DEFAULT_GUARD, 8,
                       ["node", str(entry), str(job), str(stage)],
                       guard_env(host, {}, DEFAULT_GUARD), result, log)
+    if observed is not None:
+        observed["attempt"] = attempt
     status = attempt["guard_status"]
     if status and status["kind"] == "host_quiet":
         raise OracleError(75, "host-quiet: guarded checker was not launched")
@@ -163,7 +165,8 @@ def run_oracle(args, entries, *, gate_sha256=None, gate_step_id=None):
             request = dict(inputs, operation="grade", sources=sources, selection=selection,
                            relation=args.relation, claims=claims, places=places,
                            denominators=denominators, prior=prior["expected"], node=prior["runtime"]["node"])
-            response = launch(request, stage)
+            observed = getattr(args, "gate_context", None)
+            response = launch(request, stage, observed=observed) if observed is not None else launch(request, stage)
             del claims, request
             for arm, run in runs.items():
                 if source(run, recheck=True)[1] != states[arm]:
@@ -178,6 +181,11 @@ def run_oracle(args, entries, *, gate_sha256=None, gate_step_id=None):
                             qualification=(dict(path="oracle/qualifications/bundle.json",
                                                 sha256=qualification) if qualification else None),
                             runtime=prior["runtime"])
+            if observed is not None:
+                from .corpora import REPO
+                from .inputs import git
+
+                bindings["kit_commit"] = git(REPO, "rev-parse", "HEAD").decode("ascii").strip()
             files = ["tuples.json", "denominators.json"]
             if not selection.get("aggregate_only"):
                 files.append("verdicts.jsonl")
