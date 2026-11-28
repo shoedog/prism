@@ -762,8 +762,8 @@ destructuring store that can precede a left-side operand counts
 anchor or an earlier read, never the operand's own bytes) stands for the operand only
 when the root passes Rule R, a positive certificate judged by spelling over the whole
 JSX owner (`jsx_props/certificate.rs`, DESIGN 5.3.4): no parse error, `with`, `eval` or
-`arguments` spelling (c); exactly one declaration of the spelling, an initialized `const`
-outside loops or a formal of the owner (a2); every other spelled occurrence at a
+`arguments` spelling, undecodable escape, or line-terminator divergence (lone CR, U+2028/9, HTML-like comment marker) (c); exactly one declaration of the spelling, an initialized `const`
+outside loops or a formal of the owner, never a plain rest (a2); every other spelled occurrence at a
 read-list position outside loop heads (b2). A failing representative counts once per leaf as
 `refused_source_ambiguous`, including a root with no declaration in the owner. Three shapes are
 admitted as known limits (#783): `super.p = v` through a formal receiver, a `const` read during

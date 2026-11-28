@@ -360,3 +360,45 @@ fn a_result_position_follows_the_value_to_its_consumer() {
         }
     }
 }
+
+// Round-4 review: line terminators the grammars do not share with the language, `await`, and
+// `as`/`satisfies` around a type query.
+#[test]
+fn line_terminator_corners_fail_clause_c() {
+    for body in [
+        "const g = () => { let v: number\r[x] = [0]; }; see(x); g();",
+        "const g = () => { let v: number\u{2028}[x] = [0]; }; see(x); g();",
+        "const g = () => { <!-- marker\r x = 0;\n }; see(x); g();",
+    ] {
+        let body = body.replace("\\r", "\r");
+        assert_eq!(
+            app("tsx", "x", &body).failed.first(),
+            Some(&"c"),
+            "{body:?}"
+        );
+    }
+    // Controls: CRLF files and plain LF are not divergences.
+    assert!(app("tsx", "x", "see(x);\r\n see(x);").keeps());
+}
+
+#[test]
+fn await_and_wrapped_type_queries() {
+    assert_p2(
+        app("jsx", "x", "see(x); (await x).p = 0;"),
+        &["b2"],
+        None,
+        Some("await_expression/<none>"),
+    );
+    assert_p2(app("jsx", "x", "see(await x);"), &[], None, None);
+    for wrapper in ["as", "satisfies"] {
+        let body = format!(
+            "function change() {{ const n = Math.min {wrapper} typeof Math.min/*\n*/(x = 0); }} see(x); change();"
+        );
+        assert_p2(
+            app("tsx", "x", &body),
+            &["b2"],
+            None,
+            Some("assignment_expression/left"),
+        );
+    }
+}

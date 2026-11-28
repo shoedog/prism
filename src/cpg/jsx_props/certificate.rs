@@ -19,9 +19,20 @@ impl Certificate {
     }
 }
 
+/// The grammars break lines on `\n` only, while the language also breaks on a lone CR, U+2028 and
+/// U+2029 and reads `<!--` and `-->` as comments: a statement can hide or appear across them.
+fn line_terminator_divergence(text: &str) -> bool {
+    text.contains(['\u{2028}', '\u{2029}'])
+        || text.contains("<!--")
+        || text.contains("-->")
+        || text
+            .match_indices('\r')
+            .any(|(at, _)| text.as_bytes().get(at + 1) != Some(&b'\n'))
+}
+
 /// Clause c: no parse error, no `with`, no name spelled `eval` or `arguments`.
 fn clause_c(parsed: &ParsedFile, owner: Node<'_>) -> bool {
-    let mut clean = !owner.has_error();
+    let mut clean = !owner.has_error() && !line_terminator_divergence(parsed.node_text(&owner));
     syntax::walk(vec![owner], |node| {
         clean &= node.kind() != "with_statement";
         if name_token(node) {
@@ -166,7 +177,9 @@ fn variable_token(mut node: Node<'_>, owner: Node<'_>, name: &str) -> bool {
             | "function_type"
             | "constructor_type"
             | "namespace_export" => return false,
-            "as_expression" | "satisfies_expression" if first_named_child(parent) != Some(node) => {
+            "as_expression" | "satisfies_expression"
+                if !in_arguments && first_named_child(parent) != Some(node) =>
+            {
                 return false;
             }
             // The vendored Flow-style `declare module.exports: T` has no type wrapper.
@@ -420,6 +433,8 @@ fn read_position(mut node: Node<'_>) -> bool {
                 node = parent;
             }
             ("ternary_expression", "consequence" | "alternative") => node = parent,
+            // `await x` yields `x` itself for a non-thenable value.
+            ("await_expression", "<none>") => node = parent,
             ("sequence_expression", "<none>") => {
                 if last_named_child(parent) == Some(node) {
                     node = parent;
@@ -442,7 +457,6 @@ fn read_position(mut node: Node<'_>) -> bool {
             | (
                 "arguments"
                 | "array"
-                | "await_expression"
                 | "expression_statement"
                 | "jsx_expression"
                 | "return_statement"

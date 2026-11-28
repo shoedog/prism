@@ -3,7 +3,8 @@
 // Independent reference for DESIGN 5.3.4 Rule R (positive certificate P2), written over the
 // TypeScript AST of the generated source and limited to the forms the generator emits. It never
 // reads product code. A representative read of `name` in `owner` is certified only when the
-// owner's own spelled occurrences prove no rebinding or write (clauses a2 and b2; clause c's
+// owner's own spelled occurrences prove no rebinding or write (clauses a2 and b2; scope: it does not model
+// result positions, `await` or destructuring-assignment targets, which no generated form uses; clause c's
 // eval/arguments scan is not exercised by the generated cells and is asserted absent here).
 
 function certified(ts, owner, name) {
