@@ -14,8 +14,8 @@ provides `--help` and `--version`.
 
 The library indexes wire fields, compares admitted schema revisions, and
 publishes bindings and impact contracts. Source extractors and fresh matching
-land with the adapters. Adapters will add the `prism` dependency when they use
-`prism::api` and will list any non-facade calls here.
+land with the adapters. The first adapter (P2 producer bindings, below) added the
+`prism` dependency and lists its non-facade calls there.
 
 ```sh
 cargo test -p prism-boundary
@@ -508,3 +508,99 @@ findings (live exemption, historical media decision, duplicate merge holders and
 an unchecked Before input in the frozen cutoff) and are expected until the
 redesign, which deletes them. The standalone Draft 2020-12 schema
 checks count bounds and nullability. The typed validator checks count ordering.
+
+## P2 producer bindings
+
+**Scope of this section.** It describes the swaggo annotation adapter (P2-1). Struct-field bindings,
+the registration reader, drift and stale comparison and the `bind` subcommand are later P2 slices;
+`ProducerAdapter::GoStructField` exists but `bind_producer` refuses it with
+`ProducerError::NotImplemented`, and the default options select the annotation adapter only.
+**PROVISIONAL inheritance.** Everything here is built on the provisional admission above and inherits its scope:
+it is certified for nothing beyond what the P1d admission claim certifies, and a bindings document produced here
+is not an admission claim of its own.
+
+**Entry point.** `bind_producer(&ProducerInputs, &SchemaIndex, &ProducerOptions) -> Result<BindingsDocument, ProducerError>`.
+`ProducerInputs` is a `DocumentInput` (producer role, authority `annotation`, API scope, a commit or computed-tree
+snapshot), the expected file inventory (`path`, blob id) and the files read from the named tree (`tree`, `path`,
+blob id, bytes). The core reads no filesystem and no Git. A `NavigationSession` wrapper is not part of this slice.
+`ProducerError` covers only caller mistakes (no adapter, an unimplemented adapter, a wrong role, authority, scope or
+snapshot kind); every input-data problem becomes a coverage record instead.
+
+**Annotation grammar (pinned, Swagger-oriented swaggo form).** A comment block is the maximal run of `//` line
+comments, each alone on its line (Go whitespace before it is fine, a trailing comment is not), whose last line ends
+on the row directly above a `func` or method declaration with a readable name and an error-free header (everything
+but the body). A bare `//` stays in the run; a block comment ends it. The canonical directive line is `//`
+(exactly two slashes), optional blanks, the literal `@Router` (case-sensitive), blanks, a path, optional blanks,
+`[method]`, optional blanks. The path is an absolute literal: it starts with `/` and holds no `?` or `#`. The method
+is ASCII letters, one of GET POST PUT DELETE PATCH HEAD OPTIONS compared case-insensitively; the record keeps the
+raw spelling (`original_method`, `raw_method`). A line comment that names `@Router` in any other shape (other case,
+`///`, trailing text, no bracket, a list, `*`, a split directive) is `malformed` with reason `malformed_directive`,
+`invalid_path` or `unsupported_method`. A block comment that mentions `@Router` is `unsupported_form`
+(`block_comment`). A canonical directive that is not in an attached block is `unattached` (`trailing_comment`,
+`inside_function_body` or `not_attached_to_function`). A `@Router` inside a string is data. None of these is
+guessed into a binding; each is a recorded gap. Adjacent `@Param`, `@Success` and similar lines are not read: no
+status, media or field claim comes from this adapter.
+
+**Address basis.** An annotation `METHOD path` selects every schema operation with a declaration whose method equals
+it (case-insensitively) and whose **authored** schema path has the same typed path as the annotation path
+(`schema_path(path, "", [])`, including capture names and constraints). There is no slash collapsing (`/x//y/` and
+`/x/y` differ, a trailing slash is significant), no case folding of the path, no colon-to-capture conversion
+(`/x/:id` is a literal colon path) and no base-path stripping or appending: the schema's own server base is joined
+once by the schema reader, so `@Router /x` under `basePath /api` binds `op:GET /api/x` and `@Router /api/x` is not
+repaired. Every server projection of a matching declaration is bound. One annotation can bind several operations.
+
+**Outcome per directive (`annotations[]`).** `bound`, `candidate` (the same operation annotated on two or more
+distinct declarations in the admitted input; both edges carry the evidence note `competing_handlers`, and no
+unique-binding credit is given), `annotation_without_operation` (a complete operation inventory has no match;
+there is no `schema_stale_against_code` here, it needs registrations), `not_checked` (the schema index is not
+admitted for this input: `schema_not_admitted`; or the match is unprovable: `typed_path_differs` when only the
+printed path agrees, `annotation_path_includes_base`, `schema_operations_incomplete` when an unprojected operation
+could be the target), `unattached`, `malformed`, `unsupported_form`. A default or foreign `SchemaIndex` (no source,
+another API, tree or commit than the snapshot) is never read as zero bindings: every file region becomes `partial`
+with reason `schema_not_admitted`.
+
+**Records.** A `Binding` per (operation, declaration) edge: `sites` holds the annotation line (path, blob, physical
+one-based line, half-open byte span of the admitted bytes, trailing `\r` excluded), `handler` the declaration
+(package, name, receiver as written and receiver type name, declaration site and span). The schema declaration is not
+copied into `sites`. Edge notes in `evidence`: `generated_file` (a `// Code generated ... DO NOT EDIT.` line before
+the package clause; bindings are kept), `bodyless_declaration`, `competing_handlers`. Multiple identical annotations
+on one declaration are one edge with several sites. Edges are sorted by operation, file and declaration offset, so
+the document does not depend on input order. `//line` directives are ignored: locations are physical.
+
+**Coverage.** Each expected file gets one `file_status` region: `complete`; `partial` (`parse_error`, or
+`schema_not_admitted`); `unreadable` (`invalid_utf8`, `parse_failed`); `unknown` (`file_not_supplied`,
+`duplicate_file_input`, `tree_mismatch`, `blob_mismatch`: a supplied file whose tree or blob id does not match the
+snapshot and inventory is refused for that file only, and its text is never read); `skipped`
+(`not_in_expected_inventory`, for a supplied file the caller did not list). A file with parse errors stays `partial`
+with an empty key list, which blocks every dependent negative (the membership check treats an unaccounted region with
+no keys as covering nothing). Each gap directive adds an `entries` region (`annotation_unattached` and
+`annotation_not_checked` with the typed operation key, `annotation_malformed` and `annotation_unsupported_form`
+with no key) carrying the blob and the directive span. A file with a broken body but an intact header keeps its
+attachment and is `partial`; an error between the comment and the declaration confirms no attachment. The caller
+chooses the Go file population (this slice does not skip `_test.go`, vendored or build-tagged files); an API-wide
+negative needs that population to be the one it claims.
+
+**Document extensions (all optional on the wire, so P1d documents decode and serialize unchanged).**
+`Binding.grade` (`bound` or `candidate`), `Binding.handler`, `Binding.evidence[]`, and a top-level
+`annotations[]` of `AnnotationRecord` (raw text, raw method and path, disposition, reason, handler, selected
+operation ids, notes). `schemas/boundary-bindings.schema.json` gained the `handler` and `annotation` definitions and
+these properties; `tests/producer_inputs.rs` pins their closed values and that a P1d document still decodes.
+`BindingsDocument::with_schema_inventory` was not changed: called on a producer document it still adds one
+schema-derived row per operation with empty sites (open question below).
+
+**Non-facade `prism` use.** None of `prism::api` is used. The adapter calls `prism::ast::ParsedFile::parse(path,
+source, prism::languages::Language::Go)` and reads its public `tree` and `parse_error_count` fields, and walks the
+tree with the `tree_sitter` crate (a direct dependency pinned to the version the core uses). A parser facade can
+replace these when the core gains one.
+
+**Public-pair result.** The pinned Apache Answer checkout (6744295f, 446 non-test Go files) binds 199 of 199
+schema operations (gate 196/199), 199 `bound` directives on 198 declarations, 0 candidates, 0
+`annotation_without_operation`, 0 parse-error files. This is the annotation adapter on the public pair only; the
+private pair has no annotations and is not used. Run it with
+`PRISM_BOUNDARY_PUBLIC_SWAGGER=<swagger.json> PRISM_BOUNDARY_PUBLIC_CORPUS=<checkout>
+cargo test -p prism-boundary --test producer_public -- --ignored --nocapture`.
+
+**Open questions.** (1) Whether `with_schema_inventory` should refuse or skip a document whose authority is not
+`schema` (D09). (2) Whether a `bound` edge should be withheld from the unique grade when another expected file is not
+`complete` (A15); today the grade stays and the document-level regions carry the limit. (3) Whether the producer fields
+should move to a versioned producer payload before external compatibility commitments (enumeration design question 5).
