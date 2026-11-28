@@ -1,6 +1,6 @@
 # Lane 5 amendment: admission redesign for `prism-boundary` (design of record)
 
-Status: design only, no product code. Revision 2, after review round 1. Applies to crate `crates/prism-boundary` at
+Status: design only, no product code. Revision 3, after review rounds 1 and 2. Applies to crate `crates/prism-boundary` at
 the P1d head (PR #958). Every statement about code names a repository path and function. Paths are relative to
 `crates/prism-boundary/src` unless they start with `crates/`, `docs/`, `tests/` or `scripts/`. The code at the P1d
 head was read, not run: every input state below is traced from the code and becomes a RED test before anything
@@ -106,13 +106,17 @@ as the regression check.**
   values only through a reader, which records each value's key before returning it, and through closed population
   queries. The gate derives the dependency list from that record.
 - **B, one settle function per claim kind.** Each takes only a reader and its key. One dispatcher picks the function
-  by matching on the key, so there are no closures. The DTOs and the schema index are unreadable by policy code
+  from a fixed table by matching on the key, so there are no closures, and the dispatcher never names a DTO. The DTOs and the schema index are unreadable by policy code
   (section 3.3).
-- **Proof types.** A waiver, a population and a membership negative are values, not booleans. A selection or link
-  waiver can be returned only as a grant, and the grant constructor makes the justifying reads itself. A known total
-  needs a population proof. A certified negative needs a membership proof. The owner's "second type" covers waivers,
-  populations and negatives.
-- **Settled marker facts.** Derived markers are settled once per admitted index into `Marker{input, root}` facts.
+- **Proof types.** A waiver, a population, a comparable shape and a membership negative are values, not booleans. A
+  selection or link waiver can be returned only as a grant, and the grant constructor makes the justifying reads
+  itself. A known total needs a population proof. A saved current or stale outcome needs a sealed comparability proof
+  for each shape. A certified negative needs a membership proof. Comparability and membership proofs are built only in
+  modules separate from the decisions that consume them. The owner's "second type" covers waivers, populations,
+  shapes and negatives.
+- **Settled marker facts.** Derived markers are settled once per admitted view (a projection or a rebuilt scan
+  inventory) into `Marker{view, root}` and `OperationFacts{view, operation}` facts, inside the ingress module that holds
+  the index.
   Saved status (`SavedStatus{query}`) and membership (`Unobserved{query, region}`) become settled decisions whose
   policies read those facts through the reader and never hold the index. This is the owner's second type for derived
   markers.
@@ -146,15 +150,16 @@ case by case (section 5):
   - a media proof's cutoff flag self-asserted in the catalog bytes;
   - a published media decision that does not depend on the schema claim it promises;
   - a user claim id that collides with a generated media key.
-- **Of the about 12 marker and builder cases, 8 become compile errors through the marker facts and membership
+- **Of the about 12 marker and builder cases, 8 become compile errors through the sealed comparability and membership
   proofs, 1 through a population proof, and 3 stay runtime rules.** The population-proof case is a known metric total
   built from an input whose admission it never reads. The three runtime rules are an unread completeness flag,
   bindings matched by input id alone, and an evidence record dropped at parse time before the duplicate test. A
   marker type constructed after any of those three operations preserves the mistake.
-- **The minor cases.** The 15 field and identity cases stay disclosed, as estimated. Three documented limits move to
-  runtime rules: the saved inventory's closure, and the cutoff edge for binding status, call changes and membership.
-  Also disclosed are 10 documented known limits and design decisions, 4 further cases with uncertain or no consumer
-  impact, and 1 serious case, an unevidenced `no_first_parent` waiver: 30 disclosed in all. 4 cases are not defects.
+- **The minor cases.** The 15 field and identity cases stay disclosed, as estimated. Four documented limits move to
+  runtime rules: the saved inventory's closure, the saved negative's segment population, and the cutoff edge for
+  binding status, call changes and membership. Also disclosed are 9 documented known limits and design decisions, 4
+  further cases with uncertain or no consumer impact, and 1 serious case, an unevidenced `no_first_parent` waiver: 29
+  disclosed in all. 4 cases are not defects.
 
 The estimate's direction holds; its size does not. The difference is the population of cases whose mechanism is a
 rule, not a read.
@@ -183,7 +188,8 @@ src/settle.rs              crate-private module root
 src/settle/gate.rs         moved from revision/admission/gate.rs: ClaimStatus, the gate
 src/settle/key.rs          ClaimKey, PopulationQuery, refusal-id and publication rendering
 src/settle/store.rs        Settled<T>, the evaluator store (arena of typed facts), the output adapter
-src/settle/dispatch.rs     the one match from ClaimKey to a settle function item
+src/settle/dispatch.rs     the one match from ClaimKey to a fixed `fn(&R, &K) -> Outcome` table; generic over the
+                           ingress source handle, names no DTO
 src/settle/reader.rs       recorder core, optional reads, the active-read rule
 src/settle/waiver.rs       PinProof, ExemptionGrant, SelfExemption, LinkWaiver
 src/settle/rules.rs        relation rules shared by both layers, over a facts trait both readers implement
@@ -192,9 +198,13 @@ src/revision/admission/ingress.rs        AdmissionReader: holds the request priv
 src/revision/admission/policy/{clock,selection,receipt,merge,claim,media}.rs
 src/model/impact/frozen/ingress.rs       DocumentReader: holds the document privately; population queries
 src/model/impact/frozen/policy/{inputs,cutoff,slots,status,auxiliary,records,links}.rs
-src/schema/markers.rs                    marker answers per admitted index
+src/schema/markers.rs                    marker answers per admitted view; ComparableOperation (sealed)
+src/revision/staleness/ingress.rs        SavedReader: holds the saved and selected indexes privately; settles Marker,
+                                         OperationFacts and SegmentPopulation
 src/revision/staleness/policy.rs         SavedStatus settle function
-src/model/impact/membership/admitted.rs  Unobserved settle function, MembershipProof
+src/model/impact/membership/ingress.rs   MembershipReader: holds indexes and bindings privately
+src/model/impact/membership/proof.rs     MembershipProof constructors (separate from the emitter)
+src/model/impact/membership/admitted.rs  Unobserved settle function (the emitter)
 tests/policy_imports.rs                  the CI import check
 ```
 
@@ -214,13 +224,15 @@ may construct one.
 | `Input(id)` | `Record(id)` plus slot validity (`validate_input`); reads no selection |
 | `SubjectHead` | intrinsic identity of the subject head |
 | `Clock` | the mode instant |
-| `PinObservation(id)` | the input's receipt proof checked against `Clock` |
-| `SelectionConflicts` | the conflict verdict over the pin observations |
+| `PinObservation(id)` | admitted whenever `Clock` is; its value is `Observed{rev, branch}` or `NotObserved(reason)` for the input's receipt checked against `Clock` |
+| `SelectionConflicts(repo, branch)` | admitted; its value is the set of input ids in conflict on that repository and branch (pin observations, the unpinned subject head's binding, and waived inputs on that branch) |
+| `Classified(query, id)` | the classification of one record by one population query; refused only when copies of the record disagree on the fields the query classifies by |
 | `SubjectSelection` | the subject head's own selection; its own type, so it cannot stand in for another input's |
 | `Cutoff` | `Clock`, plus `SubjectSelection` in a historical review |
 | `Selection(id)` | the selection of an input other than the subject head |
-| `Merge(id)` | the merge proof of a computed tree |
-| `Receipt(id)` | a receipt's facts |
+| `CutoffEvidence(id)` | an independent-cutoff receipt; reads only `Cutoff` |
+| `Merge(id)` | the merge proof of a computed tree, with today's checks; reads `SubjectHead`, `Cutoff` and `CutoffEvidence` |
+| `Receipt(id)` | a named-tree or derived receipt; a named-tree receipt reads the final `Selection(origin)` |
 | `Slot(id)` | a claim slot |
 | `Claim(id)` | a user claim |
 | `SchemaBasis(claim)` | the projection without media |
@@ -235,7 +247,10 @@ may construct one.
 
 | Key | Settles |
 |---|---|
-| `Marker{input, root}` | the derived-marker answer for one root of the index admitted for `input` |
+| `Marker{view, root}` | the derived-marker answer for one root of one view; a view is a claim projection or a scan inventory rebuilt inside ingress, identified by input, effective scope and receipt closure |
+| `OperationFacts{view, operation}` | the root population and status coverage of one operation in one view |
+| `SegmentPopulation{scan}` | the segment population and scope of a saved scan, independently evidenced (supplied by P4) |
+| `ExtractionCoverage{input}` | expected files, uncovered regions and target-check completeness of an admitted inventory |
 | `SavedStatus{query}` | a saved-status outcome |
 | `Unobserved{query, region}` | a certified membership negative |
 | `KnownTotal(name)` | a known metric total |
@@ -243,7 +258,8 @@ may construct one.
 **Population keys.** `Population(PopulationQuery)`. The query is a closed enum defined in the ingress modules, with
 one variant per population a policy may ask for:
 
-- admission: `SubjectCandidates`, `PinnedInputs`, `ConfigEntries(key)`, and the claim, input and receipt id lists;
+- admission: `SubjectCandidates`, `PinnedInputs`, `ConfigEntries(key)`, `GeneratedMediaKeys`, and the claim, input
+  and receipt id lists;
 - frozen: `InputRecords`, `MergeHolders(receipt)`, `SelectionReceipts`, `SlotInputs(role)`, `ScanClients`,
   `CountedInputs(metric)`, `RequiredComparisons(metric)`, and the usage, comparison and row lists;
 - membership: `EvidenceRecords(input)` and `BasisInputs(query, region)`.
@@ -252,12 +268,13 @@ one variant per population a policy may ask for:
 
 | Type | Fields and visibility | Constructed by | Guarantee |
 |---|---|---|---|
-| `Recorder` / `AdmissionReader` / `DocumentReader` | private fields: the DTO or index reference, the store, the recorded keys (first-read order, deduplicated), the optional keys | only the dispatcher (`settle/dispatch.rs`), one per decision; the settle function receives `&Reader` and the recorder is consumed when it returns | Every accessor records its key before returning. A withheld fact is still recorded, so reading and ignoring it refuses the decision. |
+| `Recorder` / `AdmissionReader` / `DocumentReader` | private fields: the DTO or index reference, the store, the recorded keys (first-read order, deduplicated), the optional keys | only the ingress source handle, when the dispatcher asks it for one reader per decision; the settle function receives `&Reader` and the recorder is consumed when it returns | Every accessor records its key before returning. A withheld fact is still recorded, so reading and ignoring it refuses the decision. |
 | `Settled<T>` | private: key, `ClaimDecision`, `Option<T>`; stored in an arena of a typed fact enum, handed out by index | only the evaluator in `settle/store.rs`, after the gate | The value of a settled fact is reachable only through a reader, which records the key. |
 | `ClaimStatus` | unchanged, opaque | only `settle/gate.rs` | As today. `from_reasons` is reachable outside `settle/` only through `settle::legacy` until S6. |
 | Waiver grants: `PinProof`, `ExemptionGrant`, `SelfExemption`, `LinkWaiver` | private | only functions in `settle/waiver.rs` that take `&Reader` and make the justifying reads themselves | A selection or cutoff decision returns `SelectionOutcome::{Pinned(PinProof), Exempt(ExemptionGrant), SubjectHead(SelfExemption)}`. There is no admitted variant without a grant, and the grant cannot be built from the wrong selection. |
 | `PopulationProof<Q>` | private: the query, the members | only the settle function of `Population(q)` | A decision that needs a population (holders, counted inputs, required comparisons, evidence records) takes the proof. |
-| `MembershipProof` | private, three variants: `SchemaRoot`, `RouteTable`, `Consumer` | only `membership/admitted.rs` from `Marker` facts (schema producer), from an admitted route-table inventory (route producer), or from admitted complete consumer extraction coverage (consumer), each tied to the query, side and population | A negative cannot be emitted on the certified entry without one proof per basis input. |
+| `ComparableOperation` | private: the view, the operation, the shape | only `schema/markers.rs`, from the `OperationFacts` and every root's `Marker` answer of that view | A `binding_current` or `binding_stale` outcome takes one proof for the saved shape and one for the selected shape; a withheld fallback, a withheld status set or an unproved root yields no proof. |
+| `MembershipProof` | private, three variants: `SchemaRoot`, `RouteTable`, `Consumer` | only `membership/proof.rs`, a module separate from the emitter: from `OperationFacts` and `Marker` facts (schema producer), from an admitted route-table inventory (route producer), or from `ExtractionCoverage` of an admitted consumer inventory (consumer), each tied to the query, side and population | A negative cannot be emitted on the certified entry without one proof per basis input, and the emitter cannot build one. |
 
 `ClaimDecision`, `Refusal` and `AdmissionReport` stay as they are: they are output. Each settle function returns an
 outcome holding the output fields today's code fills (`input_id` when admitted, requested and effective scope,
@@ -269,7 +286,10 @@ unchanged.
 **Enforced by the compiler.**
 
 1. The DTO reference, and on the saved-status and membership paths the `SchemaIndex` and the `BindingsDocument`,
-   live in private fields of the reader types in the ingress modules. Policy modules are siblings of the ingress
+   live in private fields of the reader types in the ingress modules (`revision/admission/ingress.rs`,
+   `model/impact/frozen/ingress.rs`, `revision/staleness/ingress.rs`, `model/impact/membership/ingress.rs`). Marker
+   facts are settled inside the ingress module by `schema::markers::answer(&self.index, root)`; no reader has an
+   accessor that returns an index, an `Operation` or a bindings document. Policy modules are siblings of the ingress
    modules, not descendants, so they cannot read those fields. A helper method on `Operation` or `SchemaIndex` does
    not help a policy: policy never holds either value.
 2. Accessors return view types defined in the ingress module. Each view exposes only the fields owned by the key it
@@ -278,9 +298,11 @@ unchanged.
    whose key owns all of it, for example the `SelectionReceipt` inside the settle function for `Selection(id)`.
 3. Populations are closed queries. A policy names a `PopulationQuery` variant and receives a `PopulationProof`. It
    never passes a predicate or a closure over records.
-4. The dispatcher matches on `ClaimKey` and calls a settle function item with `(&Reader, &Key)`. The evaluator
-   accepts only keys. No closure built outside the reader reaches a decision.
-5. `Settled`, the grants, `PopulationProof` and `MembershipProof` have private constructors.
+4. The dispatcher matches on `ClaimKey` and calls an entry of a fixed table of type `fn(&R, &K) -> Outcome`. It is
+   generic over an ingress-owned opaque source handle that hands out readers, so it never has a DTO in scope. The
+   evaluator accepts only keys. No closure or extra argument built outside the reader reaches a decision.
+5. `Settled`, the grants, `PopulationProof`, `ComparableOperation` and `MembershipProof` have private constructors,
+   each in a module other than the decision that consumes it.
 
 **Enforced by a CI import check** (`tests/policy_imports.rs`, a source scan in the style of
 `tests/integration/layering_test.rs`).
@@ -289,7 +311,8 @@ unchanged.
    `AdmissionRequest`, `AdmissionInput`, `AdmissionReceipt`, `AdmissionClaim`, `InputSlot`, `ImpactDocument`,
    `DocumentInput`, `Change`, `RoleSlots`, `Comparison`, `MatchRecord`, `Usage`, `BindingStatus`, `SavedScan`,
    `ChangeSelection`, `BindingsDocument`, `SchemaIndex`, `Operation`, `MessageCoverage`, `WireEvidence`. Settle
-   functions take only a reader and a key.
+   functions take only a reader and a key, and the check pins their signature. `settle/dispatch.rs` may name none of
+   these types, and no reader may declare a method returning an index, an `Operation` or a bindings document.
 7. No file other than the ingress modules, `schema/`, `diff/` and the bindings serializer may name a raw marker field:
    `coverage`, `limits`, `feasible`, `status_inventory`, `json_source`, `declared_media`, `operation_gaps`,
    `operation_coverage_incomplete`, `wire_evidence`, `request_authored_but_excluded`, `status_refusals`.
@@ -332,29 +355,39 @@ All internal storage and lookup use `ClaimKey`. One adapter, `Store::publish` (`
 - **Refusal-id rendering for internal keys.** A dependent's `missing_dependency` names a dependency the way today's
   handwritten lists did:
   - `Selection(id)`, `SubjectSelection`, `Record(id)` and `Input(id)` render as the bare input id;
-  - `Receipt(id)` and `MediaProof` render as the receipt id;
+  - `Receipt(id)`, `CutoffEvidence(id)`, `Merge(id)` and `MediaProof` render as the receipt id;
   - `SchemaBasis` and `Claim` render as the claim id;
   - `Clock` and `Cutoff` render as `missing_cutoff` at the reading input's id, through the existing
     `RequiredDependency::with_refusal_code`;
   - `DocumentClock` renders as `missing_cutoff` at `report-cutoff`;
-  - `Population(q)` renders as the id of its first refused record.
+  - `Population(q)` and `Classified` render as the id of the first refused record;
+  - `DocumentSchema` renders as `missing_dependency` at `document-schema` without copying `invalid_document`, so
+    that code is counted once, as today.
+- **Closure reads keep today's direct refusals.** A claim's receipt closure is walked inside its settle function. Each
+  visited `Receipt` or `CutoffEvidence` is recorded as a direct dependency: a refused receipt contributes its own
+  reasons, as today's walk does, without an added `missing_dependency`. The wrong-digest variant of row A12 therefore
+  keeps today's reasons and counts.
 - **Canonical dependency order.** Each settle function reads in today's per-kind order: the order of today's
   handwritten list, or the `BTreeSet` order where today's code used one. The gate takes the first unadmitted
   dependency in that order. Where the redesign adds a dependency (for example an exempt input now reads the subject's
   selection), the record id of a refused decision can change. Each such change lands in the step that fixes the
   corresponding case, and the step lists the fixtures it changes (section 6).
-- **The media collision.** Generated media records own their canonical keys. Ingress refuses a user claim whose id
-  matches `media:` followed by one or more digits and `:`, with `receipt_conflict`, dimension `claim_id`. The adapter
-  publishes generated keys first; the refused user claim takes the `:`-suffixed spelling that the generated record
-  would have taken under today's loop. A canonical lookup therefore returns the generated record. In-crate consumers
-  use typed lookup. The replay has no such id.
+- **The media collision.** Generated media records own their canonical keys. A user claim is refused only on an actual
+  collision: its id equals a generated key of this request, `media:{len}:{claim}:{receipt}` for a schema claim and a
+  media receipt in that claim's receipt closure (the `GeneratedMediaKeys` population). The refusal is
+  `receipt_conflict`, dimension `claim_id`. A media-shaped id that collides with nothing (`media:2024:x`) stays
+  admitted as today. The adapter publishes generated keys first and gives a refused user claim the first
+  `:`-suffixed alias that is free of every generated key and every alias already given. A canonical lookup therefore
+  returns the generated record. In-crate consumers use typed lookup. The replay has no media.
 
 ### 3.6 Acyclicity and cycles
 
 There are two kinds of edge.
 
 **Kind edges** form a fixed DAG over key kinds. `settle/key.rs` holds a static table of which kinds may read which.
-The reader asserts every recorded read against it, and a test checks the table for cycles once.
+The reader asserts every recorded read against it, and a test checks the table for cycles once. Same-kind data edges
+are permitted self-loops guarded by the active-read rule: `Input` to `Input` (declared dependencies), `Receipt` to
+`Receipt` and `CutoffEvidence` within a closure walk, `MediaProof` to `MediaProof` (descendants).
 
 **Admission kind order.**
 
@@ -366,22 +399,27 @@ The reader asserts every recorded read against it, and a test checks the table f
    - Historical: the subject head committed at the cutoff.
    - Version: selection time equals cutoff.
    - Every mode: cutoff not after report time. This is parity with the frozen check.
-4. `PinObservation(id)`: the input's receipt proof checked against `Clock`, as today's conflict pass does over
-   checked candidates.
-5. `SelectionConflicts`: the conflict verdict over the `PinnedInputs` population of pin observations. This stage is
-   upstream of every final selection, so the historical chain from `Selection(other)` through `Cutoff` to
-   `SubjectSelection` cannot close.
+4. `PinObservation(id)`: settled admitted whenever `Clock` is, with the value `Observed{rev, branch}` or
+   `NotObserved(reason)`. It refuses only through `Clock`, so one input's bad pin never withholds another input's
+   decision.
+5. `SelectionConflicts(repo, branch)`: one verdict per repository and branch, admitted, whose value is the set of
+   conflicting input ids. The group holds the observed pins, the unpinned subject head's binding and the waived
+   inputs on that branch. This stage is upstream of every final selection, so the historical chain from
+   `Selection(other)` through `Cutoff` to `SubjectSelection` cannot close.
 6. `SubjectSelection`: subject self-exemption. The subject's own selection is either a `SelfExemption`, which reads
-   `Clock`, or a `PinProof` checked against `Clock` and `SelectionConflicts`. It never reads `Cutoff`.
+   `Clock`, or a `PinProof` built from its `PinObservation` and its own branch's `SelectionConflicts`. It never reads
+   `Cutoff`.
 7. `Cutoff`: `Clock`, plus `SubjectSelection` in a historical review, because the topic head defines the cutoff and
    the merge head. This replaces the handwritten historical subject edge in `Ledger::claim`.
-8. `Selection(other)`: a `PinProof` checked against `Cutoff` and `SelectionConflicts`, or an `ExemptionGrant`
+8. `CutoffEvidence(id)` (reads only `Cutoff`), then `Merge(id)` (reads `SubjectHead`, `Cutoff` and
+   `CutoffEvidence`, with today's merge checks).
+9. `Selection(other)`: a `PinProof` (its `PinObservation`, `Cutoff`, and its own branch's `SelectionConflicts`,
+   refused only when its id is in the conflict set, with today's `receipt_conflict` bytes), or an `ExemptionGrant`
    (section 3.7).
-9. `Receipt(id)`, `Merge(id)` and `Slot(id)`.
-   - `Receipt(id)` reads `Selection(origin)`, and `Cutoff` for independent-cutoff origins.
-   - `Merge(id)` reads `SubjectHead`, `Cutoff` and `Receipt(cutoff evidence)`.
-   - `Slot(id)` reads the slot record and `Input(id)`.
-10. Media versus schema claim.
+10. `Receipt(id)` and `Slot(id)`.
+    - A named-tree `Receipt(id)` reads the final `Selection(origin)`.
+    - `Slot(id)` reads the slot record, `Input(id)` and, for a computed snapshot, `Merge(id)`.
+11. Media versus schema claim.
     - `SchemaBasis(claim)` is the projection without media. It reads `Slot`, `Input`, `Selection`, the `Receipt`
       closure and `Cutoff`.
     - `MediaProof{claim, receipt}` reads `SchemaBasis(claim)` and its descendants' `MediaProof`.
@@ -389,8 +427,9 @@ The reader asserts every recorded read against it, and a test checks the table f
     - The published `Media{claim, receipt}` reads `MediaProof` and `Claim(claim)`. A media assertion that promises a
       usable schema is published admitted only after that schema settles.
 
-In a live review an input with its own pin depends on `Cutoff = Clock` only, so a failed subject selection does not
-refuse independent siblings. That is the behaviour pinned by `fold2_version_admission_needs_proof_and_clock` and by
+In a live review an input with its own pin depends on `Cutoff = Clock`, its own pin observation and its own branch's
+conflict verdict, all admitted unless its own pin or the clock fails, so a failed subject selection or another
+input's bad pin does not refuse independent siblings. That is the behaviour pinned by `fold2_version_admission_needs_proof_and_clock` and by
 document rows D14, A36 and A38. An exempt input depends on the subject's selection in every mode.
 
 **Frozen kind order.**
@@ -402,11 +441,15 @@ document rows D14, A36 and A38. An exempt input depends on the subject's selecti
 5. `Comparison`.
 6. `Usage` and `ReviewAction`.
 
-`BindingStatus`, `CallChange` and `Membership` read `Slots`, `Input` and `ReportCutoff`. Every accessor of a frozen
-record that a non-refusal-only claim reads also records `DocumentSchema`, the record's wire validity.
+`BindingStatus`, `CallChange` and `Membership` read `Slots`, `Input` and `ReportCutoff`. The accessors of usage,
+binding-status and membership records also record `DocumentSchema`, the record's wire validity; these are the typed
+records whose fields a decision reads without its own check. Inputs, slots, the cutoff and comparisons keep their
+own checks and do not read `DocumentSchema`, so an invalid document still settles them independently (the control
+`fold2_direct_dto_still_needs_wire_closure` stays byte-identical).
 
-**Marker kind order.** `Marker` reads only the admitted claim and receipt closure that produced its index.
-`SavedStatus` and `Unobserved` read `Marker`, `Claim` and populations.
+**Marker kind order.** `Marker` and `OperationFacts` read only the admitted claim and receipt closure that produced
+their view. `SegmentPopulation` and `ExtractionCoverage` read the admitted evidence that supplies them.
+`SavedStatus` and `Unobserved` read those facts, `Claim` and populations.
 
 **Data edges** are defined by the records: a frozen input's declared dependencies, the receipt closure, a media
 proof's descendants. They stay inside one settle function and keep today's algorithms: `Ledger::walk` for receipt
@@ -423,15 +466,21 @@ refuses exactly as today.
 The compiler and the import check guarantee that policy reaches values only through accessors, closed population
 queries and grants. Five rules carry real semantics, and tests pin them (section 7).
 
-- **Populations record what they visit.** The settle function of `Population(q)` records `Record(id)` for every
-  record it visits, members and non-members alike. So the uniqueness of the record whose fields classified it is a
-  dependency, and a duplicated id resolves to its conflict decision. For a population whose members must be admitted
-  (`CountedInputs`, `BasisInputs`), it also records `Input(id)` for each member. A non-member's full admission is not
-  a dependency. This is the "trusted intrinsic selector": it keeps independent siblings independent and still makes
-  the classification depend on the record that produced it. The membership tests of each query (which inputs hold a
-  merge receipt, which observations share a repository and branch) are runtime rules.
+- **Populations record what they visit.** The settle function of `Population(q)` records `Classified(q, id)` for every
+  record it visits, members and non-members alike. `Classified` refuses only when copies of a record disagree on the
+  fields the query classifies by, so a duplicated holder whose copies differ blocks the decision, while a duplicated
+  unrelated input whose copies agree on those fields does not (today's "affects its claims only"). For a population
+  whose members must be admitted (`CountedInputs`, `BasisInputs`), the settle function also records `Input(id)` for
+  each member. That member recording is a recording point with its own seam (section 7.2). A non-member's full
+  admission is not a dependency. This is the "trusted intrinsic selector": independent siblings stay independent,
+  and the classification still depends on the records that produced it. The membership tests of each query (which
+  inputs hold a merge receipt, which observations share a repository and branch) are runtime rules.
 - **Waived reads are recorded.** A waiver's branch condition is a read: `input(id)` records `Input(id)` before the
   policy decides that a slot input is waived.
+- **Every computed snapshot reads its merge.** The admission `input(id)` accessor and `Slot(id)` record `Merge(id)` for
+  every computed snapshot, whatever the selection outcome. A pinned Held computed tree, a computed tree in a version
+  comparison and a sideless computed client After keep today's merge check. This is a recording point with its own
+  seam.
 - **Optional reads are explicit.** `reader.optional` is allow-listed, and an optional read does not block.
 - **The grants are the waiver rules.** Each constructor takes `&Reader` and makes its reads itself:
   - `ExemptionGrant::subject_repo_before(reader, input)` covers an input at position Before with the subject's role
@@ -442,7 +491,7 @@ queries and grants. Five rules carry real semantics, and tests pin them (section
     result. It reads `Merge(id)` and `SubjectSelection`. A plain After commit in the subject's repository that is not
     the subject head gets no grant.
   - `ExemptionGrant::consumer_before(reader, input)` covers a sideless consumer Before in the subject's repository.
-    It reads `SubjectSelection` and `Cutoff`.
+    It reads `SubjectSelection`, `Cutoff` and, for a computed snapshot, `Merge(id)`.
   - `SelfExemption::new(reader)` reads `Clock`.
   - A version comparison has no grant: every input needs a `PinProof`.
   - `LinkWaiver` (frozen) reads `Slots` and the waived input.
@@ -451,7 +500,7 @@ queries and grants. Five rules carry real semantics, and tests pin them (section
 - **Relation rules are shared.** `settle/rules.rs` implements the rules both layers apply over a facts trait that
   both readers implement: the selection requirement and the grants, the merge relation, the conflict population and
   the clock relation. The frozen layer adopts the module in S3a and S3b, and admission adopts it in S5a and S5b.
-  Between S3b and S5b the two layers can differ on the rules S3b changes. That interim divergence is disclosed in
+  Between S3b and S5b the two layers can differ on the relation rules S3b changes. That interim divergence is disclosed in
   those PRs, and a rule-by-layer parity matrix test lands in S5b.
 
 ### 3.8 Derived markers: one settled value, five consumers
@@ -464,8 +513,13 @@ queries and grants. Five rules carry real semantics, and tests pin them (section
   not move. That includes the reader's `Coverage::Checked` waiver for an empty projection with unproved media
   (`schema/messages.rs`, `project`).
 - The marker answer records the truth: body authority unproved.
-- `Marker{input, root}` is settled from the index of the admitted claim for `input`. It records that claim and the
-  claim's receipt closure.
+- `Marker{view, root}` and `OperationFacts{view, operation}` are settled inside the ingress module from one view: the
+  projection of an admitted claim, or a saved inventory rebuilt from the admitted scan closure inside ingress. The
+  view identity is the input, the effective scope and the receipt closure, so a saved view and a selected view with
+  different closures never share an answer. The facts record the claim (or the scan) and its receipt closure.
+- `schema::markers` builds `ComparableOperation` only when the operation's `OperationFacts` show every root and the
+  status set readable and every root's `Marker` answer is proven. The `SavedStatus` policy's current or stale outcome
+  needs that proof for both shapes.
 - The answers are defined to agree with the diff's predicates (`diff/fields/evidence.rs`, `diff/status/pairing.rs`,
   `diff/operations.rs`). A parity test checks every marker state against the diff.
 
@@ -475,19 +529,29 @@ What each consumer does with an unproved marker. The decisive case is an empty f
 |---|---|---|
 | Diff (`diff/*`) | Scoped `media_unverified` limit, element unknown. | Unchanged; it is the reference, pinned to the marker answers by the parity test. Moving it onto the answers is a later, optional cleanup. |
 | Saved status, field branch (`ElementFacts::from_index`) | Reads the flag. Misses partial coverage without a JSON source, and operation gaps outside a matching gap. | The `SavedStatus` policy reads `Marker` facts. Unproved gives unknown, so the outcome is `membership_unchecked` or `shape_incomparable`. |
-| Saved status, operation branch (`operation_shape_covered`) | Ignores the flag, the status inventory and the fallback message. | Any unproved root, withheld status set or fallback caveat makes the shape not comparable. The outcome is `shape_incomparable`, never `binding_current`. |
+| Saved status, operation branch (`operation_shape_covered`) | Ignores the flag, the status inventory and the fallback message. | No `ComparableOperation` proof exists when any root is unproved, the status set is withheld or a fallback caveat applies. The outcome is `shape_incomparable`, never `binding_current`. |
 | Bindings serialization (`BindingsDocument::with_schema_inventory`) | Writes coverage `checked`, strips `media_unverified`, and derives `body_presence` from `feasible.is_some()`. | Wire bytes unchanged, because the replay builds bindings documents. The serialized `coverage` and `body_presence` are not certification evidence (section 8). |
 | Membership (`membership()`, `covers()`) | Reads only the bindings rows. They carry neither the flag, nor the status inventory, nor the dialect exclusion, nor the gaps. | `Unobserved` needs one `MembershipProof` per basis input. Unproved, withheld, excluded or gap gives `membership_possible` and no negative. |
 
-**Saved inventory provenance.** The saved inventory's `Marker` facts are usable only when its index was rebuilt from,
-or is bound to, the exact receipt closure of the admitted saved scan in the same request: entry, references,
-configuration and media. A genuine admitted index from another request with a different closure does not pass.
+**Saved inventory provenance.** The saved inventory's facts come only from an index rebuilt from the admitted closure
+inside ingress: the exact receipt closure of the admitted saved scan in the same request (entry, references,
+configuration and media). A caller-supplied index is compared with that rebuild and never answers itself. A genuine
+admitted index from another request with a different closure does not pass.
+
+**Saved negatives.** `no_saved_match` and `element_absent_from_scan_schema` need `SegmentPopulation{scan}`: the
+segment population and scope of the scan, independently evidenced, and the match records derived from it. Without
+that fact the negative is withheld (`not_checked`, reason `membership_unchecked`). The scan's own segment lists are
+not evidence of their completeness. P4 supplies the fact by reconstructing the segment manifest from its own scan of
+the admitted client tree (section 8.1).
 
 **Known totals.** `KnownTotal(name)` takes `PopulationProof`s for `CountedInputs(metric)` and
-`RequiredComparisons(metric)`, and reads the settled comparisons that supply the counts. A total is known only when:
+`RequiredComparisons(metric)`, reads the settled comparisons that supply the counts, and reads
+`ExtractionCoverage{input}` (expected files, uncovered regions, target-check completeness) for each counted input. A
+total is known only when:
 
 - every counted input is admitted;
 - every required comparison is settled admitted;
+- every counted input's extraction coverage is complete;
 - no waiver controls the required population. A `no_first_parent` slot is such a waiver. A total that is explicitly
   After-only has no Before requirement.
 
@@ -507,8 +571,8 @@ Otherwise the total is null with a reason.
 - **Frozen cells in P4.** P4 certifies a frozen cell only for a document it produced from admission in the same run.
   Saved results, population completeness and source authenticity come from P4's admitted computation, not from
   `validate` on its own. The scan-contents and absence-usage known limits stay disclosed for foreign documents.
-- **`index_schema` over a caller-built `AdmittedSchemaInput`** stays public. Its `SchemaIndex` has no admitted
-  closure, so no `Marker` fact can be settled from it on a certified path. `SchemaIndex::default()` likewise has
+- **`index_schema` over a caller-built `AdmittedSchemaInput`** stays public. Its `SchemaIndex` is not a view rebuilt
+  inside ingress, so no `Marker` fact can be settled from it on a certified path. `SchemaIndex::default()` likewise has
   none.
 - **Caller `ProducerInventory`** (diff) stays a documented caller contract. P4 builds it from admitted sources.
 - **`AdmissionReport` and `ClaimStatus`** are output. No in-crate code takes them as input, and P4 must not.
@@ -534,14 +598,14 @@ Steps are defined in section 6.
 | P6 | `Ledger::resolve` (`revision/admission/graph.rs`) | inserts decisions; media keys with a `:` suffix | dispatcher over the claim-id population plus adapter publication | S1, S6 |
 | P7 | `Ledger::resolve_schema` media loop (`revision/admission/schema_claim.rs`) | projection without the claim's edges (d) | `SchemaBasis`, `MediaProof` and the published `Media` (section 3.6) | S6 |
 | P8 | `selection::selection`, `selection_required` (`revision/admission/selection.rs`) | raw subject role, repository and snapshot (c) | selection policy returning `PinProof`, `ExemptionGrant` or `SelfExemption`; rules in `settle/rules.rs` | S5a |
-| P9 | `Ledger::new`, `Ledger::validate_receipt` (`revision/admission/graph.rs`) | origin `InputFacts.selection` (a'); conflicts over checked candidates | ingress `Record` and `Input`; `PinObservation` and `SelectionConflicts`; `Receipt(id)` reads `Selection(origin)` and `Cutoff` | S5a |
-| P10 | `selection::merge` (`revision/admission/selection.rs`) | merge against `expected_merge` (c) | `Merge(id)` reads `SubjectHead`, `Cutoff` and `Receipt(cutoff evidence)`, plus the relation rules | S5b |
+| P9 | `Ledger::new`, `Ledger::validate_receipt` (`revision/admission/graph.rs`) | origin `InputFacts.selection` (a'); conflicts over checked candidates | ingress `Record` and `Input` (records `Merge` for computed snapshots); `PinObservation` and per-branch `SelectionConflicts`; named-tree `Receipt(id)` reads `Selection(origin)`; `CutoffEvidence(id)` reads `Cutoff` | S5a |
+| P10 | `selection::merge` (`revision/admission/selection.rs`) | merge against `expected_merge` (c) | `Merge(id)` with today's checks, reading `SubjectHead`, `Cutoff` and `CutoffEvidence` (S5a); the relation rules (S5b) | S5a, S5b |
 | P11 | `Ledger::claim` optional media (`revision/admission/graph.rs`) | admitted attachments only (a) | allow-listed optional reads; attached cycles still refuse | S6 |
 | P12 | `admit_schema_input` (`revision/admission/projection.rs`) | report decision and projection (a) | reads `Settled<Claim>` and `Settled<SchemaBasis>` | S6 |
-| P13 | `saved_binding_status`, `evaluate` (`revision/staleness.rs`) | admission decisions, raw input role (c), caller saved index | `SavedStatus{query}` reads `Claim`, `Marker` and the scan closure; the saved index is bound to that closure | S7 |
-| P14 | `segments::check` (`revision/staleness/segments.rs`) | scan segment scope from the scan (c) | segment receipts are read inside `SavedStatus`; scope from the scan stays a known limit | S7 |
+| P13 | `saved_binding_status`, `evaluate` (`revision/staleness.rs`) | admission decisions, raw input role (c), caller saved index | `SavedStatus{query}` reads `Claim`, `Marker`, `OperationFacts` and `SegmentPopulation`; current or stale needs two `ComparableOperation` proofs; the saved index is rebuilt from the scan closure inside ingress | S7 |
+| P14 | `segments::check` (`revision/staleness/segments.rs`) | scan segment scope from the scan (c) | segment receipts are read inside `SavedStatus`; a saved negative needs `SegmentPopulation`, otherwise it is withheld | S7 |
 | P15 | `settle_inputs` (`model/impact/validation.rs`) | `input:{dep}` (b) | `Input(id)` reads its declared dependencies; the active-read rule keeps today's cycle output | S2 |
-| P16 | `slot_cutoff` (`model/impact/input_validation.rs`) | subject, holders from a deduplicated map, raw waived inputs (b, c) | `ReportCutoff` reads `DocumentClock`, `Slots`, `Input`, `Population(MergeHolders)` and `Population(SelectionReceipts)`; `LinkWaiver` | S3a, S3b |
+| P16 | `slot_cutoff` (`model/impact/input_validation.rs`) | subject, holders from a deduplicated map, raw waived inputs (b, c) | `ReportCutoff` reads `DocumentClock`, `Slots`, `Input`, `Population(MergeHolders)` and `Population(SelectionReceipts)` with `Classified` per record; `LinkWaiver` | S3a, S3b |
 | P17 | `validate_slots` (`model/impact/input_validation.rs`) | `input:` edges (b); raw `no_first_parent` reason (c) | `Slots(role)` and `Reference`; `no_first_parent` stays a disclosed limit | S3a |
 | P18 | `validate_status` (`model/impact/input_validation.rs`) | raw producer slot ids (c); no cutoff | `BindingStatus(i)` reads `Slots(Producer)`, `Input`, `ReportCutoff`, `Population(ScanClients)` and `DocumentSchema` | S4a |
 | P19 | comparisons in `validate` (`model/impact/validation.rs`) | cutoff and both inputs (b); `pair_for` over raw slots (c) | reads `ReportCutoff`, `Input`, `Slots` and `DocumentSchema` | S4b |
@@ -550,16 +614,16 @@ Steps are defined in section 6.
 | P22 | `validate_auxiliary` (`model/impact/validation.rs`) | raw consumer ids (c); `input:` (b) | `CallChange` reads `Slots(Consumer)`, `Input` and `ReportCutoff`; `Membership` reads `Input`, `ReportCutoff` and `DocumentSchema`; `Risk` reads rows | S4a |
 | P23 | refusal-only keys (`model/impact/validation.rs`) | none | `DocumentSchema` always settled and published only when refused; the refusal-only keys check their own record as today | S2, S4a |
 | P24 | `with_schema_inventory` provenance `"proven"` (`model/bindings.rs`) | caller index labels (c) | wire unchanged; certification needs a `Marker`-backed admitted index | S8 |
-| P25 | `unobserved_elements` (`model/impact/membership.rs`) | parsed evidence; bindings matched by id (c) | `Unobserved{query, region}` with `MembershipProof` per basis input; population and identity rules | S8 |
-| P26 | `with_usage_counts` (`model/impact/membership.rs`) | raw comparisons, the first client record (c) | `KnownTotal` with population proofs and settled comparisons | S8 |
+| P25 | `unobserved_elements` (`model/impact/membership.rs`) | parsed evidence; bindings matched by id (c) | `Unobserved{query, region}` emitter with a `MembershipProof` per basis input, built in `membership/proof.rs`; population and identity rules | S8 |
+| P26 | `with_usage_counts` (`model/impact/membership.rs`) | raw comparisons, the first client record (c) | `KnownTotal` with population proofs, settled comparisons and `ExtractionCoverage` | S8 |
 | P27 | `with_schema_diff`, `with_coverage_limits` (`model/impact/projection.rs`) | diff over caller indexes | unchanged; rows are not certified (documented) | none |
 | P28 | `omission_proof`, `valid_media_proof` (`schema/messages/media.rs`) | catalog flag `cutoff_admitted` (c) | proof cutoff comes from the receipt's origin and `Cutoff`; the flag is ignored | S6 |
 | P29 | `diff_boundary`, `basis::admit`, `producer::compare`, status membership (`diff*.rs`) | caller inventories | unchanged; documented caller contract | none |
 | P30 | `project` waiver (`schema/messages.rs`) | sets `Coverage::Checked` for an unproved empty projection | public fields unchanged; the marker answer records unproved | S7 |
-| P31 | `ElementFacts::from_index`, `operation_shape_covered` (`revision/staleness/inventory.rs`) | raw markers, two of them ignored (c) | replaced inside `SavedStatus` by `Marker` facts | S7 |
+| P31 | `ElementFacts::from_index`, `operation_shape_covered` (`revision/staleness/inventory.rs`) | raw markers, two of them ignored (c) | replaced inside `SavedStatus` by `Marker`, `OperationFacts` and the sealed `ComparableOperation` | S7 |
 | P32 | `validate_input`, `compare_slot`, `project_scope` (`revision/admission/slots.rs`) | slot records (c) | ingress `Input(id)` and `Slot(id)` | S5a |
 | P33 | `message_roots` serialization (`model/bindings.rs`) | raw coverage, limits, `feasible` | wire bytes unchanged; not certification evidence | S8 (documented) |
-| P34 | `membership()`, `covers()` (`model/impact/membership.rs`) | serialized bindings rows (c) | `MembershipProof` inside `Unobserved` | S8 |
+| P34 | `membership()`, `covers()` (`model/impact/membership.rs`) | serialized bindings rows (c) | `MembershipProof` from `membership/proof.rs`, consumed by `Unobserved` | S8 |
 | P35 | `input_refusals` (`model/impact/input_validation.rs`) | raw `doc.cutoff_at` (c) | part of `Input(id)`; reads `DocumentClock`; origin identity parity | S2 |
 | P36 | media key placement in `Ledger::resolve` (`revision/admission/graph.rs`) | `contains_key` collision loop | typed `Media` key; generated records own canonical keys; reserved-namespace refusal | S1 |
 | P37 | `Documents::new`, `document_for` (`schema/references.rs`) | admitted reference bytes | unchanged; `SchemaBasis` rules what may enter references (named-tree references from the claim input only) | S6 |
@@ -577,32 +641,40 @@ equal its tally.
 |---|---:|---:|---:|---:|
 | Compile error: recording reader and population proofs | 14 | 14 | 0 | 0 |
 | Compile error: waiver grants | 7 | 7 | 0 | 0 |
-| Compile error: settled marker facts and membership proofs (certified entry) | 8 | 8 | 0 | 0 |
+| Compile error: sealed comparability and membership proofs (certified entry) | 8 | 8 | 0 | 0 |
 | **Compile error, total** | **29** | **29** | 0 | 0 |
-| Runtime rule plus RED test | 26 | 19 | 4 | 3 |
-| Disclosed limit | 30 | 1 | 5 | 24 |
+| Runtime rule plus RED test | 27 | 19 | 4 | 4 |
+| Disclosed limit | 29 | 1 | 5 | 23 |
 | Not a defect or duplicate | 4 | 0 | 0 | 4 |
 | **Total** | **89** | **49** | **9** | **31** |
 
 - **What "compile error" means here.** The policy that decided the case can no longer obtain the deciding value except
-  through an accessor, a population proof, a grant or a marker fact that records or requires the missing dependency.
-  The compiler enforces that route through items 1-5 of section 3.4; the CI check enforces items 6-9. What each
-  accessor records, and what each grant reads, is a fixed table reviewed once and pinned by the probes in section 7.2.
-  The eight marker cases rest on `SavedStatus` and `Unobserved` being settled decisions whose policies never hold the
-  index. Four of the eight hold on the certified membership entry only.
-- **Disclosed limits by incidence in the 37-pair replay.** Observed: 0. Constructed, with replay incidence 0: 27. Not
+  through an accessor, a population proof, a grant or a sealed proof that records or requires the missing dependency.
+  The compiler enforces that route through items 1-5 of section 3.4; the CI check enforces items 6-9. The type of the
+  decision's outcome forces the proof, and only a separate module can construct it:
+  - the grants, in `settle/waiver.rs`;
+  - `ComparableOperation`, in `schema/markers.rs`;
+  - `MembershipProof`, in `membership/proof.rs`;
+  - `PopulationProof`, in the population settle functions.
+
+  What each accessor records, what each population records for its members, and what each grant or proof
+  constructor reads, is a fixed table reviewed once and pinned by the seams of section 7.2. Four of the eight
+  proof-type cases hold on the certified membership entry only.
+- **Disclosed limits by incidence in the 37-pair replay.** Observed: 0. Constructed, with replay incidence 0: 26. Not
   measured: 3, marker states whose incidence depends on schema contents. No disclosed limit was observed.
-- **The 30 disclosed limits.**
+- **The 29 disclosed limits.**
   - 15 unread frozen fields and identity relations that no claim relies on.
-  - 10 documented known limits and design decisions: scan contents, caller bindings provenance, uncertified rows,
-    absence usages, record-internal path consistency, segment scope from the scan, computed-tree time, the copyable
-    public status, the caller-built schema input, and the caller producer inventory.
+  - 9 documented known limits and design decisions: scan contents, caller bindings provenance, uncertified rows,
+    absence usages, record-internal path consistency, computed-tree time, the copyable public status, the
+    caller-built schema input, and the caller producer inventory.
   - 4 further cases: a Held alias read differently by receipt readers, the fallback caveat not carried by saved or
     membership presence, the bindings `body_presence` misread, and `content_hash` excluding coverage.
   - 1 serious case: an unevidenced `no_first_parent` slot waiver. P4 does not certify such a slot, and no known total
     may rest on it.
-- **The 3 minor runtime rules.** Saved inventory provenance bound to the scan's closure, and the `ReportCutoff` read
-  for binding status, call changes and membership. Each was a documented limit that review showed is cheap to close.
+- **The 4 minor runtime rules.** Each was a documented limit that review showed is cheap to close:
+  - saved inventory provenance bound to the scan's closure;
+  - a saved negative that needs an independent segment population;
+  - the `ReportCutoff` read for binding status, call changes and membership.
 - **The 4 that are not defects.**
   - a duplicate;
   - a case with a mechanism-level proof that the admitted decision rests on no unchecked value (owner to confirm);
@@ -617,15 +689,15 @@ equal its tally.
     and `content_hash`.
   - The incidence of the 12 marker-dependent cases in the replay is not measured. By construction their fixes touch
     no replay output: the replay has no saved status or membership, and the bindings wire does not change. Step S7
-    measures it to confirm (section 6).
+    measures it to confirm.
 - **Against the agreed estimate (section 2.3).**
   - Kept: the derived-marker type as a second type. Of the about a dozen marker and builder cases, 9 become compile
-    errors (8 through marker facts and membership proofs, 1 through a population proof) and 3 become runtime rules.
-    The 15 minor unread-field cases stay disclosed.
+    errors (8 through sealed proofs, 1 through a population proof) and 3 become runtime rules. The 15 minor
+    unread-field cases stay disclosed.
   - Corrected: 29 cases become compile errors, not about 49. That is 20 of the 37 serious cases the estimate placed
-    at compile time, plus 9 from the marker and builder set. The other 16 serious cases are runtime rules, because
-    their mechanism is a population, a relation, an unconsulted value or a self-asserted proof, which a recorded read
-    does not prevent.
+    at compile time, plus 9 from the marker and builder set. The other 16 serious cases are runtime rules: their
+    mechanism is a population, a relation, an unconsulted value or a self-asserted proof, which a recorded read does
+    not prevent.
 
 ## 6. Migration
 
@@ -636,12 +708,19 @@ Rules that hold for every step:
 - Every file stays under 1,000 weighted lines (aim 600; `python3 scripts/file_size.py`).
 - The review cap is two rounds. At the cap, the round is classified under the lane's convergence rule: converging
   findings are folded and the extension is disclosed; open-class findings go back to this design.
-- Every intermediate tree builds. From S2, `settle::legacy` keeps `from_reasons` and string lookups over the typed
-  store available to a closed list of legacy callers that the import check holds. Each step removes the entries it
-  migrates, and S6 deletes the bridge.
+- **Every permitted order builds.** The "Depends on" column is complete: any order that respects it builds, and the
+  table order is one such order.
+- **S1 needs no bridge.** The store stays `AdmissionReport`, keyed by rendered strings. S1 replaces the hand-written
+  spellings with `ClaimKey` rendering and centralizes the publication and alias rules.
+- **The legacy bridge.** From S2, `settle::legacy` keeps `from_reasons` and string lookups over the typed store
+  available to a closed list of legacy callers that the import check holds. Each step removes the entries it
+  migrates. S6 deletes the bridge, and it depends on every other step that removes a caller.
+- **Merge facts.** `Merge(id)` and `CutoffEvidence(id)` land in S5a with today's merge checks moved unchanged, so the
+  computed-tree grants and the merge recording in `input(id)` have their source from S5a on. S5b adds only the
+  relation rules.
 - Every behaviour change carries its own RED test in its own step.
-- A known-limit row that pins a fixed case changes in the step that fixes it: rows 14 and 15 in S3a, row 12 in S5a,
-  row 13 in S6, and the saved-inventory row in S7.
+- **Known-limit rows.** A row that pins a fixed case changes in the step that fixes it: rows 14 and 15 in S3a, row 12
+  in S5a, row 13 in S6, and the saved-inventory row in S7.
 - An existing expectation that encodes a census case changes only in the step that fixes that case, and the PR lists
   it.
 
@@ -651,20 +730,20 @@ code moves twice.
 
 | Step | Goal | Files touched / new | Functions | Weighted lines (changed) | Tests | Depends on |
 |---|---|---|---|---:|---|---|
-| S1 | Typed keys, output adapter, publication conditions, counts at publication, refusal-id rendering, media namespace | 9 / 2 (`settle.rs`, `settle/key.rs` with the adapter in `settle/store.rs`) | about 20 | about 600 | 2 RED, key table, byte controls | - |
-| S2 | Evaluator core: arena store, dispatcher, recorder, gate move, legacy bridge, optional reads, active-read rule, kind table. Frozen `DocumentSchema`, `DocumentClock`, `Record`, `Input`. The import check | 5 / 8 | about 14 | about 850 | 2 RED, 1 probe, 7 core | S1 |
-| S3a | Frozen cutoff and slots through the reader; `LinkWaiver`; `Population(MergeHolders)`; `settle/rules.rs` (frozen half) | 3 / 3 | about 9 | about 600 | 6 RED, 2 probes | S2 |
+| S1 | Typed keys and rendering, publication conditions, refusal-id rendering, media collision and alias rules (no store change) | 9 / 2 (`settle.rs`, `settle/key.rs`) | about 20 | about 550 | 2 RED, 1 preservation, key table, byte controls | - |
+| S2 | Evaluator core: arena store, ingress source handle, dispatcher table, recorder, gate move, legacy bridge, optional reads, direct closure reads, active-read rule, kind table. Frozen `DocumentSchema`, `DocumentClock`, `Record`, `Input`, `Classified`. The import check | 5 / 8 | about 15 | about 900 | 2 RED, 1 preservation, 1 seam, 8 core | S1 |
+| S3a | Frozen cutoff and slots through the reader; `LinkWaiver`; `Population(MergeHolders)`; `settle/rules.rs` (frozen half) | 3 / 3 | about 9 | about 600 | 6 RED, 2 seams | S2 |
 | S3b | Frozen relation and parity rules: conflict population, live computed After, inferred anchor, computed Before, merge base and target, waived-Before date | 2 / 0 | about 6 | about 400 | 6 RED | S3a |
-| S4a | Binding status, call changes, membership, risk and refusal-only keys; the `ReportCutoff` reads | 3 / 3 | about 9 | about 550 | 7 RED, 1 probe | S3a |
-| S4b | Comparisons, usages, review action; match-outcome and site-id rules | 2 / 1 | about 6 | about 450 | 4 RED | S3a |
-| S5a | Admission ingress; `Record`, `Input`, `SubjectHead`, `Clock`, `PinObservation`, `SelectionConflicts`, `SubjectSelection`, `Cutoff`, `Selection`, `Receipt`, `Slot`; the grants; admission adopts `settle/rules.rs` | 6 / 5 | about 16 | about 800 | 8 RED, 2 probes | S3a |
-| S5b | `Merge(id)` relation rules; the admission conflict population; the After grant; the layer parity matrix | 2 / 1 | about 5 | about 400 | 4 RED, parity matrix | S5a, S3b |
-| S6 | Claim policy, `SchemaBasis`, `MediaProof`, published `Media`; proof cutoff from the origin; reference identity; the legacy bridge deleted | 7 / 2 | about 13 | about 800 | 6 RED, 1 probe | S5a |
-| S7 | Marker answers and `Marker{input, root}`; diff parity test; `SavedStatus`; saved index bound to the scan closure; marker incidence measured on the 37 pairs before merge | 6 / 2 | about 11 | about 700 | 5 RED, 2 probes | S6 |
-| S8 | `Unobserved` with the three `MembershipProof` variants; population, completeness and identity rules; `KnownTotal` with population proofs | 3 / 1 | about 9 | about 650 | 9 RED, 1 probe | S7, S4a |
+| S4a | Binding status, call changes, membership, risk and refusal-only keys; the `ReportCutoff` reads; `DocumentSchema` reads for binding-status and membership records | 3 / 3 | about 9 | about 550 | 7 RED, 1 seam | S3a |
+| S4b | Comparisons, usages, review action; match-outcome and site-id rules; `DocumentSchema` read for usage records | 2 / 1 | about 6 | about 450 | 4 RED | S3a |
+| S5a | Admission ingress; `Record`, `Input` (with merge recording), `SubjectHead`, `Clock`, `PinObservation`, `SelectionConflicts(repo, branch)`, `SubjectSelection`, `Cutoff`, `CutoffEvidence`, `Merge` (today's checks), `Selection`, `Receipt`, `Slot`; the grants; admission adopts `settle/rules.rs` | 6 / 5 | about 18 | about 900 | 8 RED, 5 preservation, 3 seams | S3b |
+| S5b | Merge relation rules; the admission conflict population; the After grant; the layer parity matrix | 2 / 1 | about 5 | about 350 | 4 RED, parity matrix | S5a |
+| S6 | Claim policy, `SchemaBasis`, `MediaProof`, published `Media`; proof cutoff from the origin; reference identity; the legacy bridge deleted | 7 / 2 | about 13 | about 800 | 6 RED, 1 seam | S5b, S4a, S4b |
+| S7 | Saved-status ingress, marker answers, `Marker{view, root}`, `OperationFacts`, `ComparableOperation`, `SegmentPopulation`; diff parity test; `SavedStatus`; saved index rebuilt from the scan closure; marker incidence measured on the 37 pairs before merge | 7 / 3 | about 13 | about 800 | 6 RED, 2 seams | S6 |
+| S8 | Membership ingress, `membership/proof.rs` with the three `MembershipProof` variants, the `Unobserved` emitter; population, completeness and identity rules; `ExtractionCoverage`; `KnownTotal` with population proofs | 4 / 3 | about 11 | about 750 | 9 RED, 1 preservation, 1 seam | S7, S4a, S4b |
 | S9 | Close the audit (every policy file under the import check); 5 known-limit pins for the remaining serious and uncertain disclosed cases; README and DESIGN status update | 4 / 1 | 0 product | about 300 | 5 pins | S8 |
 
-Total: 12 PRs and about 7,100 changed weighted lines.
+Total: 12 PRs and about 7,350 changed weighted lines.
 
 **Before P4.** Every step may merge before P4. P4 may implement against any of them, but it must not certify:
 
@@ -677,9 +756,11 @@ S9 is part of P4's final gate.
 **Exit gate per step.**
 
 1. The step's RED tests fail on its parent and pass after.
-2. Each RED test also asserts the decision's recorded keys.
-3. The controls are unchanged.
-4. The probes behave as section 7.2 states.
+2. From S2 on, each RED test also asserts the decision's recorded keys. S1 asserts outputs only, because the recorder
+   does not exist yet. S8's REDs run through a common fixture runner that calls today's computation on the parent and
+   the admitted entry on S8, so the RED is behavioural rather than a missing-API error.
+3. The controls and the preservation tests are unchanged.
+4. The seams behave as section 7.2 states.
 5. The full crate suite passes.
 6. The byte gate of section 7.4 passes: the replay harness, plus the refusal byte controls.
 7. The import check passes.
@@ -689,68 +770,80 @@ A failure outside the step's scope is reported, not re-baselined.
 
 ## 7. Test-first plan
 
-Every RED test is written first and fails on the pre-change code. Each one asserts the decision's status and its
-recorded keys, and has a control at the same entry point, with the same evidence envelope, that must stay admitted
-or unchanged. Counts are per step. The private appendix maps each case to its test.
+Every RED test is written first and fails on the pre-change code. From S2 on, each RED also asserts the decision's
+recorded keys; S1 asserts outputs only. Each RED has a control at the same entry point, with the same evidence
+envelope, that must stay admitted or unchanged. A preservation test passes on the parent and must still pass after:
+it guards behaviour the redesign could lose. Counts are per step. The private appendix maps each case to its test.
 
 ### 7.1 RED tests by shape
 
-| Step | RED tests (shape) | Controls |
+| Step | RED tests (shape) | Controls and preservation tests |
 |---|---|---|
-| S1 | 2: a user claim spelled like the generated media key while the real media proof is refused; the same with a valid proof, where the canonical key must hold the generated record | the media fixture without the collision: identical bytes |
-| S2 | 2: a frozen document with report time before cutoff, asserting the decision of an input with an independent-cutoff origin (the cutoff already refuses today); an independent-cutoff origin with no covered tree | report time equal to cutoff; an origin covering the input tree |
-| S3a | 6: a Before input with an unknown dependency, in a historical computed document and in a live joint document; a second record with the Before input id; a consumer slot naming a producer input; a computed holder copied under a fresh id and followed by a commit with that id (both orders); a duplicated non-holder record whose merge-receipt field classified it | the same documents without the defect; a single holder; a non-holder with a different merge receipt and an unrelated refusal, which stays independent |
+| S1 | 2: a user claim equal to a generated media key while the real media proof is refused; generated media for receipts `r` and `r:` of one claim beside a user claim `media:1:c:r`, where both generated records must hold their canonical keys, the user refusal takes the first free alias, and the counts are exact | the media fixture without a collision, identical bytes; preservation: a media-shaped user id that collides with nothing (`media:2024:x`) stays admitted |
+| S2 | 2: a frozen document with report time before cutoff, asserting the decision of an input with an independent-cutoff origin (the cutoff already refuses today); an independent-cutoff origin with no covered tree | report time equal to cutoff; an origin covering the input tree; preservation: the wrong-digest variant of row A12 keeps today's reasons and counts; `fold2_direct_dto_still_needs_wire_closure` stays byte-identical |
+| S3a | 6: a Before input with an unknown dependency, in a historical computed document and in a live joint document; a second record with the Before input id; a consumer slot naming a producer input; a computed holder copied under a fresh id and followed by a commit with that id (both orders); a duplicated record whose copies disagree on the merge-receipt field | the same documents without the defect; a single holder; a non-holder with a different merge receipt and an unrelated refusal, which stays independent |
 | S3b | 6: topic head and pinned Before on one branch with different revisions; a live computed After without a merge receipt; a live client-subject document without a subject head; a computed Before without merge evidence; a computed After with unrelated proposed base and target; a frozen waived Before committed after the cutoff | agreeing revisions; a commit After; a recorded subject head; a commit Before; consistent base and target; a Before committed before the cutoff |
 | S4a | 7: a client-subject document with producer before and after different, plus a binding status; a service-subject document with consumer before and after different, plus a call change; a typed binding status outside the enum; a typed membership with an empty basis; a scan client outside the slots with no receipt; a binding status under a refused report cutoff; a call change and a membership under a refused report cutoff | consistent slots; a valid status; a basis of one admitted input; a pinned scan client; a valid cutoff |
 | S4b | 4: a usage with null match references over refused consumer slots; a typed usage with unknown presence and no reason; a usage site id absent from its match references; a usage naming an unchecked or unbound match | consistent slots; a valid usage; matching site ids; a checked, bound match |
-| S5a | 8: a live subject whose pin has the wrong revision, read by a claim on an exempt input; the same read through a receipt; the same read by saved status for a consumer subject; a historical subject committed off the cutoff, with a metadata claim; a live report time different from the cutoff; the same with a scan; a historical report time before the cutoff; a waived same-repository Before committed after the cutoff | the replay shape (same-repository producer Before commit, no pin, committed before the cutoff); live siblings with their own pins (existing pins); a subject committed at the cutoff; report time equal to cutoff |
+| S5a | 8: a live subject whose pin has the wrong revision, read by a claim on an exempt input; the same read through a receipt; the same read by saved status for a consumer subject; a historical subject committed off the cutoff, with a metadata claim; a live report time different from the cutoff; the same with a scan; a historical report time before the cutoff; a waived same-repository Before committed after the cutoff | the replay shape (same-repository producer Before commit, no pin, committed before the cutoff); live siblings with their own pins; a subject committed at the cutoff; report time equal to cutoff. Preservation (5): a pinned Held computed tree with a wrong `result_tree`, refused; a version-comparison computed tree with a wrong merge record, refused; `sideless_computed_client_checks_merge_head` (`tests/support/fold4.rs`); a live request with a valid subject pin and one extra consumer whose pin has the wrong `observed_at`, where only that consumer is refused; the replay shape plus a duplicated unrelated consumer input, where every other decision stays admitted |
 | S5b | 4: a Held pin disagreeing with the unpinned topic head on one branch; a live merge head different from the subject revision; merge base and target unrelated to the Before revision; a historical After turned into an unrelated later commit in the subject's repository | agreeing pins; a merge head equal to the subject; a consistent base; a computed merge-result After |
 | S6 | 6: a historical media request whose topic pin is wrong; the same with an independent-cutoff source in the media closure; a live media request whose subject pin is wrong; a refused required media alongside a valid one; a catalog flag claiming cutoff admission for a receipt not admitted at the cutoff; a named-tree reference from another input | valid topic and subject pins; all media valid; a named-tree media receipt of an admitted snapshot; a reference from the claim input |
-| S7 | 5: a Swagger operation with an empty object response, no media declaration and no media receipt, and a bound saved location with an empty signature; a default-only response and an empty `responses` beside an unrelated gap, at the saved entry (a repeated `responses` member is refused at receipt ingress, so it is a marker-unit test); a duplicated path item beside an unrelated gap; a required Swagger body parameter without media evidence and an unknown field id; a saved inventory index admitted in another request whose closure holds a reference that this scan's closure lacks | the same operations with proven JSON media or readable responses; an index rebuilt from this scan's closure |
-| S8 | 9: a waived root with a change naming a field under it; a field under a withheld status set; a request field of a dialect-excluded request; an operation behind an unreadable-operation gap; a known total over an input with an unknown dependency; evidence marked incomplete; bindings naming another tree for the same input id; two evidence records for one input, one with an unknown member; a joint known total whose Before slot is waived by `no_first_parent` | proven roots, readable status sets, eligible requests, readable operations, admitted inputs, complete evidence, matching identity, identical records, an explicitly After-only total; certified negatives over a complete consumer basis and a route-table producer basis |
+| S7 | 6: a Swagger operation with an empty object response, no media declaration and no media receipt, and a bound saved location with an empty signature; a default-only response and an empty `responses` beside an unrelated gap, at the saved entry (a repeated `responses` member is refused at receipt ingress, so it is a marker-unit test); a duplicated path item beside an unrelated gap; a required Swagger body parameter without media evidence and an unknown field id; a saved inventory index admitted in another request whose closure holds a reference that this scan's closure lacks; a scan whose matching segment was removed from its own segment lists, with no independent segment population (the negative is withheld) | the same operations with proven JSON media or readable responses; an index rebuilt from this scan's closure; a saved negative with an independent segment population; a selected and a saved view of one input with different closures, each keeping its own answer |
+| S8 | 9: a waived root with a change naming a field under it; a field under a withheld status set; a request field of a dialect-excluded request; an operation behind an unreadable-operation gap; a known total over an input with an unknown dependency; evidence marked incomplete; bindings naming another tree for the same input id; two evidence records for one input, one with an unknown member; a joint known total whose Before slot is waived by `no_first_parent` | proven roots, readable status sets, eligible requests, readable operations, admitted inputs, complete evidence, matching identity, identical records, an explicitly After-only total with complete extraction; certified negatives over a complete consumer basis and a route-table producer basis. Preservation: an After-only total with valid inputs and comparison but incomplete extraction stays unknown |
 
-Total: 59 RED tests. 56 are for census cases (29 compile-time cases, and 26 runtime-rule cases, one of which needs a
-test in each layer). 3 cover constructions found in review: the canonical media key, a duplicated non-holder record,
-and a total under a waived Before. S9 adds 5 known-limit pins beside controls, for the serious and uncertain disclosed
-cases: the `no_first_parent` waiver, the caller-built schema input, the caller producer inventory, the Held alias,
-and `content_hash` with coverage.
+Total: 60 RED tests and 8 preservation tests.
 
-### 7.2 Probes for the compile-time claim
+- **RED tests.** 57 are for census cases: the 29 compile-time cases, and 27 runtime-rule cases, one of which needs a
+  test in each layer. The other 3 cover constructions found in review: the canonical media key, disagreeing copies
+  of a classified record, and a total under a waived Before.
+- **Known-limit pins.** S9 adds 5 pins beside controls, for the serious and uncertain disclosed cases: the
+  `no_first_parent` waiver, the caller-built schema input, the caller producer inventory, the Held alias, and
+  `content_hash` with coverage.
 
-A compile-time claim says a case is impossible because one recording point records or requires the value. A recording
-point is an accessor, a population settle function, a read inside a grant constructor, or a marker fact. Two checks
-make that claim testable.
+### 7.2 Seams for the compile-time claim
 
-- **Recorded keys.** Every RED test for a compile-time case asserts that the decision recorded the expected key. That
-  holds whether or not other routes also refuse the decision.
+A compile-time claim says a case is impossible because one recording point records or requires the value. A
+recording point is:
+
+- an accessor;
+- a population settle function, including its member recording;
+- a read inside a grant or proof constructor;
+- a marker fact settled in ingress.
+
+Two checks make that claim testable.
+
+- **Recorded keys.** From S2 on, every RED test for a compile-time case asserts that the decision recorded the expected
+  key, whether or not other routes also refuse it.
 - **Single-cause seams.** Each recording point gets a `#[cfg(test)]` seam, inline in the crate
-  (`src/settle/probe_tests.rs`), that skips that one recording or that one read inside a grant. With the seam on, the
-  recorded-key assertion must fail. Where the seam removes the sole refusal route, the decision must also go back to
-  admitted. Each seam has a paired control that is unaffected by it.
+  (`src/settle/probe_tests.rs`), that skips that one recording or that one read.
+  - With the seam on, the recorded-key assertion must fail.
+  - Where the seam removes the sole refusal route, the decision must also go back to admitted.
+  - Each seam has a paired control that is unaffected by it.
 
 A `cfg(test)` seam cannot remove a type requirement. The seams therefore test the recording and the reads that a
-grant or proof constructor makes, not the type rule itself. The type rule rests on module privacy. Compile-fail tests
-cover only the public surface: doctests show that `ClaimStatus` cannot be constructed and that `Settled` is not
-exported. Crate-private constructors are kept private by module privacy, and the import check rejects calls to them
-outside their modules. UI compile-fail tests through a cfg-gated facade are an owner option (question 11).
+grant or proof constructor makes, not the type rule itself, which rests on module privacy. Compile-fail tests cover
+only the public surface: doctests show that `ClaimStatus` cannot be constructed and that `Settled` is not exported.
+Crate-private constructors are kept private by module privacy, and the import check rejects calls to them outside
+their modules. UI compile-fail tests through a cfg-gated facade are an owner option (question 11).
 
-10 seams cover the 29 compile-time cases:
+11 seams:
 
-| Recording point | Cases it covers |
+| Recording point | Census cases it covers |
 |---|---|
-| frozen `input(id)` and the `CountedInputs` population | 4 |
+| frozen `input(id)` and the `CountedInputs` member recording | 4 |
 | `slots(role)` | 4 |
 | `DocumentSchema` | 3 |
 | `DocumentClock` | 1 |
 | `SchemaBasis` in a media proof | 2 |
 | the `SubjectSelection` read in `ExemptionGrant` | 4 |
 | the `Clock` and `Cutoff` reads in the grants | 3 |
-| `Marker` in the operation-shape answer | 2 |
-| `Marker` in the field-presence answer | 2 |
-| `MembershipProof` | 4 |
+| the reads of `ComparableOperation` | 2 |
+| the `Marker` read behind field presence | 2 |
+| the reads of `MembershipProof` | 4 |
+| the `Merge` recording for computed snapshots | 0 (its seam must fail the three merge preservation tests of S5a) |
 
-A recording point that has no RED test failing under its seam has an unproven compile-time claim. The runtime rules
-need no seam: each RED test fails on the pre-change code by construction.
+A recording point that has no test failing under its seam has an unproven claim. The runtime rules need no seam: each
+RED test fails on the pre-change code by construction.
 
 ### 7.3 Core and boundary tests
 
@@ -759,33 +852,38 @@ need no seam: each RED test fails on the pre-change code by construction.
 - **S2: evaluator core.**
   - A read of a withheld fact refuses even when the value is unused. Control: the same read of an admitted fact
     admits.
-  - The kind table is acyclic, and a kind-order violation trips the assertion.
+  - The kind table is acyclic apart from the declared same-kind self-loops, and a kind-order violation trips the
+    assertion.
   - The active-read rule reproduces today's data-cycle output.
+  - Direct closure reads reproduce today's walk refusals.
   - An optional read does not block.
   - The publication conditions hold, including the refusal-only keys on an invalid document.
   - Counts at publication equal today's on every existing fixture.
   - A settle call outside the dispatcher is rejected by the import check.
-- **The import check** (`tests/policy_imports.rs`) enforces items 6-9 of section 3.4. Its self-test plants a DTO
-  import, a raw marker field read and a `settle(` call in scratch copies of a policy file, and each must fail the
-  check.
+- **The import check** (`tests/policy_imports.rs`) enforces items 6-9 of section 3.4. Its self-test plants four
+  things in scratch copies of a policy file, and each must fail the check:
+  - a DTO import;
+  - a raw marker field read;
+  - a `settle(` call;
+  - a reader method returning an index.
 - **S7: marker parity.** For every marker state in the census's marker-by-consumer matrix, the marker answers'
   presence and authority equal the diff's.
-- **S5b: layer parity matrix.** Each shared relation rule gives the same verdict in the admission and frozen layers
-  on paired fixtures.
+- **S5b: layer parity matrix.** Each shared relation rule gives the same verdict in the admission and frozen layers on
+  paired fixtures.
 
 ### 7.4 Byte gate (every step)
 
-**Replay harness.** One harness, compiled against the base and against the step head, runs the 37 pinned pairs and
-writes, for each pair, three things:
+**Replay harness.** One harness, compiled against the base and against the step head, runs the 37 pinned pairs. For
+every invocation the existing replay driver makes, it writes the complete output:
 
-- the complete serialized admission report;
-- the complete serialized validation report of each document;
-- the documents themselves.
+- each `admit_schema_input` call: the full admission report and the projection index;
+- each `ImpactDocument::validate` call, on the built document and on the document decoded by `from_json`: the full
+  validation report;
+- every document file.
 
-Every output is compared byte for byte, including the rendered key order, the evidence order, absent optional fields
-and the counts of the final rendered map. Matching summary counts are not enough. The existing replay driver writes
-the documents and a summary of statuses and counts; the harness extends it to emit the full reports. It is pinned
-with the replay inputs.
+The harness manifest enumerates every invocation and artifact. Every output is compared byte for byte, including the
+rendered key order, the evidence order, absent optional fields and the counts of the final rendered map. Matching
+summary counts are not enough.
 
 **Refusal byte controls.** The 37 pairs contain no refusal, so refused states are controlled separately by:
 
@@ -795,12 +893,12 @@ with the replay inputs.
 - the known-limit rows.
 
 A refused state that is not a census case must stay byte-identical. A refused state that is a census case changes
-only in its step, and that step lists the change.
+only in its step, and that step lists the change. S4a and S4b list each invalid-document fixture whose usage,
+binding-status or membership decision moves.
 
 **Failures and marker incidence.** Any other difference fails the gate and is resolved before merge, never
 re-baselined. A corrected marker that would change a replay byte is a compatibility conflict that goes to the owner.
-Step S7 also counts, on the 37 pinned schemas, the marker states whose answers differ from the public fields, and
-reports where they would surface if the replay had saved status or membership.
+Step S7 also counts, on the 37 pinned schemas, the marker states whose answers differ from the public fields.
 
 ## 8. What P4 needs and what this does not fix
 
@@ -810,7 +908,9 @@ reports where they would surface if the replay had saved status or membership.
    positive cell binds its role, input, side, tree, scope, mode clock and receipt closure. A computed result needs its
    merge evidence, and a waived Before needs its grant. A frozen cell is certified only for a document P4 produced
    from admission in the same run.
-2. **S7 before saved-status cells, S8 before membership negatives and known totals.** S7 must merge before any
+2. **S7 before saved-status cells, S8 before membership negatives and known totals.** P4 supplies
+   `SegmentPopulation` for each saved scan it certifies, by reconstructing the segment manifest from its own scan of
+   the admitted client tree; without it a saved negative prints **Not checked**. S7 must merge before any
    saved-status cell (current, stale, no saved match, established absence) is certified. S8 must merge before any
    membership negative (including consumer and route-table bases) or known total is certified. Until then P4 prints
    those cells as **Not checked** and keeps independent observations.
@@ -833,7 +933,7 @@ reports where they would surface if the replay had saved status or membership.
   consumers to the diff, not the reader to the truth.
 - **Frozen evidence.** `validate` on a hand-edited or foreign document certifies local invariants and reference
   integrity only. It cannot authenticate source bytes, prove a saved result, or prove population completeness.
-- **The 30 disclosed limits** of section 5. They include the 15 unread fields and identity relations, the bindings
+- **The 29 disclosed limits** of section 5. They include the 15 unread fields and identity relations, the bindings
   wire bytes (`coverage`, `body_presence`), and `content_hash` as defined in DESIGN 5.6.
 - **Caller-built inputs.** `index_schema` over a caller-built `AdmittedSchemaInput`, and a caller
   `ProducerInventory`, stay computable and uncertified.
@@ -841,6 +941,8 @@ reports where they would surface if the replay had saved status or membership.
   entry.
 - **Runtime mutation.** This includes mutating inputs after admission and mutating the public fields of a
   `SchemaIndex` after its marker facts were settled, and anything else out of model for the lane.
+- **Saved populations P4 does not supply.** Without an independent segment population a saved negative stays **Not
+  checked**; the redesign does not reconstruct segment manifests itself.
 - **Incidence.** The replay exercises one request shape. The redesign removes ways to write the defect; it does not
   measure how often the fixed states occur in live use.
 - **Completeness of the census.** No census round called it complete. Members of the class in paths the census did
@@ -867,7 +969,8 @@ reports where they would surface if the replay had saved status or membership.
    without a recorded commit date keeps today's behaviour.
 9. **Interim P4.** Default: P4 may start building after S6, with saved-status and membership cells shown as **Not
    checked** until S7 and S8.
-10. **Refusal codes.** Default: no new codes. The reserved media namespace uses `receipt_conflict` with dimension
-    `claim_id`. New dependencies render as `missing_dependency` at their refusal-id spelling (section 3.5).
+10. **Refusal codes.** Default: no new codes. A user claim that actually collides with a generated media key is
+    refused with `receipt_conflict`, dimension `claim_id`; a media-shaped id that collides with nothing stays
+    admitted. New dependencies render as `missing_dependency` at their refusal-id spelling (section 3.5).
 11. **UI compile-fail tests.** Default: no. Rely on module privacy, the import check and the public doctests.
     Alternative: trybuild tests through a cfg-gated facade.
