@@ -423,6 +423,15 @@ match the frozen input branch. The singular `change.selection.input_id` and
 `receipt` fields can record one input's proof.
 A claim is admitted only when every required dependency in its closure is admitted,
 including the separately declared topic head for a historical computed after-tree.
+The dependency edges are derived: a claim depends on the settled selection claim of every
+input it reads. In a historical review that includes the subject (topic) head, because the
+cutoff and the merge head come from it; live and version reviews take their cutoff from the
+request and do not read the topic head, so a failed topic-head selection does not refuse
+their claims (the narrowing was forced by `fold2_version_admission_needs_proof_and_clock`
+and the D14 and A36/A38 document rows, which pin independent sibling claims). The frozen cutoff
+takes subject After candidates only from slots of the matching role and depends on every input
+holding the selected merge receipt. `ClaimStatus` is built only at the gate in
+`revision/admission/gate.rs`.
 
 `ImpactDocument::validate()` certifies these internal checks on frozen records.
 
