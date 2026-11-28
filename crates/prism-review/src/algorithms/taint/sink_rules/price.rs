@@ -166,7 +166,7 @@ fn pending_shapes(parsed: &ParsedFile, id: Node<'_>) -> Vec<&'static str> {
         shapes.push("js_certified_under_possibly_nullish_chain");
     }
     if under_constant_guard(parsed, id) {
-        shapes.push("constant_guard_certified");
+        shapes.push("constant_dead_code_certified");
     }
     for node in successors(id.parent(), Node::parent) {
         match (parsed.language, node.kind()) {
@@ -291,34 +291,6 @@ fn under_nullish_chain(parsed: &ParsedFile, id: Node<'_>) -> bool {
     false
 }
 
-// A test or left operand that is a literal after peeling (any language of the census).
-fn constant_value(parsed: &ParsedFile, node: Node<'_>) -> bool {
-    let node = peel(node);
-    match node.kind() {
-        "true"
-        | "false"
-        | "null"
-        | "undefined"
-        | "number"
-        | "string"
-        | "regex"
-        | "template_string"
-        | "none"
-        | "integer"
-        | "float"
-        | "concatenated_string"
-        | "nil"
-        | "int_literal"
-        | "float_literal"
-        | "interpreted_string_literal"
-        | "raw_string_literal"
-        | "rune_literal"
-        | "imaginary_literal" => true,
-        "identifier" => matches!(parsed.node_text(&node), "undefined" | "TYPE_CHECKING"),
-        _ => false,
-    }
-}
-
 fn named_nocomment<'t>(node: Node<'t>) -> Vec<Node<'t>> {
     let mut cursor = node.walk();
     node.named_children(&mut cursor)
@@ -326,28 +298,92 @@ fn named_nocomment<'t>(node: Node<'t>) -> Vec<Node<'t>> {
         .collect()
 }
 
-// A certified hit lexically inside the guarded part of an `if`, `while`, ternary, `&&`, `||`
-// or `??` whose test (or left operand) is a literal after the same peeling.
+// The truth value of a literal test after peeling; `None` when it is not a literal (or its
+// truth is not decidable here). Python `TYPE_CHECKING` is false at run time.
+fn literal_truth(parsed: &ParsedFile, node: Node<'_>) -> Option<bool> {
+    let node = peel(node);
+    let text = parsed.node_text(&node);
+    match node.kind() {
+        "true" => Some(true),
+        "false" | "null" | "undefined" | "none" | "nil" => Some(false),
+        "identifier" => match text {
+            "undefined" | "TYPE_CHECKING" => Some(false),
+            _ => None,
+        },
+        "number" | "integer" | "float" | "int_literal" | "float_literal" => {
+            Some(!text.chars().all(|c| matches!(c, '0' | '.' | '_')))
+        }
+        "string" | "interpreted_string_literal" | "raw_string_literal" => Some(text.len() > 2),
+        "regex" => Some(true),
+        _ => None,
+    }
+}
+
+// Whether a literal `left` of `&&`/`and`, `||`/`or` or `??` makes the right operand
+// unreachable (`null ?? x` is live: only what the literal makes unreachable counts).
+fn right_is_dead(parsed: &ParsedFile, operator: &str, left: Node<'_>) -> bool {
+    let truth = literal_truth(parsed, left);
+    let nullish = matches!(peel(left).kind(), "null" | "undefined" | "none" | "nil")
+        || parsed.node_text(&peel(left)) == "undefined";
+    match operator {
+        "&&" | "and" => truth == Some(false),
+        "||" | "or" => truth == Some(true),
+        "??" => peel(left).kind() != "identifier" && truth.is_some() && !nullish,
+        _ => false,
+    }
+}
+
+// A certified hit lexically inside code that a constant-FALSE (or constant-decided) test makes
+// unreachable: the consequence of `if (false)`, the alternative of `if (true)`, the body of
+// `while (false)`, the dead arm of a ternary, the right operand of `false && ..`, `true || ..`
+// or `1 ?? ..`. A constant-true test (`while (true)`, `if true`) is live code and is not counted.
 fn under_constant_guard(parsed: &ParsedFile, id: Node<'_>) -> bool {
     let mut previous = id;
     for node in successors(id.parent(), Node::parent) {
-        let guard = match node.kind() {
-            "if_statement" | "while_statement" | "elif_clause" => {
-                node.child_by_field_name("condition")
+        let dead = match node.kind() {
+            "if_statement" | "elif_clause" | "ternary_expression" | "while_statement" => node
+                .child_by_field_name("condition")
+                .filter(|&guard| guard != previous)
+                .and_then(|guard| literal_truth(parsed, guard))
+                .is_some_and(|truth| {
+                    let branch = node.child_by_field_name(if node.kind() == "while_statement" {
+                        "body"
+                    } else {
+                        "consequence"
+                    });
+                    let in_consequence = branch == Some(previous);
+                    let in_alternative = !in_consequence
+                        && matches!(
+                            node.kind(),
+                            "if_statement" | "elif_clause" | "ternary_expression"
+                        );
+                    (in_consequence && !truth) || (in_alternative && truth)
+                }),
+            "conditional_expression" => {
+                let parts = named_nocomment(node);
+                parts.get(1).copied().is_some_and(|guard| {
+                    guard != previous
+                        && literal_truth(parsed, guard).is_some_and(|truth| {
+                            let live = if truth { parts.first() } else { parts.get(2) };
+                            live.copied() != Some(previous)
+                        })
+                })
             }
-            "ternary_expression" => node.child_by_field_name("condition"),
-            "conditional_expression" => named_nocomment(node).get(1).copied(),
             "binary_expression" | "boolean_operator" => {
                 let operator = node
                     .child_by_field_name("operator")
                     .map(|op| parsed.node_text(&op).to_owned());
-                matches!(operator.as_deref(), Some("&&" | "||" | "??" | "and" | "or"))
-                    .then(|| node.child_by_field_name("left"))
-                    .flatten()
+                match (operator, node.child_by_field_name("left")) {
+                    (Some(operator), Some(left)) => {
+                        node.child_by_field_name("right") == Some(previous)
+                            && right_is_dead(parsed, &operator, left)
+                    }
+                    _ => false,
+                }
             }
-            _ => None,
+            _ => false,
         };
-        if guard.is_some_and(|guard| guard != previous && constant_value(parsed, guard)) {
+        if dead {
             return true;
         }
         previous = node;
@@ -358,7 +394,7 @@ fn under_constant_guard(parsed: &ParsedFile, id: Node<'_>) -> bool {
 const SHAPES_JS: [&str; 3] = [
     "js_possibly_nullish_chain_any",
     "js_certified_under_possibly_nullish_chain",
-    "constant_guard_certified",
+    "constant_dead_code_certified",
 ];
 
 // Rows written even when zero, so an absent row never stands for "not counted".
@@ -369,12 +405,12 @@ fn expected_shapes(scope: &str) -> Vec<&'static str> {
         "Python" => vec![
             "python_assert",
             "python_invalid_outer_arguments",
-            "constant_guard_certified",
+            "constant_dead_code_certified",
         ],
         // `len` and `cap` of an array operand are builtins, not flat sinks: zero by construction.
         "Go" => vec![
             "go_blank_read_or_selector",
-            "constant_guard_certified",
+            "constant_dead_code_certified",
             "go_len_cap_unevaluated_operand",
         ],
         _ => Vec::new(),
@@ -941,7 +977,15 @@ mod census_tests {
             "  if (false) { eval(x); }",
             "  true && eval(x);",
             "  a ?? eval(x);",
-            "  eval(1 ? x : x);",
+            "  false && eval(x);",
+            "  true || eval(x);",
+            "  1 ?? eval(x);",
+            "  null ?? eval(x);",
+            "  while (true) { eval(x); }",
+            "  while (false) { eval(x); }",
+            "  if (true) { eval(x); } else { eval(x); }",
+            "  0 ? eval(x) : 1;",
+            "  0 ? 1 : eval(x);",
             "}",
             "",
         ]
@@ -960,9 +1004,11 @@ mod census_tests {
             .ends_with("\t4"),
             "{report}"
         );
-        // `if (false)` and `true && ..`; `a ?? ..` has a live left operand.
+        // Dead: `if (false)`, `false && ..`, `true || ..`, `1 ?? ..`, `while (false)`, the else of
+        // `if (true)`, `0 ? <eval> : ..`. Live: `true && ..`, `a ?? ..`, `null ?? ..`,
+        // `while (true)`, the then of `if (true)`, `0 ? .. : <eval>`.
         assert!(
-            line(&report, "JavaScript\tconstant_guard_certified").ends_with("\t2"),
+            line(&report, "JavaScript\tconstant_dead_code_certified").ends_with("\t7"),
             "{report}"
         );
         // TS: the non-null continuation stays in the skipped chain; wrappers are peeled.
@@ -982,14 +1028,14 @@ mod census_tests {
         // one-element tuple `(*a,)` is valid; `if TYPE_CHECKING` and `x if 1 else y` are guards.
         let report = census(&[(
             "a.py",
-            "def g(x, a):\n    outer(eval(x), ((*a)))\n    outer(eval(x), (  # c\n        *a))\n    outer(eval(x), (*a,))\n    if TYPE_CHECKING:\n        eval(x)\n",
+            "def g(x, a):\n    outer(eval(x), ((*a)))\n    outer(eval(x), (  # c\n        *a))\n    outer(eval(x), (*a,))\n    if TYPE_CHECKING:\n        eval(x)\n    while True:\n        eval(x)\n",
         )]);
         assert!(
             line(&report, "Python\tpython_invalid_outer_arguments").ends_with("\t2"),
             "{report}"
         );
         assert!(
-            line(&report, "Python\tconstant_guard_certified").ends_with("\t1"),
+            line(&report, "Python\tconstant_dead_code_certified").ends_with("\t1"),
             "{report}"
         );
         // Zero rows are written for Go's builtins scope and every expected shape.
@@ -999,7 +1045,7 @@ mod census_tests {
             "{report}"
         );
         assert!(
-            line(&report, "Go\tconstant_guard_certified").ends_with("\t0"),
+            line(&report, "Go\tconstant_dead_code_certified").ends_with("\t0"),
             "{report}"
         );
     }
