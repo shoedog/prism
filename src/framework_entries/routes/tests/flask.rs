@@ -11,6 +11,7 @@ use super::*;
 use crate::{ast::ParsedFile, languages::Language};
 use tree_sitter::Node;
 
+mod certificate;
 mod closed_capture;
 mod fold1_coverage;
 mod fold2;
