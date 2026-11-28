@@ -104,23 +104,20 @@ impl<'tree> Resolver<'_, 'tree> {
                         .child_by_field_name("superclasses")
                         .into_iter()
                         .flat_map(children)
+                        .filter(|base| base.kind() != "comment")
                         .map(ungroup)
-                        .filter_map(|mut base| {
-                            // `C[T][int]` nests one subscript per level.
-                            while base.kind() == "subscript" {
-                                base = ungroup(base.child_by_field_name("value")?);
-                            }
-                            Some(base)
-                        })
+                        .map(listed_base)
                         .any(|base| {
+                            // Any base form outside the accept-list (DESIGN
+                            // 6.12 item 9) may provide any field: fail closed.
+                            let Some(base) = base else {
+                                return true;
+                            };
                             if base.kind() == "attribute" {
                                 return base.child_by_field_name("attribute").is_some_and(|attr| {
                                     let key = name(self.parsed.node_text(&attr), None);
                                     self.walk.class(owner) == Some(key.as_str())
                                 });
-                            }
-                            if base.kind() != "identifier" {
-                                return false;
                             }
                             let key = name(
                                 self.parsed.node_text(&base),
@@ -136,4 +133,29 @@ impl<'tree> Resolver<'_, 'tree> {
                         })
             })
     }
+}
+
+/// A direct base the veto can read: an identifier, an attribute chain, or any
+/// depth of subscripts and parentheses over those. Returns the peeled node;
+/// `None` for every other form (conditional, starred, call, keyword, ...).
+fn listed_base(mut base: Node<'_>) -> Option<Node<'_>> {
+    base = ungroup(base);
+    while base.kind() == "subscript" {
+        base = ungroup(base.child_by_field_name("value")?);
+    }
+    fn chain(node: Node<'_>) -> bool {
+        let mut node = ungroup(node);
+        while node.kind() == "subscript" {
+            let Some(value) = node.child_by_field_name("value") else {
+                return false;
+            };
+            node = ungroup(value);
+        }
+        match node.kind() {
+            "identifier" => true,
+            "attribute" => node.child_by_field_name("object").is_some_and(chain),
+            _ => false,
+        }
+    }
+    chain(base).then_some(base)
 }
