@@ -6,7 +6,7 @@ use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
 
-fn run(repo: &Path, args: &[&str]) -> std::process::Output {
+pub(super) fn run(repo: &Path, args: &[&str]) -> std::process::Output {
     crate::prism_std()
         .args(["targets", "--repo"])
         .arg(repo)
@@ -16,7 +16,7 @@ fn run(repo: &Path, args: &[&str]) -> std::process::Output {
         .unwrap()
 }
 
-fn document(output: &std::process::Output) -> Value {
+pub(super) fn document(output: &std::process::Output) -> Value {
     assert!(
         output.status.success(),
         "{}",
@@ -131,11 +131,13 @@ fn inventory_without_diff_rejects_review_runner_options() {
 #[test]
 fn inventory_kinds_rejects_an_unsupported_family() {
     let repo = fixture();
-    let output = run(repo.path(), &["--inventory-kinds", "filesystem"]);
+    let output = run(repo.path(), &["--inventory-kinds", "unknown"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("filesystem") && stderr.contains("http"),
+        stderr.contains(
+            "unsupported inventory family \"unknown\"; supported: http, filesystem, parse, config"
+        ),
         "{stderr}"
     );
 }
@@ -195,7 +197,7 @@ fn files_filter_narrows_the_inventory() {
         .all(|row| row["site"]["file"] == "pkg/x.py"));
 }
 
-fn matrix_doc(files: &str, args: &[&str]) -> Value {
+pub(super) fn matrix_doc(files: &str, args: &[&str]) -> Value {
     let mut options = vec!["--files", files];
     options.extend_from_slice(args);
     document(&run(
@@ -216,7 +218,7 @@ fn row(doc: &Value, file: &str, line: u64) -> Value {
         .clone()
 }
 
-fn warning(doc: &Value, expected: &str) {
+pub(super) fn warning(doc: &Value, expected: &str) {
     let warnings = doc["warnings"].as_array().unwrap();
     assert_eq!(
         warnings

@@ -36,7 +36,7 @@ pub(super) fn fixture_of(source: &str) -> (CodePropertyGraph, BTreeMap<String, S
 /// The encoding the cache used before it streamed: an owned copy of everything, encoded in
 /// one buffer. The streamed file must equal it byte for byte, or caches written by one build
 /// would not load in the other and `CACHE_VERSION` would have to change.
-pub(super) fn owned_encoding(
+pub(in crate::cpg_cache) fn owned_encoding(
     cpg: &CodePropertyGraph,
     hashes: &BTreeMap<String, String>,
 ) -> Vec<u8> {

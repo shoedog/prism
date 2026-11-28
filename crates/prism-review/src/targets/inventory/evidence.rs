@@ -9,6 +9,10 @@ use tree_sitter::Node;
 #[serde(rename_all = "snake_case")]
 pub enum Route {
     Root,
+    R1,
+    R2,
+    R4,
+    R5,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -33,6 +37,43 @@ pub struct Proof {
     pub route: Route,
     pub call: Span,
     pub callee: Span,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receiver: Option<ReceiverProof>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declaration: Option<ClassSource>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct ReceiverProof {
+    pub construction: ClassSource,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub conflicting_declarations: Vec<ClassSource>,
+}
+
+impl ReceiverProof {
+    pub(super) fn constructed(class: &str, expression: Node<'_>) -> Self {
+        Self {
+            construction: ClassSource::new(class, expression),
+            conflicting_declarations: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct ClassSource {
+    pub class: String,
+    pub range: [usize; 4],
+}
+
+impl ClassSource {
+    pub(super) fn new(class: &str, node: Node<'_>) -> Self {
+        let start = node.start_position();
+        let end = node.end_position();
+        Self {
+            class: class.to_owned(),
+            range: [start.row + 1, start.column, end.row + 1, end.column],
+        }
+    }
 }
 
 pub struct Occurrence {

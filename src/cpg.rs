@@ -76,17 +76,40 @@ mod object_literal_arg_tests;
 #[cfg(test)]
 mod optional_parameter_tests;
 #[cfg(test)]
+mod param_binding_builtin_tests;
+#[cfg(test)]
 mod param_binding_matrix_tests;
 #[cfg(test)]
 mod parameter_slots_parity_tests;
 #[cfg(test)]
+mod props_generated_tests;
+#[cfg(test)]
 mod props_matrix_tests;
+#[cfg(test)]
+mod props_s2_coverage_tests;
+#[cfg(test)]
+mod props_s2_generated_tests;
+#[cfg(test)]
+mod props_s2_matrix_evidence;
+#[cfg(test)]
+mod props_s2_matrix_evidence_tests;
+#[cfg(test)]
+mod props_s2_pending_tests;
+#[cfg(test)]
+mod props_s2_refusal_tests;
+#[cfg(test)]
+mod props_s2_selected_tests;
+#[cfg(test)]
+mod props_s2_test_support;
 pub mod query;
 mod reaching;
 #[cfg(test)]
 mod recorded_kill_tests;
 #[cfg(test)]
 mod required_parameter_tests;
+pub(crate) mod s1_trace;
+#[cfg(test)]
+mod s1_trace_tests;
 #[cfg(test)]
 mod s1c_label_tests;
 #[cfg(test)]
@@ -105,6 +128,7 @@ mod taint_policy_tests;
 #[cfg(test)]
 mod tests;
 mod trace;
+mod trace_cuts;
 mod trace_descent;
 #[cfg(test)]
 mod trace_descent_tests;
@@ -122,6 +146,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
+pub(crate) use reaching::element_recall::{FileTrace as ElementTrace, Final as ElementFinal};
 pub use reaching::RdFileStats;
 pub(crate) use reaching::{ReceiverEdge, ReceiverKey};
 mod recall_telemetry;
@@ -130,14 +155,17 @@ pub(crate) use reaching::loop_plan_tests;
 #[cfg(test)]
 pub(crate) use reaching::with_recall_cap;
 pub(crate) use reaching::{
-    placed_lines, reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges,
-    DefId, DefSite, FileCfgEdgeIndex, RdOutcome,
+    census_def_cap_overflow, pattern_one_node_refusal, placed_lines,
+    reaching_definitions_with_exact, record_go_recall_skip, unavailable_before_edges, DefId,
+    DefSite, FileCfgEdgeIndex, RdOutcome, RdUnavailable,
 };
 #[cfg(test)]
-pub(crate) use reaching::{RD_MAX_DEFS, RD_MAX_LINES};
+pub(crate) use reaching::{with_availability_limits, RD_MAX_DEFS, RD_MAX_LINES};
 pub use taint_policy::{CrossingCeiling, TaintCrossingPolicy};
 pub use trace::{
-    BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
-    Relation, ReturnFlowMode, SameLineOrderView, Trace,
+    BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning, Relation,
+    ReturnFlowMode, SameLineOrderView, Trace,
 };
+pub use trace_cuts::{BoundaryEdge, CrossingSite, TraceCut};
+pub use trace_descent::LossReason;
 pub use types::{CpgEdge, CpgNode, StmtKind, VarAccess};

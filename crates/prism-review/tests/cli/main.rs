@@ -32,6 +32,18 @@ mod taint_context_cli_test;
 mod taint_context_output_test;
 mod taint_reaches_test;
 mod taint_sink_strength_view_test;
+mod targets_inventory_constructors_test;
+mod targets_inventory_fields_test;
+mod targets_inventory_helpers_test;
+mod targets_inventory_known_limits_test;
+mod targets_inventory_receiver_guards_test;
+mod targets_inventory_receiver_projection_test;
+mod targets_inventory_s2b_fold_test;
+mod targets_inventory_stdlib_amendment_test;
+mod targets_inventory_stdlib_declarations_test;
+mod targets_inventory_stdlib_fold_test;
+mod targets_inventory_stdlib_receivers_test;
+mod targets_inventory_stdlib_roots_test;
 mod targets_inventory_test;
 mod targets_test;
 

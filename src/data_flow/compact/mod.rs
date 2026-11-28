@@ -53,6 +53,7 @@ pub(super) struct CompactDfg {
     pub(super) backward: BTreeMap<LegacyId, Adj>,
     pub(super) labels: BTreeMap<(LegacyId, LegacyId), Label>,
     pub(super) exact_labels: BTreeMap<IdEdge, FlowConfidence>,
+    signature_pairs: std::sync::OnceLock<BTreeSet<IdEdge>>,
     pub(super) rd_function_stats: BTreeMap<String, crate::cpg::RdFileStats>,
     /// Digest of the Rust macro census this graph was built under (empty for none); a
     /// partial cache hit rebuilds in full when a fresh census digests differently.

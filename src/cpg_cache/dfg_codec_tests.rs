@@ -5,12 +5,12 @@ fn compact_codec_rejects_bad_bounds_groups_and_order() {
 }
 #[test]
 fn production_cache_version_activates_compact_codec() {
-    assert_eq!(super::CACHE_VERSION, 191);
+    assert_eq!(super::CACHE_VERSION, 195);
 }
 
 #[test]
 fn production_cache_version_includes_module_owners() {
-    assert_eq!(super::CACHE_VERSION, 191);
+    assert_eq!(super::CACHE_VERSION, 195);
 }
 
 #[test]
@@ -25,7 +25,9 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
         )
         .unwrap(),
     )]);
-    let cpg = CodePropertyGraph::build(&files);
+    let mut cpg = CodePropertyGraph::build(&files);
+    cpg.dfg_label_stats.dfg_props =
+        BTreeMap::from([("sites_literal".into(), 1), ("edges_to_def".into(), 2)]);
     let hashes = BTreeMap::from([("a.py".into(), "fixture".into())]);
     let dir = tempfile::tempdir().unwrap();
     assert_eq!(
@@ -34,19 +36,35 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
     );
     let path = cache_bin_path(dir.path());
     let bytes = fs::read(&path).unwrap();
-    let mut owned: CpgCache = bincode::deserialize(&bytes).unwrap();
-    assert_eq!(super::CACHE_VERSION, 191);
-    assert_eq!(bytes, bincode::serialize(&owned).unwrap());
-    assert!(matches!(
-        load_cache(&hashes, false, dir.path()),
-        CacheResult::Hit(_)
-    ));
+    let owned: CpgCache = bincode::deserialize(&bytes).unwrap();
+    assert_eq!(
+        owned.graph.dfg_label_stats.dfg_props,
+        cpg.dfg_label_stats.dfg_props
+    );
+    assert_eq!(bytes, stream::tests::owned_encoding(&cpg, &hashes));
+    stream::PAYLOAD_DECODES.with(|count| count.set(0));
+    let CacheResult::Hit(restored) = load_cache(&hashes, false, dir.path()) else {
+        panic!("expected a full cache hit");
+    };
+    assert_eq!(restored.dfg_label_stats, cpg.dfg_label_stats);
+    assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 1);
+    stream::PAYLOAD_DECODES.with(|count| count.set(0));
+    assert_stale_version_miss(&hashes, dir.path());
+    assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 0);
+    assert_eq!(super::CACHE_VERSION, 195);
+}
+
+pub(crate) fn assert_stale_version_miss(
+    hashes: &std::collections::BTreeMap<String, String>,
+    dir: &std::path::Path,
+) {
+    use super::*;
+    let path = cache_bin_path(dir);
+    let mut owned: CpgCache = bincode::deserialize(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(owned.version, CACHE_VERSION);
     owned.version -= 1;
     fs::write(&path, bincode::serialize(&owned).unwrap()).unwrap();
-    assert!(matches!(
-        load_cache(&hashes, false, dir.path()),
-        CacheResult::Miss
-    ));
+    assert!(matches!(load_cache(hashes, false, dir), CacheResult::Miss));
 }
 
 #[test]

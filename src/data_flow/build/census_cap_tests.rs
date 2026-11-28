@@ -63,3 +63,59 @@ fn a_census_only_def_cap_overflow_keeps_the_edges_and_the_cap_exemption() {
     assert_eq!(r.rd_function_stats.functions_over_cap, 0);
     assert!(all_cfg_incomplete(&r), "{:?}", r.labels);
 }
+
+#[test]
+fn pattern_increment_replays_legacy_at_the_completed_def_cap() {
+    for (padding, keep_entry, safe_label) in [
+        (2046, false, FlowConfidence::Exact),
+        (2045, true, FlowConfidence::Exact),
+        (0, true, FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete)),
+    ] {
+        let mut source = String::from("function C({ p }, safe) {\n");
+        for index in 0..padding {
+            source.push_str(&format!("  const local{index} = 0;\n"));
+        }
+        source.push_str("  return report(++p, safe, p);\n}\n");
+        let cap = (padding != 0).then_some(1_000_000);
+        let graph = refs(&source, Language::JavaScript, cap);
+        let safe_labels = |graph: &FileRefs| {
+            graph
+                .labels
+                .iter()
+                .filter(|((from, to), _)| from.var_name() == "safe" && to.var_name() == "safe")
+                .map(|(_, &label)| label)
+                .collect::<Vec<_>>()
+        };
+        if padding != 0 {
+            let parsed = ParsedFile::parse("a.js", &source, Language::JavaScript).unwrap();
+            let legacy = Producer::file_refs_frozen_with_cap(&parsed.path, &parsed, cap);
+            assert_eq!(
+                safe_labels(&legacy),
+                [FlowConfidence::Exact],
+                "legacy/{padding}"
+            );
+        }
+        assert_eq!(safe_labels(&graph), [safe_label], "increment/{padding}");
+        assert_eq!(
+            graph
+                .defs
+                .values()
+                .flatten()
+                .any(|def| def.start_byte == 13),
+            keep_entry,
+            "entry/{padding}",
+        );
+        let parsed = ParsedFile::parse("a.js", &source, Language::JavaScript).unwrap();
+        let receipt = crate::data_flow::DataFlowGraph::collect_s1_evidence(
+            &std::collections::BTreeMap::from([(parsed.path.clone(), parsed)]),
+            "completed-def-cap-fixture",
+        );
+        let counters = receipt.counters();
+        assert_eq!(
+            counters["refused_s1_rd_cap"],
+            u64::from(!keep_entry),
+            "{padding}"
+        );
+        assert_eq!(counters["cap-withheld"] > 0, !keep_entry, "{padding}");
+    }
+}

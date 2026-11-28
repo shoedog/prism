@@ -6,8 +6,8 @@ use petgraph::graph::NodeIndex;
 use petgraph::Direction;
 
 use crate::cpg::{
-    CodePropertyGraph, CpgEdge, CpgNode, OrderingWarning, Relation, SameLineOrderView, StmtKind,
-    Trace, VarAccess,
+    BoundaryEdge, CodePropertyGraph, CpgEdge, CpgNode, OrderingWarning, Relation,
+    SameLineOrderView, StmtKind, Trace, VarAccess,
 };
 use crate::navigation::types::{GraphEdge, GraphNode, GraphPayload, Location, SymbolRef};
 use crate::reasoning::types::Reachability;
@@ -77,8 +77,7 @@ pub fn reachability_for_node_from(
     root: NodeIndex,
     sink: NodeIndex,
 ) -> Reachability {
-    let mut ordering_warnings = Vec::new();
-    reachability_for_node_from_ordered(cpg, trace, root, sink, None, &mut ordering_warnings)
+    reachability_for_node_from_ordered(cpg, trace, root, sink, None, &mut Vec::new())
 }
 
 pub fn reachability_for_node_from_ordered(
@@ -89,25 +88,35 @@ pub fn reachability_for_node_from_ordered(
     order: Option<&dyn SameLineOrderView>,
     ordering_warnings: &mut Vec<OrderingWarning>,
 ) -> Reachability {
+    reachability_and_boundary(cpg, trace, root, sink, order, ordering_warnings).0
+}
+
+/// Apply the per-root reachability predicate and retain the first matching refused hop.
+pub(super) fn reachability_and_boundary<'a>(
+    cpg: &CodePropertyGraph,
+    trace: &'a Trace,
+    root: NodeIndex,
+    sink: NodeIndex,
+    order: Option<&dyn SameLineOrderView>,
+    ordering_warnings: &mut Vec<OrderingWarning>,
+) -> (Reachability, Option<&'a BoundaryEdge>) {
     if trace
         .frontier_by_root
         .get(&root)
         .is_some_and(|frontier| frontier.contains(&sink))
     {
-        return Reachability::Reached;
+        return (Reachability::Reached, None);
     }
-    for b in trace.boundary.iter().filter(|b| b.root == root) {
-        if b.to == sink {
-            return Reachability::BoundaryExited;
-        }
-        if cpg
-            .forward_reachable_in_function_ordered(b.to, order, ordering_warnings)
-            .contains(&sink)
+    for boundary in trace.boundary.iter().filter(|edge| edge.root == root) {
+        if boundary.to == sink
+            || cpg
+                .forward_reachable_in_function_ordered(boundary.to, order, ordering_warnings)
+                .contains(&sink)
         {
-            return Reachability::BoundaryExited;
+            return (Reachability::BoundaryExited, Some(boundary));
         }
     }
-    Reachability::NotReached
+    (Reachability::NotReached, None)
 }
 
 pub fn sink_nodes_at(cpg: &CodePropertyGraph, file: &str, line: usize) -> Vec<NodeIndex> {

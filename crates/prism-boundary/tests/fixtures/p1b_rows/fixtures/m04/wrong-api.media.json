@@ -1,0 +1,74 @@
+[
+  {
+    "api": "test-api",
+    "producer_tree": "test-tree",
+    "schema_blob": "entry-blob",
+    "operation": "op:POST /probe",
+    "direction": "request",
+    "status": null,
+    "media_type": "Application/JSON; charset=utf-8",
+    "cutoff_admitted": true,
+    "route": "producer_source",
+    "coverage": {
+      "complete": true,
+      "paths": [
+        {
+          "file": "handler.go",
+          "blob": "handler-blob",
+          "span": [
+            10,
+            14
+          ],
+          "outcome": "json",
+          "final_content_type": "application/json",
+          "selects_request_content_type": true
+        }
+      ]
+    },
+    "generator": {
+      "name": "fixture-codec",
+      "version": "1",
+      "settings": "strict-json",
+      "input": "entry-blob",
+      "contract": "fixture-contract",
+      "installed": true,
+      "final_dispatch_json": true
+    }
+  },
+  {
+    "api": "other-api",
+    "producer_tree": "test-tree",
+    "schema_blob": "entry-blob",
+    "operation": "op:POST /probe",
+    "direction": "response",
+    "status": "200",
+    "media_type": "Application/JSON; charset=utf-8",
+    "cutoff_admitted": true,
+    "route": "producer_source",
+    "coverage": {
+      "complete": true,
+      "paths": [
+        {
+          "file": "handler.go",
+          "blob": "handler-blob",
+          "span": [
+            10,
+            14
+          ],
+          "outcome": "json",
+          "final_content_type": "application/json",
+          "selects_request_content_type": false
+        }
+      ]
+    },
+    "generator": {
+      "name": "fixture-codec",
+      "version": "1",
+      "settings": "strict-json",
+      "input": "entry-blob",
+      "contract": "fixture-contract",
+      "installed": true,
+      "final_dispatch_json": true
+    }
+  }
+]

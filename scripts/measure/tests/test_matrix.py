@@ -1,17 +1,21 @@
-"""Execute the frozen S1 cases from the Stage T matrix."""
+"""Execute the enabled cases from the Stage T matrix."""
 
 from __future__ import annotations
 
+from collections import Counter
+import gzip
 import importlib
 import json
 import re
 import unittest
 
+from .comparator_fixtures import ComparatorFixture, read_rows
+from . import test_diff_edges
 from .helpers import REPO, Workbench, write_tree
 from .test_matrix_rows import CASES, MATRIX, read_jsonl
 from .test_syntax import parse_as_python_39
 
-ENABLED_GROUPS = {"run"}
+ENABLED_GROUPS = {"run", "comparator", "join"}
 
 
 # Ledger "Materialize" IDs of the run group that the enabled matrix does not
@@ -172,6 +176,179 @@ class MatrixTests(Workbench):
             self.assertEqual((self.out / name).read_text(), contents)
 
 
+class ComparatorMatrixTests(ComparatorFixture):
+    def check_row(self, row):
+        inputs = row["input"]
+        ident = row["id"]
+        case = CASES / inputs["case"]
+        decisions = (REPO / "docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit"
+                     / "FORMATS-DECISIONS.md").read_text(encoding="utf-8")
+        revised = re.search(r"^\| " + ident + r" \| `(\{.*\})` \|$", decisions, re.MULTILINE)
+        truth = json.loads(revised[1]) if revised else row["truth"]
+        setup = json.loads((case / inputs["setup"]).read_bytes()) if "setup" in inputs else {}
+        if "repeat_distinct_keys" in setup:
+            test_diff_edges.DiffEdgesTests.large_dump(self, setup["repeat_distinct_keys"], truth["peak_bytes_exclusive"])
+            return
+
+        self.classifier = case / inputs["classifier"]
+        variation = setup.get("receipt_variations", {})
+        edit = setup.get("transport_edit", {})
+        for name in ("base", "head"):
+            payload = (case / inputs[name]).read_bytes()
+            if edit.get("arm") == name and "insert" in edit:
+                records = payload.splitlines(keepends=True)
+                records.insert(edit["after_line"], edit["insert"].encode())
+                payload = b"".join(records)
+            transport = ((case / inputs[name + "_transport"]).read_bytes()
+                         if name + "_transport" in inputs else gzip.compress(payload))
+            truncate = edit.get("arm") == name and edit.get("truncate_gzip_bytes")
+            if truncate and not edit["after_receipt"]:
+                transport = transport[:-truncate]
+            trace = (case / inputs["trace"]).read_bytes() if name == "head" and "trace" in inputs else None
+            run = self.arm(name, transport=transport, trace=trace, stats=setup.get(name + "_stats"),
+                           options=variation.get(name + "_options"),
+                           trace_env=variation.get(name + "_trace_env"),
+                           version=variation.get(name + "_binary", "fixture-bin"),
+                           source=variation.get(name, "export {};\n"))
+            if truncate and edit["after_receipt"]:
+                (run / "edges.jsonl.gz").write_bytes(transport[:-truncate])
+            if variation.get(name + "_output_modified_after_receipt"):
+                (run / "edges.jsonl.gz").write_bytes(gzip.compress(payload + b"\n"))
+            if name + "_status" in variation:
+                path = run / "receipt.json"
+                record = json.loads(path.read_bytes())
+                record["status"] = variation[name + "_status"]
+                self.save(path, record)
+        if ident == "cmp-023":
+            # Both arms are individually admissible under their own registered keys.
+            manifest = json.loads(self.manifest.read_bytes())
+            path = self.work / "head/receipt.json"
+            record = json.loads(path.read_bytes())
+            record["corpus"]["key"] = "H"
+            manifest["corpora"]["H"] = {**manifest["corpora"]["Z"],
+                                        "tree_sha256": record["corpus"]["input_sha256"]}
+            self.save(path, record)
+            self.save(self.manifest, manifest)
+
+        if inputs.get("operation") == "diff-stats":
+            allow = self.work / "allow.txt"
+            allow.write_text("\n".join(setup["allow"]))
+            stdout = self.invoke("diff-stats", "--allow", allow, expected=truth["exit"])
+            expected_lines = {f"  {key}: {base} -> {head} ({delta:+})"
+                              for key, (base, head, delta) in truth["deltas"].items()}
+            self.assertEqual({line for line in stdout.splitlines() if line.startswith("  ")}, expected_lines)
+            return
+
+        args = []
+        if inputs["key_mode"] != "default":
+            args.extend(("--key", inputs["key_mode"]))
+        if inputs["key_mode"] == "line":
+            args.extend(("--line-reason", "matrix line projection"))
+        if "unjoined_tags" in inputs or "unjoined_tags" in truth:
+            # Test the actual callback payload along with the certificate's counts.
+            source = self.classifier.read_text(encoding="utf-8")
+            self.classifier = self.work / "classifier.py"
+            tags = truth.get("unjoined_tags", inputs.get("unjoined_tags"))
+            self.classifier.write_text(source + f"""
+_original_validate = globals().get("validate", lambda bound: [])
+def validate(bound):
+    records = list(bound.unjoined)
+    assert [record["tag"] for record in records] == {tags!r}
+    mechanisms = {truth.get("unjoined_mechanisms")!r}
+    if mechanisms is not None:
+        assert [record["mechanism"] for record in records] == mechanisms
+    return _original_validate(bound)
+""", encoding="utf-8")
+        stdout = self.compare(*args, expected=truth["exit"], diagnostic=inputs.get("validation_message"))
+        if truth["exit"] == 2:
+            self.assertEqual(stdout, "")
+            self.assertFalse((self.out / "certificate.json").exists())
+            return
+        actual = self.cert()
+        for field in ("unattributed", "changed_keys", "collisions", "base_edges", "head_edges",
+                      "records", "validation"):
+            if field in truth:
+                self.assertEqual(actual[field], truth[field], field)
+        if "occurrences" in truth:
+            expected = truth["occurrences"]
+            observed = ({"base": actual["base_residual"], "head": actual["head_residual"]}
+                        if isinstance(expected, dict) else actual["occurrences"])
+            self.assertEqual(observed, expected)
+        if ident == "cmp-039":
+            self.assertEqual(actual["key_mode"], "line")
+        changes = self.changes()
+        if "changes" in truth:
+            self.check_changes(changes, truth["changes"])
+        if "classifier_error" in inputs:
+            self.assertIn(inputs["classifier_error"], changes[0]["error"])
+        if "reconstruction" in truth:
+            self.check_reconstruction(case, inputs, setup["additional_pairs"])
+
+    def check_changes(self, actual, expected):
+        def match(change, truth):
+            for field, value in truth.items():
+                if field in ("from", "to"):
+                    side = "base_bag" if field == "from" else "head_bag"
+                    if change[side][0] != value:
+                        return False
+                elif field in ("base_bag", "head_bag"):
+                    if Counter(json.dumps(x, sort_keys=True) for x in value) != Counter(
+                            json.dumps(x, sort_keys=True) for x in change[field]):
+                        return False
+                elif change[field] != value:
+                    return False
+            return True
+
+        remaining = actual[:]
+        for row in expected:
+            candidates = [i for i, change in enumerate(remaining) if match(change, row)]
+            self.assertTrue(candidates, (row, remaining))
+            remaining.pop(candidates[0])
+        self.assertEqual(remaining, [])
+
+    def check_reconstruction(self, case, inputs, recipe):
+        import random
+        from measure.edges import decode_edge, residual_rows
+
+        def emitted(base, head, published=None):
+            def counts(rows):
+                result = {}
+                for raw in rows:
+                    key, attr, _ = decode_edge(raw, line_mode=False)
+                    result.setdefault(key, Counter())[attr] += 1
+                return result
+
+            a, b = counts(base), counts(head)
+            for key in a.keys() | b.keys():
+                left, right = a.get(key, Counter()), b.get(key, Counter())
+                if published is None:
+                    unchanged, changes = residual_rows(left, right)
+                else:
+                    unchanged = left & right
+                    changes = [(row["kind"], *(Counter(json.dumps(member, sort_keys=True, separators=(",", ":")).encode()
+                                                       for member in row[arm + "_bag"])
+                                               for arm in ("base", "head")))
+                               for row in published if row["key"] == json.loads(key)]
+                rebuilt = [unchanged.copy(), unchanged.copy()]
+                for _, lb, rb in changes:
+                    rebuilt[0].update(lb)
+                    rebuilt[1].update(rb)
+                self.assertEqual(rebuilt, [left, right])
+
+        emitted(*(read_rows(case / inputs[name]) for name in ("base", "head")), self.changes())
+        rng = random.Random(recipe["seed"])
+        for _ in range(recipe["count"]):
+            arms = [[], []]
+            for arm in arms:
+                for wire in recipe["keys"]:
+                    for attr in recipe["labels"]:
+                        source = {**wire, "from": {**wire["from"], "access": attr["from_access"]},
+                                  "to": {**wire["to"], "access": attr["to_access"]}}
+                        source.update({key: attr[key] for key in ("confidence", "doubt", "kill_line")})
+                        arm.extend([source] * rng.randrange(recipe["max_copies_per_label"] + 1))
+            emitted(*arms)
+
+
 def make_test(row):
     def test(self):
         self.check_row(row)
@@ -180,4 +357,5 @@ def make_test(row):
 
 for row in read_jsonl(MATRIX / "rows.jsonl"):
     if row["group"] in ENABLED_GROUPS:
-        setattr(MatrixTests, "test_" + row["id"].replace("-", "_"), make_test(row))
+        setattr(MatrixTests if row["group"] == "run" else ComparatorMatrixTests,
+                "test_" + row["id"].replace("-", "_"), make_test(row))

@@ -6,6 +6,9 @@ use std::process::Command;
 
 #[path = "support/deployments.rs"]
 mod deployments;
+#[allow(dead_code)]
+#[path = "../src/inventory.rs"]
+mod inventory;
 #[path = "support/label_accept_list.rs"]
 mod label_accept_list;
 #[path = "support/p1a_fold.rs"]

@@ -28,6 +28,7 @@ pub(super) struct Effects {
     pub(super) mapped: BTreeMap<usize, Arc<BTreeSet<AstSpan>>>,
     opaque_rebinds: BTreeSet<usize>,
     pub(super) direct_eval: bool,
+    pub(super) direct_define_property_write: bool,
     pub(super) proof: proof::Proof,
     pub(super) outer_bindings: BTreeMap<usize, BTreeSet<usize>>,
     pub(super) refused_file: bool,
@@ -99,9 +100,7 @@ impl Effects {
                     .insert(site.clone());
             }
         }
-        let strict = file.path.ends_with(".mjs")
-            || children(root)
-                .any(|child| matches!(child.kind(), "import_statement" | "export_statement"));
+        let strict = file.path.ends_with(".mjs") || lexical.module_syntax;
         census.walk(
             root,
             Position {
@@ -510,6 +509,23 @@ impl<'a> Census<'a, '_> {
     }
 
     fn record_member(&mut self, target: Node<'a>, site: Node<'a>, pos: Position<'a>) {
+        if target == site
+            && field(target, "object").map(peel).is_some_and(|base| {
+                identifier(base)
+                    && special_name(self.file.node_text(&base), "Object")
+                    && self.lexical.lookup(pos.context.scope, "Object").is_none()
+            })
+            && (field(target, "property")
+                .is_some_and(|key| special_name(self.file.node_text(&key), "defineProperty"))
+                || field(target, "index").map(peel).is_some_and(|key| {
+                    matches!(
+                        self.file.node_text(&key),
+                        "'defineProperty'" | "\"defineProperty\""
+                    )
+                }))
+        {
+            self.effects.direct_define_property_write = true;
+        }
         if let Some(owner) = pos.arguments_owner.filter(|_| target == site) {
             self.argument_stores
                 .entry(owner.id())

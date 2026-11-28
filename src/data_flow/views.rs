@@ -61,6 +61,16 @@ impl DataFlowGraph {
         super::compact::assembly::legacy_label_probe();
         self.storage.label(from, to)
     }
+    /// The line-group label (the reference assembler's view; `label` prefers the occurrence's own).
+    #[cfg(test)]
+    pub(crate) fn legacy_label(
+        &self,
+        from: &VarLocation,
+        to: &VarLocation,
+    ) -> Option<crate::cpg::FlowConfidence> {
+        super::compact::assembly::legacy_label_probe();
+        self.storage.legacy_label(from, to)
+    }
     pub fn labels(&self) -> impl Iterator<Item = (FlowEdgeRef<'_>, crate::cpg::FlowConfidence)> {
         self.storage.labels()
     }

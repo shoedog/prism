@@ -21,6 +21,109 @@ pub(super) fn is_scope(node: Node<'_>) -> bool {
 }
 
 impl ParsedFile {
+    /// S1 needs only proof of an ordinary identifier lookup. A script's global
+    /// object bindings can be accessor properties, including declared var names.
+    pub(crate) fn js_ts_declarative_signature_lookup<'a>(
+        &'a self,
+        ident: Node<'a>,
+        name: &str,
+        cache: &mut JsBindingCache<'a>,
+    ) -> bool {
+        if self.js_ts_reference_in_with_body(ident) {
+            return false;
+        }
+        match self.js_ts_binding_walk(ident, name, cache) {
+            Walk::Found(scope, None) if scope.kind() == "formal_parameters" => {
+                self.js_ts_initialized_formal(scope, ident.start_byte(), name)
+            }
+            Walk::Found(scope, None) => {
+                let (decls, annex_b) = self.js_ts_scope_lookup(scope, name, cache);
+                !annex_b
+                    && decls.is_some_and(|decls| {
+                        decls.iter().all(|&decl| {
+                            let kind = decl.kind();
+                            if matches!(kind, "function_signature" | "enum_body") || decl.is_error()
+                            {
+                                return false;
+                            }
+                            let mut ancestor = decl.parent();
+                            while let Some(node) = ancestor.filter(|&node| node != scope) {
+                                if node.kind() == "ambient_declaration" {
+                                    return false;
+                                }
+                                ancestor = node.parent();
+                            }
+                            scope.kind() != "program"
+                                || kind != "program"
+                                    && (self.js_ts_is_module()
+                                        || matches!(
+                                            kind,
+                                            "class_declaration" | "abstract_class_declaration"
+                                        )
+                                        || kind == "variable_declarator"
+                                            && decl.parent().is_some_and(|parent| {
+                                                parent.kind() == "lexical_declaration"
+                                            }))
+                        })
+                    })
+            }
+            Walk::Unbound => matches!(name, "undefined" | "NaN" | "Infinity"),
+            Walk::Found(_, Some(_)) | Walk::Unchecked(_) => false,
+        }
+    }
+
+    /// A formal's own default runs before its binding initializes. A
+    /// preceding binding in an object pattern can already have completed.
+    fn js_ts_initialized_formal(&self, list: Node<'_>, at: usize, name: &str) -> bool {
+        let binds = |node| {
+            let mut names = Vec::new();
+            self.js_ts_pattern_bound_names(node, &mut names);
+            names.iter().any(|binding| binding == name)
+        };
+        if name == "arguments"
+            && list
+                .parent()
+                .is_some_and(|owner| owner.kind() != "arrow_function")
+            && !binds(list)
+        {
+            return true;
+        }
+        let mut pending = vec![list];
+        while let Some(node) = pending.pop() {
+            if node.end_byte() <= at {
+                if binds(node) {
+                    return true;
+                }
+                continue;
+            }
+            if !node.byte_range().contains(&at) {
+                continue;
+            }
+            match node.kind() {
+                "formal_parameters" | "object_pattern" | "array_pattern" => {
+                    pending.extend(node.named_children(&mut node.walk()));
+                }
+                "pair_pattern" => {
+                    pending.extend(
+                        node.child_by_field_name("value")
+                            .filter(|binding| binding.byte_range().contains(&at)),
+                    );
+                }
+                "assignment_pattern"
+                | "object_assignment_pattern"
+                | "required_parameter"
+                | "optional_parameter" => {
+                    let binding = node
+                        .child_by_field_name("pattern")
+                        .or_else(|| node.child_by_field_name("left"));
+                    pending.extend(binding.filter(|binding| binding.byte_range().contains(&at)));
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
     /// What `name`, used at the identifier `ident`, denotes (SPEC §3.1, §3.1a).
     pub(crate) fn js_ts_site_binding<'a>(
         &'a self,
@@ -36,6 +139,25 @@ impl ParsedFile {
             Walk::Unbound => JsBinding::Refused("unbound"),
             Walk::Unchecked(reason) => JsBinding::Unchecked(reason),
         }
+    }
+
+    /// Return the declaration behind a successful classification for consumers
+    /// that also need to prove the declaration's value and initialization.
+    pub(crate) fn js_ts_site_declaration<'a>(
+        &'a self,
+        ident: Node<'a>,
+        name: &str,
+        cache: &mut JsBindingCache<'a>,
+    ) -> Option<(Node<'a>, Node<'a>)> {
+        let Walk::Found(scope, None) = self.js_ts_binding_walk(ident, name, cache) else {
+            return None;
+        };
+        let (declarations, annex_b) = self.js_ts_scope_lookup(scope, name, cache);
+        let declarations = declarations.filter(|_| !annex_b)?;
+        let [declaration] = declarations.as_slice() else {
+            return None;
+        };
+        Some((scope, *declaration))
     }
 
     /// `scope`'s declarations of `name` (memoized per scope) and whether the name is an

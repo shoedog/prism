@@ -12,6 +12,7 @@ pub(super) const GROUPS: &[&str] = &[
     "walk",
     "guard",
     "reasons",
+    "option_b",
     "tbd",
 ];
 const REASONS: &[&str] = &[
@@ -35,6 +36,9 @@ const REASONS: &[&str] = &[
     "review_no_recovered_def_use",
     "review_cfg_filter",
     "review_context_policy",
+    "unproven_return_input",
+    "uncertified_flow",
+    "matcher_admission",
 ];
 pub(super) type Bytes = [usize; 2];
 
@@ -52,7 +56,7 @@ pub(super) struct Row {
     pub(super) walk_comparable: bool,
     #[serde(deserialize_with = "Deserialize::deserialize")]
     pub(super) expect: Option<Expectations>,
-    reasons: Option<Reasons>,
+    pub(super) reasons: Option<Reasons>,
     pub(super) current: Option<Current>,
     knobs: Option<Knobs>,
     truth: Truth,
@@ -152,7 +156,7 @@ pub(super) struct Current {
     pub(super) until: Vec<String>,
     pub(super) expect: Expectations,
     #[serde(deserialize_with = "Deserialize::deserialize")]
-    reasons: Option<Reasons>,
+    pub(super) reasons: Option<Reasons>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -216,8 +220,8 @@ pub(super) struct CatalogEntry {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Reasons {
-    walk: Vec<String>,
+pub(super) struct Reasons {
+    pub(super) walk: Vec<String>,
     review: Vec<String>,
     trace_review: Vec<String>,
     catalog: Vec<String>,

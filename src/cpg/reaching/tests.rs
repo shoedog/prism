@@ -55,6 +55,7 @@ fn def(
         line,
         start_byte: byte_on_line(parsed, line, path.rsplit('.').next().unwrap(), occurrence),
         alias_derived,
+        s1_entry: false,
     }
 }
 
@@ -161,6 +162,7 @@ fn collect_defs(parsed: &ParsedFile) -> Vec<DefSite> {
             line: span.line,
             start_byte: span.start_byte,
             alias_derived: false,
+            s1_entry: false,
         })
         .collect()
 }

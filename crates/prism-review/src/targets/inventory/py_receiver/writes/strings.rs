@@ -20,7 +20,10 @@ pub(super) fn write_key(parsed: &ParsedFile, node: Node<'_>) -> Option<Option<St
     plain_text(parsed, node).then(|| literal(parsed, node))
 }
 
-pub(super) fn literal(parsed: &ParsedFile, node: Node<'_>) -> Option<String> {
+pub(in crate::targets::inventory::py_receiver) fn literal(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+) -> Option<String> {
     let node = ungroup(node);
     match node.kind() {
         "concatenated_string" => children(node).try_fold(String::new(), |mut text, child| {

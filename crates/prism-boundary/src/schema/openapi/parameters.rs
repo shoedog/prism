@@ -80,6 +80,15 @@ impl<'r, 'a> ParameterList<'r, 'a> {
         let Some(owner) = owner else {
             return result;
         };
+        if owner.document.ambiguous_path(&owner.site.pointer) {
+            diagnostics.push(Diagnostic::new(
+                "duplicate_member",
+                "path_parameters",
+                owner.site.clone(),
+            ));
+            result.complete = false;
+            return result;
+        }
         let Some(list) = owner.value.as_array() else {
             diagnostics.push(Diagnostic::new(
                 "parameters_unreadable",
@@ -95,6 +104,18 @@ impl<'r, 'a> ParameterList<'r, 'a> {
                 document: owner.document,
                 site: owner.site.child(&position.to_string()),
             };
+            if declaration
+                .document
+                .duplicates_under(&declaration.site.pointer)
+            {
+                diagnostics.push(Diagnostic::new(
+                    "duplicate_member",
+                    "path_parameters",
+                    declaration.site,
+                ));
+                result.complete = false;
+                continue;
+            }
             // Resolve the entry only to check its admission and read its override key.
             // Keep the original declaration so a resolved reference cannot qualify as inline.
             let resolved = if value.get("$ref").is_some() {
@@ -102,7 +123,21 @@ impl<'r, 'a> ParameterList<'r, 'a> {
                     site: declaration.site.clone(),
                     ..declaration
                 }) {
-                    Ok(chain) => chain.last().unwrap().value,
+                    Ok(chain) => {
+                        if let Some(node) = chain
+                            .iter()
+                            .find(|node| node.document.duplicates_under(&node.site.pointer))
+                        {
+                            diagnostics.push(Diagnostic::new(
+                                "duplicate_member",
+                                "path_parameters",
+                                node.site.clone(),
+                            ));
+                            result.complete = false;
+                            continue;
+                        }
+                        chain.last().unwrap().value
+                    }
                     Err(failure) => {
                         diagnostics.push(Diagnostic::new(
                             failure.code,

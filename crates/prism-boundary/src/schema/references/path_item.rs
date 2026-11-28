@@ -43,6 +43,15 @@ impl<'r, 'a> PathItem<'r, 'a> {
                 if name == "$ref" {
                     continue;
                 }
+                if item.duplicate(name) && !matches!(name.as_str(), "parameters" | "servers") {
+                    diagnostics.push(Diagnostic::new(
+                        "duplicate_member",
+                        "path_item",
+                        item.site.child(name),
+                    ));
+                    fields.insert(name.as_str(), Field::Overlap);
+                    continue;
+                }
                 match fields.entry(name.as_str()) {
                     Entry::Vacant(entry) => {
                         entry.insert(Field::Declared {

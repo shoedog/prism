@@ -1,6 +1,10 @@
 use super::source::{children, identifier, ungroup};
 use prism::ast::ParsedFile;
+use std::ops::Range;
 use tree_sitter::Node;
+
+mod starred_annotation;
+pub(super) use starred_annotation::recover as recover_starred_annotations;
 
 pub(in crate::targets::inventory) type ScopeId = usize;
 
@@ -48,19 +52,19 @@ pub(in crate::targets::inventory) struct Walk<'tree> {
     pub scopes: Vec<Scope<'tree>>,
     pub nodes: Vec<(Node<'tree>, Context)>,
     pub(super) calls: Vec<Call<'tree>>,
-    postponed: bool,
+    pub(in crate::targets::inventory) postponed: bool,
 }
 
 impl<'tree> Walk<'tree> {
     pub(super) fn new(parsed: &'tree ParsedFile) -> Self {
+        Self::with_refused_annotations(parsed, &[])
+    }
+
+    pub(super) fn with_refused_annotations(
+        parsed: &'tree ParsedFile,
+        refused_annotations: &[Range<usize>],
+    ) -> Self {
         let root = parsed.tree.root_node();
-        let postponed = children(root).any(|node| {
-            node.kind() == "future_import_statement"
-                && children(node).any(|item| {
-                    let target = item.child_by_field_name("name").unwrap_or(item);
-                    parsed.node_text(&target) == "annotations"
-                })
-        });
         let mut walk = Self {
             scopes: vec![Scope {
                 kind: ScopeKind::Module,
@@ -71,7 +75,7 @@ impl<'tree> Walk<'tree> {
             }],
             nodes: Vec::new(),
             calls: Vec::new(),
-            postponed,
+            postponed: annotations_postponed(parsed),
         };
         walk.visit(
             parsed,
@@ -85,6 +89,7 @@ impl<'tree> Walk<'tree> {
             },
             &mut Vec::new(),
             0,
+            refused_annotations,
         );
         walk
     }
@@ -134,7 +139,14 @@ impl<'tree> Walk<'tree> {
         context: Context,
         path: &mut Vec<usize>,
         depth: usize,
+        refused_annotations: &[Range<usize>],
     ) {
+        if refused_annotations
+            .iter()
+            .any(|range| node.start_byte() >= range.start && node.end_byte() <= range.end)
+        {
+            return;
+        }
         // In an f-string, a top-level colon starts the format specifier.
         // The grammar can recover a bare `:=` there as a named expression.
         if node.kind() == "named_expression"
@@ -211,15 +223,33 @@ impl<'tree> Walk<'tree> {
                         },
                         path,
                         child_depth + 1,
+                        refused_annotations,
                     );
                     path.pop();
                 }
             } else {
-                self.visit(parsed, child, child_context, path, child_depth);
+                self.visit(
+                    parsed,
+                    child,
+                    child_context,
+                    path,
+                    child_depth,
+                    refused_annotations,
+                );
             }
             path.pop();
         }
     }
+}
+
+fn annotations_postponed(parsed: &ParsedFile) -> bool {
+    children(parsed.tree.root_node()).any(|node| {
+        node.kind() == "future_import_statement"
+            && children(node).any(|item| {
+                let target = item.child_by_field_name("name").unwrap_or(item);
+                parsed.node_text(&target) == "annotations"
+            })
+    })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

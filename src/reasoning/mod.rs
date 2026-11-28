@@ -1,6 +1,9 @@
 //! Tier-2 reasoning layer (always compiled; only MCP tool registration is `mcp`-gated).
 //! Ephemeral, read-only computation over the production CPG - no overlay data structure.
 
+#[cfg(test)]
+mod boundary_target_tests;
+mod boundary_warnings;
 pub mod order;
 pub mod sanitizer_walk;
 pub mod scope_honesty;

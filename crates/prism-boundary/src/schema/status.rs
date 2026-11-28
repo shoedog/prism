@@ -1,5 +1,6 @@
 use super::{Diagnostic, Dialect, Operation, Site};
 use crate::element::SuccessKey;
+use crate::inventory::{can_have_body, success_key};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -33,7 +34,7 @@ impl Operation {
     }
 
     pub fn can_have_body(&self, code: u16) -> bool {
-        self.id.method() != "HEAD" && !matches!(code, 100..=199 | 204 | 205 | 304)
+        can_have_body(&self.id, code)
     }
 }
 
@@ -52,7 +53,7 @@ pub(super) fn read_statuses(
     let responses = responses(operation, site, diagnostics);
     let success_keys = responses
         .keys()
-        .filter_map(|key| success_key(key, dialect))
+        .filter_map(|key| success_key(key, dialect != Dialect::Swagger2))
         .collect::<Vec<_>>();
     if let Some(fallback) = responses.get("default") {
         // The default can describe a success only if neither 2XX nor all 100 exact codes (200–299) cover it.
@@ -91,13 +92,5 @@ fn responses(
             BTreeMap::new()
         }
         None => BTreeMap::new(),
-    }
-}
-
-fn success_key(key: &str, dialect: Dialect) -> Option<SuccessKey> {
-    match key.as_bytes() {
-        b"2XX" if dialect != Dialect::Swagger2 => Some(SuccessKey::Range),
-        [b'2', b'0'..=b'9', b'0'..=b'9'] => Some(SuccessKey::Exact(key.parse().unwrap())),
-        _ => None,
     }
 }

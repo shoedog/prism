@@ -3,19 +3,51 @@ use crate::targets::inventory::{
     py_receiver::{
         census::{Binding, Import, Kind},
         lookup::{args, direct, Alternative},
-        slots::Read,
+        slots::{Instance, Read},
     },
+    py_tables,
     python::{
-        source::{children, name, ungroup},
+        source::{children, name, scalar_subscript, ungroup},
         walk::ScopeId,
     },
 };
 use tree_sitter::Node;
 
+#[derive(Clone, Copy)]
+pub(super) enum WriteAccess {
+    Attribute,
+    DeleteAttribute,
+    Namespace,
+}
+
+impl WriteAccess {
+    fn affects(self, path: &str, key: Option<&str>) -> bool {
+        match self {
+            Self::Namespace => match (path, key) {
+                // Preserve existing root-class vetoes outside _Environ lookup.
+                ("builtins.object", _) => true,
+                ("os.environ" | "os.path" | "posixpath" | "ntpath", Some("__class__")) => false,
+                // Class dictionaries are read-only. A typing alias has its own
+                // dictionary, separate from the origin's namespace.
+                _ => !py_tables::stdlib_class_or_typing_alias(path),
+            },
+            Self::Attribute | Self::DeleteAttribute => {
+                // The typing wrapper forwards ordinary stores to the origin.
+                // Dunders and attribute deletions stay on the wrapper.
+                !py_tables::typing_mapping_alias(path)
+                    || (matches!(self, Self::Attribute)
+                        && !key.is_some_and(|key| key.starts_with("__") && key.ends_with("__")))
+            }
+        }
+    }
+}
+
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(super) struct Objects {
     paths: Vec<String>,
+    instances: Vec<Instance>,
     unknown: bool,
+    untracked_parameter: bool,
     other: bool,
 }
 
@@ -23,6 +55,13 @@ impl Objects {
     fn imported(path: String) -> Self {
         Self {
             paths: vec![path],
+            ..Self::default()
+        }
+    }
+
+    fn instance(origin: Instance) -> Self {
+        Self {
+            instances: vec![origin],
             ..Self::default()
         }
     }
@@ -44,18 +83,30 @@ impl Objects {
 
     fn extend(&mut self, other: &Self) {
         self.unknown |= other.unknown;
+        self.untracked_parameter |= other.untracked_parameter;
         self.other |= other.other;
         for path in &other.paths {
             if !self.paths.contains(path) {
                 self.paths.push(path.clone());
             }
         }
+        for origin in &other.instances {
+            if !self.instances.contains(origin) {
+                self.instances.push(origin.clone());
+            }
+        }
     }
 
-    pub(super) fn slots(self, key: Option<String>) -> Vec<Slot> {
-        let definite = self.paths.len() == 1 && !self.unknown && !self.other && key.is_some();
+    pub(super) fn slots(self, key: Option<String>, access: WriteAccess) -> Vec<Slot> {
+        let definite = self.paths.len() == 1
+            && self.instances.is_empty()
+            && !self.unknown
+            && !self.untracked_parameter
+            && !self.other
+            && key.is_some();
         self.paths
             .into_iter()
+            .filter(|path| access.affects(path, key.as_deref()))
             .map(Some)
             .chain(self.unknown.then_some(None))
             .map(|object| Slot::Member {
@@ -63,11 +114,28 @@ impl Objects {
                 key: key.clone(),
                 definite,
             })
+            .chain(
+                (self.untracked_parameter && !self.unknown)
+                    .then(|| Slot::ParameterMember { key: key.clone() }),
+            )
+            .chain(self.instances.into_iter().map(|origin| Slot::Instance {
+                origin,
+                key: key.clone(),
+            }))
             .collect()
     }
 }
 
 impl<'tree> Resolver<'_, 'tree> {
+    pub(in crate::targets::inventory::py_receiver) fn names_instance(
+        &self,
+        node: Node<'tree>,
+        scope: ScopeId,
+        origin: &Instance,
+    ) -> bool {
+        self.objects(node, scope, true).instances.contains(origin)
+    }
+
     pub(super) fn objects(&self, node: Node<'tree>, scope: ScopeId, alias: bool) -> Objects {
         let node = ungroup(node);
         if self.implicit_builtins(node, scope) {
@@ -96,8 +164,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 let Some(value) = node.child_by_field_name("value").map(ungroup) else {
                     return Objects::unknown();
                 };
-                let Some(key) = node
-                    .child_by_field_name("subscript")
+                let Some(key) = scalar_subscript(node)
                     .and_then(|index| super::strings::literal(self.parsed, index))
                 else {
                     return Objects::unknown();
@@ -188,17 +255,10 @@ impl<'tree> Resolver<'_, 'tree> {
                     continue;
                 }
                 unavailable |= !self.available(binding, at, scope);
-                let value = match &binding.kind {
-                    Kind::Import(import) => self.import_objects(import, binding),
-                    Kind::Assigned(Some(value)) if alias => {
-                        self.objects(*value, binding.scope, false)
-                    }
-                    Kind::Delete => Objects::other(),
-                    _ => Objects::unknown(),
-                };
+                let value = self.binding_objects(binding, alt.owner, alias);
                 resolved.extend(&value);
             }
-            if unavailable && resolved.paths.is_empty() {
+            if unavailable && resolved.paths.is_empty() && resolved.instances.is_empty() {
                 resolved.unknown = true;
             }
             objects.extend(&resolved);
@@ -206,9 +266,45 @@ impl<'tree> Resolver<'_, 'tree> {
         objects
     }
 
+    fn binding_objects(&self, binding: &Binding<'tree>, owner: ScopeId, alias: bool) -> Objects {
+        if let Some(origin) = self.construction_origin(binding, owner) {
+            return Objects::instance(Instance::Constructed(origin));
+        }
+        let origin = if let Some(owner) = self.owning_self(binding) {
+            Some(Instance::OwningSelf(owner))
+        } else {
+            match self.declared_origin(binding, owner) {
+                Some((origin, true)) => return Objects::instance(Instance::Constructed(origin)),
+                Some((origin, false)) => Some(Instance::Constructed(origin)),
+                None => None,
+            }
+        };
+        let mut objects = match &binding.kind {
+            Kind::Import(import) => self.import_objects(import, binding),
+            Kind::Assigned(Some(value)) if alias => {
+                let mut objects = self.objects(*value, binding.scope, false);
+                if !matches!(ungroup(*value).kind(), "identifier" | "attribute") {
+                    objects.instances.clear();
+                }
+                objects
+            }
+            Kind::Parameter => Objects {
+                untracked_parameter: true,
+                ..Objects::default()
+            },
+            Kind::Delete => Objects::other(),
+            _ => Objects::unknown(),
+        };
+        // A diagnostic origin identifies a receiver slot without proving that
+        // the object is unrelated to the slots already tracked by S2a.
+        objects.instances.extend(origin);
+        objects
+    }
+
     fn member_objects(&self, base: Objects, key: &str, read: Read) -> Objects {
         let mut objects = Objects {
             unknown: base.unknown,
+            untracked_parameter: base.untracked_parameter,
             other: base.other,
             ..Objects::default()
         };
@@ -218,6 +314,14 @@ impl<'tree> Resolver<'_, 'tree> {
             objects.extend(&effects);
             if replacement.is_none() {
                 objects.extend(&Objects::imported(format!("{path}.{key}")));
+            }
+        }
+        for origin in base.instances {
+            if let Instance::OwningSelf(owner) = origin {
+                objects.extend(&Objects::instance(Instance::Field {
+                    owner,
+                    name: key.to_owned(),
+                }));
             }
         }
         objects
@@ -265,6 +369,9 @@ impl<'tree> Resolver<'_, 'tree> {
                 continue;
             }
             values.extend(&write.effect);
+            // A parameter is not a tracked write target. An explicit
+            // replacement with that parameter can still obscure provenance.
+            values.unknown |= write.effect.untracked_parameter;
         }
         (values, last)
     }

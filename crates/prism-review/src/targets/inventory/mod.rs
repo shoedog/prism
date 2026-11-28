@@ -4,6 +4,8 @@
 pub mod evidence;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_receiver_evidence;
 
 mod load;
 mod py_receiver;
@@ -46,7 +48,7 @@ impl Family {
     }
 
     pub fn supported() -> &'static [Self] {
-        &[Self::Http]
+        &[Self::Http, Self::Filesystem, Self::Parse, Self::Config]
     }
 }
 

@@ -150,6 +150,17 @@ pub(crate) fn with_reference<T>(f: impl FnOnce() -> T) -> T {
 pub(crate) trait CpgCallResolver {
     fn call_graph(&self) -> &CallGraph;
     fn resolve_call_site(&self, site: &CallSite) -> Vec<ResolvedCallee<'_>>;
+
+    /// Check export authority for the candidate already selected at this site.
+    fn js_ts_props_export_matches(
+        &self,
+        site: &CallSite,
+        target: &FunctionId,
+        parsed: &crate::ast::ParsedFile,
+    ) -> bool {
+        self.call_graph()
+            .js_ts_props_export_matches(site, target, parsed)
+    }
 }
 
 impl CpgCallResolver for CallGraph {

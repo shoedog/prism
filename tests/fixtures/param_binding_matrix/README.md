@@ -75,7 +75,12 @@ slot in the same row carries a loss.
 
 `b06` and `s5-5` require ordinary same-file NameOnly rest edges to be absent.
 The prerequisites module runs `s5-5-foreign` with a labelled edge, reachability
-and trace boundary. The matrix retains its 425 IDs.
+and trace boundary. The matrix retains its 425 original IDs and adds seven
+column-one Slice D twins. The `-col1` suffix identifies twins of `h08`,
+`h12a`, `s2-14`, `x1-12`, `x3-9`, `x4-8` and `x5-7`. These rows use
+byte-matched receiver anchors and record the emitted name-only candidates
+as losses against runtime expectations. Named program-scope callbacks in
+the twins are module bindings.
 
 For a baseline run, enable `control` and one feature slice in
 `src/cpg/param_binding_matrix_tests.rs`. Run
