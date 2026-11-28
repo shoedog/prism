@@ -155,6 +155,8 @@ mod types;
 pub(crate) mod var_index;
 mod walk_proofs;
 #[cfg(test)]
+mod walk_proofs_cover_tests;
+#[cfg(test)]
 mod walk_proofs_golden_tests;
 #[cfg(test)]
 mod walk_proofs_tests;
