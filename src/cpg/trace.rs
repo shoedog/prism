@@ -210,7 +210,7 @@ impl CodePropertyGraph {
         site_view: Option<&dyn SameLineOrderView>,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
-        let ledger = CrossingLedger::start("primary", site_view);
+        let ledger = CrossingLedger::start("primary", site_view, false);
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();
@@ -354,7 +354,7 @@ impl CodePropertyGraph {
         walk: &'static str,
     ) -> Trace {
         let has_cfg = self.has_cfg_edges();
-        let ledger = CrossingLedger::start(walk, order);
+        let ledger = CrossingLedger::start(walk, order, true);
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
         let mut depths = BTreeMap::new();

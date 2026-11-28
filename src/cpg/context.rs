@@ -68,7 +68,7 @@ impl<'a> CpgContext<'a> {
         BTreeMap<(VarLocation, VarLocation), EvidencePath>,
     ) {
         let site_view = AstOrderView::new(&self.cpg, self.files);
-        let ledger = CrossingLedger::start("primary", Some(&site_view));
+        let ledger = CrossingLedger::start("primary", Some(&site_view), false);
         self.cpg
             .taint_forward_cfg_labeled_with_ledger(sources, policy, ledger)
     }

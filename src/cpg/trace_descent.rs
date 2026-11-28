@@ -90,9 +90,7 @@ pub(super) fn edge_own_not_exact(label: Option<FlowConfidence>) -> bool {
             | FlowDoubt::CfgIncomplete
             | FlowDoubt::AliasUnstable,
         )) => false,
-        Some(FlowConfidence::NameOnly(
-            FlowDoubt::CallNameOnly | FlowDoubt::BuiltinCallback,
-        ))
+        Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly | FlowDoubt::BuiltinCallback))
         | None => true,
     }
 }

@@ -2,7 +2,19 @@ use super::*;
 use std::collections::BTreeMap;
 use std::process::Command;
 
+/// The navigation walks' ledger lines only: review mode prints no site, slot or grades, so the
+/// site-field assertions below read the lines that carry them.
 fn ledger(test: &str, id: &str, run: impl FnOnce(&Row, &Fixture)) -> Option<String> {
+    ledger_raw(test, id, run).map(|stderr| {
+        stderr
+            .lines()
+            .filter(|line| !line.starts_with("taint-") || line.contains(" site="))
+            .collect::<Vec<_>>()
+            .join("\n")
+    })
+}
+
+fn ledger_raw(test: &str, id: &str, run: impl FnOnce(&Row, &Fixture)) -> Option<String> {
     const CHILD: &str = "PRISM_PARITY_LEDGER_CHILD";
     if std::env::var_os(CHILD).is_some() {
         let row = rows().into_iter().find(|row| row.id == id).unwrap();
@@ -59,7 +71,7 @@ fn wrapper_ledger_keeps_its_assignment_separate_from_return_input() {
             .or_default()
             .push(line);
     }
-    assert_eq!(returns.len(), 3, "{stderr}");
+    assert_eq!(returns.len(), 1, "{stderr}");
     for lines in returns.values() {
         assert!(
             lines.iter().all(|line| {
@@ -127,11 +139,7 @@ fn assert_return_sites(
         .iter()
         .map(|(target, _)| *target)
         .collect::<BTreeSet<_>>();
-    assert_eq!(
-        walks.values().collect::<Vec<_>>(),
-        [&targets, &targets],
-        "{stderr}"
-    );
+    assert_eq!(walks.values().collect::<Vec<_>>(), [&targets], "{stderr}");
 }
 
 #[test]
@@ -336,7 +344,7 @@ fn discarded_multiline_python_call_cannot_name_the_shortcut_site() {
             .map(|line| walk_id(line))
             .collect::<BTreeSet<_>>()
             .len(),
-        2,
+        1,
         "{stderr}"
     );
     assert!(
@@ -478,7 +486,7 @@ fn shortcut_site_requires_the_same_call_in_every_matrix_language() {
 
 #[test]
 fn trace_review_without_return_flow_logs_proved_descents() {
-    let Some(stderr) = ledger(
+    let Some(stderr) = ledger_raw(
         "trace_review_without_return_flow_logs_proved_descents",
         "tr2-js-wrapper",
         |row, fixture| {
@@ -492,7 +500,7 @@ fn trace_review_without_return_flow_logs_proved_descents() {
     assert!(
         stderr.lines().any(|line| {
             line.starts_with("taint-crossing ")
-                && line.contains("relation=CallDescent site=163..170 slot=0 grades=[Exact] ")
+                && line.contains("relation=CallDescent edge_grade=Some(Exact) ")
         }),
         "{stderr}"
     );
@@ -595,6 +603,62 @@ fn sanitizer_bypass_records_are_countable_per_walk() {
             ("primary", 3, 1),
             ("primary", 3, 1),
         ],
+        "{stderr}"
+    );
+}
+
+#[test]
+fn review_ledger_drops_site_slot_and_grades_but_keeps_reasons() {
+    let Some(stderr) = ledger_raw(
+        "review_ledger_drops_site_slot_and_grades_but_keeps_reasons",
+        "s2-js-alias-same-line",
+        |row, fixture| {
+            let _ = review(row, fixture, true);
+        },
+    ) else {
+        return;
+    };
+    let lines: Vec<_> = stderr
+        .lines()
+        .filter(|line| line.starts_with("taint-"))
+        .collect();
+    assert!(!lines.is_empty(), "{stderr}");
+    assert!(
+        lines.iter().all(|line| {
+            !line.contains(" site=") && !line.contains(" slot=") && !line.contains(" grades=")
+        }),
+        "{stderr}"
+    );
+    assert!(
+        lines.iter().all(|line| line.contains(" edge_grade=")),
+        "{stderr}"
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.starts_with("taint-refusal ") && line.contains(" reason=")),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn navigation_ledger_keeps_site_slot_and_grades() {
+    let Some(stderr) = ledger(
+        "navigation_ledger_keeps_site_slot_and_grades",
+        "s2-js-alias-same-line",
+        |row, fixture| assert_eq!(walk(row, fixture).reaches, Verdict::BoundaryExited),
+    ) else {
+        return;
+    };
+    let lines: Vec<_> = stderr
+        .lines()
+        .filter(|line| line.starts_with("taint-"))
+        .collect();
+    assert!(!lines.is_empty(), "{stderr}");
+    assert!(
+        lines.iter().all(|line| {
+            line.contains(" site=") && line.contains(" slot=") && line.contains(" grades=[")
+        }),
         "{stderr}"
     );
 }

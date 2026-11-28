@@ -58,6 +58,8 @@ pub struct TraceCut {
 pub(super) struct CrossingLedger<'a> {
     walk: &'static str,
     id: usize,
+    /// Navigation prints the crossing's site, slot and grades; review mode prints only the reason.
+    fields: bool,
     pub site_view: Option<&'a dyn SameLineOrderView>,
 }
 
@@ -65,6 +67,7 @@ impl<'a> CrossingLedger<'a> {
     pub(super) fn start(
         walk: &'static str,
         site_view: Option<&'a dyn SameLineOrderView>,
+        fields: bool,
     ) -> Option<Self> {
         static NEXT_WALK: AtomicUsize = AtomicUsize::new(0);
         std::env::var_os("PRISM_TAINT_CROSSING_TRACE")
@@ -72,6 +75,7 @@ impl<'a> CrossingLedger<'a> {
             .then(|| Self {
                 walk,
                 id: NEXT_WALK.fetch_add(1, Ordering::Relaxed),
+                fields,
                 site_view,
             })
     }
@@ -325,8 +329,13 @@ impl CodePropertyGraph {
             |site| format!("{}..{}", site.location.start_byte, site.location.end_byte),
         );
         // The diagnostic has no bearing on the walk, including when stderr is closed.
+        let site_fields = if ledger.fields {
+            format!(" site={site} slot={slot} grades=[{site_grades}]")
+        } else {
+            String::new()
+        };
         let _ = writeln!(io::stderr().lock(),
-            "{event} walk={} walk_id={} root={:?} from={:?} to={:?} relation={relation:?} site={site} slot={slot} grades=[{site_grades}] edge_grade={label:?} depth={depth}{component}{reason}",
+            "{event} walk={} walk_id={} root={:?} from={:?} to={:?} relation={relation:?}{site_fields} edge_grade={label:?} depth={depth}{component}{reason}",
             ledger.walk, ledger.id,
             self.trace_identity(root), self.trace_identity(from), self.trace_identity(to)
         );
