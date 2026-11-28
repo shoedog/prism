@@ -28,9 +28,22 @@ pub fn swagger(base: Option<&str>, ops: &[(&str, &str)]) -> Vec<u8> {
 }
 
 pub fn index_at(bytes: &[u8], tree: &str, commit: &str) -> SchemaIndex {
+    index_from(
+        bytes,
+        (API, "schema", tree, commit),
+        ("swagger.json", "schema-blob"),
+    )
+}
+
+/// An index whose source identity is spelled out: (api, authority, tree, commit), (path, blob).
+pub fn index_from(
+    bytes: &[u8],
+    (api, authority, tree, commit): (&str, &str, &str, &str),
+    (path, blob): (&str, &str),
+) -> SchemaIndex {
     index_schema(&AdmittedSchemaInput {
-        api: API,
-        authority: "schema",
+        api,
+        authority,
         snapshot: Snapshot::Commit {
             tree,
             commit,
@@ -38,9 +51,9 @@ pub fn index_at(bytes: &[u8], tree: &str, commit: &str) -> SchemaIndex {
             committer_date: None,
         },
         entry: Blob {
-            path: "swagger.json",
+            path,
             tree,
-            oid: "schema-blob",
+            oid: blob,
             bytes,
             format: Format::Json,
         },
@@ -91,8 +104,51 @@ pub fn blob_id(path: &str) -> String {
     format!("blob:{path}")
 }
 
+/// One supplied file: (path, blob, tree, bytes).
+pub type Supplied<'a> = (&'a str, &'a str, &'a str, &'a [u8]);
+
+/// Bind with an explicit inventory (path, blob) and explicitly labelled supplied files.
+pub fn run_raw(
+    expected: &[(&str, &str)],
+    supplied: &[Supplied<'_>],
+    schema: &SchemaIndex,
+    input: &DocumentInput,
+) -> BindingsDocument {
+    let expected: Vec<_> = expected
+        .iter()
+        .map(|(path, blob)| ExpectedFile { path, blob })
+        .collect();
+    let blobs: Vec<_> = supplied
+        .iter()
+        .map(|(path, blob, tree, bytes)| SourceBlob {
+            tree,
+            path,
+            blob,
+            bytes,
+        })
+        .collect();
+    bind_producer(
+        &ProducerInputs {
+            input,
+            expected: &expected,
+            files: &blobs,
+        },
+        schema,
+        &ProducerOptions::default(),
+    )
+    .expect("annotation adapter runs")
+}
+
 /// Bind `files` (path, bytes) against `schema`; each file is expected under `blob:<path>`.
 pub fn run(files: &[(&str, &[u8])], schema: &SchemaIndex) -> BindingsDocument {
+    run_with_input(files, schema, &input())
+}
+
+pub fn run_with_input(
+    files: &[(&str, &[u8])],
+    schema: &SchemaIndex,
+    input: &DocumentInput,
+) -> BindingsDocument {
     let ids: Vec<String> = files.iter().map(|(path, _)| blob_id(path)).collect();
     let expected: Vec<_> = files
         .iter()
@@ -109,10 +165,9 @@ pub fn run(files: &[(&str, &[u8])], schema: &SchemaIndex) -> BindingsDocument {
             bytes,
         })
         .collect();
-    let input = input();
     bind_producer(
         &ProducerInputs {
-            input: &input,
+            input,
             expected: &expected,
             files: &blobs,
         },
@@ -225,5 +280,46 @@ pub fn assert_wire_round_trip(doc: &BindingsDocument) {
     assert_eq!(
         serde_json::to_value(&decoded).unwrap(),
         serde_json::to_value(doc).unwrap()
+    );
+}
+
+/// The document validates against the published bindings JSON Schema (Draft 2020-12), through
+/// the same Python route the wire tests use (PRISM_BOUNDARY_SCHEMA_PYTHON names an interpreter
+/// with `jsonschema`).
+pub fn assert_schema_valid(doc: &BindingsDocument) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let load = |kind: &str| -> serde_json::Value {
+        let path = format!(
+            "{}/schemas/boundary-{kind}.schema.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+    };
+    let wire = serde_json::to_value(doc).unwrap();
+    let job = json!({"own": load("bindings"), "opposite": load("impact"),
+                     "control": wire, "instance": wire, "cross": false});
+    let python =
+        std::env::var_os("PRISM_BOUNDARY_SCHEMA_PYTHON").unwrap_or_else(|| "python3".into());
+    let mut child = Command::new(python)
+        .args(["-c", include_str!("doc_validate_schema.py")])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("python for the schema check");
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(job.to_string().as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    let verdict: serde_json::Value = serde_json::from_slice(&out.stdout)
+        .unwrap_or_else(|e| panic!("schema checker output: {e}"));
+    assert_eq!(
+        verdict["valid"],
+        json!(true),
+        "published schema refuses the document: {}",
+        verdict["error"]
     );
 }

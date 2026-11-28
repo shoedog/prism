@@ -6,6 +6,8 @@
 mod bind;
 mod directive;
 mod scan;
+#[cfg(test)]
+mod scope_tests;
 
 use crate::model::{BindingsDocument, DocumentInput, ExtractionRegion, ExtractionStatus as Status};
 use crate::revision::{Role, Scope};
