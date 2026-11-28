@@ -31,6 +31,24 @@
 //! rule, a switched-on rule the file lacks) panics naming the variable: a measurement that is
 //! misconfigured must not look like a clean baseline.
 //!
+//! Real proofs (lane 8 I-walk, `walk_proofs/`): `PRISM_TAINT_WALK_PROOFS_REAL=<rules>` applies the
+//! walk's own proof of each listed rule instead of a filed exclusion. Spellings mirror the offline
+//! replay's arms: a comma list of `i`, `ii`, ..., `i-v` (i to v) or `all`; a trailing `+unknown`
+//! also refuses a crossing the proof cannot decide (fail closed), otherwise only a proved
+//! refusal refuses. Only rules `i` and `ii` are implemented; another panics naming it. A rule
+//! named in both this variable and `PRISM_TAINT_WALK_PROOFS` is a misconfiguration. With a real
+//! rule on, a crossing whose endpoint files the walk's view does not hold (a graph-only entry)
+//! is refused `no_matching_site`; local flow is untouched.
+//! `PRISM_TAINT_WALK_PROOFS_COMPARE=1` is observational: it never changes the walk, and prints
+//! for every crossing the base gate admitted one stderr line per implemented rule,
+//! `taint-walk-proof-compare rule=<r> relation=<R> from=<key> to=<key> root=<key>
+//! verdict=proved|refused|unknown|unsupported reason=<r> family=<f>` (keys as the crossing
+//! ledger prints them). A ReturnFlow crossing prints `relation=ReturnFlow verdict=unsupported
+//! family=return_proofs_pending` until the return proofs land. `+unknown` with no rule is a
+//! misconfiguration (panics naming the variable). With a real rule on, a recursive Use binding
+//! (an actual of a self-call bound straight to a read of the same owner) is refused
+//! `self_param`, as the self-call descent it is.
+//!
 //! Scope: the primary and bypass walks (`taint_trace_from_root`, used by trace-review and
 //! navigation). The legacy flat taint walk of the default review is intentionally NOT affected.
 
@@ -42,10 +60,14 @@ use std::sync::OnceLock;
 use petgraph::graph::NodeIndex;
 use serde::Deserialize;
 
+use super::walk_proofs::{self, ProofCtx, Verdict};
 use super::{CodePropertyGraph, LossReason, Relation};
 
 const SWITCHES: &str = "PRISM_TAINT_WALK_PROOFS";
 const FILE: &str = "PRISM_TAINT_WALK_PROOFS_FILE";
+const REAL: &str = "PRISM_TAINT_WALK_PROOFS_REAL";
+const COMPARE: &str = "PRISM_TAINT_WALK_PROOFS_COMPARE";
+const COMPARE_LINE: &str = "taint-walk-proof-compare ";
 const SUMMARY: &str = "taint-walk-proofs ";
 
 /// A variable's value; unset is `None`, a value that is not UTF-8 is an error naming it.
@@ -97,7 +119,7 @@ pub(super) fn check_walk_proofs() {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Rule {
+pub(super) enum Rule {
     I,
     Ii,
     Iii,
@@ -118,7 +140,12 @@ impl Rule {
         Rule::ReturnInput,
     ];
 
-    fn name(self) -> &'static str {
+    /// Whether the walk computes this rule's proof itself (`PRISM_TAINT_WALK_PROOFS_REAL`).
+    fn implemented(self) -> bool {
+        matches!(self, Rule::I | Rule::Ii)
+    }
+
+    pub(super) fn name(self) -> &'static str {
         match self {
             Rule::I => "i",
             Rule::Ii => "ii",
@@ -200,10 +227,72 @@ struct RuleSet {
     dropped: usize,
 }
 
+impl RuleSet {
+    /// Does a filed exclusion name this hop, under this root or under every root?
+    fn contains(&self, from: &str, to: &str, root: &str) -> bool {
+        let hop = |root| (from.to_owned(), to.to_owned(), root);
+        self.entries.contains(&hop(None)) || self.entries.contains(&hop(Some(root.to_owned())))
+    }
+}
+
 /// The switched-on rules and their filed exclusions.
 #[derive(Debug)]
 pub(super) struct WalkProofs {
     rules: Vec<RuleSet>,
+    real: RealRules,
+    compare: bool,
+}
+
+/// The rules whose proof the walk computes, and whether an undecided proof also refuses.
+#[derive(Debug, Default)]
+struct RealRules {
+    rules: BTreeSet<Rule>,
+    unknown: bool,
+}
+
+/// `<rules>[+unknown]` of `PRISM_TAINT_WALK_PROOFS_REAL`; every rule must be implemented.
+fn parse_real(value: Option<&str>) -> Result<RealRules, String> {
+    let value = value.unwrap_or_default().trim();
+    let (list, unknown) = value
+        .strip_suffix("+unknown")
+        .map_or((value, false), |list| (list, true));
+    let mut rules = BTreeSet::new();
+    for item in list
+        .split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+    {
+        match item {
+            "all" => rules.extend(Rule::ALL),
+            "i-v" => rules.extend(&Rule::ALL[..5]),
+            _ => {
+                rules.insert(Rule::parse(item).ok_or_else(|| {
+                    format!("{REAL}: unknown rule `{item}` (expected i, ii, iii, iv, v, return_flow, return_input, i-v or all, optionally followed by +unknown)")
+                })?);
+            }
+        }
+    }
+    if let Some(rule) = rules.iter().find(|rule| !rule.implemented()) {
+        return Err(format!(
+            "{REAL}: rule `{}` is not implemented in this binary",
+            rule.name()
+        ));
+    }
+    if unknown && rules.is_empty() {
+        return Err(format!(
+            "{REAL}: `+unknown` needs at least one rule before it (got `{value}`)"
+        ));
+    }
+    Ok(RealRules { unknown, rules })
+}
+
+/// `PRISM_TAINT_WALK_PROOFS_COMPARE`: `1` on, unset, empty or `0` off.
+fn parse_compare(value: Option<&str>) -> Result<bool, String> {
+    match value.map(str::trim) {
+        None | Some("") | Some("0") => Ok(false),
+        Some("1") => Ok(true),
+        Some(other) => Err(format!("{COMPARE}: expected 1 or 0, got `{other}`")),
+    }
 }
 
 /// The rules a switch list turns on; empty when it is unset, blank or only separators.
@@ -232,9 +321,34 @@ impl WalkProofs {
         file_text: Option<&str>,
         switches: Option<&str>,
     ) -> Result<Option<Self>, String> {
+        Self::from_parts_real(file_text, switches, None, false)
+    }
+
+    /// [`Self::from_parts`] with the real-proof list and compare mode. File rules need their
+    /// file; real rules and compare mode need none.
+    pub(super) fn from_parts_real(
+        file_text: Option<&str>,
+        switches: Option<&str>,
+        real: Option<&str>,
+        compare: bool,
+    ) -> Result<Option<Self>, String> {
         let on = parse_switches(switches)?;
-        if on.is_empty() {
+        let real = parse_real(real)?;
+        if let Some(rule) = on.intersection(&real.rules).next() {
+            return Err(format!(
+                "{REAL} and {SWITCHES} both switch rule `{}` on",
+                rule.name()
+            ));
+        }
+        if on.is_empty() && real.rules.is_empty() && !compare {
             return Ok(None);
+        }
+        if on.is_empty() {
+            return Ok(Some(Self {
+                rules: Vec::new(),
+                real,
+                compare,
+            }));
         }
         let text = file_text.ok_or_else(|| {
             format!("{SWITCHES} is set but {FILE} is not: the walk proofs need their file")
@@ -274,7 +388,11 @@ impl WalkProofs {
                 dropped,
             });
         }
-        Ok(Some(Self { rules }))
+        Ok(Some(Self {
+            rules,
+            real,
+            compare,
+        }))
     }
 
     /// The proofs the two variables describe. `Ok(None)` when no rule is on (the file is then not
@@ -284,7 +402,19 @@ impl WalkProofs {
         file: Option<OsString>,
         switches: Option<OsString>,
     ) -> Result<Option<Self>, String> {
+        Self::from_env(file, switches, None, None)
+    }
+
+    /// [`Self::from_env_values`] with the real-proof list and compare mode.
+    pub(super) fn from_env(
+        file: Option<OsString>,
+        switches: Option<OsString>,
+        real: Option<OsString>,
+        compare: Option<OsString>,
+    ) -> Result<Option<Self>, String> {
         let switches = utf8(SWITCHES, switches)?;
+        let real = utf8(REAL, real)?;
+        let compare = parse_compare(utf8(COMPARE, compare)?.as_deref())?;
         let on = parse_switches(switches.as_deref())?;
         // The file path is decoded and read only when a rule is on, exactly as `from_parts`
         // decides: off, a stray FILE value (even a non-UTF-8 one) is inert.
@@ -295,13 +425,19 @@ impl WalkProofs {
             ),
             None => None,
         };
-        Self::from_parts(text.as_deref(), switches.as_deref())
+        Self::from_parts_real(
+            text.as_deref(),
+            switches.as_deref(),
+            real.as_deref(),
+            compare,
+        )
     }
 
     /// One line per switched-on rule: the filed entries kept, and those dropped because their
     /// relation is not the rule's.
     pub(super) fn summary(&self) -> String {
-        self.rules
+        let mut lines: String = self
+            .rules
             .iter()
             .map(|set| {
                 format!(
@@ -311,14 +447,34 @@ impl WalkProofs {
                     set.dropped
                 )
             })
-            .collect()
+            .collect();
+        if !self.real.rules.is_empty() || self.compare {
+            let rules: Vec<_> = self.real.rules.iter().map(|rule| rule.name()).collect();
+            lines.push_str(&format!(
+                "{SUMMARY}real={} unknown={} compare={}\n",
+                rules.join(","),
+                self.real.unknown,
+                self.compare
+            ));
+        }
+        lines
     }
 
     /// Loads the proofs from the given environment values and prints their summary to stderr;
     /// panics on a misconfiguration (loud on purpose).
     pub(super) fn load(file: Option<OsString>, switches: Option<OsString>) -> Option<Self> {
-        let proofs =
-            Self::from_env_values(file, switches).unwrap_or_else(|message| panic!("{message}"));
+        Self::load_env(file, switches, None, None)
+    }
+
+    /// [`Self::load`] with the real-proof list and compare mode.
+    pub(super) fn load_env(
+        file: Option<OsString>,
+        switches: Option<OsString>,
+        real: Option<OsString>,
+        compare: Option<OsString>,
+    ) -> Option<Self> {
+        let proofs = Self::from_env(file, switches, real, compare)
+            .unwrap_or_else(|message| panic!("{message}"));
         if let Some(proofs) = &proofs {
             // A diagnostic only: it has no bearing on the walk.
             let _ = std::io::stderr()
@@ -332,7 +488,14 @@ impl WalkProofs {
     pub(super) fn global() -> Option<&'static WalkProofs> {
         static PROOFS: OnceLock<Option<WalkProofs>> = OnceLock::new();
         PROOFS
-            .get_or_init(|| Self::load(std::env::var_os(FILE), std::env::var_os(SWITCHES)))
+            .get_or_init(|| {
+                Self::load_env(
+                    std::env::var_os(FILE),
+                    std::env::var_os(SWITCHES),
+                    std::env::var_os(REAL),
+                    std::env::var_os(COMPARE),
+                )
+            })
             .as_ref()
     }
 
@@ -347,32 +510,137 @@ impl WalkProofs {
         self.rules
             .iter()
             .filter(|set| set.rule.relation() == relation)
-            .find(|set| {
-                let hop = |root| (from.to_owned(), to.to_owned(), root);
-                set.entries.contains(&hop(None))
-                    || set.entries.contains(&hop(Some(root.to_owned())))
-            })
+            .find(|set| set.contains(from, to, root))
             .map(|set| set.rule.reason())
     }
 }
 
-impl CodePropertyGraph {
-    /// Whether a switched-on walk-proof rule refuses the hop `from -> to` under `root`; `None`
-    /// (one `Option` test) when no switch is on.
-    pub(super) fn walk_proof_refusal(
+impl WalkProofs {
+    /// The reason the first switched-on rule, in rule order, refuses the hop: a filed rule by its
+    /// exclusions, a real rule by its proof. Compare mode prints first and never refuses.
+    fn verdicts(
         &self,
+        cpg: &CodePropertyGraph,
+        ctx: &mut ProofCtx<'_>,
+        relation: Relation,
+        (from, to, root): (NodeIndex, NodeIndex, NodeIndex),
+    ) -> Option<LossReason> {
+        if self.compare {
+            match relation {
+                Relation::CallDescent => self.print_compare(cpg, ctx, (from, to, root)),
+                Relation::ReturnFlow => Self::print_compare_return(cpg, (from, to, root)),
+                _ => {}
+            }
+        }
+        let crossing = matches!(relation, Relation::CallDescent | Relation::ReturnFlow);
+        for rule in Rule::ALL {
+            if let Some(set) = self.rules.iter().find(|set| set.rule == rule) {
+                if rule.relation() == relation
+                    && set.contains(
+                        &cpg.trace_key(from),
+                        &cpg.trace_key(to),
+                        &cpg.trace_key(root),
+                    )
+                {
+                    return Some(rule.reason());
+                }
+            } else if self.real.rules.contains(&rule) && crossing {
+                // A crossing no parsed file can vouch for is refused, whatever the rule.
+                if ctx.evidence(cpg, from, to).is_none() {
+                    return Some(LossReason::NoMatchingSite);
+                }
+                if rule.relation() != relation {
+                    continue;
+                }
+                match walk_proofs::prove(rule, cpg, ctx, relation, from, to) {
+                    Verdict::Proved(_) => {}
+                    Verdict::Refused(reason, _) => return Some(reason),
+                    Verdict::Unknown(_) if self.real.unknown => {
+                        return Some(LossReason::NoMatchingSite)
+                    }
+                    Verdict::Unknown(_) => {}
+                }
+            }
+        }
+        None
+    }
+
+    /// One stderr line per implemented rule for an accepted return crossing. The walk has no
+    /// proof for the return relation yet (it needs relation-aware records), so the verdict is
+    /// an explicit `unsupported`, never a silent gap in the table.
+    fn print_compare_return(
+        cpg: &CodePropertyGraph,
+        (from, to, root): (NodeIndex, NodeIndex, NodeIndex),
+    ) {
+        let keys = format!(
+            "from={:?} to={:?} root={:?}",
+            cpg.trace_key(from),
+            cpg.trace_key(to),
+            cpg.trace_key(root)
+        );
+        for rule in Rule::ALL.into_iter().filter(|rule| rule.implemented()) {
+            let _ = writeln!(
+                std::io::stderr().lock(),
+                "{COMPARE_LINE}rule={} relation=ReturnFlow {keys} verdict=unsupported reason=- family=return_proofs_pending",
+                rule.name()
+            );
+        }
+    }
+
+    /// One stderr line per implemented rule: its verdict for a crossing the base gate admitted.
+    fn print_compare(
+        &self,
+        cpg: &CodePropertyGraph,
+        ctx: &mut ProofCtx<'_>,
+        (from, to, root): (NodeIndex, NodeIndex, NodeIndex),
+    ) {
+        let keys = format!(
+            "from={:?} to={:?} root={:?}",
+            cpg.trace_key(from),
+            cpg.trace_key(to),
+            cpg.trace_key(root)
+        );
+        for rule in Rule::ALL.into_iter().filter(|rule| rule.implemented()) {
+            let verdict = walk_proofs::prove(rule, cpg, ctx, Relation::CallDescent, from, to);
+            let (kind, reason, family) = verdict.describe();
+            // A diagnostic only: it has no bearing on the walk, including when stderr is closed.
+            let _ = writeln!(
+                std::io::stderr().lock(),
+                "{COMPARE_LINE}rule={} relation=CallDescent {keys} verdict={kind} reason={reason} family={family}",
+                rule.name()
+            );
+        }
+    }
+}
+
+impl CodePropertyGraph {
+    /// With a real rule on, the crossing kind of a recursive Use binding the ordinary crossing
+    /// test does not see (a graph-only guarantee DESIGN 5.2 needs: such a hop is a
+    /// `self_param` exit, never local flow). `None` (one `Option` test) when no real rule is
+    /// on, so the walk without one is exactly main's.
+    pub(super) fn walk_proof_self_binding(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        relation: Relation,
+    ) -> Option<super::BoundaryKind> {
+        with_proofs(|proofs| {
+            proofs.filter(|proofs| !proofs.real.rules.is_empty())?;
+            self.is_recursive_use_binding(from, to, relation)
+                .then_some(super::BoundaryKind::SelfFunctionParam)
+        })
+    }
+
+    /// The reason a switched-on walk-proof rule (filed or real) refuses the hop `from -> to`
+    /// under `root`; `None` (one `Option` test) when no switch is on.
+    pub(super) fn walk_proof_verdicts(
+        &self,
+        ctx: &mut ProofCtx<'_>,
         relation: Relation,
         from: NodeIndex,
         to: NodeIndex,
         root: NodeIndex,
     ) -> Option<LossReason> {
-        with_proofs(|proofs| {
-            proofs?.refusal_for_keys(
-                relation,
-                &self.trace_key(from),
-                &self.trace_key(to),
-                &self.trace_key(root),
-            )
-        })
+        with_proofs(|proofs| proofs?.verdicts(self, ctx, relation, (from, to, root)))
     }
 }

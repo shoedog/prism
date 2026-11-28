@@ -154,6 +154,23 @@ mod trace_proofs_tests;
 mod trace_proofs_walk_tests;
 mod types;
 pub(crate) mod var_index;
+mod walk_proofs;
+#[cfg(test)]
+mod walk_proofs_cover2_tests;
+#[cfg(test)]
+mod walk_proofs_cover_tests;
+#[cfg(test)]
+mod walk_proofs_fold1_cfg_tests;
+#[cfg(test)]
+mod walk_proofs_fold1_tests;
+#[cfg(test)]
+mod walk_proofs_fold2_tests;
+#[cfg(test)]
+mod walk_proofs_golden_tests;
+#[cfg(test)]
+mod walk_proofs_limits_tests;
+#[cfg(test)]
+mod walk_proofs_tests;
 
 // Items the test module reaches via `use super::*;`. On the original
 // single-file module these were ordinary top-of-file imports; re-export them
