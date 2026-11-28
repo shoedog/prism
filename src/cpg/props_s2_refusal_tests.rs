@@ -123,7 +123,16 @@ fn props_s2_inventory_ignores_nondirect_and_jsx_only_sources() {
         } else {
             exact_site(&built, "App", "D");
         }
-        assert_eq!(check(&built, &[], &[("sites_literal", 0)]), Ok(()), "{name}");
+        let (edges, jsx_sites): (&[&str], _) = if name == "jsx-only" {
+            (&["App:x@5 -> D:a@1(def)"], 1)
+        } else {
+            (&[], 0)
+        };
+        assert_eq!(
+            check(&built, edges, &[("sites_literal", 0), ("sites_jsx", jsx_sites)]),
+            Ok(()),
+            "{name}"
+        );
     }
 }
 

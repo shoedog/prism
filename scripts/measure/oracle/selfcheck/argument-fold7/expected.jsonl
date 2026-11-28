@@ -1,0 +1,2 @@
+{"key":{"from":{"base":"w","end_byte":106,"fields":[],"file":"ctor.ts","line":2,"start_byte":105},"to":{"base":"p","end_byte":23,"fields":[],"file":"ctor.ts","line":1,"start_byte":22}},"property":"implementation-slot","relation":"argument_binding","verdict":"WRONG"}
+{"key":{"from":{"base":"w","end_byte":106,"fields":[],"file":"ctor.ts","line":2,"start_byte":105},"to":{"base":"p","end_byte":47,"fields":[],"file":"ctor.ts","line":1,"start_byte":46}},"property":"implementation-slot","relation":"argument_binding","verdict":"CORRECT"}

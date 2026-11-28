@@ -20,6 +20,13 @@ mod callee_returns;
 #[path = "e5_trace.rs"]
 mod e5_trace;
 
+#[path = "jsx_props.rs"]
+mod jsx_props;
+
+#[cfg(test)]
+#[path = "jsx_plain_read_tests.rs"]
+mod jsx_plain_read_tests;
+
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
 
@@ -1677,6 +1684,7 @@ impl CodePropertyGraph {
         let mut param_cache: BTreeMap<FunctionId, callee_params::FactCell> = BTreeMap::new();
         let trace_bare = bare_param_admission::trace_enabled();
         let trace_builtin = builtin_callbacks::diagnostic::enabled();
+        let jsx = jsx_props::Collector::new(cg, caller_parsed, graph, var_index, exact_var_index);
         for site in sites {
             if let Some(parsed) = files.get(&caller_id.file) {
                 builtin_callbacks::collect(
@@ -1690,7 +1698,13 @@ impl CodePropertyGraph {
                     trace_builtin,
                 );
             }
-            let resolved_site = cg.resolve_call_site(site);
+            let Some(resolved_site) = jsx.resolve_site(
+                site,
+                &mut output,
+                jsx_props::Patterns::Cached(shared_params),
+            ) else {
+                continue;
+            };
             let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
             let mut traced = trace_bare.then(bare_param_admission::TraceKeys::default);
             let mut call_args = None;

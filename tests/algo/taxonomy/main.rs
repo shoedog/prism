@@ -10,6 +10,7 @@ mod sanitizers_test;
 mod taint_cross_file_source_test;
 mod taint_cve_test;
 mod taint_interprocedural_test;
+mod taint_jsx_props_test;
 mod taint_lang_test;
 mod taint_member_only_param_test;
 mod taint_parity_test;
