@@ -5,8 +5,8 @@ use crate::ast::ParsedFile;
 use crate::call_graph::c::macro_census::CMacroCensus;
 use crate::call_graph::rust::macro_args::RustMacroCensus;
 use crate::cpg::{
-    reaching_definitions_with_exact, FileCfgEdgeIndex, FlowConfidence, FlowDoubt, RdFileStats,
-    RdOutcome,
+    reaching_definitions_with_exact, ElementFinal, ElementTrace, FileCfgEdgeIndex, FlowConfidence,
+    FlowDoubt, RdFileStats, RdOutcome,
 };
 use crate::data_flow::s1_evidence::{CapKind, FileEvidence, Refusal};
 use crate::data_flow::{ExactFlowEdge, FlowEdge, VarAccessKind, VarLocation};
@@ -98,6 +98,8 @@ impl Producer {
         let declared_types = std::cell::OnceCell::new();
         // The exposed-owner test of the C/C++ rules (#829 G10), read once per file.
         let c_file_parens = std::cell::OnceCell::new();
+        // Lane 10 diagnostics: Some only for Python with PRISM_ELEMENT_RECALL_TRACE=1.
+        let mut element_trace = ElementTrace::begin(file_path, parsed);
         let mut owner_counts = BTreeMap::new();
         for func_node in &function_nodes {
             // js-param-defs PR-B: anonymous JS/TS/TSX callables own a
@@ -454,6 +456,9 @@ impl Producer {
                         && !parsed.js_ts_span_in_with_body(span.start_byte, span.end_byte)
                         && !refused_occurrence(&span.path, span.start_byte)
                 });
+            }
+            if let Some(trace) = element_trace.as_mut() {
+                trace.owner(&func_name, start, &lvalue_spans, &rvalue_spans);
             }
             let mut preferred_use_locs: BTreeMap<(AccessPath, usize), VarLocation> =
                 BTreeMap::new();
@@ -898,6 +903,7 @@ impl Producer {
                         }
                         rd_function_stats.record_fallback_capped(func_name.clone(), start, func_node.start_byte(), emission.count());
                         crate::cpg::record_go_recall_skip(parsed, func_node, selected_rd, reason, &mut rd_function_stats);
+                        if let Some(t) = element_trace.as_mut() { t.rd(parsed, &func_node, selected_rd, &[], Some((reason, true))); }
                         owner_capped = true;
                         break 'select_owner;
                     }
@@ -967,6 +973,7 @@ impl Producer {
             );
             match outcome {
                 RdOutcome::Available(result) => {
+                    if let Some(t) = element_trace.as_mut() { t.rd(parsed, &func_node, &rd_defs, function_edges, None); }
                     if super::owner_labels::reference_paths() {
                         #[cfg(test)]
                         Self::store_supplemental_exact_frozen(
@@ -994,11 +1001,14 @@ impl Producer {
                         recall.emit(&mut uses, &mut edges, &mut labels, &mut rd_function_stats, func_node, &func_name);
                     }
                 }
-                RdOutcome::Unavailable(reason) => Self::record_unavailable_owner(
-                    parsed, func_node, &func_name, start, label_defs, function_edges,
-                    &exact_candidates, reason, owner_is_unique, &mut labels, &mut exact_labels,
-                    &mut rd_function_stats,
-                ),
+                RdOutcome::Unavailable(reason) => {
+                    if let Some(t) = element_trace.as_mut() { t.rd(parsed, &func_node, &rd_defs, function_edges, Some((reason, false))); }
+                    Self::record_unavailable_owner(
+                        parsed, func_node, &func_name, start, label_defs, function_edges,
+                        &exact_candidates, reason, owner_is_unique, &mut labels, &mut exact_labels,
+                        &mut rd_function_stats,
+                    )
+                }
             }
             super::pattern_seam::apply_relocations(
                 &mut edges[function_edge_start..legacy_edge_end], &mut uses, relocations,
@@ -1028,6 +1038,9 @@ impl Producer {
             }
         }
 
+        if let Some(trace) = element_trace {
+            trace.finish(file_path, parsed, ElementFinal { defs: &defs, uses: &uses, edges: &edges, labels: &labels, exact: &exact_labels });
+        }
         FileRefs {
             file_path: file_path.clone(),
             defs,
