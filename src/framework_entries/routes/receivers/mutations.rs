@@ -220,7 +220,7 @@ impl<'a> AttributeWrites<'a> {
                 });
                 if let Some((child, child_allocation)) = blueprint {
                     if let PythonValue::Router(parent) =
-                        bindings.value_at(&file.path, object, &context)
+                        bindings.capture_value(&file.path, object, &context)
                     {
                         mounts
                             .entry(allocation(&parent))

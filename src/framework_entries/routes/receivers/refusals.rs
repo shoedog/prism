@@ -1,6 +1,6 @@
 //! Counted refusals of the Python static import binding rule (DESIGN section 5.3).
 
-use super::{ParsedFile, PythonBindings};
+use super::{ParsedFile, PythonBindings, Reason};
 use std::{cell::RefCell, collections::BTreeMap};
 use tree_sitter::Node;
 
@@ -25,7 +25,22 @@ pub(crate) enum ImportRefusalReason {
     ClassBodyImport,
 }
 
-#[allow(dead_code)]
+impl From<ImportRefusalReason> for Reason {
+    fn from(reason: ImportRefusalReason) -> Self {
+        match reason {
+            ImportRefusalReason::GetattrModule => Self::GetattrModule,
+            ImportRefusalReason::StarImport => Self::StarImport,
+            ImportRefusalReason::GlobalWrite => Self::GlobalWrite,
+            ImportRefusalReason::MultiWrite => Self::MultiWrite,
+            ImportRefusalReason::NestedSingle => Self::NestedSingle,
+            ImportRefusalReason::SubmoduleShadow => Self::SubmoduleShadow,
+            ImportRefusalReason::ModuleDescriptorName => Self::ModuleDescriptorName,
+            ImportRefusalReason::ClassPrivateName => Self::ClassPrivateName,
+            ImportRefusalReason::ClassBodyImport => Self::ClassBodyImport,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ImportRefusal {
     pub reason: ImportRefusalReason,
@@ -52,7 +67,6 @@ impl PythonBindings<'_> {
     }
 
     /// After fact extraction, return one refusal per capture or no-effect call span.
-    #[allow(dead_code)]
     pub(crate) fn import_refusals(&self) -> Vec<ImportRefusal> {
         self.refusals
             .borrow()

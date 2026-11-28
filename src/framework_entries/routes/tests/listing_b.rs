@@ -335,3 +335,214 @@ fn summary_proven_counts_receivers_independently_of_callbacks() {
     assert_eq!(control.summary(), table.summary());
     assert_eq!(handler_proved(&control), 2);
 }
+
+#[test]
+fn fold1_unproved_receiver_has_no_flask_default() {
+    let table = listing(&[(
+        "app.py",
+        "from flask import Flask\napp = Flask(__name__)\napp = wrap(app)\napp.add_url_rule('/x', endpoint='x')\n",
+    )]);
+    let row = only_row(&table);
+    assert_withheld_receiver(row, Reason::ReceiverUnproven);
+    assert_eq!(row.default_methods, None);
+    assert_eq!(row.endpoint.as_deref(), Some("x"));
+    assert_declaration(row, "'/x'", "/x", None);
+}
+
+#[test]
+fn fold1_public_counted_refusals_use_original_spans_and_predicate_order() {
+    let source = concat!(
+        "from flask import Flask\napp = Flask(__name__)\n",
+        "from views import f as first\n",
+        "from helpers import patch\n",
+        "patch(first)\npatch((first))\n",
+        "from broken import router\n",
+        "router.add_url_rule('/lost')\n",
+        "app.add_url_rule('/x', view_func=first)\n",
+        "router = None\n",
+    );
+    let table = listing(&[
+        ("app.py", source),
+        ("views.py", "def f(): pass\n"),
+        ("helpers.py", "def patch(v): pass\ndef patch(v): pass\n"),
+        (
+            "broken.py",
+            "def __getattr__(name): raise AttributeError(name)\nrouter = None\n",
+        ),
+    ]);
+    let row = only_row(&table);
+    assert_eq!(row.default_methods, None);
+    let diagnostics = serde_json::to_value(&table.summary().diagnostics).unwrap();
+    let expected: Vec<_> = [
+        ("patch(first)", "patch(first)", "multi_write"),
+        ("patch((first))", "patch((first))", "multi_write"),
+        ("from broken import router", "router", "getattr_module"),
+    ]
+    .into_iter()
+    .map(|(enclosing, span, reason)| {
+        let at = source.find(enclosing).unwrap() + enclosing.rfind(span).unwrap();
+        serde_json::json!({
+            "site": {"file": "app.py", "start_byte": at, "end_byte": at + span.len(),
+                     "line": source[..at].bytes().filter(|&b| b == b'\n').count() + 1},
+            "reason": reason,
+        })
+    })
+    .collect();
+    assert_eq!(diagnostics, serde_json::json!(expected));
+}
+
+#[test]
+fn fold1_scope_directives_keep_traced_view_escapes() {
+    for (import, setup, callback) in [
+        ("from views import f\n", "def configure():\n    global f\n    patch(f)\n", "f"),
+        ("import views\n", "def configure():\n    from views import f\n    def inner():\n        nonlocal f\n        patch(f)\n    inner()\n", "views.f"),
+    ] {
+        for (patch, expected) in [
+            ("def patch(v): v.methods = ['POST']\n", None),
+            ("def patch(v): pass\n", Some(MethodSet::known(["GET"]))),
+        ] {
+            let source = format!(
+                "from flask import Flask\napp = Flask(__name__)\n{import}from helpers import patch\n{setup}configure()\napp.add_url_rule('/x', view_func={callback})\n"
+            );
+            let table = listing(&[
+                ("app.py", &source),
+                ("views.py", "def f(): pass\n"),
+                ("helpers.py", patch),
+            ]);
+            let row = only_row(&table);
+            assert_eq!(row.default_methods, expected, "{setup} {patch}");
+            assert!(matches!(row.callbacks[0].status, CallbackStatus::Resolved { .. }));
+            assert!(table.summary().diagnostics.is_empty());
+        }
+    }
+}
+
+#[test]
+fn fold1_comprehension_body_and_later_iterable_are_not_direct_registrations() {
+    let table = listing(&[(
+        "app.py",
+        concat!(
+            "from flask import Flask\napp = Flask(__name__)\n",
+            "def f(): pass\n",
+            "[app.add_url_rule('/body', view_func=f) for x in xs]\n",
+            "[None for x in xs for y in (app.add_url_rule('/later', view_func=f),)]\n",
+            "[None for x in (lambda: app.add_url_rule('/lambda', view_func=f),)]\n",
+        ),
+    )]);
+    assert!(table.routes().is_empty());
+}
+
+fn import_diagnostic(source: &str, enclosing: &str, span: &str, reason: Reason) -> Diagnostic {
+    let start_byte = source.find(enclosing).unwrap() + enclosing.find(span).unwrap();
+    Diagnostic {
+        site: Site {
+            file: "app.py".into(),
+            start_byte,
+            end_byte: start_byte + span.len(),
+            line: source[..start_byte].split('\n').count(),
+        },
+        reason,
+    }
+}
+
+#[test]
+fn fold1_census_applies_to_receivers_and_escape_callees() {
+    let source = concat!(
+        "from flask import Flask\napp = Flask(__name__)\n",
+        "from views import bp as router, f\nfrom helpers import patch\n",
+        "def swap():\n    global router\n    from other import bp as router\n",
+        "swap()\nrouter.add_url_rule('/lost', view_func=f)\n",
+        "patch(f)\napp.add_url_rule('/x', view_func=f)\n",
+        "patch = alternate\n",
+    );
+    let bp = "from flask import Blueprint\nbp = Blueprint('b', __name__)\ndef f(): pass\n";
+    let table = listing(&[
+        ("app.py", source),
+        ("views.py", bp),
+        ("other.py", bp),
+        ("helpers.py", "def patch(v): pass\n"),
+    ]);
+    let row = only_row(&table);
+    assert_eq!(row.default_methods, None);
+    assert!(matches!(
+        row.callbacks[0].status,
+        CallbackStatus::Resolved { .. }
+    ));
+    let refused_call = "router.add_url_rule('/lost', view_func=f)";
+    // The receiver capture and the failed callee check have distinct spans.
+    assert_eq!(
+        table.summary().diagnostics,
+        [
+            import_diagnostic(
+                source,
+                "from views import bp as router, f",
+                "bp",
+                Reason::GlobalWrite
+            ),
+            import_diagnostic(source, refused_call, refused_call, Reason::GlobalWrite),
+            import_diagnostic(source, "patch(f)", "patch(f)", Reason::MultiWrite),
+        ]
+    );
+}
+
+#[test]
+fn fold1_refused_receiver_cannot_exempt_view_or_mount_child_escapes() {
+    let source = concat!(
+        "from flask import Flask\napp = Flask(__name__)\n",
+        "from owner import upstream, child\nfrom views import f\n",
+        "def replace():\n    global upstream\n    upstream = supplied_router\n",
+        "replace()\n",
+        "upstream.add_url_rule('/dropped', view_func=f)\n",
+        "upstream.register_blueprint(child)\n",
+        "app.add_url_rule('/view', view_func=f)\n",
+    );
+    let owners = concat!(
+        "from flask import Flask, Blueprint\n",
+        "upstream = Flask(__name__)\nchild = Blueprint('b', __name__)\n",
+        "@child.get('/child')\ndef view(): pass\n",
+    );
+    let table = listing(&[
+        ("app.py", source),
+        ("owner.py", owners),
+        ("views.py", "def f(): pass\n"),
+    ]);
+    let [first, second] = table.routes() else {
+        panic!("expected only the grounded app rule and the child candidate");
+    };
+    let (view, child) = if first.site.file == "app.py" {
+        (first, second)
+    } else {
+        (second, first)
+    };
+    assert_site(
+        view,
+        "app.py",
+        source,
+        "app.add_url_rule('/view', view_func=f)",
+    );
+    assert_declaration(view, "'/view'", "/view", None);
+    assert!(matches!(view.receiver, Receiver::Router { .. }));
+    assert!(matches!(
+        view.callbacks[0].status,
+        CallbackStatus::Resolved { .. }
+    ));
+    assert_eq!(view.default_methods, None);
+    assert_site(child, "owner.py", owners, "@child.get('/child')");
+    assert_declaration(child, "'/child'", "/child", Some("GET"));
+    assert_withheld_receiver(child, Reason::ReceiverUnproven);
+    let refused_call = "upstream.add_url_rule('/dropped', view_func=f)";
+    // The registration and mount share the import span. Only the registration
+    // supplies a view argument for the separate no-effect callee check.
+    assert_eq!(
+        table.summary().diagnostics,
+        [
+            import_diagnostic(
+                source,
+                "from owner import upstream, child",
+                "upstream",
+                Reason::GlobalWrite
+            ),
+            import_diagnostic(source, refused_call, refused_call, Reason::GlobalWrite),
+        ]
+    );
+}

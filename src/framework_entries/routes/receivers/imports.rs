@@ -2,7 +2,7 @@
 use super::{
     attribute, children, direct, import_parts, python_scope,
     refusals::{Capture, ImportRefusalReason},
-    writes::{normalized, private_name, targets},
+    writes::{effective_name, normalized, private_name},
     ParsedFile, PythonBindings, PythonKind, PythonMember, PythonValue, Reason, SetupContext,
 };
 use crate::framework_entries::routes::python::ungroup;
@@ -10,6 +10,7 @@ use std::ops::Bound::{Included, Unbounded};
 use tree_sitter::Node;
 
 mod candidates;
+mod lookup;
 mod predicates;
 mod reexports;
 
@@ -25,6 +26,7 @@ struct ImportPath<'a> {
     span: Node<'a>,
     private: bool,
     alias: bool,
+    capture_key: Option<String>,
 }
 
 enum Selection<'a> {
@@ -167,8 +169,11 @@ impl<'a> PythonBindings<'a> {
         statement: Node<'a>,
         name: &str,
     ) -> Option<ImportPath<'a>> {
-        let (path, alias) = import_items(statement)
-            .find(|&(path, alias)| normalized(imported_as(file, path, alias)) == name)?;
+        let scope = python_scope(statement);
+        let (path, alias) = import_items(statement).find(|&(path, alias)| {
+            effective_name(file, scope, imported_as(file, path, alias)) == name
+        })?;
+        let local = normalized(imported_as(file, path, alias));
         let written = source_path(file, path);
         let from = statement.child_by_field_name("module_name");
         let (module, steps, span, private) = if let Some(from) = from {
@@ -200,109 +205,10 @@ impl<'a> PythonBindings<'a> {
             steps,
             statement,
             span,
-            private: private || module_spelling(&written) || private_name(name),
+            private: private || module_spelling(&written) || private_name(&local),
             alias: false,
+            capture_key: None,
         })
-    }
-
-    // This lookup is for import roots. Use the lexical name at the read and carry
-    // the import statement along so scope and diagnostic spans survive aliasing.
-    fn import_binding(
-        &self,
-        file: &ParsedFile,
-        use_node: Node<'a>,
-        name: &str,
-        context: &SetupContext<'a>,
-    ) -> Option<Node<'a>> {
-        let local = python_scope(use_node);
-        let root = file.tree.root_node();
-        let mut scope = local;
-        loop {
-            let before = if scope == local {
-                use_node.start_byte()
-            } else if scope == root {
-                self.module_before(file, context)
-            } else {
-                scope.end_byte()
-            };
-            if let Some(write) = self.reaching(file, scope, name, before) {
-                if scope == root
-                    && scope != local
-                    && self.mutations.is_some()
-                    && context.frames.is_empty()
-                    && self.reaching(file, root, name, local.start_byte()) != Some(write)
-                {
-                    // A nested read with no invocation evidence has no stable
-                    // lexical source when the outer reaching binding changes.
-                    return None;
-                }
-                return Some(write);
-            }
-            if scope == root
-                || (scope.kind() != "class_definition"
-                    && (self.reaching(file, scope, name, scope.end_byte()).is_some()
-                        || scope
-                            .child_by_field_name("parameters")
-                            .is_some_and(|parameters| {
-                                children(parameters)
-                                    .into_iter()
-                                    .flat_map(targets)
-                                    .any(|id| normalized(file.node_text(&id)) == name)
-                            })))
-            {
-                return None;
-            }
-            scope = python_scope(scope);
-            while scope.kind() == "class_definition" {
-                scope = python_scope(scope);
-            }
-        }
-    }
-
-    fn trace_import(
-        &self,
-        file: &'a ParsedFile,
-        expression: Node<'a>,
-        context: &SetupContext<'a>,
-        depth: usize,
-    ) -> Option<ImportPath<'a>> {
-        if depth == 0 {
-            return None;
-        }
-        let expression = ungroup(expression);
-        if let Some((object, name)) = attribute(expression) {
-            let mut path = self.trace_import(file, object, context, depth - 1)?;
-            let name = normalized(file.node_text(&name));
-            path.private |= private_name(&name);
-            path.steps.push(Step {
-                name: name.into_owned(),
-                read: Some(expression),
-            });
-            path.span = expression;
-            // A module alias does not alias the callable selected by an attribute read.
-            path.alias = false;
-            return Some(path);
-        }
-        if expression.kind() != "identifier" {
-            return None;
-        }
-        let name = normalized(file.node_text(&expression));
-        let binding = self.import_binding(file, expression, &name, context)?;
-        if matches!(binding.kind(), "import_statement" | "import_from_statement") {
-            return self.import_path(file, binding, &name);
-        }
-        let scope = python_scope(binding);
-        let value = assignment_alias(binding)?;
-        if !direct(binding, scope)
-            || (self.mutations.is_some()
-                && self.reaching(file, scope, &name, scope.end_byte()) != Some(binding))
-        {
-            return None;
-        }
-        let mut path = self.trace_import(file, value, context, depth - 1)?;
-        path.private |= private_name(&name);
-        path.alias = true;
-        Some(path)
     }
 
     pub(super) fn imported(
@@ -313,7 +219,13 @@ impl<'a> PythonBindings<'a> {
         depth: usize,
         capture: Capture<'a>,
     ) -> Option<PythonValue<'a>> {
-        let path = self.trace_import(file, expression, context, depth)?;
+        let path = self.trace_import_root(
+            file,
+            expression,
+            context,
+            depth,
+            !matches!(capture, Capture::Silent),
+        )?;
         let proof = self.prove_import(file, &path, depth);
         let span = match capture {
             Capture::Silent => None,
@@ -398,6 +310,14 @@ impl<'a> PythonBindings<'a> {
             proof.apply(hop.reason);
             established &= hop.established;
             current = hop.target;
+        }
+        if let Some(name) = &path.capture_key {
+            let writes = &self.writes[file.path.as_str()];
+            if writes.competing_global(name, path.statement) {
+                proof.apply(Some(ImportRefusalReason::GlobalWrite));
+            } else if writes.capture_sites(name) != [path.statement] {
+                proof.apply(Some(ImportRefusalReason::MultiWrite));
+            }
         }
         if path.private {
             proof.apply(Some(ImportRefusalReason::ClassPrivateName));
@@ -581,10 +501,10 @@ impl<'a> PythonBindings<'a> {
             return value;
         }
         let node = ungroup(node);
-        let name = normalized(file.node_text(&node));
+        let name = effective_name(file, python_scope(node), file.node_text(&node));
         if node.kind() == "identifier"
             && self
-                .import_binding(file, node, &name, &context)
+                .import_binding(file, node, &name, &context, false)
                 .is_some_and(|write| write.kind() == "function_definition")
         {
             return self.value_at(&file.path, node, &context);

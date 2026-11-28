@@ -62,6 +62,15 @@ pub enum Reason {
     Superseded,
     DispatchConflict,
     EntryUnproven,
+    GetattrModule,
+    StarImport,
+    GlobalWrite,
+    MultiWrite,
+    NestedSingle,
+    SubmoduleShadow,
+    ModuleDescriptorName,
+    ClassPrivateName,
+    ClassBodyImport,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
@@ -590,10 +599,24 @@ pub fn routes(
         })
         .collect();
 
+    let diagnostics = bindings
+        .import_refusals()
+        .into_iter()
+        .map(|refusal| Diagnostic {
+            site: Site {
+                line: files[&refusal.file].line_for_byte(refusal.start_byte),
+                file: refusal.file,
+                start_byte: refusal.start_byte,
+                end_byte: refusal.end_byte,
+            },
+            reason: refusal.reason.into(),
+        })
+        .collect();
+
     Ok(RouteTable::new(
         registrations,
         vec![],
-        vec![],
+        diagnostics,
         vec![],
         [Framework::Flask],
     ))

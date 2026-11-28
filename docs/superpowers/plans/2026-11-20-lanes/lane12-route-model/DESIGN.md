@@ -140,6 +140,8 @@ method_value_external func_field_value qualified_function_value method_expressio
 hapi_route_not_literal hapi_handler_object hapi_handler_conflict`,
 and `runtime_generated_registration unsupported_registration build_only superseded dispatch_conflict entry_unproven`. All query errors, including malformed selectors, missing exports and ambiguous roots, use entry_unproven. A diagnostic has a site and reason, not a
 fabricated path. Accepted-loss descriptions in the matrix are audit notes; the enum is the wire contract.
+The public Flask summary carries counted import refusals as `{site,reason}` diagnostics in the
+precedence specified in §5.3. Role-only reasons such as `terminal_reexport` stay on the affected record.
 
 ### 5.2 Composition, ordering and comparison
 
@@ -277,7 +279,9 @@ Source-only pins still compare the declaration and written callback. Explicit se
 supported view metadata writes, endpoint decorators and Blueprint view-map merges. For mutation of the
 `view_functions` mapping itself, d2-14 covers only direct `X.view_functions[key] = v`. App registry
 `.update`, `.pop`, `del` on an entry and writes through a `view_functions` alias are out-of-model mutations
-pinned as `KNOWN_LIMIT` in fk-26–29.
+pinned as `KNOWN_LIMIT` in fk-26–29. The direct-store barrier applies only when lexical evidence traces
+`X` to a router allocation. A parameter, `current_app` or `self.app` with no traced allocation can
+hide a registry write. This is a known limit with zero runtime credit for affected dispatch claims.
 
 **Static import binding (controller decision, Option 1).** `PROVEN` for an imported router, view or
 no-effect callee means that the source import, in its lexical scope, identifies one eligible router

@@ -3,8 +3,9 @@
 //!
 //! Skipped clauses per row (checkpoint 2): the dispatch binding and full-exposure clauses of
 //! every row here (rows whose proof is "same as fk-c02/fk-c03" include them by reference) and
-//! every native observation. Not skipped: receiver, path, callback, endpoint, methods. fk-c82, fk-c83 and fk-c84 register inside a method or class body, which
-//! `flask_facts` does not visit, so they assert only the empty refusal multiset.
+//! every native observation. The tests pin receiver, path, callback, endpoint and methods.
+//! fk-c83 and fk-c84 assert only the empty refusal multiset because the indirect nested
+//! function and class body stay inactive.
 use super::*;
 
 /// The `@app.get('/x')` proof of fk-c01 and the KNOWN_LIMIT rows that compare to it.
@@ -577,7 +578,7 @@ fn fk_c82() {
         ),
         ("views.py", FK82_VIEWS),
     ]);
-    check(&files, "app.py", nothing(), &[]);
+    check(&files, "app.py", explicit_x("views.py", "f"), &[]);
 }
 
 #[test]

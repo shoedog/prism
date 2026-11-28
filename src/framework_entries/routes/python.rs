@@ -238,6 +238,27 @@ pub(crate) fn walk(root: Node<'_>) -> Vec<Node<'_>> {
     nodes
 }
 
+pub(super) fn comprehension(node: Node<'_>) -> bool {
+    matches!(
+        node.kind(),
+        "list_comprehension"
+            | "set_comprehension"
+            | "dictionary_comprehension"
+            | "generator_expression"
+    )
+}
+
+pub(super) fn first_iterable(clause: Node<'_>) -> bool {
+    clause.kind() == "for_in_clause"
+        && clause.parent().is_some_and(|parent| {
+            comprehension(parent)
+                && children(parent)
+                    .into_iter()
+                    .find(|node| node.kind() == "for_in_clause")
+                    == Some(clause)
+        })
+}
+
 pub(crate) fn ungroup(mut node: Node<'_>) -> Node<'_> {
     while node.kind() == "parenthesized_expression" {
         let Some(inner) = children(node).first().copied() else {

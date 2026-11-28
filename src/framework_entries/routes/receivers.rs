@@ -209,7 +209,7 @@ fn unproven(entry: &str) -> EntryError {
     }
 }
 
-use super::python::{arguments, attribute, children, walk};
+use super::python::{arguments, attribute, children, comprehension, first_iterable, walk};
 use super::Framework;
 use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
@@ -302,6 +302,15 @@ pub(crate) fn python_scope(node: Node<'_>) -> Node<'_> {
         {
             return parent;
         }
+        if comprehension(parent)
+            && !(first_iterable(child)
+                && child != node
+                && child
+                    .child_by_field_name("right")
+                    .is_some_and(|right| node.start_byte() >= right.start_byte()))
+        {
+            return parent;
+        }
         child = parent;
     }
     child
@@ -338,9 +347,12 @@ impl<'a> PythonBindings<'a> {
         name: &str,
         before: usize,
     ) -> Option<Node<'a>> {
+        let name = normalized(name);
         self.writes
             .get(file.path.as_str())?
-            .reaching(scope, name, before)
+            .reaching(scope, &name, before, |star| {
+                self.star_could_supply(file, star, &name, &mut vec![file.path.as_str()])
+            })
     }
 
     fn named(
@@ -353,6 +365,8 @@ impl<'a> PythonBindings<'a> {
     ) -> PythonValue<'a> {
         let unknown = PythonValue::Unknown(Reason::ReceiverUnproven);
         let scope = python_scope(use_node);
+        let name = writes::effective_name(file, scope, name);
+        let name = name.as_ref();
         if depth == 0 || scope.kind() == "lambda" || self.has_global_write(file, name) {
             return unknown;
         }

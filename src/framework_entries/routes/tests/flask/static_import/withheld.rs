@@ -4,8 +4,8 @@
 //! - dispatch binding withheld: fk-23, fk-41, fk-42, fk-46, fk-52, fk-60, fk-61, fk-62, fk-63,
 //!   fk-65 (dependent binding), fk-69, fk-70, fk-75, fk-80, fk-85
 //! - exposures empty and no binding: fk-17
-//! - fk-81, fk-82, fk-83, fk-84 register inside a class body or method, which `flask_facts`
-//!   does not visit, so they assert the refusal and an empty fact list; the retained app,
+//! - fk-81, fk-83 and fk-84 register in a class body or indirect nested function, so their
+//!   scopes stay inactive. They assert the refusal and an empty fact list. The retained app,
 //!   literal path, endpoint, written methods, unresolved callback and binding clauses are skipped
 //! - nothing skipped: fk-08, fk-13, fk-15, fk-16, fk-19, fk-20, fk-21, fk-22, fk-31, fk-33,
 //!   fk-34, fk-35, fk-36, fk-37, fk-47
@@ -579,7 +579,9 @@ fn fk_82() {
     check(
         &files,
         "app.py",
-        nothing(),
+        rules(&[withheld_view("/x", "handler")
+            .endpoint("x")
+            .declared(&["GET"])]),
         &[(
             ClassPrivateName,
             "app.py",

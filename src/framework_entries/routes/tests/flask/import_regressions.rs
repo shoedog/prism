@@ -9,7 +9,7 @@ fn each_attribute_hop_needs_evidence_in_the_capture_scope() {
         ("import pkg\n", false),
         ("import pkg\nfrom pkg.branch import routes\n", false),
         (
-            "import pkg\ndef other():\n    import pkg.branch.routes\n",
+            "import pkg\ndef other():\n    import pkg.branch.routes as nested\n",
             false,
         ),
         ("import pkg . branch . routes\n", true),
@@ -18,7 +18,7 @@ fn each_attribute_hop_needs_evidence_in_the_capture_scope() {
             true,
         ),
     ] {
-        let app = format!("{APP}{imports}app.add_url_rule('/x', view_func=pkg.branch.routes.f)\nimport pkg.branch.routes\n");
+        let app = format!("{APP}{imports}app.add_url_rule('/x', view_func=pkg.branch.routes.f)\nimport pkg.branch.routes as later\n");
         let files = parsed(&[
             ("app.py", &app),
             ("pkg/branch/routes.py", "def f(): pass\n"),

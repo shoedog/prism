@@ -9,7 +9,7 @@ impl<'a> PythonBindings<'a> {
         expression: Node<'a>,
         context: &SetupContext<'a>,
     ) -> bool {
-        let Some(path) = self.trace_import(file, expression, context, 24) else {
+        let Some(path) = self.trace_import_root(file, expression, context, 24, true) else {
             return false;
         };
         let (owner, forwarded) = match self.prove_import(file, &path, 24).selection() {

@@ -14,8 +14,10 @@ use crate::framework_entries::routes::{
 };
 use tree_sitter::Node;
 
+mod activation;
 mod metadata;
 pub(in crate::framework_entries::routes) mod registration;
+use activation::{first_iterable_call, setup_invocations};
 use metadata::view_metadata;
 
 const ADD_URL_RULE: &[&str] = &["rule", "endpoint", "view_func", "provide_automatic_options"];
@@ -181,7 +183,11 @@ pub(crate) fn flask_facts<'a>(
             !context.frames.is_empty() && factory.file.path == path && factory.node == scope
         })
     };
-    let value = |node| bindings.capture_value(path, node, context);
+    let invocations = if context.factory.is_none() {
+        setup_invocations(bindings, file)
+    } else {
+        Default::default()
+    };
     let mut facts = Vec::new();
     // Visit decorator groups in application order, and all other sites in source order.
     let sites = bindings
@@ -198,7 +204,8 @@ pub(crate) fn flask_facts<'a>(
             "call"
                 if node
                     .parent()
-                    .is_some_and(|p| p.kind() == "expression_statement") =>
+                    .is_some_and(|p| p.kind() == "expression_statement")
+                    || first_iterable_call(node) =>
             {
                 vec![node]
             }
@@ -229,6 +236,11 @@ pub(crate) fn flask_facts<'a>(
             }
             continue;
         };
+        let invocation = (!decorator && method == "add_url_rule")
+            .then(|| invocations.get(&scope.id()))
+            .flatten();
+        let context = invocation.unwrap_or(context);
+        let value = |node| bindings.capture_value(path, node, context);
         let options = arguments(call);
         if !accepted_call(file, &options, method, decorator) {
             continue;
@@ -239,7 +251,7 @@ pub(crate) fn flask_facts<'a>(
         } else {
             None
         };
-        if !active(scope) && deferred.is_none() {
+        if !active(scope) && invocation.is_none() && deferred.is_none() {
             if context.factory.is_none() {
                 // Source captures can be diagnosed without activating a lexical scope.
                 value(object);
@@ -713,7 +725,7 @@ fn declaration<'a>(
         element_ordinal: None,
         origin_plugin: None,
         declaration: Some(Declaration { methods, path }),
-        default_methods,
+        default_methods: default_methods.filter(|_| !candidate),
         endpoint,
         candidate: candidate.then_some(true),
         reason,

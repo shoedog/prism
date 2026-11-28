@@ -2,7 +2,7 @@
 //! "Python router and view value boundary"), as Flask source-fact tests.
 //!
 //! One test per row id: `fk_NN` for a row, `fk_cNN` for its control. Rows are grouped by class
-//! (`withheld`, `proven`, `known_limits`) and the owner-pending shapes live in `pending`.
+//! (`withheld`, `proven`, `known_limits`, and the capture-side rows in `capture`).
 //!
 //! Scope of these tests (checkpoint 1): the `FlaskEvent` source facts (receiver, literal path,
 //! written callback status, declared and effective methods, effective endpoint, view
@@ -11,16 +11,15 @@
 //! module lists the skipped clauses per row. Native-runtime observations in the rows are
 //! evidence for the pin, not assertions.
 //!
-//! Registrations written inside a class body or a method (fk-81..84 and controls fk-c82..84)
-//! are not visited by `flask_facts` (only module scope or an invoked factory frame is
-//! active), so those rows assert the refusal multiset only.
+//! Class-body and indirect nested registrations (fk-81, fk-83, fk-84, fk-c83, fk-c84)
+//! assert the refusal multiset while those declaration scopes are inactive.
 use super::*;
 use crate::framework_entries::routes::python::flask::FlaskRule;
 use crate::framework_entries::routes::receivers::refusals::{ImportRefusal, ImportRefusalReason};
 
+mod capture;
 mod fixtures;
 mod known_limits;
-mod pending;
 mod proven;
 mod proven_mounts;
 mod withheld;

@@ -1,6 +1,6 @@
 # Lane 12 · Option B · What a route record claims
 
-Proposed consumer-only amendment under the existing listing contract. Evaluate registration, installation and handler identity separately. List every retained declaration and its refusals. Credit a registration on a router when its receiver is proved, including when its callback is unresolved. [DESIGN §5.4](DESIGN.md#54-the-listing)
+The Flask source listing and its consumer predicates use the existing listing contract. Evaluate registration, installation and handler identity separately. List every retained declaration and its refusals. Credit a registration on a router when its receiver is proved, including when its callback is unresolved. [DESIGN §5.4](DESIGN.md#54-the-listing)
 
 ## Claims
 
@@ -13,12 +13,12 @@ Proposed consumer-only amendment under the existing listing contract. Evaluate r
 
 ## Flask listing rows
 
-Each retained Flask HTTP rule emits `site` at the decorator or registration call, `path.raw` as written, `path.literal` as the decoded local leaf or null, and `methods` as the declaration. Preserve the explicit set, including an empty set, or the unknown expression. Use null for an omitted declaration. A string argument inside a path helper supplies no decoded leaf. Include a written literal `endpoint` and any independently proved `default_methods` under §5.4. `paths` and `callbacks` are ordered arrays and may be empty. For a receiver-withheld Flask rule, the route's `reason` repeats the receiver refusal. Every row adds one to `summary.registrations`. The summary also counts mount edges separately in `mounts` and carries `enabled_adapters`, `diagnostics` and `failed_roots`. The measured rules each have one callback slot and a null `delegate`.
+Each retained Flask HTTP rule emits `site` at the decorator or registration call, `path.raw` as written, `path.literal` as the decoded local leaf or null, and `methods` as the declaration. Preserve the explicit set, including an empty set, or the unknown expression. Use null for an omitted declaration. A string argument inside a path helper supplies no decoded leaf. Include a written literal `endpoint` and any independently proved `default_methods` under §5.4. `paths` and `callbacks` are ordered arrays and may be empty. For a receiver-withheld Flask rule, the route's `reason` repeats the receiver refusal. Every row adds one to `summary.registrations`. The public Flask listing projects rule records and counted import refusals. It drops mount events and leaves `summary.mounts` at zero and every `paths` array empty. The summary carries `enabled_adapters`, `diagnostics` and `failed_roots`. The measured rules each have one callback slot and a null `delegate`.
 
 | ID | Class | Listing fields in addition to the shared fields above | Consumer MAY conclude | Consumer MAY NOT conclude |
 |---|---|---|---|---|
 | B-05 | Decorated view, proved receiver | `receiver=router` with identity. Unresolved callback with written text and `inner_decorator` when an opaque inner decorator intervenes, `delegate=null`. `paths` contains only independently composed exposures. Adds one to `summary.proven`. | Credit registration and navigate to the written `def`. Join an operation if its separate exposure and method proofs qualify. | Identify the decorated `def` as the registered callable or dispatched body. Infer installation from the decorator. |
-| B-06 | Mount escape through an imported router | `receiver=unproven(receiver_unproven)`, `candidate=true`, local path and declared method evidence retained. Callback slot retains text and receiver refusal, `delegate=null`, `paths=[]`. Adds one each to `summary.unproven` and `summary.candidates`. | Display the candidate and any independently retained written method or prefix. An omitted prefix on the escaped mount leaves the effective prefix unknown. | Name a proved router allocation, construct a root URL, or credit a handler. |
+| B-06 | Mount escape through an imported router | `receiver=unproven(receiver_unproven)`, `candidate=true`, local path and declared method evidence retained. Callback slot retains text and receiver refusal, `delegate=null`, `paths=[]`. Adds one each to `summary.unproven` and `summary.candidates`. | Display the candidate and its independently retained written methods. | Name a proved router allocation, construct a root URL, or credit a handler. |
 | B-07 | Terminal re-export | `receiver=unproven(terminal_reexport)`, `candidate=true`. Callback slot retains text with `terminal_reexport`, `delegate=null`, `paths=[]`. Adds one each to `summary.unproven` and `summary.candidates`. No counted import refusal for this reason. | Display the candidate, its local spelling and the role refusal. | Treat the forwarding binding as receiver, installation or handler proof. |
 | B-08 | Class-based `as_view` with proved receiver | `receiver=router` with identity. Unresolved callback with argument text and `class_view`, `delegate=null`. `paths` contains only independently composed exposures. Adds one to `summary.proven`. | Credit registration. Use independently proved method evidence under CR2 and join an operation if its exposure qualifies. | Infer that an `as_view` call resolves to `dispatch_request`, an HTTP verb method or any other body. |
 | B-09 | Other unproven receiver, if retained | `receiver=unproven` with its specific reason, `candidate=true`. Any callback slots retain text with that reason, `delegate=null`, `paths=[]`. Adds one each to `summary.unproven` and `summary.candidates`. | Display the source facts and refusal at the site. | Credit a registration on a known router, an exposure or a handler. |
@@ -29,7 +29,14 @@ Each retained Flask HTTP rule emits `site` at the decorator or registration call
 - **B-08** `as_view` produces a callable and may supply view metadata, while the callable's body remains unresolved.
 - **B-09** Retention requires adapter evidence such as a router hint. A method spelling alone establishes no receiver.
 
-The 63 measured receiver-withheld rows fall under B-06 or B-07. B-09 pins the general retention rule. [Measurement addendum](/Users/wesleyjinks/prism-evidence/routes/s2-static/MEASURE.md:124) · [Mount diagnosis](/Users/wesleyjinks/prism-evidence/routes/s2-diag/DIAG.md:59) · [Gap report](/Users/wesleyjinks/prism-evidence/routes/s2-static/GAPS-REPORT.md:18)
+The 63 measured receiver-withheld rows fall under B-06 or B-07. B-09 pins the general retention rule.
+
+Counted import refusals use `{site,reason}` in `summary.diagnostics`. The closed set is
+`getattr_module`, `star_import`, `global_write`, `multi_write`, `nested_single`,
+`submodule_shadow`, `module_descriptor_name`, `class_private_name` and `class_body_import`.
+Each refused span carries the first applicable reason in §5.3 order. Callee refusals use the
+whole call span, and a refusal can appear even when the extractor drops the registration.
+`terminal_reexport` is a receiver or callback status reason and carries no counted diagnostic.
 
 ## Consumer pins
 
@@ -38,7 +45,11 @@ The 63 measured receiver-withheld rows fall under B-06 or B-07. B-09 pins the ge
 | CR1 | Source provenance is not installation. An unproven receiver yields `paths=[]`. Keep distinct source origins and router identities even when suffixes match. Never complete a local leaf or suffix with an assumed empty prefix. | Blueprints `a` and `b` each declare `/items` and mount on a proved app at `/a` and `/b`. Keep both origins and use the independently proved `/a/items` and `/b/items` exposures. | Replace only `a`'s mount with one on an opaque parent and withhold its receiver. Keep its local `/items` and empty `paths`, separate from `b`. Preserve `b`'s independently proved `/b/items`. With both mounts removed, the identical `suffix` exposures on proved receivers remain distinct and yield no rooted `/items`. |
 | CR2 | Omitted `methods` asserts no verb. Require explicit known method evidence for the strict predicate. A default-inclusive consumer may use a verb only when `default_methods` independently proves it. | On an otherwise eligible `full` exposure, `.post('/items')` or `methods=['POST']` supports `POST`. A separately proved `default_methods={"known":["GET"]}` supports `GET` only under the default-inclusive predicate. | Keep the eligible path and replace the explicit verb with `route('/items')` whose `methods` is null and whose `default_methods` is absent, for example when view metadata is opaque. Withhold `GET`. An unrestricted `method_guard` or Flask's usual fallback supplies no missing declaration. |
 
-For a known Flask rule with no shortcut or method list, `methods` is null on the §5.4 wire. Treat an absent declaration as unknown as well. `flask.rs` stores `default_methods` separately on `Route`. `measure.rs` omits it from the measurement JSONL, and `table.rs` assembles the route table without serializing it. §5.4 already specifies the optional wire field when independently proved. The inspected files therefore establish the contract and the internal value, while actual listing serialization remains unverified in the permitted source set. B's strict figure needs no defaults. Defer default-inclusive credit. If the deployed wire lacks field support, enabling it costs an emitted field, a wire/schema update and a listing version change. A producer already emitting the §5.4 field needs proof and measurement for each admitted default. [Flask method computation](/Users/wesleyjinks/code/prism-routes-b/src/framework_entries/routes/python/flask.rs:32) · [Measurement serializer](/Users/wesleyjinks/code/prism-routes-b/src/framework_entries/routes/tests/flask/measure.rs:125) · [Route table](/Users/wesleyjinks/code/prism-routes-b/src/framework_entries/routes/table.rs:10)
+A Flask rule with no shortcut or method list serializes `methods: null`. A proved receiver can carry
+`default_methods: {"known":["GET"]}` when the view metadata and call arguments establish the Flask default.
+The listing wire test pins the separate values, and the measurement serializes the complete route under
+`listing`. The strict local predicate uses explicit methods. Default-inclusive credit also needs the
+independent path and exposure proof in CR2. [Wire tests](../../../../../src/framework_entries/routes/tests/listing_b.rs) · [Measurement harness](../../../../../src/framework_entries/routes/tests/flask/measure.rs)
 
 ## Lane 5 joins
 
@@ -54,19 +65,25 @@ For a known Flask rule with no shortcut or method list, `methods` is null on the
 | B-12 | Keep `summary.proven = summary.registrations - summary.unproven`. `RouteTable::new` counts proved receivers regardless of callback status. The measured 48 uses the stricter predicate of a proved receiver and a nonempty callback list with every slot resolved or anonymous. |
 | B-13 | In a separate versioned §5.4 listing-schema amendment, add two optional unsigned counts. `handler_proved` counts rows with a proved receiver and a resolved or anonymous registered handler slot under the adapter's role rules. `installation_proved` counts rows with at least one rooted, unguarded `full` exposure on a nonfailed root. Count each qualifying row once per field. `proven` supplies the registration-receiver count. |
 
-B can derive these counts locally. Adding them to the wrapped summary changes the wire. Keep `registrations = proven + unproven` for existing readers. Readers that ignore unknown keys can consume the additive shape. Strict §5.4 validators and matrix expectations need the new listing schema version. Treat absent counts on older listings as unavailable. [Summary construction](/Users/wesleyjinks/code/prism-routes-b/src/framework_entries/routes/table.rs:73) · [Measurement predicate](/Users/wesleyjinks/code/prism-routes-b/src/framework_entries/routes/tests/flask/measure.rs:101)
+B can derive these counts locally. Adding them to the wrapped summary changes the wire. Keep `registrations = proven + unproven` for existing readers. Readers that ignore unknown keys can consume the additive shape. Strict §5.4 validators and matrix expectations need the new listing schema version. Treat absent counts on older listings as unavailable. [Summary construction](../../../../../src/framework_entries/routes/table.rs)
 
 ## Scope of B, C and D
 
-**B** changes the consumer predicates only. Existing receiver vetoes, mount proof, callback resolution and delegate certification govern every claim. Source-router attribution for withheld receivers and body execution are outside B. Consumers need the public listing to carry the Flask facts. ASTRA reports an empty adapter set at PR #928's cited checkpoint. [ASTRA implementation prerequisite](/Users/wesleyjinks/prism-evidence/routes/s2-diag/ASTRA-ANSWER.md:65)
+**B** exposes the Flask source facts through the public listing. Receiver vetoes, mount proof, callback
+resolution and delegate certification govern the consumer claims. Source-router attribution for withheld
+receivers and body execution are outside B.
 
 **C** adds optional source-router identity distinct from `receiver` for a Blueprint allocation independently traced before a mount-escape veto. The row keeps `receiver_unproven`, `paths=[]` and an unknown effective prefix for the refused mount. An ambiguous or untraced allocation has no source-router identity.
 
-**D** adds one bounded static terminal re-export hop on top of C. The same optional field identifies the source Blueprint only when the hop reaches a unique eligible allocation and carries the forwarding site as provenance. Keep `terminal_reexport` as the receiver refusal and retain independent vetoes. Unsupported chains and missing or ambiguous targets earn no attribution. [ASTRA options](/Users/wesleyjinks/prism-evidence/routes/s2-diag/ASTRA-ANSWER.md#options)
+**D** adds one bounded static terminal re-export hop on top of C. The same optional field identifies the source Blueprint only when the hop reaches a unique eligible allocation and carries the forwarding site as provenance. Keep `terminal_reexport` as the receiver refusal and retain independent vetoes. Unsupported chains and missing or ambiguous targets earn no attribution.
 
-## Predicted yields
+## Measured yields
 
-**PREDICTED for B.** Replace with end-to-end listing measurements on the same five corpora. Count Rule origins once and exclude Mount events. A strict local key requires a proved receiver, a decoded literal leaf and at least one explicit verb. The default-inclusive column is a bound for adding independently proved defaults. The function column measures source registration identity. The receipts certify zero rooted method/path joins and zero rooted function bindings. Their actual yields remain unmeasured. [ASTRA yield derivation](/Users/wesleyjinks/prism-evidence/routes/s2-diag/ASTRA-ANSWER.md#measured-yields) · [Measurement scope](/Users/wesleyjinks/prism-evidence/routes/s2-static/MEASURE.md#measurement-and-custody)
+The five-corpus run queried public `routes()` and counted each rule origin once. A strict local key
+requires a proved receiver, a decoded literal leaf and at least one explicit verb. The default-inclusive
+local bound adds the rows with independently proved defaults. The function column measures source
+registration identity. Every measured `paths` array is empty, so the receipts supply zero rooted
+method/path joins and zero rooted function bindings.
 
 | Corpus | Rules | Receiver-proved registration | Strict local path + method | Local path + method with defaults | Source function identity |
 |---|---:|---:|---:|---:|---:|
@@ -76,8 +93,3 @@ B can derive these counts locally. Adding them to the wrapped summary changes th
 | Flask | 37 | 26 | 1 | 1–26 | 25 |
 | Superset | 4 | 0 | 0 | 0 | 0 |
 | **Total** | **170** | **107** | **30** | **30–70** | **48** |
-
-## Corrections
-
-- ASTRA's wording about omitted methods can read as filling `methods` from `default_methods`. `flask.rs` computes separate declaration, default and effective method values. The declaration stays null when omitted, even with a proved default.
-- ASTRA's `terminal_reexport` label agrees with the Flask extractor and measurement (17 Redash rows; the 4 other Redash rows are mount escapes through an unproved parent and read `receiver_unproven`). DESIGN §5.1 now lists `terminal_reexport` in the closed reason enum as the receiver reason for a terminal re-export and §5.3 agrees. Resolved.

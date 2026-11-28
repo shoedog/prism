@@ -25,6 +25,6 @@ pub(in crate::framework_entries::routes) fn native_view_argument<'a>(
         .filter(|factory| factory.file.path == file.path && factory.node == python_scope(owner))
         .map_or(&default_context, |_| context);
     args.accepts(file, slots, true)
-        && matches!(bindings.value_at(&file.path, owner, context),
+        && matches!(bindings.capture_value(&file.path, owner, context),
             PythonValue::Router(router) if blueprint.is_none() || router.kind == PythonKind::Blueprint)
 }

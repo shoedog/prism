@@ -124,7 +124,7 @@ fn fk_c54() {
 fn fk_c55() {
     let files = plus(
         mounted(
-            "import pkg\nimport pkg.routes\n",
+            "import pkg.routes\n",
             "pkg.routes.bp",
             pkg_routes("pkg", "", "/routes"),
         ),

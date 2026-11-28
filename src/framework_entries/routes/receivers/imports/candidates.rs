@@ -9,7 +9,7 @@ impl<'a> PythonBindings<'a> {
         context: &SetupContext<'a>,
         keep_routers: bool,
     ) -> Vec<PythonValue<'a>> {
-        let Some(path) = self.trace_import(file, expression, context, 24) else {
+        let Some(path) = self.trace_import_root(file, expression, context, 24, true) else {
             return Vec::new();
         };
         let mut pending = VecDeque::from(self.possible_members(&path));

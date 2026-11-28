@@ -11,6 +11,7 @@ use super::*;
 use crate::{ast::ParsedFile, languages::Language};
 use tree_sitter::Node;
 
+mod fold1_coverage;
 mod import_regressions;
 mod measure;
 mod review;
@@ -90,6 +91,15 @@ fn python_literal_expression_preserves_spelling() {
         (r#""/n\u006ftes""#, Some("/notes")),
         (r#""/items/" + "latest""#, Some("/items/latest")),
         (r#"r"/a\n" "/b""#, Some("/a\\n/b")),
+        (r#"u"/\U0001f40d""#, Some("/🐍")),
+        (r#""/\uD800""#, None),
+        (r#""/\x3""#, None),
+        (
+            r#""/\7\a\b\f\t\r\v\\\"""#,
+            Some("/\x07\x07\x08\x0c\t\r\x0b\\\""),
+        ),
+        ("'''/line\r\nnext\rfinal'''", Some("/line\nnext\nfinal")),
+        ("('/line\\\nnext')", Some("/linenext")),
         (r#"f"/{section}""#, None),
         ("prefix", None),
     ] {
@@ -132,7 +142,7 @@ fn imports_select_the_requested_member_and_refuse_forwarding() {
     let files = parsed(&[
         ("service/auth.py", "from flask import Blueprint as BP\nbp = BP('auth', __name__)\n"),
         ("service/__init__.py", "from .auth import bp\n"),
-        ("service/app.py", "from . import auth\nfrom . import bp\nfrom flask import Flask\napp = Flask(__name__)\napp.register_blueprint(auth.bp, url_prefix='/auth')\napp.register_blueprint(bp)\nfrom other import *\napp.register_blueprint(auth.bp)\nfrom flask import Flask\napp = Flask(__name__)\napp.register_blueprint(auth.bp)\n"),
+        ("service/app.py", "from . import auth\nfrom . import bp\nfrom flask import Flask\napp = Flask(__name__)\napp.register_blueprint(auth.bp, url_prefix='/auth')\napp.register_blueprint(bp)\nfrom other import *\napp.register_blueprint(unknown_child)\nfrom flask import Flask\napp = Flask(__name__)\napp.register_blueprint(auth.bp)\n"),
         ("test_routes.py", "from service.auth import bp\n@bp.get('/test')\ndef sample(): pass\n"),
     ]);
     let bindings = index_python(&files);
@@ -154,7 +164,8 @@ fn imports_select_the_requested_member_and_refuse_forwarding() {
     assert!(matches!(forwarded.child, Receiver::Unproven { .. }));
     assert!(matches!(shadowed.parent, Receiver::Unproven { .. }));
     assert!(matches!(starred.parent, Receiver::Router { .. }));
-    assert!(matches!(starred.child, Receiver::Unproven { .. }));
+    assert!(matches!(&starred.child, Receiver::Router { identity, .. }
+        if identity.file == "service/auth.py"));
     let test = flask_facts(&bindings, "test_routes.py", &SetupContext::default());
     let [FlaskEvent::Rule(rule)] = test.as_slice() else {
         panic!("expected an imported blueprint registration")

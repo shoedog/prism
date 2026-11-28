@@ -41,7 +41,7 @@ impl<'a> PythonBindings<'a> {
         matches!(name, "__dict__" | "__class__").then_some(ModuleDescriptorName)
     }
 
-    pub(super) fn star_could_supply(
+    pub(in crate::framework_entries::routes::receivers) fn star_could_supply(
         &self,
         origin: &'a ParsedFile,
         star: Node<'a>,
