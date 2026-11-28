@@ -393,7 +393,9 @@ impl<'a> PythonBindings<'a> {
             return unknown;
         }
         // The formals are indexed under their effective (class-mangled) names, like `name`.
-        if self.writes[file.path.as_str()].parameter(scope, name)
+        let writes = &self.writes[file.path.as_str()];
+        if writes.parameter(scope, name)
+            || writes.binds_local(scope, name)
             || self.reaching(file, scope, name, scope.end_byte()).is_some()
         {
             return unknown;
@@ -401,6 +403,13 @@ impl<'a> PythonBindings<'a> {
         let root = file.tree.root_node();
         let mut outer = python_scope(scope);
         if outer.kind() == "class_definition" {
+            // A method reads the compiler's implicit `__class__` cell, not the module name,
+            // unless it declares the name `global` (local bindings returned above).
+            if name == "__class__"
+                && writes.directive(scope, name) != Some(writes::Directive::Global)
+            {
+                return unknown;
+            }
             outer = python_scope(outer);
         }
         if outer != root {

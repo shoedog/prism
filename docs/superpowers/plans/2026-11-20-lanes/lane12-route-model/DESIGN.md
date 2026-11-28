@@ -356,16 +356,36 @@ code tests them):
   bind K, that is when `m` resolves to an in-repo module that can. A star from an external or
   unresolved module is not seen (the contract sees what the repository declares): `star_import`. This
   holds for a star NESTED in an in-repo star's source as well (`star_could_supply(.., external = false)`
-  on the capture side; the source side and the candidate search keep `external = true`). A default star
-  (no `__all__`) also copies the child module that the package initializer's own import syntax installs
-  (`from .child import x`, `from . import child`, `import pkg.child`); a literal `__all__` clears it.
+  on the capture side; the source side and the candidate search keep `external = true`). **Star clause:
+  a star contributes a name only when the exporting module's export set is DETERMINED** by what the
+  certificate reads exactly: a literal `__all__`, or the module's own top-level bindings (and the stars
+  it holds) with, for a package, no initializer import that can install children. A default star (no
+  `__all__`) of a package copies the child module `pkg.N` that running the initializer installs: the
+  initializer's module-level imports, and those of every in-repo module they reach (a visited set bounds
+  cycles, a depth cap of 12 the chain), are followed, and an import that names `pkg.N` or a module
+  below it (`from .N import x`, `from . import N`, `import pkg.N`, directly or through `bootstrap`)
+  leaves the set open, so the star may bind N and the proof that depends on N is withheld
+  (`star_import`). Past the depth cap an existing child module counts as installed. A literal `__all__`
+  determines the set and clears it. External and unresolved stars keep the treatment above.
 - (b) The single binding is an import (not star), def, async def, class, or `K = <expr>` / `K: T = <expr>`
   with one bare-name target, and it is a DIRECT statement of the scope body (not under `if`, `try`,
   `with`, `for`, `while` or `match`): else `nested_single`. A tuple, `for`, `with`, `except`, walrus,
   match, `del`, augmented or `type` binding is never admitted.
 
-A function scope is certified only against redirects: a nested scope that declares `nonlocal K` and
-binds it fails (`global_write`). A `global K` at MODULE level redirects nothing and is dropped at
+A function scope keeps the flow-sensitive lookup of its own locals (`reaching`, the S3 cutoff) and fails
+the certificate only against a redirect (a nested scope that declares `nonlocal K` and binds it:
+`global_write`) or, **Count clause for function scope**, when an IMPORT of K is followed by another
+binding occurrence of K in that scope: two aliases of one `from` statement
+(`from views import old as handler, new as handler`), two import statements, an import and a later def or
+assignment (`multi_write`). The rule counts only when an import is among the occurrences and the import is
+not the last: a def or assignment BEFORE the import is displaced by it (kept), and non-import locals such
+as a rebound `app = Flask()` keep the flow-sensitive treatment. No first, last or reaching import is
+selected among several: the proof is withheld, and the S1 selection in the import lookup is deleted. A
+bare annotation (`x: T`) is a lexical declaration (function ownership of the name), not a value write: it
+displaces nothing and counts nowhere; with a value it is an assignment. A `for` target is in force on
+entry to its body (its own body reads it); an `except .. as` target is its own `as_pattern` node and
+already binds on entry. An unqualified `__class__` read in a method is the compiler's class cell, not the
+module name, unless the method declares it `global`. A `global K` at MODULE level redirects nothing and is dropped at
 indexing, so the module still binds K. Reads of the key resolve through `LexicalWrites::read_binding_scope`
 (class scopes skipped, directives honoured). Nothing is traced through a rebinding and no position
 filter is used: a rebinding fails (a), wherever it sits and whenever it runs, so a module-scope router
@@ -399,8 +419,8 @@ registration whose read sits in a `for` or `while` body is a `runtime_generated_
 diagnostic and never a rule (setup function, factory and module alike), a registration in a class body
 belongs to no active scope, and the mutation index reads every binding occurrence with no position
 filter, so the full count was not adopted (pinned by the `f1_*` rows). Two flow-sensitive rules close
-the neighbouring wrong proofs: in an import lookup a LATER write in the same non-module scope displaces
-an earlier import (the reaching occurrence wins, S1), and in the mutation index a definite write (an
+the neighbouring wrong proofs: a LATER binding of the key in the same non-module scope fails the Count
+clause for an import (above; it replaced the S1 reaching-import selection), and in the mutation index a definite write (an
 import, def, class or `K = <expr>` directly in the function body) before a store supersedes every
 occurrence before it, later occurrences and nested `nonlocal` writes staying (S3).
 
@@ -1021,6 +1041,18 @@ The frozen populations, binding floors and ledger dispositions above govern each
   **Reason-label note (IMMATERIAL).** When a later assignment hides the import in fk-89 and
   the source also declares `__getattr__`, the scanner reports `multi_write` where the
   specified precedence selects `getattr_module`. Both reasons withhold dispatch proof.
+- **Closing fold of PR #928 (round 2; the last, a disclosed extension past the review cap).** Two
+  classes fail closed at the certificate instead of choosing a winner: a function-scope import key bound
+  more than once (Count clause, 5.3) and a star whose package export set is not determined (Star
+  clause: transitive initializer imports followed to a depth of 12, 5.3). Closed items: a `for` target is
+  in force in its own body; a chained assignment is peeled to its last right side when the mutation index
+  enumerates sources (`app = spare = app` no longer drops the earlier allocation; as a router value it
+  stays unproved); the class cell `__class__`; a bare annotation is no value write; the mangled formal
+  of `record_once_owner` uses the class-mangled key. The `except .. as` target needed no change (its own
+  `as_pattern` node). Known limit, not folded: `unwritten_alias` compares the alias spelling with its
+  mangled key, so the holder barrier for an alias handed on misses a class-private alias (`__a = app`
+  then `held = [__a]` stays proved; pinned by `known_limit_mangled_alias_escape_is_not_seen_by_the_holder_barrier`).
+  A holder barrier is outside the contract.
 - **Census of real usage and what is out of scope (2026-11-27).** The certificate and its contract
   (5.3) cover the patterns real code uses. Evidence: `~/prism-evidence/routes/census-used/CENSUS.md`
   (sections 1, 2, 4, 5), run against the product at `cffd488d`. Public code only; the Express and Go

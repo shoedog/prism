@@ -20,8 +20,11 @@
 //! import that the repository says can bind the key); (c) a star that can bind the key counts
 //! (a star from an external or unresolved module is not seen); (b) the single binding is an
 //! import, def, async def, class or `K = <expr>` with one bare target, directly under the
-//! module body. A function scope keeps the flow-sensitive lookup of its own locals and is
-//! certified only against redirects: a nested scope that declares `nonlocal K` and binds it.
+//! module body. A function scope keeps the flow-sensitive lookup of its own locals and fails
+//! only against a redirect (a nested scope that declares `nonlocal K` and binds it) or when
+//! an import of K is followed by another binding occurrence of K in that scope (two aliases of
+//! one statement, two imports, a later def or assignment; a def or assignment BEFORE the import
+//! is displaced by it). No first/last/reaching import is selected among several.
 
 use super::{direct, refusals::ImportRefusalReason, ParsedFile, PythonBindings};
 use tree_sitter::Node;
@@ -95,6 +98,16 @@ impl<'a> PythonBindings<'a> {
         self.certify_in(file, file.tree.root_node(), name).is_ok()
     }
 
+    /// The key `name` is indexed under in `scope` (NFKC-normalised, class-private mangled).
+    pub(in crate::framework_entries::routes) fn effective_key(
+        &self,
+        file: &ParsedFile,
+        scope: Node<'a>,
+        name: &str,
+    ) -> String {
+        super::writes::effective_name(file, scope, name).into_owned()
+    }
+
     /// Certify a name written as `name` in `scope`, mangling it as that scope would.
     pub(in crate::framework_entries::routes) fn certify_in(
         &self,
@@ -113,8 +126,12 @@ impl<'a> PythonBindings<'a> {
             return Err(Clause::ParseError);
         }
         if scope.kind() != "module" {
+            // A function scope keeps the flow-sensitive lookup of its own locals; only a
+            // redirect, or an import that another binding occurrence follows, fails.
             return if writes.nonlocal_write(scope, key) {
                 Err(Clause::Redirect)
+            } else if writes.import_displaced(scope, key) {
+                Err(Clause::Count)
             } else {
                 Ok(())
             };

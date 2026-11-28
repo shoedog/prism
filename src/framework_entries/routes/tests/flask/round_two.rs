@@ -390,3 +390,19 @@ fn n4_module_level_global_is_no_redirect() {
     ));
     let _ = rules_of;
 }
+
+// Known limit (not folded): `unwritten_alias` compares the alias's SPELLING with its mangled
+// key, so for a class-private alias (`__a`) the holder barrier (an alias handed on, here stored
+// in a list) never sees the escape. A holder barrier is outside the contract (DESIGN 5.3,
+// limits); the row pins what the product does TODAY (the mangled alias stays proved).
+#[test]
+fn known_limit_mangled_alias_escape_is_not_seen_by_the_holder_barrier() {
+    let plain = format!(
+        "{APP}def install():\n    a = app\n    held = [a]\n    a.add_url_rule('/x', endpoint='x')\ninstall()\n"
+    );
+    assert_eq!(proved_rules(&[("app.py", &plain)]), 0);
+    let mangled = format!(
+        "{APP}class C:\n    def install(self):\n        __a = app\n        held = [__a]\n        __a.add_url_rule('/x', endpoint='x')\nC().install()\n"
+    );
+    assert_eq!(proved_rules(&[("app.py", &mangled)]), 1);
+}

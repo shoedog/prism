@@ -125,13 +125,19 @@ fn occurrences<'a>(
     bindings.writes[file.path.as_str()].occurrences(local, &name, node.start_byte())
 }
 
+/// The value an identifier assignment supplies; a chained assignment (`a = b = v`) is peeled
+/// to the last right side, the value every target of the chain receives.
 fn alias_rhs(write: Node<'_>) -> Option<Node<'_>> {
-    (write.kind() == "assignment"
+    let mut value = (write.kind() == "assignment"
         && write
             .child_by_field_name("left")
             .is_some_and(|left| left.kind() == "identifier"))
     .then(|| write.child_by_field_name("right"))
-    .flatten()
+    .flatten()?;
+    while value.kind() == "assignment" {
+        value = value.child_by_field_name("right")?;
+    }
+    Some(value)
 }
 
 fn binding_source(kind: &str) -> bool {

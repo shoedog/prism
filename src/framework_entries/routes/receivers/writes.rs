@@ -58,6 +58,9 @@ struct ScopeWrites<'a> {
     named_imports: BTreeMap<Cow<'a, str>, Vec<Node<'a>>>,
     directives: BTreeMap<Cow<'a, str>, Directive>,
     parameters: BTreeSet<Cow<'a, str>>,
+    /// Names a bare annotation (`x: T`) declares: lexical ownership of the name in a
+    /// function, no value written, so never a reaching write and never a binding occurrence.
+    declared: BTreeSet<Cow<'a, str>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -73,8 +76,20 @@ fn enclosing_non_comprehension(mut scope: Node<'_>) -> Node<'_> {
     scope
 }
 
+/// The byte from which a binding occurrence is in force. A `for` target is bound on entry to
+/// each iteration, so its body reads it; every other occurrence binds when its node ends (an
+/// `except .. as` target is its own `as_pattern` node, which ends before the clause body).
+fn active_end(node: Node<'_>) -> usize {
+    if node.kind() == "for_statement" {
+        if let Some(left) = node.child_by_field_name("left") {
+            return left.end_byte();
+        }
+    }
+    node.end_byte()
+}
+
 fn before<'a>(sites: &[Node<'a>], offset: usize) -> Option<Node<'a>> {
-    let end = sites.partition_point(|node| node.end_byte() <= offset);
+    let end = sites.partition_point(|node| active_end(*node) <= offset);
     end.checked_sub(1).map(|index| sites[index])
 }
 
@@ -139,8 +154,10 @@ impl<'a> LexicalWrites<'a> {
                         nested_writes.push((scope, name.clone(), node));
                     }
                 }
-                if scope.kind() != "module" || value_site {
+                if value_site {
                     writes.names.entry(name).or_default().push(node);
+                } else if scope.kind() == "function_definition" {
+                    writes.declared.insert(name);
                 }
             }
             if wildcard {
@@ -176,7 +193,7 @@ impl<'a> LexicalWrites<'a> {
                 .chain(scope.named_imports.values_mut())
                 .chain([&mut scope.wildcard])
             {
-                writes.sort_by_key(|node| (node.end_byte(), node.start_byte()));
+                writes.sort_by_key(|node| (active_end(*node), node.start_byte()));
             }
         }
         result
@@ -191,6 +208,21 @@ impl<'a> LexicalWrites<'a> {
     pub(super) fn nonlocal_write(&self, scope: Node<'a>, name: &str) -> bool {
         self.nonlocal_writes
             .contains_key(&(scope.id(), Cow::Borrowed(name)))
+    }
+
+    /// True when an import occurrence of `name` in the function scope `scope` is followed by
+    /// another binding occurrence (a second alias of one statement, a second import, a later
+    /// def or assignment): the import is no longer the one binding the key resolves to.
+    pub(super) fn import_displaced(&self, scope: Node<'a>, name: &str) -> bool {
+        self.scopes
+            .get(&scope.id())
+            .and_then(|writes| writes.names.get(name))
+            .and_then(|sites| sites.split_last())
+            .is_some_and(|(_, earlier)| {
+                earlier
+                    .iter()
+                    .any(|site| matches!(site.kind(), "import_statement" | "import_from_statement"))
+            })
     }
 
     pub(super) fn module_sites(&self, name: &str) -> &[Node<'a>] {
@@ -356,7 +388,9 @@ impl<'a> LexicalWrites<'a> {
 
     pub(super) fn binds_local(&self, scope: Node<'a>, name: &str) -> bool {
         self.scopes.get(&scope.id()).is_some_and(|writes| {
-            writes.names.contains_key(name) || writes.parameters.contains(name)
+            writes.names.contains_key(name)
+                || writes.parameters.contains(name)
+                || writes.declared.contains(name)
         })
     }
 
