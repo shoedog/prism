@@ -232,8 +232,12 @@ fn a_value_that_is_not_utf8_names_its_variable() {
         error.contains("PRISM_TAINT_WALK_PROOFS:") && error.contains("UTF-8"),
         "{error}"
     );
-    let error = WalkProofs::from_env_values(not_utf8(), None).unwrap_err();
-    assert!(error.contains("PRISM_TAINT_WALK_PROOFS_FILE"), "{error}");
+    // The file is looked at only once a rule is on: off, even a non-UTF-8 path is inert.
+    for switches in [None, os(""), os(",,")] {
+        assert!(WalkProofs::from_env_values(not_utf8(), switches)
+            .unwrap()
+            .is_none());
+    }
     let error = WalkProofs::from_env_values(not_utf8(), os("iv")).unwrap_err();
     assert!(
         error.contains("PRISM_TAINT_WALK_PROOFS_FILE") && error.contains("UTF-8"),

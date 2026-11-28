@@ -771,6 +771,9 @@ fn a_value_that_is_not_utf8_is_an_error_naming_its_variable() {
         "{}",
         failed.stderr
     );
+    // Off, a non-UTF-8 file path is inert.
+    let control = run("gf", None, None, false).behaviour();
+    assert_eq!(run_raw("gf", None, Some(bad)).behaviour(), control);
     let failed = run_raw("gf", Some(OsStr::new("iv")), Some(bad));
     assert!(!failed.status.success(), "{}", failed.stdout);
     assert!(

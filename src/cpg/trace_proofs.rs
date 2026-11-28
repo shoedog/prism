@@ -3,8 +3,10 @@
 //! return rules), so the sink-level recall cost of each rule, alone and combined, can be read off
 //! the real trace-review sink lines.
 //!
-//! OFF by default; with every switch off nothing is read, parsed or recorded and the walk's output
-//! (stdout, stderr, cache) is exactly the walk's without this module.
+//! OFF by default; with every switch off nothing is read, parsed or recorded and the walk's
+//! output, ledger and stdout are exactly the walk's without this module (the cache file embeds
+//! build provenance, a git SHA and a binary fingerprint, that differs between commits and is not
+//! part of that guarantee).
 //!
 //! - `PRISM_TAINT_WALK_PROOFS_FILE=<path>`: JSON
 //!   `{"version":1,"rules":{"<rule>":[{"relation":"CallDescent|ReturnFlow|ReturnInput",
@@ -283,10 +285,10 @@ impl WalkProofs {
         switches: Option<OsString>,
     ) -> Result<Option<Self>, String> {
         let switches = utf8(SWITCHES, switches)?;
-        let file = utf8(FILE, file)?;
         let on = parse_switches(switches.as_deref())?;
-        // The file is read only when a rule is on, exactly as `from_parts` decides.
-        let text = match file.filter(|_| !on.is_empty()) {
+        // The file path is decoded and read only when a rule is on, exactly as `from_parts`
+        // decides: off, a stray FILE value (even a non-UTF-8 one) is inert.
+        let text = match utf8(FILE, file.filter(|_| !on.is_empty()))? {
             Some(path) => Some(
                 std::fs::read_to_string(&path)
                     .map_err(|error| format!("{FILE}: cannot read {path}: {error}"))?,
