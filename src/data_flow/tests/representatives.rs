@@ -256,3 +256,56 @@ fn edge_derived_rows_preserve_sequence_and_distinct_spans() {
         vec![40, 30, 40, 30]
     );
 }
+
+fn check_s1_label_scope(path: &str, source: &str, language: crate::languages::Language) {
+    let parsed = ParsedFile::parse(path, source, language).unwrap();
+    let dfg = DataFlowGraph::build(&BTreeMap::from([(path.to_owned(), parsed)]));
+    let mut parts = test_support::parts::snapshot(&dfg);
+    let edge = parts
+        .edges
+        .iter()
+        .find(|edge| {
+            edge.from.path.base == "x" && edge.to.start_byte == source.rfind("x + x").unwrap()
+        })
+        .expect("legacy arithmetic edge")
+        .clone();
+    let mut supplemental = edge.to.clone();
+    supplemental.start_byte += 4;
+    supplemental.end_byte += 4;
+    let pair = ExactFlowEdge::from_refs(&edge.from, &supplemental);
+    assert_eq!(
+        dfg.label(&edge.from, &edge.to),
+        dfg.legacy_label(&edge.from, &edge.to)
+    );
+    let legacy = FlowConfidence::Exact;
+    parts
+        .labels
+        .insert((edge.from.clone(), edge.to.clone()), legacy);
+    let different = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+    // Force the conflicting supplemental row, even if this language does
+    // not produce it for this particular input.
+    parts.exact_labels.insert(pair, different);
+    let dfg = test_support::parts::graph(parts);
+    assert_eq!(
+        test_support::bytes(&dfg.label(&edge.from, &supplemental)),
+        test_support::bytes(&Some(legacy)),
+    );
+}
+
+#[test]
+fn s1_label_scope_keeps_go_legacy_lookup() {
+    check_s1_label_scope(
+        "u.go",
+        "package p\nfunc f(x int) int {\n  return x + x\n}\n",
+        crate::languages::Language::Go,
+    );
+}
+
+#[test]
+fn s1_label_scope_keeps_python_legacy_lookup() {
+    check_s1_label_scope(
+        "u.py",
+        "def f(x):\n    return x + x\n",
+        crate::languages::Language::Python,
+    );
+}

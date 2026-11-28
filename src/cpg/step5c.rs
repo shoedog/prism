@@ -38,6 +38,8 @@ impl CodePropertyGraph {
         // Step 5c adds only ReturnValue nodes: Variable Use identities stay fixed.
         let uses = uses::UseIndex::without(graph, hidden);
         let callers = facts::collect(go_satisfiers, files, &uses);
+        #[cfg(test)]
+        crate::cpg::s1_trace::capture::run_after_collect(files);
         let shared_returns = callee_returns::ReturnCache::new(files);
         let mut stats = ReturnFlowStats::default();
         let mut return_value_index: BTreeMap<
@@ -45,8 +47,11 @@ impl CodePropertyGraph {
             NodeIndex,
         > = BTreeMap::new();
 
-        for (caller_id, facts) in callers {
-            for facts in facts {
+        for (caller_id, facts, trace_sites) in callers {
+            // The collection-time snapshot, never a fresh `enabled()` read.
+            let trace = trace_sites.is_some();
+            let trace_sites = trace_sites.unwrap_or_default();
+            for (index, facts) in facts.into_iter().enumerate() {
                 let facts::SiteFacts {
                     lvalues,
                     resolved: candidates,
@@ -243,6 +248,9 @@ impl CodePropertyGraph {
                                 for input in inputs {
                                     graph.add_edge(input, synthetic, CpgEdge::ReturnInput);
                                     stats.return_input_edges += 1;
+                                    if trace {
+                                        crate::cpg::s1_trace::return_input(graph, input, synthetic);
+                                    }
                                 }
                                 synthetic
                             }
@@ -269,6 +277,15 @@ impl CodePropertyGraph {
                     })
                 });
                 let certified = complete_returns && all_rhs_uses_bound && !modeled.is_empty();
+                if trace {
+                    crate::cpg::s1_trace::suppression(
+                        trace_sites[index],
+                        resolved.target,
+                        certified,
+                        complete_returns,
+                        all_rhs_uses_bound,
+                    );
+                }
                 if certified {
                     stats.return_flow_suppression_certified += 1;
                 } else {

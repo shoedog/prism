@@ -20,6 +20,7 @@ fn run_raw(flagged: bool, no_route: bool, unmapped: bool, duplicate: bool) -> Op
             line: s.line,
             start_byte: s.start_byte,
             alias_derived: false,
+            s1_entry: false,
         })
         .collect();
     if duplicate {
@@ -124,6 +125,7 @@ fn go_field_recall_missing_cfg_records_skip_and_no_edges() {
         line: from.line,
         start_byte: from.start_byte,
         alias_derived: false,
+        s1_entry: false,
     }];
     let cfg = super::super::FileCfgEdgeIndex::new(&[]);
     let outcome =
@@ -168,6 +170,7 @@ fn run_graph(
             line: s.line,
             start_byte: s.start_byte,
             alias_derived: false,
+            s1_entry: false,
         })
         .collect();
     let defs = deduplicate_definitions(&raw);

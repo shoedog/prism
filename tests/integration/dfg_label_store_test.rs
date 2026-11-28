@@ -307,7 +307,8 @@ fn cache_cold_full_hit_and_partial_hit_agree_on_every_label() {
         + cold_label_stats.dfg_label_nameonly_sameline
         + cold_label_stats.dfg_label_nameonly_cfg_incomplete
         + cold_label_stats.dfg_label_nameonly_alias_unstable
-        + cold_label_stats.dfg_label_nameonly_call;
+        + cold_label_stats.dfg_label_nameonly_call
+        + cold_label_stats.dfg_label_nameonly_builtin_callback;
     assert!(
         cold_label_stats.dfg_label_exact > 0 && cold_nameonly_total > 0,
         "the serialized cold fixture must include nonzero aggregate label counters"

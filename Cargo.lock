@@ -643,6 +643,7 @@ version = "4.0.0"
 dependencies = [
  "clap",
  "regex",
+ "serde",
  "serde_json",
  "sha2",
 ]

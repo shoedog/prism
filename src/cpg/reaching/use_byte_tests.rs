@@ -388,6 +388,7 @@ fn every_edge_and_final_labels_match_reference() {
                             line: span.line,
                             start_byte: span.start_byte,
                             alias_derived: false,
+                            s1_entry: false,
                         })
                         .collect();
                     let owned: Vec<_> = edges

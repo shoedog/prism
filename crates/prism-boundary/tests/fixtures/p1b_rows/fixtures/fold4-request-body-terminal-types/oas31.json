@@ -1,0 +1,58 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Wire control", "version": "1"},
+  "paths": {
+    "/p": {
+      "post": {
+        "requestBody": {"$ref": "#/components/schemas/S"},
+        "responses": {"200": {"description": "ok"}}
+      }
+    },
+    "/valid": {
+      "post": {
+        "requestBody": {"$ref": "#/components/requestBodies/Good"},
+        "responses": {"200": {"description": "ok"}}
+      }
+    },
+    "/bad-content": {
+      "post": {
+        "requestBody": {"$ref": "#/components/requestBodies/BadContent"},
+        "responses": {"200": {"description": "ok"}}
+      }
+    },
+    "/bad-description": {
+      "post": {
+        "requestBody": {"$ref": "#/components/requestBodies/BadDescription"},
+        "responses": {"200": {"description": "ok"}}
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "S": {
+        "description": "ok",
+        "content": {
+          "application/json": {"schema": {"type": "object", "properties": {"x": {"type": "string"}}}}
+        },
+        "required": ["x"]
+      }
+    },
+    "requestBodies": {
+      "Good": {
+        "description": "ok",
+        "content": {
+          "application/json": {"schema": {"type": "object", "properties": {"x": {"type": "string"}}}}
+        },
+        "required": true
+      },
+      "BadContent": {"description": "ok", "content": [], "required": true},
+      "BadDescription": {
+        "description": 7,
+        "content": {
+          "application/json": {"schema": {"type": "object", "properties": {"x": {"type": "string"}}}}
+        },
+        "required": true
+      }
+    }
+  }
+}

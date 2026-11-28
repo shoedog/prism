@@ -124,4 +124,70 @@ impl Producer {
             }
         }
     }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn record_unavailable_owner(
+        parsed: &crate::ast::ParsedFile,
+        func_node: tree_sitter::Node<'_>,
+        func_name: &str,
+        start: usize,
+        rd_defs: &[crate::cpg::DefSite],
+        function_edges: &[FlowEdge],
+        exact_candidates: &[FlowEdge],
+        reason: crate::cpg::RdUnavailable,
+        owner_is_unique: bool,
+        labels: &mut Labels,
+        exact_labels: &mut BTreeMap<crate::data_flow::ExactFlowEdge, FlowConfidence>,
+        rd_function_stats: &mut crate::cpg::RdFileStats,
+    ) {
+        use crate::cpg::FlowDoubt;
+        use crate::data_flow::ExactFlowEdge;
+        crate::cpg::record_go_recall_skip(parsed, func_node, rd_defs, reason, rd_function_stats);
+        if reason.is_def_cap() || reason.is_line_cap() {
+            rd_function_stats.record_over_cap(func_name.to_owned(), start);
+        } else {
+            rd_function_stats.record_without_cfg(func_name.to_owned(), start);
+        }
+        let fallback = FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete);
+        let reference = super::owner_labels::reference_paths();
+        if !reference && function_edges.len() >= super::owner_labels::BULK_MIN {
+            Self::merge_owner_labels(
+                labels,
+                Self::fallback_owner_labels(function_edges, fallback),
+                owner_is_unique,
+            );
+        } else {
+            for edge in function_edges {
+                Self::insert_label(labels, (edge.from.clone(), edge.to.clone()), fallback);
+            }
+        }
+        let classified: BTreeMap<_, _> = exact_candidates
+            .iter()
+            .map(|edge| (ExactFlowEdge::from_legacy(edge), fallback))
+            .collect();
+        // Without exact candidates nothing is stored, so the
+        // per-edge label map below is built only when needed.
+        if reference || !classified.is_empty() {
+            let fallback_labels: BTreeMap<_, _> = function_edges
+                .iter()
+                .map(|edge| ((edge.from.clone(), edge.to.clone()), fallback))
+                .collect();
+            if reference {
+                #[cfg(test)]
+                Self::store_supplemental_exact_frozen(
+                    exact_labels,
+                    function_edges,
+                    &fallback_labels,
+                    classified,
+                );
+            } else {
+                Self::store_supplemental_exact(
+                    exact_labels,
+                    function_edges,
+                    &fallback_labels,
+                    classified,
+                );
+            }
+        }
+    }
 }

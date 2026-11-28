@@ -102,6 +102,7 @@ fn d12_refuses_registered_anonymous_sources_only() {
                     &mut graph,
                     &files,
                     seeds,
+                    std::collections::BTreeSet::new(),
                     &mut DfgLabelStats::default(),
                     &owners,
                 );

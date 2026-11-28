@@ -1,0 +1,12 @@
+{
+  "$defs": {
+    "Leaf": {
+      "type": "object",
+      "properties": {
+        "other": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
