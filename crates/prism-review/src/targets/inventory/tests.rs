@@ -19,7 +19,6 @@ pub(super) fn file(input: &str, repo: &Path, families: &[Family]) -> InventoryOu
         &parsed,
         repo,
         &families.iter().copied().collect::<BTreeSet<_>>(),
-        false,
         &mut out,
     );
     out
