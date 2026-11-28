@@ -1,0 +1,149 @@
+{
+  "schema_version": "0.1",
+  "input_id": "service-before",
+  "api": "pilot-api",
+  "repo": "pilot-producer",
+  "role": "producer",
+  "snapshot_kind": "commit",
+  "rev": "service-before-rev",
+  "tree": "service-before-tree",
+  "subject": null,
+  "committed_at": null,
+  "dirty": null,
+  "tool": {
+    "name": "prism-boundary",
+    "build": "fixture-build"
+  },
+  "operation_authority": "schema",
+  "scope": {
+    "kind": "api"
+  },
+  "origin": {
+    "kind": "named_tree",
+    "input_id": "service-before",
+    "repo": "pilot-producer",
+    "tree": "service-before-tree",
+    "path": "openapi.json",
+    "blob": "schema-blob",
+    "availability": "available"
+  },
+  "dependencies": [],
+  "config_sources": [],
+  "schema": {
+    "source": {
+      "kind": "file",
+      "repo": "pilot-producer",
+      "tree": "service-before-tree",
+      "rev": "service-before-rev",
+      "committed_at": null,
+      "path": "openapi.json",
+      "blob": "schema-blob",
+      "format": "json",
+      "sha256": "a373f8913c85c37b1ca59747d076c2c119dad269ae42a46e90ef3bdbd7266785"
+    },
+    "content_hash": "f85b4eefc6bd959dd3b0d114feb9b107405e2a076d19a2bec25ebb6195571c0d",
+    "info_version": "1"
+  },
+  "expected_files": [
+    "openapi.json"
+  ],
+  "file_status": [
+    {
+      "path": "openapi.json",
+      "scope": {
+        "kind": "api"
+      },
+      "status": "complete",
+      "reason": null,
+      "possible_keys": []
+    }
+  ],
+  "entries": [],
+  "unaccounted_scopes": [],
+  "dependency_records": [],
+  "operations": [
+    {
+      "operation_id": "op:GET /kiln",
+      "original_method": "GET",
+      "original_path": "/kiln",
+      "provenance": "proven",
+      "sites": [
+        {
+          "tree": "service-before-tree",
+          "file": "openapi.json",
+          "blob": "schema-blob",
+          "line": 1,
+          "span": [
+            0,
+            8
+          ]
+        }
+      ],
+      "config_source": null,
+      "suffix": null,
+      "plugin": null,
+      "success_statuses": [
+        "200"
+      ],
+      "message_roots": [
+        {
+          "direction": "response",
+          "status": "200",
+          "body_presence": "present",
+          "declared_media": [
+            "application/json"
+          ],
+          "effective_media": "application/json",
+          "coverage": "checked"
+        }
+      ],
+      "fields": [
+        {
+          "field_id": "field:resp:GET /kiln:200#/color",
+          "signature": [
+            [
+              "known",
+              "string"
+            ],
+            [
+              "missing"
+            ],
+            [
+              "known",
+              false
+            ],
+            [
+              "missing"
+            ],
+            [
+              "missing"
+            ]
+          ]
+        },
+        {
+          "field_id": "field:resp:GET /kiln:200#/stamp",
+          "signature": [
+            [
+              "known",
+              "string"
+            ],
+            [
+              "missing"
+            ],
+            [
+              "known",
+              false
+            ],
+            [
+              "missing"
+            ],
+            [
+              "missing"
+            ]
+          ]
+        }
+      ],
+      "observed_fields": []
+    }
+  ]
+}

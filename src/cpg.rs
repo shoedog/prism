@@ -20,6 +20,7 @@ pub(crate) mod anon_guard_tests;
 #[cfg(test)]
 mod asserted_member_tests;
 pub(crate) mod binding_facts;
+pub(crate) use build::spread_args::dense_array_length;
 mod build;
 #[cfg(test)]
 mod callback_identity_tests;

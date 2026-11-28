@@ -62,7 +62,8 @@ pub(in crate::diff) fn standing(
                     .get(&site.site)
                     .copied()
                     .unwrap_or("status_membership_unknown"),
-            );
+            )
+            .with_inventory_origin();
             let mut evidence = site.site.clone();
             evidence.pointer.push("responses".into());
             limit.evidence.push(evidence);
@@ -92,9 +93,10 @@ pub(super) fn record_unknown(
         ComparisonClaim::StatusMembership,
         "status_membership_unknown",
     );
-    if let Some(presence) = presence {
-        limit = limit.with_presence(presence);
-    }
+    limit = match presence {
+        Some(presence) => limit.with_presence(presence),
+        None => limit.with_inventory_origin(),
+    };
     limit.evidence = operation_sites(op);
     ledger.record(limit);
 }

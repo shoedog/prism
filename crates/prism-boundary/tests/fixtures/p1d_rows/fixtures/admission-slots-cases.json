@@ -1,0 +1,481 @@
+{
+  "A01": {
+    "variants": [
+      {
+        "name": "admit",
+        "patches": [],
+        "project": {
+          "ids": ["op:GET /kiln", "field:resp:GET /kiln:200#/stamp", "field:resp:GET /kiln:200#/color"],
+          "tree": "service-before-tree",
+          "blob": "schema-blob"
+        },
+        "admitted": true
+      }
+    ]
+  },
+  "A02": {
+    "variants": [
+      {
+        "name": "api",
+        "patches": [
+          {"path": "/inputs/0/binding/api", "value": "other-api"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "api"}
+      }
+    ]
+  },
+  "A03": {
+    "variants": [
+      {
+        "name": "role",
+        "patches": [
+          {"path": "/inputs/0/binding/role", "value": "consumer"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "role"}
+      }
+    ]
+  },
+  "A04": {
+    "variants": [
+      {
+        "name": "repo",
+        "patches": [
+          {"path": "/inputs/0/binding/repo", "value": "other-repo"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "repo"}
+      }
+    ]
+  },
+  "A05": {
+    "variants": [
+      {
+        "name": "rev",
+        "patches": [
+          {"path": "/inputs/0/binding/rev", "value": "wrong-rev"},
+          {"path": "/inputs/0/snapshot/rev", "value": "wrong-rev"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "rev", "expected": "service-before-rev", "received": "wrong-rev"}
+      }
+    ]
+  },
+  "A06": {
+    "variants": [
+      {
+        "name": "tree",
+        "patches": [
+          {"path": "/inputs/0/binding/tree", "value": "wrong-tree"},
+          {"path": "/inputs/0/snapshot/tree", "value": "wrong-tree"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "tree"}
+      }
+    ]
+  },
+  "A07": {
+    "variants": [
+      {
+        "name": "authority",
+        "patches": [
+          {"path": "/inputs/0/binding/authority", "value": "registration"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "authority"}
+      }
+    ]
+  },
+  "A08": {
+    "variants": [
+      {
+        "name": "narrower-with-remainder",
+        "patches": [
+          {"path": "/slots/0/scope", "value": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]}},
+          {
+            "path": "/inputs/0/binding/scope",
+            "value": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}], [{"kind": "literal", "value": "kiln"}]]}
+          },
+          {
+            "path": "/claims/0/projection",
+            "value": {"requested": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]}}
+          }
+        ],
+        "expect": {
+          "/claims/schema-claim/effective_scope": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}], [{"kind": "literal", "value": "kiln"}]]},
+          "/claims/schema-claim/uncovered_scope": {
+            "requested": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]},
+            "excluded": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}], [{"kind": "literal", "value": "kiln"}]]}
+          }
+        },
+        "admitted": true
+      },
+      {
+        "name": "api-wide-projected",
+        "patches": [
+          {"path": "/slots/0/scope", "value": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]}},
+          {
+            "path": "/claims/0/projection",
+            "value": {"requested": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]}}
+          }
+        ],
+        "expect": {
+          "/claims/schema-claim/effective_scope": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]}
+        },
+        "admitted": true
+      },
+      {
+        "name": "disjoint",
+        "patches": [
+          {"path": "/slots/0/scope", "value": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]}},
+          {"path": "/inputs/0/binding/scope", "value": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "other"}]]}},
+          {
+            "path": "/claims/0/projection",
+            "value": {"requested": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]}}
+          }
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "scope"}
+      },
+      {
+        "name": "narrower-without-projection",
+        "patches": [
+          {"path": "/inputs/0/binding/scope", "value": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}]]}}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "scope"}
+      },
+      {
+        "name": "literal-braces-distinct-from-capture",
+        "patches": [
+          {
+            "path": "/slots/0/scope",
+            "value": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}], [{"kind": "literal", "value": "{}"}]]}
+          },
+          {
+            "path": "/inputs/0/binding/scope",
+            "value": {
+              "kind": "path_prefix",
+              "segments": [
+                [{"kind": "literal", "value": "api"}],
+                [{"kind": "capture", "value": {"name": "id", "width": "required", "optional_separator": false, "constraint": null}}]
+              ]
+            }
+          },
+          {
+            "path": "/claims/0/projection",
+            "value": {
+              "requested": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "api"}], [{"kind": "literal", "value": "{}"}]]}
+            }
+          }
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "scope"}
+      }
+    ]
+  },
+  "A09": {
+    "variants": [
+      {
+        "name": "tree",
+        "patches": [
+          {"path": "/inputs/0/binding/config/tree", "value": "wrong-tree"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.tree"}
+      },
+      {
+        "name": "path",
+        "patches": [
+          {"path": "/inputs/0/binding/config/path", "value": "other.toml"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.path"}
+      },
+      {
+        "name": "blob",
+        "patches": [
+          {"path": "/inputs/0/binding/config/blob", "value": "wrong-blob"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.blob"}
+      },
+      {
+        "name": "entry",
+        "patches": [
+          {"path": "/inputs/0/binding/config/entry", "value": 2}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.entry"}
+      },
+      {
+        "name": "era",
+        "patches": [
+          {"path": "/inputs/0/binding/config/era", "value": "v2"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.era"}
+      },
+      {
+        "name": "defaults",
+        "patches": [
+          {"path": "/inputs/0/binding/config/defaults", "value": "other-defaults"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.defaults"}
+      },
+      {
+        "name": "export",
+        "patches": [
+          {"path": "/inputs/0/binding/config/export", "value": "otherClient"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.export"}
+      },
+      {
+        "name": "mount",
+        "patches": [
+          {"path": "/inputs/0/binding/config/mount", "value": "/elsewhere"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.mount"}
+      },
+      {
+        "name": "strip",
+        "patches": [
+          {"path": "/inputs/0/binding/config/strip", "value": "/other"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.strip"}
+      },
+      {
+        "name": "add",
+        "patches": [
+          {"path": "/inputs/0/binding/config/add", "value": "/other"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.add"}
+      },
+      {
+        "name": "api",
+        "patches": [
+          {"path": "/inputs/0/binding/config/api", "value": "other-api"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "config.api"}
+      }
+    ]
+  },
+  "A11": {
+    "variants": [
+      {
+        "name": "missing-slot",
+        "patches": [
+          {"path": "/claims/0/slot", "value": "missing-slot"}
+        ],
+        "refusal": {"code": "missing_slot", "record_id": "missing-slot"}
+      },
+      {"name": "missing-input", "patches": [{"path": "/inputs/0"}], "refusal": {"code": "missing_slot", "record_id": "service-before"}}
+    ]
+  },
+  "A12": {
+    "variants": [
+      {
+        "name": "missing-path",
+        "patches": [
+          {"path": "/receipts/0/origin/availability", "value": "missing"}
+        ],
+        "refusal": {"code": "missing_receipt", "record_id": "schema"}
+      },
+      {
+        "name": "unreadable",
+        "patches": [
+          {"path": "/receipts/0/origin/availability", "value": "unreadable"}
+        ],
+        "refusal": {"code": "unreadable_bytes", "record_id": "schema"}
+      },
+      {
+        "name": "wrong-bytes",
+        "patches": [],
+        "files": {"schema": "empty.json"},
+        "refusal": {"code": "digest_mismatch", "record_id": "schema"}
+      },
+      {
+        "name": "wrong-digest",
+        "patches": [
+          {"path": "/receipts/0/digest/value", "value": "0000000000000000000000000000000000000000000000000000000000000000"}
+        ],
+        "refusal": {"code": "digest_mismatch", "record_id": "schema"}
+      },
+      {
+        "name": "wrong-algorithm",
+        "patches": [
+          {"path": "/receipts/0/digest/algorithm", "value": "other"}
+        ],
+        "refusal": {"code": "unsupported_kind", "record_id": "schema"}
+      },
+      {
+        "name": "wrong-framing",
+        "patches": [
+          {"path": "/receipts/0/digest/framing", "value": "other"}
+        ],
+        "refusal": {"code": "unsupported_kind", "record_id": "schema"}
+      },
+      {
+        "name": "origin-repo",
+        "patches": [
+          {"path": "/receipts/0/origin/repo", "value": "wrong"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "repo", "record_id": "schema"}
+      },
+      {
+        "name": "origin-tree",
+        "patches": [
+          {"path": "/receipts/0/origin/tree", "value": "wrong"}
+        ],
+        "refusal": {"code": "slot_mismatch", "dimension": "tree", "record_id": "schema"}
+      }
+    ]
+  },
+  "A13": {
+    "variants": [
+      {"name": "settings", "patches": [{"path": "/receipts/3"}], "refusal": {"code": "missing_dependency", "record_id": "settings"}},
+      {
+        "name": "driver-defaults",
+        "patches": [
+          {"path": "/receipts/4"}
+        ],
+        "refusal": {"code": "missing_dependency", "record_id": "driver-defaults"}
+      },
+      {
+        "name": "route-spec",
+        "patches": [
+          {"path": "/receipts/5"}
+        ],
+        "refusal": {"code": "missing_dependency", "record_id": "route-spec"}
+      },
+      {"name": "import", "patches": [{"path": "/receipts/6"}], "refusal": {"code": "missing_dependency", "record_id": "import"}},
+      {
+        "name": "two-leaves-one-reason",
+        "patches": [
+          {"path": "/receipts/4"},
+          {"path": "/receipts/3"}
+        ],
+        "refusal": {"code": "missing_dependency", "multiple_evidence": true}
+      }
+    ]
+  },
+  "A14": {
+    "variants": [
+      {
+        "name": "schema",
+        "patches": [
+          {
+            "path": "/receipts/-",
+            "value": {
+              "id": "schema",
+              "kind": "blob",
+              "origin": {
+                "kind": "named_tree",
+                "input_id": "service-before",
+                "repo": "pilot-producer",
+                "tree": "service-before-tree",
+                "path": "openapi.json",
+                "blob": "schema-blob",
+                "availability": "available"
+              },
+              "dependencies": ["config"],
+              "format": "json",
+              "digest": {
+                "algorithm": "sha256",
+                "framing": "raw_bytes",
+                "value": "a373f8913c85c37b1ca59747d076c2c119dad269ae42a46e90ef3bdbd7266785"
+              }
+            }
+          }
+        ],
+        "admitted": true
+      },
+      {
+        "name": "config",
+        "patches": [
+          {
+            "path": "/receipts/-",
+            "value": {
+              "id": "config",
+              "kind": "config",
+              "entry": 1,
+              "origin": {
+                "kind": "named_tree",
+                "input_id": "service-before",
+                "repo": "pilot-producer",
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "availability": "available"
+              },
+              "dependencies": ["mapping"]
+            }
+          }
+        ],
+        "admitted": true
+      }
+    ]
+  },
+  "A15": {
+    "variants": [
+      {
+        "name": "config-conflict",
+        "patches": [
+          {
+            "path": "/receipts/-",
+            "value": {
+              "id": "config",
+              "kind": "config",
+              "entry": 1,
+              "origin": {
+                "kind": "named_tree",
+                "input_id": "service-before",
+                "repo": "pilot-producer",
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "conflict-blob",
+                "availability": "available"
+              },
+              "dependencies": ["mapping"]
+            }
+          },
+          {
+            "path": "/claims/-",
+            "value": {
+              "id": "second",
+              "input_id": "service-before",
+              "slot": "service-before",
+              "receipt_ids": ["config", "schema"],
+              "projection": null
+            }
+          }
+        ],
+        "expect": {
+          "/claims/second/status": "unchecked",
+          "/claims/second/reasons/0/code": "receipt_conflict",
+          "/claims/second/reasons/1": {"$missing": true}
+        },
+        "refusal": {"code": "receipt_conflict", "record_id": "config", "count": 2}
+      },
+      {
+        "name": "unsupported-receipt-kind",
+        "patches": [
+          {"path": "/receipts/0/kind", "value": "future-format"}
+        ],
+        "refusal": {"code": "unsupported_kind", "record_id": "schema"}
+      },
+      {
+        "name": "unsupported-input-kind",
+        "patches": [
+          {"path": "/inputs/0/snapshot", "value": {"snapshot_kind": "future_tree"}}
+        ],
+        "refusal": {"code": "unsupported_kind", "record_id": "service-before"}
+      }
+    ]
+  },
+  "A16": {
+    "variants": [
+      {
+        "name": "cycle-with-grounded-fact",
+        "patches": [
+          {"path": "/receipts/3/dependencies", "value": ["mapping"]},
+          {
+            "path": "/claims/-",
+            "value": {"id": "raw-service", "input_id": "service-before", "slot": "service-before", "receipt_ids": [], "projection": null, "purpose": "metadata"}
+          }
+        ],
+        "expect": {
+          "/claims/raw-service/status": "admitted"
+        },
+        "refusal": {"code": "dependency_cycle"}
+      }
+    ]
+  }
+}

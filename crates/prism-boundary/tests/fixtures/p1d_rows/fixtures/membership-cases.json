@@ -1,0 +1,129 @@
+{
+  "C21": {
+    "variants": [
+      {
+        "name": "complete",
+        "expect": {
+          "/unobserved/0/before_element_id": "field:resp:GET /kiln:200#/stamp",
+          "/unobserved/0/after_element_id": "field:resp:GET /kiln:201#/stamp",
+          "/unobserved/0/membership_basis": ["service-before", "service-after", "client-before", "client-after"]
+        },
+        "patches": [],
+        "evidence": [
+          {"input_id": "service-before", "side": "before", "complete": true},
+          {"input_id": "service-after", "side": "after", "complete": true},
+          {"input_id": "client-before", "side": "before", "complete": true},
+          {"input_id": "client-after", "side": "after", "complete": true}
+        ]
+      }
+    ]
+  },
+  "C22": {
+    "variants": [
+      {
+        "name": "existing-producer",
+        "expect": {
+          "/unobserved": []
+        },
+        "patches": [],
+        "evidence": [
+          {"input_id": "service-before", "side": "before", "complete": true},
+          {"input_id": "service-after", "side": "after", "complete": true},
+          {"input_id": "client-before", "side": "before", "complete": true},
+          {"input_id": "client-after", "side": "after", "complete": true}
+        ],
+        "member": "producer-before"
+      },
+      {
+        "name": "missing-input",
+        "expect": {
+          "/unobserved": [],
+          "/coverage/0/reason": "missing_membership_evidence"
+        },
+        "patches": [],
+        "evidence": [
+          {"input_id": "service-before", "side": "before", "complete": true},
+          {"input_id": "service-after", "side": "after", "complete": true},
+          {"input_id": "client-before", "side": "before", "complete": true}
+        ]
+      }
+    ]
+  },
+  "C24": {
+    "variants": [
+      {
+        "name": "candidate",
+        "expect": {
+          "/unobserved": [],
+          "/coverage/0/reason": "membership_possible"
+        },
+        "patches": [],
+        "evidence": [
+          {"input_id": "service-before", "side": "before", "complete": true},
+          {"input_id": "service-after", "side": "after", "complete": true},
+          {"input_id": "client-before", "side": "before", "complete": true},
+          {"input_id": "client-after", "side": "after", "complete": true}
+        ],
+        "member": "candidate"
+      },
+      {
+        "name": "overlap",
+        "expect": {
+          "/unobserved": [],
+          "/coverage/0/reason": "membership_possible"
+        },
+        "patches": [],
+        "evidence": [
+          {"input_id": "service-before", "side": "before", "complete": true},
+          {"input_id": "service-after", "side": "after", "complete": true},
+          {"input_id": "client-before", "side": "before", "complete": true},
+          {"input_id": "client-after", "side": "after", "complete": true}
+        ],
+        "member": "overlap"
+      },
+      {
+        "name": "operation-only",
+        "expect": {
+          "/unobserved": [],
+          "/coverage/0/reason": "field_use_unchecked"
+        },
+        "patches": [],
+        "evidence": [
+          {"input_id": "service-before", "side": "before", "complete": true},
+          {"input_id": "service-after", "side": "after", "complete": true},
+          {"input_id": "client-before", "side": "before", "complete": true},
+          {"input_id": "client-after", "side": "after", "complete": true}
+        ],
+        "member": "operation-only"
+      },
+      {
+        "name": "linked-field-use",
+        "expect": {
+          "/unobserved": []
+        },
+        "patches": [],
+        "evidence": [
+          {"input_id": "service-before", "side": "before", "complete": true},
+          {"input_id": "service-after", "side": "after", "complete": true},
+          {"input_id": "client-before", "side": "before", "complete": true},
+          {"input_id": "client-after", "side": "after", "complete": true}
+        ],
+        "member": "bound-field"
+      },
+      {
+        "name": "paired-other-side",
+        "expect": {
+          "/unobserved": []
+        },
+        "patches": [],
+        "evidence": [
+          {"input_id": "service-before", "side": "before", "complete": true},
+          {"input_id": "service-after", "side": "after", "complete": true},
+          {"input_id": "client-before", "side": "before", "complete": true},
+          {"input_id": "client-after", "side": "after", "complete": true}
+        ],
+        "member": "producer-after"
+      }
+    ]
+  }
+}

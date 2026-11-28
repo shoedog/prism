@@ -1,0 +1,498 @@
+{
+  "control-document-client-only-held-service": {
+    "variants": [
+      {
+        "patches": [],
+        "resolve_matches": true,
+        "expect": {
+          "/comparisons": [
+            {
+              "comparison_id": "actual_before",
+              "purpose": "actual_before",
+              "service_input_id": "service-held",
+              "client_input_id": "client-before",
+              "matches": {
+                "call-before": {
+                  "service_input_id": "service-held",
+                  "client_input_id": "client-before",
+                  "status": "checked",
+                  "grade": "bound",
+                  "reason": null,
+                  "mapping": null,
+                  "target_ids": ["op:GET /kiln"],
+                  "alternates": [],
+                  "overlaps": [],
+                  "prefix_hints": []
+                }
+              },
+              "unchecked_count": 0
+            },
+            {
+              "comparison_id": "actual_after",
+              "purpose": "actual_after",
+              "service_input_id": "service-held",
+              "client_input_id": "client-after",
+              "matches": {
+                "call-after": {
+                  "service_input_id": "service-held",
+                  "client_input_id": "client-after",
+                  "status": "checked",
+                  "grade": "unbound",
+                  "reason": "no_operation",
+                  "mapping": null,
+                  "target_ids": [],
+                  "alternates": [],
+                  "overlaps": [],
+                  "prefix_hints": []
+                }
+              },
+              "unchecked_count": 0
+            }
+          ],
+          "/change/producer": {"before_input_id": "service-held", "after_input_id": "service-held"}
+        }
+      }
+    ]
+  },
+  "control-document-computed-tree-borrowed-date": {
+    "variants": [
+      {
+        "name": "valid-computed",
+        "expect": {
+          "document": "bindings",
+          "valid": true
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []}
+        ]
+      },
+      {
+        "name": "committed_at",
+        "expect": {
+          "document": "bindings",
+          "error": "InvalidDocument"
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []},
+          {"path": "/committed_at", "value": "2026-01-01T00:00:00Z"}
+        ]
+      },
+      {
+        "name": "rev",
+        "expect": {
+          "document": "bindings",
+          "error": "InvalidDocument"
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []},
+          {"path": "/rev", "value": "proposal-rev"}
+        ]
+      },
+      {
+        "name": "subject",
+        "expect": {
+          "document": "bindings",
+          "error": "InvalidDocument"
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []},
+          {"path": "/subject", "value": "Proposal"}
+        ]
+      }
+    ]
+  },
+  "control-document-computed-tree-null-metadata": {
+    "variants": [
+      {
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []}
+        ],
+        "expect": {
+          "/snapshot_kind": "computed_tree",
+          "/rev": null,
+          "/subject": null,
+          "/committed_at": null,
+          "/tree": "computed-kiln",
+          "/computed_at": "2026-11-26T12:00:00Z",
+          "/merge_receipt": "merge-result"
+        }
+      }
+    ]
+  },
+  "control-document-configured-provenance": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/operations",
+            "value": [
+              {
+                "operation_id": "op:GET /api/kiln",
+                "original_method": "GET",
+                "original_path": "/kiln",
+                "provenance": "configured",
+                "sites": [{"tree": "service-before-tree", "file": "routes.js", "blob": "route-blob", "line": 1, "span": [0, 8]}],
+                "config_source": 1,
+                "suffix": "/kiln",
+                "plugin": "lantern",
+                "success_statuses": [],
+                "message_roots": [],
+                "fields": [],
+                "observed_fields": []
+              }
+            ]
+          },
+          {
+            "path": "/config_sources",
+            "value": [
+              {
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "entry": 1,
+                "era": "v1",
+                "defaults": "driver-defaults",
+                "export": "pilotClient",
+                "mount": "/api",
+                "strip": "",
+                "add": "",
+                "api": "pilot-api",
+                "dependencies": ["mapping"],
+                "hook": "usePilot",
+                "delegate": "pilotClient"
+              }
+            ]
+          },
+          {"path": "/operation_authority", "value": "route_table"},
+          {
+            "path": "/origin",
+            "value": {
+              "kind": "named_tree",
+              "input_id": "service-before",
+              "repo": "pilot-producer",
+              "tree": "service-before-tree",
+              "path": "routes.js",
+              "blob": "route-blob",
+              "availability": "available"
+            }
+          },
+          {
+            "path": "/schema",
+            "value": {
+              "source": {"kind": "route_table", "repo": "pilot-producer", "tree": "service-before-tree", "input_id": "routes"},
+              "content_hash": null,
+              "info_version": null
+            }
+          }
+        ],
+        "expect": {
+          "/operations/0": {
+            "operation_id": "op:GET /api/kiln",
+            "original_method": "GET",
+            "original_path": "/kiln",
+            "provenance": "configured",
+            "sites": [{"tree": "service-before-tree", "file": "routes.js", "blob": "route-blob", "line": 1, "span": [0, 8]}],
+            "config_source": 1,
+            "suffix": "/kiln",
+            "plugin": "lantern",
+            "success_statuses": [],
+            "message_roots": [],
+            "fields": [],
+            "observed_fields": []
+          },
+          "/config_sources/0/entry": 1,
+          "/config_sources/0/mount": "/api"
+        }
+      }
+    ]
+  },
+  "control-document-joint-edit-four-comparisons": {
+    "variants": [
+      {
+        "patches": [],
+        "resolve_matches": true,
+        "expect": {
+          "/comparisons": [
+            {
+              "comparison_id": "actual_before",
+              "purpose": "actual_before",
+              "service_input_id": "service-before",
+              "client_input_id": "client-before",
+              "matches": {
+                "call-before": {
+                  "service_input_id": "service-before",
+                  "client_input_id": "client-before",
+                  "status": "checked",
+                  "grade": "bound",
+                  "reason": null,
+                  "mapping": null,
+                  "target_ids": ["op:GET /kiln"],
+                  "alternates": [],
+                  "overlaps": [],
+                  "prefix_hints": []
+                }
+              },
+              "unchecked_count": 0
+            },
+            {
+              "comparison_id": "actual_after",
+              "purpose": "actual_after",
+              "service_input_id": "service-after",
+              "client_input_id": "client-after",
+              "matches": {
+                "call-after": {
+                  "service_input_id": "service-after",
+                  "client_input_id": "client-after",
+                  "status": "checked",
+                  "grade": "bound",
+                  "reason": null,
+                  "mapping": null,
+                  "target_ids": ["op:GET /forge"],
+                  "alternates": [],
+                  "overlaps": [],
+                  "prefix_hints": []
+                }
+              },
+              "unchecked_count": 0
+            },
+            {
+              "comparison_id": "service_first",
+              "purpose": "service_first",
+              "service_input_id": "service-after",
+              "client_input_id": "client-before",
+              "matches": {
+                "call-before": {
+                  "service_input_id": "service-after",
+                  "client_input_id": "client-before",
+                  "status": "checked",
+                  "grade": "unbound",
+                  "reason": "no_operation",
+                  "mapping": null,
+                  "target_ids": [],
+                  "alternates": [],
+                  "overlaps": [],
+                  "prefix_hints": []
+                }
+              },
+              "unchecked_count": 0
+            },
+            {
+              "comparison_id": "client_first",
+              "purpose": "client_first",
+              "service_input_id": "service-before",
+              "client_input_id": "client-after",
+              "matches": {
+                "call-after": {
+                  "service_input_id": "service-before",
+                  "client_input_id": "client-after",
+                  "status": "checked",
+                  "grade": "unbound",
+                  "reason": "no_operation",
+                  "mapping": null,
+                  "target_ids": [],
+                  "alternates": [],
+                  "overlaps": [],
+                  "prefix_hints": []
+                }
+              },
+              "unchecked_count": 0
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "control-document-keyless-coverage": {
+    "variants": [
+      {
+        "patches": [
+          {"path": "/operations", "value": []},
+          {
+            "path": "/entries",
+            "value": [
+              {
+                "path": "routes.js",
+                "scope": {"kind": "api"},
+                "status": "unreadable",
+                "reason": "unreadable_bytes",
+                "possible_keys": []
+              }
+            ]
+          }
+        ],
+        "expect": {
+          "/operations": [],
+          "/entries": [{"path": "routes.js", "scope": {"kind": "api"}, "status": "unreadable", "reason": "unreadable_bytes", "possible_keys": []}]
+        }
+      }
+    ]
+  },
+  "control-document-saved-inventory-withheld": {
+    "variants": [
+      {
+        "name": "missing-inventory",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_inventory",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "omit_inventory": true
+      }
+    ]
+  },
+  "control-document-side-presence": {
+    "variants": [
+      {
+        "patches": [
+          {"path": "/change/elements", "value": []},
+          {
+            "path": "/coverage",
+            "value": [
+              {
+                "limit_id": "keyless",
+                "comparison_id": "actual_after",
+                "input_id": "service-after",
+                "side": "after",
+                "authority": "schema",
+                "scope": {"kind": "operation", "operation_id": null},
+                "pointer": [],
+                "claim": "operation_presence",
+                "reason": "unreadable_bytes",
+                "source": "input_inventory",
+                "evidence": ["route-file-receipt"],
+                "affected_claims": [],
+                "presence": {
+                  "before_element_id": null,
+                  "before_presence": "absent",
+                  "after_element_id": null,
+                  "after_presence": "unknown",
+                  "before_shape": null,
+                  "after_shape": null
+                }
+              }
+            ]
+          }
+        ],
+        "expect": {
+          "/change/elements": [],
+          "/coverage/0/presence": {
+            "before_element_id": null,
+            "before_presence": "absent",
+            "after_element_id": null,
+            "after_presence": "unknown",
+            "before_shape": null,
+            "after_shape": null
+          }
+        }
+      }
+    ]
+  },
+  "control-document-tracked-dirtiness": {
+    "variants": [
+      {
+        "name": "dirty",
+        "patches": [
+          {"path": "/inputs/0/dirty", "value": true}
+        ],
+        "project": {"ids": ["op:GET /kiln"], "tree": "service-before-tree", "blob": "schema-blob"},
+        "admitted": true
+      }
+    ]
+  },
+  "control-document-unbound-raw-call": {
+    "variants": [
+      {
+        "patches": [],
+        "expect": {
+          "/calls/0/requested_method": "GET",
+          "/calls/0/original_url_text": "urlFromState()",
+          "/calls/0/mapped_path": null,
+          "/calls/0/target_reason": "dynamic_url",
+          "/calls/0/site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]}
+        }
+      }
+    ]
+  },
+  "control-document-zero-saved-matches": {
+    "variants": [
+      {
+        "name": "present-zero",
+        "expect": {
+          "/binding_status/0/status": "no_saved_match",
+          "/binding_status/0/reason": null,
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null
+      }
+    ]
+  }
+}

@@ -18,11 +18,21 @@ pub struct SchemaIndex {
     pub info_version: Option<String>,
     pub byte_sha256: String,
     pub content_hash: String,
+    pub(crate) scope: crate::revision::Scope,
+    pub(crate) input_closure: Option<SchemaInputClosure>,
     pub(crate) reached: BTreeMap<OperationId, (bool, Vec<DefinitionId>)>,
     pub(crate) inverse: BTreeMap<DefinitionId, Vec<OperationId>>,
     pub(crate) operation_coverage_incomplete: bool,
     pub(crate) operation_gaps: Vec<OperationGap>,
     pub(crate) public_fields: Vec<String>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct SchemaInputClosure {
+    pub retrieval_uri: Option<String>,
+    pub references: Vec<(String, String, String, String, String)>,
+    pub config: Vec<(String, String, String, usize)>,
+    pub media: Vec<(String, String, String, String, usize, String)>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -138,7 +148,9 @@ pub struct MessageCoverage {
     pub coverage: Coverage,
     pub limits: Vec<RegionLimit>,
     pub feasible: Option<bool>,
+    pub selected_schema: Option<SchemaSite>,
     pub declared_media: Vec<String>,
+    pub declaration_source: Option<MediaDeclarationSource>,
     pub json_source: Option<JsonMediaSource>,
 }
 
@@ -162,6 +174,12 @@ pub(crate) struct FieldBlock {
     pub pointer: Vec<PointerToken>,
     pub reason: String,
     pub effect: BlockEffect,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MediaDeclarationSource {
+    Operation,
+    Document,
 }
 
 #[derive(Debug, PartialEq, Eq)]

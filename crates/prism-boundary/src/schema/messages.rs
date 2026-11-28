@@ -1,4 +1,5 @@
 mod media;
+pub(crate) use media::valid_media_proof;
 
 use super::openapi::{entry_value, scan_operations};
 use super::references::{Documents, Located};
@@ -11,6 +12,7 @@ use crate::inventory::{
 use crate::revision::{AdmittedSchemaInput, Snapshot};
 use media::Message;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, SchemaError> {
@@ -28,6 +30,7 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
             path: input.entry.path.into(),
             blob: input.entry.oid.into(),
         }),
+        input_closure: Some(input_closure(input)),
         info_version: inventory.info_version,
         diagnostics: inventory.diagnostics,
         operation_gaps: inventory.operation_gaps,
@@ -174,6 +177,7 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                 RootKey::Fallback => None,
             };
             let mut feasible = None;
+            let selected_schema = message.schema.as_ref().map(|schema| schema.site.clone());
             if let (Some(schema), Some(root)) = (message.schema.take(), root) {
                 let result = wire::read(&documents, dialect, &root, schema);
                 feasible = result.feasible;
@@ -245,7 +249,9 @@ pub(crate) fn project(input: &AdmittedSchemaInput<'_>) -> Result<SchemaIndex, Sc
                 coverage: message.coverage,
                 limits: message.limits,
                 feasible,
+                selected_schema,
                 declared_media: message.declared_media,
+                declaration_source: message.declaration_source,
                 json_source: message.json_source,
             });
         }
@@ -492,4 +498,60 @@ fn swagger_body<'r, 'a>(
         return Err(UNREADABLE);
     }
     Ok(Body::Json(body))
+}
+
+fn input_closure(input: &AdmittedSchemaInput<'_>) -> crate::inventory::SchemaInputClosure {
+    let mut references: Vec<_> = input
+        .references
+        .iter()
+        .map(|record| {
+            let blob = record.blob;
+            (
+                record.retrieval_uri.into(),
+                blob.tree.into(),
+                blob.path.into(),
+                blob.oid.into(),
+                format!("{:x}", Sha256::digest(blob.bytes)),
+            )
+        })
+        .collect();
+    let mut config: Vec<_> = input
+        .config_receipts
+        .iter()
+        .map(|record| {
+            (
+                record.tree.into(),
+                record.path.into(),
+                record.blob.into(),
+                record.entry,
+            )
+        })
+        .collect();
+    let mut media: Vec<_> = input
+        .media_receipts
+        .iter()
+        .map(|record| {
+            let receipt = record.receipt;
+            (
+                receipt.input_id.into(),
+                receipt.tree.into(),
+                receipt.path.into(),
+                receipt.blob.into(),
+                receipt.entry,
+                format!("{:x}", Sha256::digest(record.bytes)),
+            )
+        })
+        .collect();
+    references.sort_unstable();
+    references.dedup();
+    config.sort_unstable();
+    config.dedup();
+    media.sort_unstable();
+    media.dedup();
+    crate::inventory::SchemaInputClosure {
+        retrieval_uri: input.retrieval_uri.map(str::to_owned),
+        references,
+        config,
+        media,
+    }
 }

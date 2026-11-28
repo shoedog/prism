@@ -31,6 +31,9 @@ impl Ledger {
             }
             Entry::Occupied(mut entry) => {
                 let prior = entry.get_mut();
+                if prior.origin != limit.origin {
+                    prior.origin = LimitOrigin::Both;
+                }
                 prior.evidence.extend(limit.evidence);
                 prior.evidence.sort();
                 prior.evidence.dedup();
@@ -65,6 +68,7 @@ impl ComparisonLimit {
         reason: &str,
     ) -> Self {
         Self {
+            origin: LimitOrigin::Comparison,
             side,
             scope,
             claim,
@@ -74,6 +78,11 @@ impl ComparisonLimit {
             evidence: Vec::new(),
             producer_sites: Vec::new(),
         }
+    }
+
+    pub(super) fn with_inventory_origin(mut self) -> Self {
+        self.origin = LimitOrigin::InputInventory;
+        self
     }
 
     pub(super) fn with_presence(mut self, [before, after]: &[ElementPresence; 2]) -> Self {

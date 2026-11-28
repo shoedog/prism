@@ -13,11 +13,22 @@ impl<'a> BoundSide<'a> {
         let schema = side.schema.filter(|index| index.source.is_some());
         let schema_basis = schema
             .and_then(|index| index.source.as_ref())
-            .map(|source| DiffBasis {
+            .zip(schema)
+            .map(|(source, index)| DiffBasis {
                 api: &source.api,
                 authority: &source.authority,
                 tree: &source.tree,
-                scope: ComparisonScope::Api,
+                scope: match &index.scope {
+                    crate::revision::Scope::Api => ComparisonScope::Api,
+                    crate::revision::Scope::PathPrefix { segments } => {
+                        ComparisonScope::PathPrefix(CanonicalPath {
+                            segments: segments.clone(),
+                            ascii_fold: false,
+                            strip_slash: false,
+                            bare_parent: false,
+                        })
+                    }
+                },
             });
         let producer_basis = side.producer.map(|inventory| &inventory.basis);
         let basis = side
@@ -29,6 +40,13 @@ impl<'a> BoundSide<'a> {
                 !base.api.is_empty() && !base.authority.is_empty() && !base.tree.is_empty()
             })
             .ok_or(DiffError::NoCommonScope)?;
+        if let Some(source) = &schema_basis {
+            if !matches!(source.scope, ComparisonScope::Api)
+                && common_scope(basis, source)? != basis.scope
+            {
+                return Err(DiffError::ContradictorySlot);
+            }
+        }
         for source in schema_basis.iter().chain(producer_basis) {
             if (source.api, source.authority, source.tree)
                 != (basis.api, basis.authority, basis.tree)

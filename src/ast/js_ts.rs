@@ -15,6 +15,7 @@ pub mod exports;
 mod imports;
 mod local_bindings;
 mod param_alias;
+pub(crate) mod param_slot;
 mod params;
 mod pattern_params;
 pub(crate) use pattern_params::{formal_binding, PatternParam};
