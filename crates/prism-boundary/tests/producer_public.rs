@@ -1,4 +1,6 @@
 //! Public-pair run for P2-1. Ignored by default: it needs the pinned checkout and schema.
+//! The document carries the tree's real schema path, blob id, tree, commit and sha256, and the
+//! source bytes are read with `git cat-file`; the external schema copy must equal the blob.
 //!
 //! PRISM_BOUNDARY_PUBLIC_SWAGGER=<swagger.json> PRISM_BOUNDARY_PUBLIC_CORPUS=<checkout>
 //! PRISM_BOUNDARY_PUBLIC_OUT=<RESULT.md> cargo test -p prism-boundary --test producer_public -- --ignored
@@ -12,10 +14,11 @@ use prism_boundary::model::{AnnotationDisposition as D, EdgeGrade, ExtractionSta
 use prism_boundary::producer::{
     bind_producer, ExpectedFile, ProducerInputs, ProducerOptions, SourceBlob,
 };
+use sha2::Digest;
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 
-fn git(repo: &str, args: &[&str]) -> String {
+fn git_bytes(repo: &str, args: &[&str]) -> Vec<u8> {
     let out = Command::new("git")
         .arg("-C")
         .arg(repo)
@@ -23,8 +26,15 @@ fn git(repo: &str, args: &[&str]) -> String {
         .output()
         .unwrap();
     assert!(out.status.success(), "git {args:?}");
-    String::from_utf8(out.stdout).unwrap()
+    out.stdout
 }
+
+fn git(repo: &str, args: &[&str]) -> String {
+    String::from_utf8(git_bytes(repo, args)).unwrap()
+}
+
+const SCHEMA_PATH: &str = "docs/swagger.json";
+const REPO: &str = "apache-answer";
 
 #[test]
 #[ignore]
@@ -34,19 +44,45 @@ fn public_pair_annotation_census() {
     let repo = std::env::var("PRISM_BOUNDARY_PUBLIC_CORPUS").expect("PRISM_BOUNDARY_PUBLIC_CORPUS");
     let commit = git(&repo, &["rev-parse", "HEAD"]).trim().to_string();
     let tree = git(&repo, &["rev-parse", "HEAD^{tree}"]).trim().to_string();
-    let schema_bytes = std::fs::read(&swagger).unwrap();
-    let schema = support::index_at(&schema_bytes, &tree, &commit);
 
-    let listing = git(&repo, &["ls-files", "-s", "--", "*.go"]);
+    // The document is built from the pinned tree's own values. The external schema copy must be
+    // the tree's blob byte for byte, or the run refuses.
+    let listing = git_bytes(&repo, &["ls-tree", "-r", "-z", &commit]);
+    let mut blobs = BTreeMap::new();
+    for entry in listing.split(|b| *b == 0).filter(|e| !e.is_empty()) {
+        let entry = String::from_utf8(entry.to_vec()).unwrap();
+        let (meta, path) = entry.split_once('\t').unwrap();
+        let mut meta = meta.split_whitespace();
+        let (_mode, kind, oid) = (meta.next(), meta.next(), meta.next().unwrap());
+        if kind == Some("blob") {
+            blobs.insert(path.to_string(), oid.to_string());
+        }
+    }
+    let schema_blob = blobs[SCHEMA_PATH].clone();
+    let schema_bytes = git_bytes(&repo, &["cat-file", "blob", &schema_blob]);
+    assert_eq!(
+        std::fs::read(&swagger).unwrap(),
+        schema_bytes,
+        "the external schema copy is not the pinned tree's {SCHEMA_PATH}"
+    );
+    let schema_sha = format!("{:x}", sha2::Sha256::digest(&schema_bytes));
+    let schema = support::index_from(
+        &schema_bytes,
+        (support::API, "schema", &tree, &commit),
+        (SCHEMA_PATH, &schema_blob),
+    );
+
+    // Source bytes are the tree's blobs, read with `git cat-file`, never working-tree bytes.
     let mut owned = Vec::new();
-    for line in listing.lines() {
-        let (meta, path) = line.split_once('\t').unwrap();
-        let oid = meta.split_whitespace().nth(1).unwrap().to_string();
-        if path.ends_with("_test.go") {
+    for (path, oid) in &blobs {
+        if !path.ends_with(".go") || path.ends_with("_test.go") {
             continue;
         }
-        let bytes = std::fs::read(format!("{repo}/{path}")).unwrap();
-        owned.push((path.to_string(), oid, bytes));
+        owned.push((
+            path.clone(),
+            oid.clone(),
+            git_bytes(&repo, &["cat-file", "blob", oid]),
+        ));
     }
     let expected: Vec<_> = owned
         .iter()
@@ -62,9 +98,13 @@ fn public_pair_annotation_census() {
         })
         .collect();
     let wire = serde_json::json!({
-        "api": support::API, "rev": commit, "tree": tree,
-        "origin": {"kind": "named_tree", "input_id": "svc", "repo": "pilot-producer", "tree": tree,
-                   "path": "swagger.json", "blob": "schema-blob", "availability": "available"}
+        "api": support::API, "repo": REPO, "rev": commit, "tree": tree,
+        "origin": {"kind": "named_tree", "input_id": "svc", "repo": REPO, "tree": tree,
+                   "path": SCHEMA_PATH, "blob": schema_blob, "availability": "available"},
+        "schema": {"source": {"kind": "file", "repo": REPO, "tree": tree, "rev": commit,
+                   "committed_at": null, "path": SCHEMA_PATH, "blob": schema_blob,
+                   "format": "json", "sha256": schema_sha},
+                   "content_hash": null, "info_version": null}
     });
     let input = support::input_with(wire);
     let doc = bind_producer(
@@ -93,7 +133,14 @@ fn public_pair_annotation_census() {
                 .map(|h| (h.site.file.clone(), h.site.span))
         })
         .collect();
+    // Only a Bound edge counts toward "annotation-bound"; a candidate or any other evidence is
+    // reported separately.
     let bound_ops: BTreeSet<_> = support::rows(&doc)
+        .iter()
+        .filter(|r| r.grade == Some(EdgeGrade::Bound))
+        .map(|r| r.operation_id.clone())
+        .collect();
+    let evidenced_ops: BTreeSet<_> = support::rows(&doc)
         .iter()
         .map(|r| r.operation_id.clone())
         .collect();
@@ -103,7 +150,7 @@ fn public_pair_annotation_census() {
         .map(|r| r.operation_id.clone())
         .collect();
     let schema_ops: BTreeSet<_> = schema.operations.iter().map(|o| o.id.to_string()).collect();
-    let unannotated: Vec<_> = schema_ops.difference(&bound_ops).collect();
+    let unannotated: Vec<_> = schema_ops.difference(&evidenced_ops).collect();
     let without: Vec<_> = records
         .iter()
         .filter(|r| r.disposition == D::AnnotationWithoutOperation)
@@ -140,11 +187,12 @@ fn public_pair_annotation_census() {
 
     let report = format!(
         "\n## ACTUAL (commit {commit}, tree {tree}; non-test Go files only)\n\
+         - schema: {SCHEMA_PATH} blob {schema_blob} sha256 {schema_sha}\n\
          - Go files examined: {} ({} expected, statuses {statuses:?})\n\
          - schema operations: {}; schema diagnostics: {}\n\
          - annotation records: {} by disposition {by_disposition:?}\n\
          - annotated functions (distinct handler declarations bound): {}\n\
-         - operations annotation-bound: {} of {}; candidate operations: {}\n\
+         - operations annotation-bound (grade Bound only): {} of {}; candidate operations: {}; operations with any annotation evidence: {}\n\
          - schema operations with no annotation binding: {} {unannotated:?}\n\
          - annotation_without_operation: {} {without:?}\n\
          - entry-level gaps: {}\n\
@@ -158,6 +206,7 @@ fn public_pair_annotation_census() {
         bound_ops.len(),
         schema_ops.len(),
         candidate_ops.len(),
+        evidenced_ops.len(),
         unannotated.len(),
         without.len(),
         doc.entries.len(),

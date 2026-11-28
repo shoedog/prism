@@ -523,6 +523,10 @@ is not an admission claim of its own.
 `ProducerInputs` is a `DocumentInput` (producer role, authority `annotation`, API scope, a commit or computed-tree
 snapshot), the expected file inventory (`path`, blob id) and the files read from the named tree (`tree`, `path`,
 blob id, bytes). The core reads no filesystem and no Git. A `NavigationSession` wrapper is not part of this slice.
+The schema index is admitted for a document only when it is the schema the document declares (path, blob, repo
+and tree, or the named-tree entry when the document carries no schema evidence), has the schema authority, and
+covers the same scope region as the document; otherwise the files are `partial` (`schema_not_admitted`) and
+nothing binds.
 `ProducerError` covers only caller mistakes (no adapter, an unimplemented adapter, a wrong role, authority, scope or
 snapshot kind); every input-data problem becomes a coverage record instead.
 
@@ -551,7 +555,9 @@ repaired. Every server projection of a matching declaration is bound. One annota
 
 **Outcome per directive (`annotations[]`).** `bound`, `candidate` (the same operation annotated on two or more
 distinct declarations in the admitted input; both edges carry the evidence note `competing_handlers`, and no
-unique-binding credit is given), `annotation_without_operation` (a complete operation inventory has no match;
+unique-binding credit is given; the same grade, with the note `competitor_unread`, withholds uniqueness when an
+expected file's text was never read, or an entry gap is keyless or names the operation, since either could hide a
+competitor. A read `parse_error` file counts only through its keyed gaps. The observed site is always kept), `annotation_without_operation` (a complete operation inventory has no match;
 there is no `schema_stale_against_code` here, it needs registrations), `not_checked` (the schema index is not
 admitted for this input: `schema_not_admitted`; or the match is unprovable: `typed_path_differs` when only the
 printed path agrees, `annotation_path_includes_base`, `schema_operations_incomplete` when an unprojected operation
@@ -573,9 +579,17 @@ the document does not depend on input order. `//line` directives are ignored: lo
 snapshot and inventory is refused for that file only, and its text is never read); `skipped`
 (`not_in_expected_inventory`, for a supplied file the caller did not list). A file with parse errors stays `partial`
 with an empty key list, which blocks every dependent negative (the membership check treats an unaccounted region with
-no keys as covering nothing). Each gap directive adds an `entries` region (`annotation_unattached` and
-`annotation_not_checked` with the typed operation key, `annotation_malformed` and `annotation_unsupported_form`
-with no key) carrying the blob and the directive span. A file with a broken body but an intact header keeps its
+no keys as covering nothing). Two entries of one path in the expected inventory with different blobs are `unknown`
+(`duplicate_expected_entry`) whatever the input order and bind nothing; identical duplicates coalesce. Each gap
+directive adds an `entries` region carrying the blob and the directive span. `annotation_unattached` and
+`annotation_not_checked` are keyed by the projected operation ids (the ids the directive would name under every
+server and base path projection of the schema), or keyless when those cannot be listed (an incomplete operation
+domain, nothing to learn a projection from, an unadmitted schema); `annotation_path_includes_base` keeps the
+projected id it spells. `annotation_malformed` and `annotation_unsupported_form` have no key. A hit on a known
+projection also adds a keyless `annotation_deployments_unprojected` region when the schema reports server
+diagnostics (a server variable with a default but no finite enum, an unreadable server list): other deployments may
+exist that are not projected. That region does not withhold uniqueness, since it hides no competing handler. A
+malformed `@Router /x []` has `raw_method: null` (the wire schema forbids an empty string; `raw` keeps the text). A file with a broken body but an intact header keeps its
 attachment and is `partial`; an error between the comment and the declaration confirms no attachment. The caller
 chooses the Go file population (this slice does not skip `_test.go`, vendored or build-tagged files); an API-wide
 negative needs that population to be the one it claims.
@@ -585,8 +599,10 @@ negative needs that population to be the one it claims.
 `annotations[]` of `AnnotationRecord` (raw text, raw method and path, disposition, reason, handler, selected
 operation ids, notes). `schemas/boundary-bindings.schema.json` gained the `handler` and `annotation` definitions and
 these properties; `tests/producer_inputs.rs` pins their closed values and that a P1d document still decodes.
-`BindingsDocument::with_schema_inventory` was not changed: called on a producer document it still adds one
-schema-derived row per operation with empty sites (open question below).
+`BindingsDocument::with_schema_inventory` was not changed: called on a document with the annotation authority it
+returns `InvalidDocument` (D09), because the schema index is a schema-authority input and the document is not;
+`tests/producer_fold1.rs` pins the refusal. A schema-authority document with matching schema provenance can still
+use it.
 
 **Non-facade `prism` use.** None of `prism::api` is used. The adapter calls `prism::ast::ParsedFile::parse(path,
 source, prism::languages::Language::Go)` and reads its public `tree` and `parse_error_count` fields, and walks the
@@ -600,7 +616,10 @@ private pair has no annotations and is not used. Run it with
 `PRISM_BOUNDARY_PUBLIC_SWAGGER=<swagger.json> PRISM_BOUNDARY_PUBLIC_CORPUS=<checkout>
 cargo test -p prism-boundary --test producer_public -- --ignored --nocapture`.
 
-**Open questions.** (1) Whether `with_schema_inventory` should refuse or skip a document whose authority is not
-`schema` (D09). (2) Whether a `bound` edge should be withheld from the unique grade when another expected file is not
-`complete` (A15); today the grade stays and the document-level regions carry the limit. (3) Whether the producer fields
-should move to a versioned producer payload before external compatibility commitments (enumeration design question 5).
+**Design notes.** (a) `with_schema_inventory` keeps its refusal on an annotation-authority document. Schema
+inventory and annotation edges are distinct authorities. If P4 needs schema facts per bound operation, add a method
+that only fills rows that already exist and never creates one. Membership treats a missing row as Absent, so P4 must
+not feed annotation documents to membership unchanged (an unannotated schema operation would read as absent).
+(b) A `bound` edge is unique only when its competitors were accounted for: an unread expected file or a gap that
+could hide one yields `candidate` with `competitor_unread` (see Outcome per directive). (c) Whether the producer fields
+move to a versioned producer payload is decided at P2-5, when the `bind` CLI first publishes documents.

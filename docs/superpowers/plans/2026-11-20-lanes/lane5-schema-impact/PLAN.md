@@ -720,10 +720,23 @@ annotation and struct fields. No cross-function Gin resolver or framework-entrie
 
 ```rust
 pub enum ProducerAdapter { SwaggoAnnotation, GoStructField }   // binding sources only
-pub struct ProducerOptions { pub adapters: Vec<ProducerAdapter> }       // default: [SwaggoAnnotation, GoStructField]
-pub fn bind_producer(session: &prism::navigation::NavigationSession, schema: &SchemaIndex,
-                     snapshot: &SnapshotInput, opts: &ProducerOptions) -> BindingsDocument;
+pub struct ProducerOptions { pub adapters: Vec<ProducerAdapter> }
+pub struct ProducerInputs<'a> { pub input: &'a DocumentInput, pub expected: &'a [ExpectedFile<'a>],
+                                pub files: &'a [SourceBlob<'a>] }   // receipt-bound inputs, no I/O
+pub enum ProducerError { NoAdapters, NotImplemented(ProducerAdapter), WrongRole, WrongAuthority,
+                         UnsupportedSnapshot, UnsupportedScope }    // caller mistakes only
+pub fn bind_producer(inputs: &ProducerInputs<'_>, schema: &SchemaIndex, opts: &ProducerOptions)
+    -> Result<BindingsDocument, ProducerError>;
 ```
+
+*Amended at P2-1 (the shipped interface).* The core takes receipt-bound inputs (the `DocumentInput` with its
+snapshot, schema evidence and scope; the expected file inventory with blob ids; the files read from the named
+tree) and returns a `Result`, so a caller mistake has its own channel while every data problem becomes a
+coverage record. It reads no filesystem and no Git. Default adapters by PR: P2-1 `[SwaggoAnnotation]` (the
+struct-field adapter is refused with `NotImplemented`); P2-2 adds `GoStructField` and flips the default to
+`[SwaggoAnnotation, GoStructField]`; P2-5 adds the session wrapper that acquires the inputs from a
+`prism::navigation::NavigationSession` and the `bind` CLI. An annotation binds only against the index of the
+schema the document declares (same path, blob, repo and tree, schema authority, same scope).
 
 CLI: `prism-boundary bind --role producer --api <name> --repo <dir> --schema <file.json> --out <bindings.json>`.
 
