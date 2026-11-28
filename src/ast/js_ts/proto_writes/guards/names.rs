@@ -552,8 +552,11 @@ impl<'a, F: FnMut(usize) -> bool> Proof<'a, '_, F> {
                 if op == "&&" || op == "||" {
                     nodes.extend([left, right]);
                 } else if matches!(op, "===" | "!==")
-                    && identifier(left)
-                    && self.text(left) == self.text(parameter)
+                    && self
+                        .bindings
+                        .bare_read(left)
+                        .and_then(|read| read.binding.as_ref())
+                        == Some(&AstSpan::from(parameter))
                     && self.string(right).is_some()
                 {
                     return true;

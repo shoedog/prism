@@ -38,6 +38,8 @@ mod proto_writes_guard_receiver_tests;
 #[cfg(test)]
 mod proto_writes_guard_sequence_tests;
 #[cfg(test)]
+mod proto_writes_guard_shadow_tests;
+#[cfg(test)]
 mod proto_writes_guard_tests;
 #[cfg(test)]
 mod proto_writes_switch_tests;

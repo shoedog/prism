@@ -72,6 +72,12 @@ pub(super) fn run_ts(family: &str, base: &str, cases: &[Case]) {
     run_in(&LANGUAGES[1..], family, base, cases);
 }
 
+/// JavaScript only: for helpers the TypeScript grammars do not yet accept
+/// (their parameters are wrapped in a `required_parameter` node).
+pub(super) fn run_js(family: &str, base: &str, cases: &[Case]) {
+    run_in(&LANGUAGES[..1], family, base, cases);
+}
+
 fn run_in(languages: &[(&str, Language)], family: &str, base: &str, cases: &[Case]) {
     let mut failures = Vec::new();
     for case in cases {
