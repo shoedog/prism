@@ -1,6 +1,6 @@
 # Lane 5 amendment: admission redesign for `prism-boundary` (design of record)
 
-Status: design only, no product code. Revision 4, after review rounds 1 to 3 (change log in section 1.6). Applies to crate `crates/prism-boundary` at
+Status: design only, no product code. Revision 4, after review rounds 1 to 3 (change log in section 1.6), in two phases set by a census of real history (section 6.0). Applies to crate `crates/prism-boundary` at
 the P1d head (PR #958). Every statement about code names a repository path and function. Paths are relative to
 `crates/prism-boundary/src` unless they start with `crates/`, `docs/`, `tests/` or `scripts/`. The code at the P1d
 head was read, not run: every input state below is traced from the code and becomes a RED test before anything
@@ -785,6 +785,98 @@ re-decided by one question: if the deciding read is left out, does the policy st
 
 ## 6. Migration
 
+### 6.0 Phases
+
+The twelve steps fall into two phases, set by a read-only census of real pilot history (2026-11-28) that sorted the
+105 uncertified census rows by whether the request shapes they need occur in the history of the public pair and the
+private pair. Counts are aggregates; the census reads git history and the settlement census's own feature columns,
+with about 15 judgement calls (about plus or minus 3). This section states what each phase does; it does not
+recommend either phase or any product choice.
+
+**The census buckets.** Of the 105 uncertified rows:
+
+- 53 are reachable by observed shapes only (every feature they need occurs in history, and historical mode is
+  possible): 19 serious;
+- 46 are undetermined (they need a feature or mode history cannot show: 34 a product choice only, 7 a product choice
+  and a live or version mode, 5 a mode only): 29 serious;
+- 6 are reachable only by unobserved shapes (a held alias, a `no_first_parent` slot, caller-built inputs): 1 serious.
+
+"Observed" means the request shape occurs in history. No bad state was observed: every one is constructed, traced
+from code and not executed, with incidence 0 in the 37-pair replay. 12 schema-marker rows depend on schema bytes, not
+on the request shape, and frozen-layer rows are also reachable through a hand-edited document, which no request
+shape governs.
+
+**Phase 1: S1, S2, S3a, S3b, S4a, S4b, S5a.** Line estimates from the step table: 550 + 900 + 600 + 400 + 550 + 450 +
+900 = 4,350 changed weighted lines, equal to the census's figure. It is a complete, mergeable unit under the rules of
+section 6.1: each step builds in every permitted order, keeps the 37-pair replay byte-identical (section 7.4), passes
+the full crate suite, and lands its RED tests, controls and seams. The legacy bridge stays in place, because S6
+deletes it.
+
+- **What is certified after phase 1.** In the README's terms (modes live, historical and version; request shapes;
+  certified, accepted but not certified, withheld): the certified shape is unchanged. Admission stays certified only
+  for the historical review the replay exercises (subject head the service After at the cutoff, two commit inputs of
+  one API with one dependency-free named-tree blob receipt each, two schema claims, no consumer side, computed tree,
+  merge, held alias, pin, media, configuration or reference receipt, and no frozen consumer record).
+  `ImpactDocument::validate` stays certified in no shape. Every other mode and shape stays accepted but not
+  certified. Phase 1 removes census cases from those shapes; it does not certify them, because section 8.1 item 1
+  requires S1-S6.
+- **Rows it closes, by the design's per-case step (section 7.1).** Observed-only: 17 of 53 (14 of 19 serious).
+  Undetermined: 15 of 46 (15 of 29 serious). Unobserved-only: 0 of 6 (no step fixes any of them: 5 are disclosed
+  limits, 1 serious pinned in S9, and 1 is not a defect).
+- **Observed serious rows left open: 5.** Four membership and total rows (S8), and one relation rule: a historical
+  After turned into an unrelated later commit in the subject's repository (S5b). The census, which mapped rows to
+  steps through the paths of section 4, counted that fifth row as covered, because its paths also list S5a; its RED
+  test and fix are in S5b.
+- **The 36 observed-only rows phase 1 leaves open** split into 8 that phase 2 fixes (5 serious: S5b 2, S7 2, S8 4,
+  counted by row), 20 disclosed limits, and 8 with no defect or no concrete state. All 36 are constructed, none
+  observed as a bad state.
+- **What P4 may certify after phase 1 alone.** The README's certified shape, as today, and nothing more. Against
+  section 8.1: item 1 is not met (S6 is missing: the claim policy, `SchemaBasis`, media and the bridge deletion);
+  item 2 is not met (S7, S8); item 3 is not met for membership (`unobserved_elements_admitted` lands in S8) and holds
+  for the other entry points only as code, not as certification; items 4 and 5 are P4's own gates. P4 may not certify
+  any other admitted cell, any frozen cell, a saved-status cell, a membership negative or a known total. Whether a
+  phase-1-only P4 could certify more would change 8.1 item 1; this design does not make that change.
+
+**Phase 2: S5b, S6, S7, S8, S9.** 350 + 800 + 800 + 750 + 300 = 3,000 changed weighted lines. Counted by row (section
+7.1 step):
+
+- **S5b** (relation rules, the historical topic-head binding in the conflict group, the parity matrix): observed-only
+  2 rows (1 serious, the historical After relation; 1 uncertain), undetermined 2 (1 serious). Depends on S5a.
+- **S6** (claim policy, `SchemaBasis`, media, reference identity, bridge deletion): observed-only 0, undetermined 6
+  (5 serious; all need media or a selection pin, a product choice). It is also 8.1 item 1's last step for any
+  admitted or frozen cell. Depends on S5b, S4a, S4b.
+- **S7** (marker facts, saved status): observed-only 2 (0 serious: saved inventory provenance and the saved negative's
+  segment population), undetermined 4 (4 serious, schema-marker states). Depends on S6.
+- **S8** (membership, known totals): observed-only 4 (the four membership and total rows, all serious), undetermined 4
+  (4 serious). Through its dependencies (S7, S4a, S4b) it pulls in S1 through S7.
+- **S9** (audit closure, five known-limit pins, status update; about 300 lines) serves no row. It is part of P4's
+  final gate.
+
+The census's path-based mapping gives slightly different per-step counts (observed-only S5b 4 rows, S6 1, none
+serious); the per-case step above is the design's.
+
+**Product choices phase 2 depends on.** The undetermined rows it fixes need media or metadata claims, selection pins,
+independent-cutoff receipts, saved scans, schema-marker states, or a live or version mode, none of which history can
+show. Owner questions 12 and 13 (section 9) decide which modes and which change shapes the pilot reviews.
+
+**The private pair.** Its producer has no schema file; its route table is its schema source. The admission module
+has no route-table path, so the private pair reaches admission only after a route-table input is admitted, which is
+not traced. Phase 1 therefore certifies nothing for the private pair, and neither does phase 2: its first reachable
+point is after a separate route-table admission slice that this design does not specify (an open item, section 8.2).
+
+**What phase 1 leaves open, and what is only constructed.**
+
+- 5 observed serious rows (four membership and total rows in S8, one relation rule in S5b) and 14 undetermined
+  serious rows (S5b 1, S6 5, S7 4, S8 4).
+- Every saved-status and membership cell, every known total, every media decision, and the claim policy over the
+  shared rules (S6).
+- The interim divergence between the layers on the relation rules S3b changes, until S5b (section 3.7).
+- The legacy bridge, until S6.
+- All of it is constructed: no census state was observed in the replay or in history; the census shows only that
+  the shapes occur.
+
+### 6.1 Rules and steps
+
 Rules that hold for every step:
 
 - The 37-pair replay stays byte-identical (section 7.4).
@@ -836,7 +928,8 @@ Total: 12 PRs and about 7,350 changed weighted lines.
 - a saved-status cell before S7;
 - a membership negative or a known total before S8.
 
-S9 is part of P4's final gate.
+S9 is part of P4's final gate. In phase terms (section 6.0): after phase 1 alone P4 certifies only the README's
+existing shape; the first of these three lines is met only inside phase 2, at S6.
 
 **Exit gate per step.**
 
@@ -990,6 +1083,9 @@ Step S7 also counts, on the 37 pinned schemas, the marker states whose answers d
 
 ### 8.1 Minimum for P4
 
+Phase 1 (section 6.0) meets none of items 1 and 2 and only part of item 3; items 4 and 5 are P4's own. Item 1 is met
+at S6, item 2 at S7 and S8, item 3 for membership at S8, all in phase 2.
+
 1. **S1-S6 merged before P4 certifies any admitted or frozen cell.** The request route reaches the shared policies. A
    positive cell binds its role, input, side, tree, scope, mode clock and receipt closure. A computed result needs its
    merge evidence, and a waived Before needs its grant. A frozen cell is certified only for a document P4 produced
@@ -1035,6 +1131,11 @@ Step S7 also counts, on the 37 pinned schemas, the marker states whose answers d
   `SchemaIndex` after its marker facts were settled, and anything else out of model for the lane.
 - **Saved populations P4 does not supply.** Without an independent segment population a saved negative stays **Not
   checked**; the redesign does not reconstruct segment manifests itself.
+- **The private pair.** Its schema source is a route table, and the admission module has no route-table path. This
+  design certifies nothing for it in either phase; its first reachable point is a separate route-table admission
+  slice that this design does not specify (open item).
+- **Phase 1 alone.** It leaves 5 observed serious rows and 14 undetermined serious rows to phase 2, and certifies no
+  shape beyond the README's (section 6.0).
 - **Incidence.** The replay exercises one request shape. The redesign removes ways to write the defect; it does not
   measure how often the fixed states occur in live use.
 - **Completeness of the census.** No census round called it complete. Members of the class in paths the census did
@@ -1066,3 +1167,11 @@ Step S7 also counts, on the 37 pinned schemas, the marker states whose answers d
     admitted. New dependencies render as `missing_dependency` at their refusal-id spelling (section 3.5).
 11. **UI compile-fail tests.** Default: no. Rely on module privacy, the import check and the public doctests.
     Alternative: trybuild tests through a cfg-gated facade.
+12. **Which review modes the pilot uses (live, historical, version).** Open product question; the design has no
+    default. The replay used historical, and the plan names all three. Of the 46 undetermined census rows, 5 need a
+    mode only, 34 need a product choice only, and 7 need a product choice and a live or version mode (section 6.0).
+13. **Whether the pilot reviews merged branches or only first-parent pairs.** Open product question; the design has
+    no default. A merged branch that was behind its target needs a computed tree to review: 283 of 359 merges in the
+    public pair's window (35 of its 49 service-touching merges; 21 in the usable replay cohort) and 391 of 1,018 in
+    the private pair's window (273 of its 716 route-touching merges; 14 in its usable cohort). The answer sets whether
+    the computed-tree rows count as observed or not.
