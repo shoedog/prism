@@ -168,7 +168,7 @@
      "verdict": "UNDECIDED outside-judged-scope"
     }
    ],
-   "note": "The `export type *` mark sits on the export declaration, not on a symbol the alias walk reads (probable cause, not proved). Controls: a live import is CORRECT; `import type` and an interface imported by name are UNDECIDED."
+   "note": "The `export type *` mark sits on the export declaration, not on a symbol the alias walk reads (probable cause, not proved). Controls: a live import is CORRECT; `import type` and an interface imported by name are UNDECIDED. Unpinned members: a shadowing local read of the star-imported name gets WRONG different-declaration (direct, forwarded; reviewer probes, census flags them, 0 on the real inputs)."
   },
   {
    "id": "type-only-callee",
@@ -221,7 +221,7 @@
      "verdict": "CORRECT"
     }
    ],
-   "note": "The 16-hop bound is an implementation cap: the import-to-read row of a 16-link chain is UNDECIDED outside-judged-scope while the 7-link chain is CORRECT. In this program the call row through the long chain stays CORRECT (the callable proof has no such bound); sol saw it withheld in its own program and that was not reproduced."
+   "note": "The 16-hop bound is an implementation cap: the import-to-read row of a 16-link chain is UNDECIDED outside-judged-scope while the 7-link chain is CORRECT. In this program the call row through the long chain stays CORRECT (the callable proof has no such bound); sol saw it withheld in its own program and that was not reproduced. Unpinned member: the long alias in actual position, `f(longV)`, is UNDECIDED outside-judged-scope (reviewer probe; the 7-link actual is CORRECT)."
   },
   {
    "id": "compile-time-erasure",
@@ -260,7 +260,7 @@
      "verdict": "CORRECT"
     }
    ],
-   "note": "TypeScript emits neither the namespace nor the read, or replaces the read with its constant. Controls: an instantiated namespace and a plain read of the same constant are CORRECT."
+   "note": "TypeScript emits neither the namespace nor the read, or replaces the read with its constant. The receiver case also covers a namespace that holds a const enum and live members (reviewer probe, not a pinned row). Controls: an instantiated namespace and a plain read of the same constant are CORRECT."
   },
   {
    "id": "literal-actual-in-erased-key",
@@ -415,7 +415,7 @@
      "verdict": "WRONG different-declaration"
     }
    ],
-   "note": "Not a defect: the same-line neighbour declares the very binding that the read resolves to, so it can serve the role and the position is coordinate-uncertain. The required verdict is UNDECIDED, the same as today (the earlier draft required WRONG different-declaration; the safer reading is kept because a producer anchors an endpoint by line). Controls: the same programs with the declarations on separate lines are WRONG different-declaration. Instantiated namespaces: both the same-line row and the control are UNDECIDED declaration-unproved (not reproduced, not pinned)."
+   "note": "Not a defect: the same-line neighbour declares the very binding that the read resolves to, so it can serve the role and the position is coordinate-uncertain. The required verdict is UNDECIDED, the same as today (the earlier draft required WRONG different-declaration; the safer reading is kept because a producer anchors an endpoint by line). Controls: the same programs with the declarations on separate lines are WRONG different-declaration. Instantiated namespaces in sibling scopes behave the same way (reviewer probe, not a pinned row); merged declarations of one namespace are one binding and give UNDECIDED declaration-unproved."
   },
   {
    "id": "symbol-less-role-fault",

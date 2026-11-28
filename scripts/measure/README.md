@@ -452,7 +452,9 @@ Recorded, not defects: two same-line named class expressions, regular enums or
 function expressions give a cross-binding edge UNDECIDED `endpoint-coordinate-off`
 (the neighbour declares the binding the read resolves to, so it can serve the role;
 the same programs on separate lines give WRONG `different-declaration`); instantiated
-namespaces give UNDECIDED `declaration-unproved` in both layouts. A name with no
+namespaces in sibling scopes behave the same way (reviewer probe, not a pinned row),
+while merged declarations of one namespace are one binding and give UNDECIDED
+`declaration-unproved`. A name with no
 checker symbol (an undeclared global) is admitted by the scope and a role fault on it
 gives WRONG `write-position`, which is true about the edge; it was found through a
 role fault and is pinned beside a declared-variable control.
@@ -469,7 +471,8 @@ export declaration, not on a symbol the alias walk reads (not proved).
 both endpoints of every decided row in the pinned checker. It checks:
 the body-less formals and overloads, `export type *` and type-only callee
 provenance (import-type hop and the checker's type-only mark), const-enum and
-folded-initializer erasure, literals and reads in erased computed keys, instantiation
+folded-initializer erasure (including a receiver `N.E` or `N["E"]` of a const enum
+held in a namespace, live or not), literals and reads in erased computed keys, instantiation
 operands wrapped in parentheses, `as`, `!`, `satisfies`, conditional or binary
 expressions, alias chains of 16 or more hops, and decided rows with no symbol. The
 script flags every pinned row that yields a decided verdict when run on the
@@ -711,7 +714,10 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
 - Both endpoints at exact identifier bytes spelled as the claimed base that
   resolve to different VALUE bindings (variable, parameter, function, class,
   import, binding element by its name) are a proved different binding, WRONG
-  `different-declaration`, without a neighbour check (matrix row oracle-007).
+  `different-declaration`, without a neighbour check (matrix row oracle-007), except a
+  same-line neighbour that declares the binding the read resolves to (a named class,
+  enum or function expression): that pair is UNDECIDED `endpoint-coordinate-off`
+  (known limits above).
 - `implements`, interface `extends`, computed property/method signatures in
   interfaces and type literals, type queries, erased computed keys (accessor
   signatures, abstract members, body-less method overloads) and everything in
