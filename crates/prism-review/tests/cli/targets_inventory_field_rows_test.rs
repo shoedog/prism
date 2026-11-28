@@ -2,9 +2,15 @@ use super::targets_inventory_matrix_test::{check_field_matrix, check_receiver_pi
 use super::targets_inventory_test::document;
 use serde_json::{json, Value};
 
-pub(super) fn scan(gate: Option<&str>, files: &str, options: &[&str]) -> Value {
+pub(super) fn scan(files: &str, options: &[&str]) -> Value {
+    scan_with_env(None, files, options)
+}
+
+/// Runs the scan with the removed slice-1 switch set, to prove it no longer
+/// changes anything (DESIGN 6.12 item 13).
+fn scan_with_env(retired_switch: Option<&str>, files: &str, options: &[&str]) -> Value {
     let mut command = crate::prism_std();
-    if let Some(value) = gate {
+    if let Some(value) = retired_switch {
         command.env("PRISM_INVENTORY_FIELD_ROWS", value);
     } else {
         command.env_remove("PRISM_INVENTORY_FIELD_ROWS");
@@ -47,18 +53,26 @@ fn field_row_known_limits() {
 }
 
 #[test]
-fn gate_off_keeps_the_base_constructor_diagnostics() {
+fn field_rows_are_default_and_the_retired_switch_is_inert() {
     let files = "stdlib/pfield/pf01.py,stdlib/pfield/pf04c.py,stdlib/pfield/pf12a.py,stdlib/pfield/pf12b.py,stdlib/pfield/pf12c.py";
-    let off = scan(None, files, &[]);
-    for value in ["", "0", "true", "01", "1 ", " 1"] {
-        assert_eq!(scan(Some(value), files, &[]), off, "{value:?}");
+    let default = scan(files, &[]);
+    for value in ["", "0", "1", "true", "01", "1 ", " 1"] {
+        assert_eq!(scan_with_env(Some(value), files, &[]), default, "{value:?}");
     }
-    let [row] = off["targets"].as_array().unwrap().as_slice() else {
-        panic!("expected exactly the local construction site: {off:#}");
-    };
-    assert_eq!(row["site"]["symbol"], "local");
-    assert_eq!(row["confidence"], "exact");
-    let warnings: Vec<_> = off["warnings"]
+    let fields: Vec<_> = default["targets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| {
+            row["site"]["file"] == "stdlib/pfield/pf01.py" && row["site"]["symbol"] != "local"
+        })
+        .collect();
+    assert_eq!(fields.len(), 2, "{default:#}");
+    for row in fields {
+        assert_eq!(row["confidence"], "nameonly");
+        assert_eq!(row["tier"], "candidate");
+    }
+    let warnings: Vec<_> = default["warnings"]
         .as_array()
         .unwrap()
         .iter()
@@ -68,19 +82,19 @@ fn gate_off_keeps_the_base_constructor_diagnostics() {
     assert_eq!(
         warnings,
         [
+            "inventory: identity unproven: stdlib/pfield/pf04c.py: 1 (receiver_not_unique: 1)",
             "inventory: identity unproven: stdlib/pfield/pf12a.py: 1 (receiver_value_unproven: 1)",
             "inventory: identity unproven: stdlib/pfield/pf12b.py: 1 (receiver_value_unproven: 1)",
+            "inventory: identity unproven: stdlib/pfield/pf12c.py: 1 (receiver_value_unproven: 1)",
         ]
     );
     check_receiver_pins(&["h07", "sl4-09", "sl5-13", "as1-20", "wf40", "as4-15"]);
-    let inherited = "http_receiver/h07.py,http_receiver/sl4-09.py,http_receiver/sl5-13.py,http_receiver/as1-20/child.py,http_receiver/wf40.py,http_receiver/as4-15.py";
-    assert_eq!(scan(Some("1"), inherited, &[]), scan(None, inherited, &[]));
 }
 
 #[test]
-fn gate_on_projects_candidate_filters_and_grouped_details() {
+fn default_projects_candidate_filters_and_grouped_details() {
     let files = "stdlib/pfield/pf01.py,stdlib/pfield/pf11.py";
-    let doc = scan(Some("1"), files, &[]);
+    let doc = scan(files, &[]);
     assert_eq!(doc["schema_version"], "1.1");
     let targets = doc["targets"].as_array().unwrap();
     assert_eq!(targets.len(), 4, "{doc:#}");
@@ -104,11 +118,17 @@ fn gate_on_projects_candidate_filters_and_grouped_details() {
         })
     );
     for args in [["--min-confidence", "exact"], ["--min-tier", "asserted"]] {
-        let filtered = scan(Some("1"), files, &args);
-        assert_eq!(filtered["targets"], scan(None, files, &args)["targets"]);
+        let filtered = scan(files, &args);
+        let rows = filtered["targets"].as_array().unwrap();
+        assert!(!rows.is_empty(), "{args:?}: the exact local row stays");
+        assert!(
+            rows.iter()
+                .all(|row| row["confidence"] != "nameonly" && row["tier"] != "candidate"),
+            "{args:?}: {filtered:#}"
+        );
     }
     assert_eq!(
-        scan(Some("1"), files, &["--inventory-kinds", "http"])["targets"],
+        scan(files, &["--inventory-kinds", "http"])["targets"],
         json!([])
     );
 }
