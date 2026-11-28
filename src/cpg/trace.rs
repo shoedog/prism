@@ -517,6 +517,11 @@ impl CodePropertyGraph {
                         descent_gate_cache,
                         policy,
                     );
+                    // Measurement knob, OFF by default; never enters the gate cache.
+                    let gate = gate.and_then(|()| {
+                        self.walk_proof_refusal(relation, node, next, root)
+                            .map_or(Ok(()), Err)
+                    });
                     let site = site_for(node, next, relation);
                     let location = site.as_ref().map(|site| site.location);
                     if let Err(reason) = gate {
@@ -561,6 +566,12 @@ impl CodePropertyGraph {
                         );
                     }
                     next_depth += 1;
+                } else if let Some(reason) = (rel == Relation::ReturnInput)
+                    .then(|| self.walk_proof_refusal(rel, node, next, root))
+                    .flatten()
+                {
+                    record_cut(trace, reason);
+                    continue;
                 } else if depth == 0
                     && !self.cfg_valid(src_file, src_line, cfg_scope, has_cfg, next)
                 {

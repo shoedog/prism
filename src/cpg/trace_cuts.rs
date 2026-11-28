@@ -166,6 +166,16 @@ pub(super) fn byte_span(node: &CpgNode) -> (usize, usize) {
 
 impl CodePropertyGraph {
     fn trace_identity(&self, index: NodeIndex) -> String {
+        self.trace_text(index, Some(index.index()))
+    }
+
+    /// The ledger's hop identity without the `#<node index>` part, which is the only
+    /// build-dependent piece: `file:line:start..end@owner:path:access`. Walk proofs key on it.
+    pub(super) fn trace_key(&self, index: NodeIndex) -> String {
+        self.trace_text(index, None)
+    }
+
+    fn trace_text(&self, index: NodeIndex, number: Option<usize>) -> String {
         let node = self.node(index);
         let (start, end) = byte_span(node);
         let owner = self.node_file_fn(index);
@@ -173,11 +183,11 @@ impl CodePropertyGraph {
             CpgNode::Variable { path, access, .. } => format!(":{path}:{access:?}"),
             _ => String::new(),
         };
+        let number = number.map_or_else(String::new, |number| format!("#{number}"));
         format!(
-            "{}:{}:{start}..{end}#{}@{owner:?}{occurrence}",
+            "{}:{}:{start}..{end}{number}@{owner:?}{occurrence}",
             node.file(),
             node.line(),
-            index.index()
         )
     }
 }
