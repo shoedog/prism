@@ -357,7 +357,9 @@ impl<'a> PythonBindings<'a> {
         self.writes
             .get(file.path.as_str())?
             .reaching(scope, &name, before, |star| {
-                self.star_could_supply(file, star, &name, &mut vec![file.path.as_str()])
+                // A star from a module outside the repository is not seen (clause c).
+                self.star_source(file, star).is_some()
+                    && self.star_could_supply(file, star, &name, &mut vec![file.path.as_str()])
             })
     }
 
