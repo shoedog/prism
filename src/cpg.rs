@@ -139,6 +139,7 @@ mod trace_proofs_tests;
 mod trace_proofs_walk_tests;
 mod types;
 pub(crate) mod var_index;
+mod walk_proofs;
 #[cfg(test)]
 mod walk_proofs_golden_tests;
 #[cfg(test)]
