@@ -213,7 +213,10 @@ fn f3_05_an_empty_info_version_is_compared_like_any_other_value() {
     assert_eq!(schema.info_version.as_deref(), Some("1"), "fixture premise");
     let mut r = exact(&schema);
     r.info_version = Some("");
-    assert!(refused(&run_commit(&schema, receipt(&schema, r))), "vs \"1\"");
+    assert!(
+        refused(&run_commit(&schema, receipt(&schema, r))),
+        "vs \"1\""
+    );
     // Against an index that has no info version.
     let none = index_at(&versionless(), TREE, REV);
     assert_eq!(none.info_version, None, "fixture premise");
@@ -226,10 +229,7 @@ fn f3_05_an_empty_info_version_is_compared_like_any_other_value() {
     assert_eq!(empty.info_version.as_deref(), Some(""), "fixture premise");
     let mut r = exact(&empty);
     r.info_version = Some("");
-    assert!(binds(
-        &run_commit(&empty, receipt(&empty, r)),
-        "op:GET /x"
-    ));
+    assert!(binds(&run_commit(&empty, receipt(&empty, r)), "op:GET /x"));
     let mut r = exact(&schema);
     r.info_version = None;
     assert!(binds(
@@ -266,9 +266,7 @@ fn kl_p2_1_09_a_spurious_server_override_key_withholds_an_independently_annotate
     // `/x` never has; the unrelated, canonically attached `GET /fixed/x` therefore loses
     // uniqueness. CONSTRUCTED, 0 incidence on the public pair (single server, root base path).
     let item = |servers: &str| {
-        format!(
-            r#"{{"get":{{{servers}"responses":{{"200":{{"description":"ok"}}}}}}}}"#
-        )
+        format!(r#"{{"get":{{{servers}"responses":{{"200":{{"description":"ok"}}}}}}}}"#)
     };
     let schema = |z_servers: &str| {
         format!(

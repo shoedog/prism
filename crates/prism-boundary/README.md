@@ -267,9 +267,9 @@ The price comes from scanning the pinned public Swagger 2.0 for each shape. The 
 - KNOWN-LIMIT `fold2-one-of-enum-tag` retains an equal hash after changing one of two disjoint enum tags. Removing an arm-only field changes the projected inventory and hash.
 - KNOWN-LIMIT `fold2-items-dialect` retains the parent item type despite an unsupported items dialect. The accepted form supplies the item schema under the supported default dialect.
 - KNOWN-LIMIT Facts below a list-item or map-value edge with no named field can leave the hash unchanged. This includes item enum, item format, arrays of arrays, and maps of arrays. `fold3-root-scalar-slots` pins equal hashes for scalar map-value and root scalar-array item type edits. `fold4-item-enum-slot` and `fold4-item-format-slot` pin checked coverage, zero limits, and equal hashes for item enum widening and item format changes. The controls sign the corresponding facts when a named field has a slot for them.
-- KNOWN-LIMIT `kl_p2_1_01` (P2-1, `tests/producer_fold2.rs`) a keyless gap from a read file (a malformed or block-comment `@Router` directive, an ambiguous base) withholds uniqueness (`candidate`, `competitor_unread`) for every operation of the document, although the visible directive may concern one other operation (shapes of rows `kl_p2_1_01` to `_04`: block comments, a split directive, spelling variants, invalid path spellings). The accepted control is the valid edge without that sibling, or a sibling whose gap is keyed to another operation. OBSERVED on the public pair: no (0 entry gaps). CONSTRUCTED, zero incidence.
-- KNOWN-LIMIT `kl_p2_1_05`, `kl_p2_1_06`, `kl_p2_1_07` (P2-1) a gap key is built by joining the schema's base to the directive's path, so a detached directive that already spells the base (`/api/x` under `basePath /api`) is keyed `/api/api/x` and does not block `/api/x`; an attached `/north/x` under servers `/north` and `/south` blocks only `/north/x`; and a prefix learned from an operation-level server override is applied to every operation (a spurious key `/fixed/y`). The accepted controls are the authored path under a base path, and a single server prefix. OBSERVED on the public pair: no (root base path, single server). CONSTRUCTED, zero incidence.
-- KNOWN-LIMIT `kl_p2_1_08` (P2-1) the `annotation_deployments_unprojected` region comes from any server-scope diagnostic of the document, so a hit on an operation that overrides the servers with a finite list still records it. The accepted control is a schema with no server diagnostic. OBSERVED on the public pair: no (no server diagnostic). CONSTRUCTED, zero incidence.
+- KNOWN-LIMIT `kl_p2_1_01` (KL1, P2-1, `tests/producer_fold2.rs`) a keyless gap from a read file (a malformed or block-comment `@Router` directive, an ambiguous base) withholds uniqueness (`candidate`, `competitor_unread`) for every operation of the document, although the visible directive may concern one other operation (shapes of rows `kl_p2_1_01` to `_04`: block comments, a split directive, spelling variants, invalid path spellings). The accepted control is the valid edge without that sibling, or a sibling whose gap is keyed to another operation. Incidence on the public pair (Apache Answer pinned checkout: 199 directives, 446 files, 0 entry gaps, root base path, single server): 0. CONSTRUCTED.
+- KNOWN-LIMIT `kl_p2_1_05`, `kl_p2_1_06`, `kl_p2_1_07`, `kl_p2_1_09` (KL2, P2-1) a gap key is built by joining the schema's base to the directive's path. Row 05: a detached directive that already spells the base (`/api/x` under `basePath /api`) is keyed `/api/api/x` and does not block `/api/x`; that edge keeps `Bound`, which is correct under swaggo's base-relative `@Router` semantics (a detached comment generates nothing), so row 05 is the one case that keeps a claim the crate's own attached-directive rule would not. Row 06: an attached `/north/x` under servers `/north` and `/south` blocks only `/north/x`. Row 07: a prefix learned from an operation-level server override is applied to every operation (a spurious key `/fixed/y`). Row 09 (the row-07 consequence): the spurious key withholds a real edge, so with a detached `/x` and an operation `/z` overriding its servers with `/fixed`, an independently annotated `GET /fixed/x` drops from `Bound` to `Candidate`. The accepted controls are the authored path under a base path, a single server prefix, and a schema without the override. Incidence on the public pair: 0 (root base path, single server). CONSTRUCTED.
+- KNOWN-LIMIT `kl_p2_1_08` (KL3, P2-1) the `annotation_deployments_unprojected` region comes from any server-scope diagnostic of the document, so a hit on an operation that overrides the servers with a finite list still records it. The accepted control is a schema with no server diagnostic. Incidence on the public pair: 0 (no server diagnostic). CONSTRUCTED.
 
 Open questions for the design seat
 
@@ -529,9 +529,20 @@ blob id, bytes). The core reads no filesystem and no Git. A `NavigationSession` 
 The schema index is admitted for a document only when it is the schema the document declares (path, blob, repo
 and tree, or the named-tree entry when the document carries no schema evidence), has the schema authority, covers
 the same scope region as the document, and, for an explicit file receipt, agrees with the receipt on the SHA-256 of
-the bytes and on the source revision (when the index has a commit), the content hash and the info version (each
-compared when the receipt declares a non-empty value); otherwise the files are `partial` (`schema_not_admitted`)
-and nothing binds. The named-tree fallback declares none of the digest fields and keeps its own contract.
+the bytes, on the content hash and on the info version (each compared whenever the receipt declares a value, an
+empty string included), and with the document's own snapshot on the revision, commit date and subject (a commit
+receipt must name the snapshot's revision, and its date and subject, when declared, must equal the snapshot's;
+a computed-tree receipt must carry none of the three); otherwise the files are `partial` (`schema_not_admitted`)
+and nothing binds. One function owns that list (`schema_receipt_agrees`, `src/model/receipt.rs`): the P1d input
+validator calls it without an index and this admission calls it with one, and it destructures the schema origin and
+evidence exhaustively, so a new receipt field cannot be added without being classified. `format` is classified as
+location, not identity (the wire contract pins it to `json`). The named-tree fallback declares none of the digest
+fields and keeps its own contract.
+
+**Input contract (P2-1).** P2-1 binds inputs that the lane's own acquisition code produced from a pinned tree. A
+caller-built input whose declared fields disagree with one another or with the index is refused where the shared
+check sees it, and is otherwise outside the contract, under the PROVISIONAL admission scope P1d states (see
+[P1d admission claim](#p1d-admission-claim-provisional), unchanged).
 `ProducerError` covers only caller mistakes (no adapter, an unimplemented adapter, a wrong role, authority, scope or
 snapshot kind); every input-data problem becomes a coverage record instead.
 
