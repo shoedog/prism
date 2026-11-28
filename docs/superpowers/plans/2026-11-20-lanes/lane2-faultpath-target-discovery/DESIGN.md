@@ -2002,6 +2002,13 @@ Status: PROPOSED for design review; no product code yet. Supersedes the "positiv
 12. **Dispatch controls for the stdlib field rows (sol round 3).** G-precision samples HTTP rows only, so the product run adds a stdlib-field stratum: every emitted P-field row (projected 2) is checked against the source and by a Python dispatch probe with a conforming caller (an instance of the row's declared receiver class, for example a genuine `Path` for `pathlib.Path.exists` and a `ConfigParser` for `configparser.ConfigParser.read`) and a contrary caller (a value of another class with the same method), the contrary result being the accepted caller-value cost of §10 and reported, not gated. At most 0 rows where the callee is not the listed class under the conforming caller. The result goes in the PR beside the measured price; the owner confirmation of item 5 reads it.
 11. The using method's `self` is the literal spelling `self` too; a defaulted `self` is accepted as the same caller-value cost as an unbound `C.is_new(x)` (§10).
 
+**Slice 1 review fold.**
+
+13. **Initializer placement.** Direct class-suite placement is required. A conditional class-body definition, including a sole `__init__` under `if True`, is refused at a recall cost. `pf-ifTrue-init` pairs the refusal with a direct definition.
+14. **Accepted limits.** A hand-written decoration such as `C = deco(C)` can retain a candidate. These reflective writes are outside the write index and can retain a candidate: `object.__setattr__(c, "path", v)`, `c.__setattr__("path", v)`, `builtins.setattr(c, "path", v)`, `c.__dict__.update(path=v)`, `c.__dict__.__setitem__("path", v)`, and `getattr(c, "__dict__")["path"] = v`. `__new__`, `__init_subclass__`, and `__class_getitem__` can qualify as using methods even though Python binds their first parameter to the class. The `pf-limit-` rows pin these cases beside controls.
+
+Items 2, 8 and 9 include attribute and subscript writes that tree-sitter parses as `type_alias_statement`. Use the final attribute name, or the literal subscript key for a bare subscript or a `__dict__` namespace such as `type(c).__dict__["path"] = v`. An indexed class namespace write such as `C.__dict__["path"] = v` also participates in the name veto. For a qualified direct base such as `Outer.C`, the final attribute `C` counts as naming the owner under item 9. This conservative match accepts the recall cost of distinct classes sharing the same final name.
+
 Implementation staging (brief): slice 1 lands initializer and parameter evidence with tests and no document change; slice 2 enables positives with the write and lookup vetoes, sidecar replay and corpus gates. Matrix fixtures pf01 to pf13 per the brief.
 
 ## Change log
