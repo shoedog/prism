@@ -480,3 +480,97 @@ os.execv({real_git!r}, [{real_git!r}, *sys.argv[1:]])
         self.assertTrue(any("clone" in args for args in population_calls))
         for args in population_calls:
             self.assertIn("core.attributesFile=/dev/null", args)
+
+    def admitted_with_replaced_patch(self, replacement, name):
+        """The pinned spec is reproduced from a patch that Git itself never produces."""
+        self.out = self.work / name
+        self.replace_git_patch(replacement)
+        self.review()
+        self.assertTrue(self.diff_log.exists())
+        self.diff_log.unlink()
+        self.assert_measured_spec(STANDARD_SPEC)
+        self.log.unlink()
+
+    def test_known_limit_preimage_ranges_are_not_checked(self):
+        """PROVISIONAL (known-s4-4): only postimage ranges are ordered; a regressing
+        preimage range (`-8,2` then `-2`) is admitted with the pinned spec."""
+        self.make_population()
+        real = self.diff_patch()
+        hunk = b"@@ -3 +3,2 @@ const b = 2;\n-const c = 3;\n+const c = 30;\n+const d = 4;\n"
+        self.assertIn(hunk, real)
+        regress = b"@@ -8,2 +3 @@\n-x\n-y\n+const c = 30;\n@@ -2 +4 @@\n-z\n+const d = 4;\n"
+        self.admitted_with_replaced_patch(real.replace(hunk, regress), "preimage-regression")
+        # Control: overlapping postimage ranges are caught.
+        self.refused_by_replaced_patch(real, real.replace(hunk, hunk * 2), "postimage-overlap")
+
+    def test_known_limit_two_pure_deletions_at_one_point_are_admitted(self):
+        """PROVISIONAL (known-s4-4): Git emits one pure deletion per point; two are admitted."""
+        self.make_population()
+        real = self.diff_patch()
+        hunk = b"@@ -3 +3,2 @@ const b = 2;\n-const c = 3;\n+const c = 30;\n+const d = 4;\n"
+        self.assertIn(hunk, real)
+        twice = b"@@ -2 +2,0 @@\n-x\n@@ -2 +2,0 @@\n-y\n"
+        self.admitted_with_replaced_patch(real.replace(hunk, twice + hunk), "two-deletions")
+        # Control: a pure deletion inside the postimage range an earlier hunk covers is caught.
+        inside = b"@@ -9 +3,0 @@\n-x\n"
+        self.refused_by_replaced_patch(real, real.replace(hunk, hunk + inside), "deletion-inside")
+
+    def test_known_limit_record_names_are_not_cross_checked_with_header_names(self):
+        """PROVISIONAL (known-s4-4): `diff --git a/q b/r` over `--- a/src/a.ts` is admitted;
+        the ---/+++ names decide the file."""
+        self.make_population()
+        real = self.diff_patch()
+        record = b"diff --git a/src/a.ts b/src/a.ts\n"
+        self.assertIn(record, real)
+        self.admitted_with_replaced_patch(real.replace(record, b"diff --git a/q b/r\n"), "other-names")
+        # Control: a record that names no files is caught.
+        self.refused_by_replaced_patch(real, real.replace(record, b"diff --git \n"), "nameless")
+
+    def test_known_limit_other_malformed_patch_members_are_admitted(self):
+        """PROVISIONAL (known-s4-4): further shapes Git never produces keep the pinned spec.
+        Each member is checked on the parser directly against the Git-produced patch."""
+        from measure import population
+        from measure.inputs import PinError
+
+        self.make_population()
+        real = self.diff_patch()
+        spec = population.patch_spec(real)
+        self.assertEqual(spec, STANDARD_SPEC)
+        record = b"diff --git a/src/a.ts b/src/a.ts\n"
+        hunk = b"@@ -3 +3,2 @@ const b = 2;\n-const c = 3;\n+const c = 30;\n+const d = 4;\n"
+        self.assertIn(record, real)
+        self.assertIn(hunk, real)
+        # Whole extra records of ineligible files, so the spec cannot change.
+        added = (b"diff --git a/README.md b/README.md\n--- /dev/null\n+++ b/README.md\n"
+                 b"@@ -5,0 +1,2 @@\n+one\n+two\n")
+        members = {
+            "empty-preimage-names": real.replace(record, b"diff --git a/ b/\n"),
+            "unterminated-record-quote": real.replace(record, b'diff --git "a/src/a.ts b/src/a.ts\n'),
+            "arbitrary-metadata": real.replace(record, record + b"anything at all\n", 1),
+            "context-under-U0": real.replace(
+                hunk, b"@@ -2,2 +2,3 @@\n ctx\n-const c = 3;\n+const c = 30;\n+const d = 4;\n"),
+            "premature-no-newline-marker": real.replace(
+                hunk, hunk.replace(b"-const c = 3;\n", b"-const c = 3;\n\\ No newline at end of file\n")),
+            "absent-side-nonzero-start": real + added,
+            "two-absent-sides": real + b"diff --git a/x.md b/x.md\n--- /dev/null\n+++ /dev/null\n",
+        }
+        for name, patch_bytes in members.items():
+            with self.subTest(name):
+                self.assertEqual(population.patch_spec(patch_bytes), spec)
+        # Controls that ARE caught: an added file with a preimage line, a hunk length
+        # mismatch, an unterminated quoted header token.
+        controls = {
+            "added-file-with-deletion": real + added.replace(b"@@ -5,0 +1,2 @@\n+one\n",
+                                                             b"@@ -5 +1,2 @@\n-gone\n+one\n"),
+            "hunk-length-mismatch": real.replace(b"+3,2 @@", b"+3,3 @@"),
+            "unterminated-header-token": real.replace(b"+++ b/src/a.ts\n", b'+++ "b/src/a.ts\n'),
+        }
+        for name, patch_bytes in controls.items():
+            with self.subTest(name), self.assertRaises(PinError):
+                population.patch_spec(patch_bytes)
+        # A deleted file whose Git-quoted OLD name is not UTF-8 refuses although its postimage
+        # is /dev/null (required: ignore the deletion); a UTF-8 old name is ignored.
+        deleted = b'diff --git "a/src/x.ts" "b/src/x.ts"\n--- %s\n+++ /dev/null\n@@ -1 +0,0 @@\n-x\n'
+        self.assertEqual(population.patch_spec(real + deleted % b'"a/src/x.ts"'), spec)
+        with self.assertRaises(PinError):
+            population.patch_spec(real + deleted % br'"a/src/\377.ts"')

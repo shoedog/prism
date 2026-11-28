@@ -885,6 +885,136 @@ sys.exit(128 - code if code < 0 else code)
         self.reseal(binary)
         self.admit()
 
+    def reseal_accounting(self, mutate):
+        """Rewrite rows and arm records, then recompute totals and sample so the whole
+        receipt is internally consistent (the forger of known-s4-5 does the same)."""
+        from measure import population, review_receipt
+        from measure.review_findings import review_json
+
+        record = self.read_json("review-receipt.json")
+        rows, old = self.read_rows(), self.read_json("totals.json")
+        mutate(rows, record)
+        totals, sample = review_receipt._summarize(
+            population.load(self.population), record["arms"], rows, old["sample_size"], old["seed"])
+        for name, data in (("per-diff.jsonl", b"".join(review_json(row) + b"\n" for row in rows)),
+                           ("totals.json", review_json(totals) + b"\n"),
+                           ("sample.jsonl", b"".join(review_json(row) + b"\n" for row in sample))):
+            path = self.out / name
+            path.write_bytes(data)
+            record["artifacts"][name] = {"bytes": len(data), "sha256": sha256_of(path)}
+        (self.out / "review-receipt.json").write_bytes(json.dumps(record).encode())
+
+    def quiet_first_ordinal(self, reason="host-quiet", status="refused", event=QUIET):
+        def mutate(rows, record):
+            row = rows[0]
+            names = {role: record["arms"][role]["name"] for role in ("base", "head")}
+            row.update(status=status, reason=reason, **dict.fromkeys(METRICS),
+                       rule_transitions=[], anchors=[])
+            before = row["arms"][names["base"]]["input_before_sha256"] if event else None
+            empty = dict.fromkeys(ARM_FIELDS)
+            row["arms"][names["base"]] = {**empty, "status": status, "guard_status": event,
+                                          "input_before_sha256": before}
+            row["arms"][names["head"]] = {**empty, "status": "unlaunched"}
+            for role in ("base", "head"):
+                arm = record["arms"][role]
+                arm["commands"] = [c for c in arm["commands"] if c["ordinal"] != 1]
+                for suffix in ("stdout", "stderr"):
+                    record["artifacts"].pop(f"arms/1/{role}.{suffix}", None)
+        return mutate
+
+    def test_known_limit_replay_admits_contradictory_quiet_receipts(self):
+        """PROVISIONAL (known-s4-5): a success after a quiet ordinal, a quiet ordinal with
+        another reason and a quiet reason with no guard event are admitted; the live command refuses every ordinal after a quiet one."""
+        self.make_population(ordinals=(1, 2))
+        normal = self.guard
+        self.guard = self.work / "quiet-guard"
+        quiet = self.make_guard({"--diff": (75, QUIET)})
+        self.guard = normal
+        self.guard_for = lambda argv: quiet if "--diff" in argv else normal
+        self.out = self.work / "live"
+        self.review(expected=75)
+        self.assertEqual([(row["status"], row["reason"]) for row in self.read_rows()],
+                         [("refused", "host-quiet")] * 2)
+        self.guard_for = lambda argv: normal
+        for name, reason, event in (("success-after-quiet", "host-quiet", QUIET),
+                                    ("wrong-reason", "review-guard-failed", QUIET),
+                                    ("quiet-without-guard-event", "host-quiet", None)):
+            with self.subTest(name):
+                self.out = self.work / name
+                self.review()
+                self.admit()
+                self.reseal_accounting(self.quiet_first_ordinal(reason, event=event))
+                self.admit()
+                self.assertEqual([row["status"] for row in self.read_rows()], ["refused", "ok"])
+        # Control: the same quiet record relabelled failed is rejected.
+        self.out = self.work / "relabelled"
+        self.review()
+        self.reseal_accounting(self.quiet_first_ordinal(status="failed"))
+        with self.assertRaisesRegex(ValueError, "host-quiet review arm is not refused"):
+            self.admit()
+
+    def test_known_limit_executable_rewritten_during_launch(self):
+        """PROVISIONAL (known-s4-2, executable clause): a head that rewrites its own executable
+        during the launch fails the row, keeps its streams, and the receipt keeps the
+        pre-launch hash; a rewrite restored before the post-arm check is not seen."""
+        self.make_population()
+        rewrite = "p = Path(sys.argv[0]); p.write_bytes(p.read_bytes() + b'\\n# rewritten\\n')"
+        head = self.make_arm("head", after_read=rewrite)
+        before = sha256_of(head)
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual(row["status"], "failed")
+        self.assertTrue(row["reason"].startswith("review-executable-changed"), row["reason"])
+        self.assertEqual(row["arms"]["head"]["status"], "failed")
+        self.assert_streams(row, "head", stdout=envelope_bytes(EMPTY), stderr=b"head diagnostic\n")
+        self.assert_null_metrics(row)
+        self.assertNotEqual(sha256_of(head), before)
+        self.assertEqual(self.read_json("review-receipt.json")["arms"]["head"]["binary"]["sha256"], before)
+        self.admit()
+        # Transient: restored before exit, the row is ok.
+        self.out = self.work / "transient"
+        restore = ("p = Path(sys.argv[0]); b = p.read_bytes(); p.write_bytes(b + b'x'); "
+                   "(p.parent / 'transient-ran').touch(); p.write_bytes(b)")
+        head = self.make_arm("head", after_read=restore)
+        self.review()
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("ok", None))
+        self.assertTrue((head.parent / "transient-ran").exists())
+        self.assertEqual(sha256_of(head), self.read_json("review-receipt.json")["arms"]["head"]["binary"]["sha256"])
+
+    def test_known_limit_missing_guard_status_custody_is_by_content(self):
+        """PROVISIONAL (known-s4-5): with no guard status a launched child that wrote nothing
+        keeps no streams, and a guard that only printed a diagnostic (no child) is recorded
+        under `commands`, which §5 defines as launched commands."""
+        self.make_population()
+        self.make_arm("base", exit_code=7, stdout=b"", stderr=b"")
+        self.silent_guard()
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("failed", "review-guard-failed"))
+        self.assertEqual([item["role"] for item in self.attempts()], ["base"])
+        self.assert_unlaunched(row["arms"]["base"])
+        self.assertFalse((self.out / "arms").exists() and any((self.out / "arms").rglob("*.std*")))
+        self.assertEqual(self.read_json("review-receipt.json")["arms"]["base"]["commands"], [])
+        # No child at all, only a guard diagnostic.
+        self.out = self.work / "guard-only"
+        self.log.unlink()
+        guard = executable(self.work / "diagnostic-guard", """
+import sys
+sys.stderr.write("guard diagnostic\\n")
+sys.exit(1)
+""")
+        normal = self.guard
+        self.guard_for = lambda argv: guard if "--diff" in argv else normal
+        self.make_arm("base")
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("failed", "review-guard-status-missing"))
+        self.assertEqual(self.attempts(), [])
+        commands = self.read_json("review-receipt.json")["arms"]["base"]["commands"]
+        self.assertEqual([item["ordinal"] for item in commands], [1])
+        self.admit()
+
 
 class ReadStatusRaceTests(unittest.TestCase):
     def test_status_written_before_exit_is_read_when_the_first_poll_reports_nothing(self):
