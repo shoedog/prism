@@ -598,7 +598,9 @@ def report(a):
               f"exclusion file sha256 {excl_sha}")
         print(f"A={A} of {total} ({100 * A / total:.1f}%); A={A_reconciled} of {reconciled} "
               f"({100 * A_reconciled / reconciled:.1f}%) credited owners outside the exclusion")
-    clean = meta["residual_owners"] == 0 or (bool(excluded) and not uncovered and not (
+    residual_owners = {(r["corpus"], r["file"], r["owner"]) for r in jsonl(prep / "residuals.jsonl")}
+    stray_residuals = len(residual_owners - excluded)
+    clean = meta["residual_owners"] == 0 or (bool(excluded) and not uncovered and not stray_residuals and not (
         {o["status"] for o in owners} - {"ok", "unreconciled"}))
     print(f"reconciliation: {meta['residual_owners']} residual owners; run valid: {meta['valid']}")
     for row in meta["categories"]:
@@ -640,7 +642,9 @@ def report(a):
     if verdict == "PASS":
         reasons += [] if clean else [
             "unreconciled predictions" + (f" ({uncovered} of {len(unreconciled)} unreconciled owners not in the "
-                                          "exclusion file)" if excluded and uncovered else "")]
+                                          "exclusion file)" if excluded and uncovered else
+                                          f" ({stray_residuals} residual owners outside the exclusion file)"
+                                          if excluded and stray_residuals else "")]
         if not unapproved:
             problems = lines[a.approved_population][1]
             reasons += problems if problems is not None else [

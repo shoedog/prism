@@ -888,6 +888,7 @@ class AdmissionTests(unittest.TestCase):
             o["status"], o["residual"] = "unreconciled", [dict(field="pair", side="independent_only", count=1)]
             marked.append(dict(corpus=o["corpus"], file=o["file"], owner=o["owner"]))
         (adm / "owners.jsonl").write_text(dump_lines(owners))
+        (adm / "residuals.jsonl").write_text(dump_lines([dict(m, residual=[dict(field="pair")]) for m in marked]))
         meta = json.loads((adm / "prepared.json").read_text())
         meta["residual_owners"] = n_unrec
         (adm / "prepared.json").write_text(json.dumps(meta))
@@ -926,6 +927,19 @@ class AdmissionTests(unittest.TestCase):
         code, out, err = w.report(precision=good, approved="a-credit", excluded=self.exclusion(w, extra, "extra.json"))
         self.assertEqual(code, 3, (out, err))
         self.assertIn("is not an unreconciled owner", err)
+        self.assertNotIn("I2: ADMITTED", out)
+
+    def test_a_residual_owner_outside_the_exclusion_file_blocks_even_when_every_unreconciled_row_is_covered(self):
+        w, marked = self.unreconciled_world()
+        good = w.precision()
+        rows = [dict(m, cls="try") for m in marked]
+        path = self.exclusion(w, rows)
+        res = w.root / "adm" / "residuals.jsonl"
+        res.write_text(res.read_text() + dump_lines([dict(corpus="P1", file="ghost.py", owner="g@1",
+                                                         residual=[dict(field="pair")])]))
+        code, out, _ = w.report(precision=good, approved="a-credit", excluded=path)
+        self.assertEqual(code, 4, out)
+        self.assertIn("1 residual owners outside the exclusion file", out)
         self.assertNotIn("I2: ADMITTED", out)
 
     def test_an_exclusion_file_with_a_blank_class_or_a_duplicate_row_is_refused(self):
