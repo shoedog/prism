@@ -288,6 +288,12 @@ def parse_subscript(line, arm):
             raise ValueError("expected unsigned decimal")
         return int(text)
 
+    def inventory_path(text):
+        value = json_object(text.encode())
+        if value.keys() != {"base", "fields"}:
+            raise ValueError("inventory path requires exactly base and fields")
+        return path_fields(value)
+
     tag, *fields = line.rstrip("\r\n").split("\t")
     if tag not in ("subscript-site", "subscript-inventory-end"):
         return None
@@ -304,9 +310,9 @@ def parse_subscript(line, arm):
         key = dict(file=file, owner=owner, line=unsigned(wire_line), start_byte=unsigned(start),
                    end_byte=unsigned(end), access=access)
         node = dict(record, kind="node", key=key,
-                    recorded_path=path_fields(json_object(recorded.encode())),
+                    recorded_path=inventory_path(recorded),
                     chain_path=chain if chain in ("refused", "-") else
-                    path_fields(json_object(chain.encode())))
+                    inventory_path(chain))
         check_record(node, arm)
         canonical(node)
         return node

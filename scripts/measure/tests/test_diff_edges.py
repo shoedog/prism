@@ -127,6 +127,40 @@ def classify(change, context):
         self.classifier.write_text(CLASSIFIER + "def validate(bound): return []\n")
         self.compare()
 
+    def test_validator_list_is_materialized_inside_validation(self):
+        """s2-1: a lane-local list iterator cannot become a kit storage error."""
+        self.arm("base", [edge()])
+        self.arm("head", [edge()])
+        self.classifier.write_text(CLASSIFIER + """
+import sqlite3
+
+def lane_error():
+    conn = sqlite3.connect(":memory:")
+    conn.close()
+    conn.execute("SELECT 1")
+
+class Diagnostics(list):
+    traversals = 0
+    def __iter__(self):
+        self.traversals += 1
+        if self.traversals > 1:
+            lane_error()
+        yield from super().__iter__()
+
+def validate(bound):
+    return Diagnostics(["lane diagnostic"])
+""")
+        original = self.classifier.read_text()
+        self.classifier.write_text(original + "\ndef validate(bound): lane_error()\n")
+        self.compare(expected=1, diagnostic="validation: ProgrammingError")
+        lane_error = self.cert()["validation"]
+        self.assertIn("closed database", lane_error[0])
+        self.next_output()
+        self.classifier.write_text(original)
+        self.compare(expected=1)
+        self.assertIn(self.cert()["validation"], (["lane diagnostic"], lane_error))
+        self.assertNotIn("output or storage", self.stderr)
+
     def test_trace_schema_refusals_have_positive_controls(self):
         self.arm("base")
         self.classifier.write_text(TRACE_CLASSIFIER)
@@ -227,6 +261,31 @@ def validate(bound):
         self.assertLess(peak, bound)
         self.assertEqual((self.cert()["base_edges"], self.cert()["head_edges"],
                           self.cert()["changed_keys"]), (count, count, 0))
+
+    def test_inventory_paths_are_closed_but_raw_edge_and_generic_trace_are_extensible(self):
+        """s2-2: only the two inventory path columns reject an undeclared member."""
+        from measure.trace import parse_subscript
+
+        prefix = "subscript-site\ta.ts\tg\t2\t154\t154\tuse\t"
+        path = '{"base":"x","fields":[]}'
+        unknown = '{"base":"x","fields":[],"extra":true}'
+        self.assertEqual(parse_subscript(prefix + f"{path}\t{path}\n", "head")["kind"], "node")
+        raw = edge()
+        raw["to"]["path"]["extra"] = True
+        record = {"kind": "diagnostic", "tag": "extra", "key": {}, "path": json.loads(unknown)}
+        self.classifier.write_text(TRACE_CLASSIFIER + """
+def validate(bound):
+    record, = bound.unjoined
+    return [] if record["path"]["extra"] is True else ["generic payload erased"]
+""")
+        self.arm("base", [raw], trace=lines([record]))
+        self.arm("head", [edge()])
+        self.compare()
+        self.assertEqual((self.cert()["base_edges"], self.cert()["changed_keys"]), (1, 0))
+        for column, fields in (("recorded_path", (unknown, path)), ("chain_path", (path, unknown))):
+            with self.subTest(column=column):
+                result = parse_subscript(prefix + "\t".join(fields) + "\n", "head")
+                self.assertEqual(result["kind"], "inventory-error", result)
 
     def test_optional_inventory_terminal_and_structured_path_policy(self):
         self.classifier.write_text(CLASSIFIER + """

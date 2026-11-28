@@ -176,7 +176,7 @@ def delta(base, head):
     return right - left
 
 
-def counter_tables(runs, which="both", allowed=None):
+def counter_tables(runs, which="both", allowed=None, *, coverage=False):
     results = {}
     for kind, role in TABLES.items():
         if which not in ("both", kind):
@@ -195,11 +195,16 @@ def counter_tables(runs, which="both", allowed=None):
                     and not any((key[:n], True) in allowed for n in range(1, len(key)))):
                 forbidden.append(row)
         results[kind] = dict(base=len(base), head=len(head), changed=changed, forbidden=forbidden)
+        if coverage:
+            results[kind]["coverage"] = {
+                arm: len(values) - (("schema_version",) in values)
+                for arm, values in (("base", base), ("head", head))
+            }
     return results
 
 
-def compare_stats(base, head, *, entries=None, which="both", allow=None):
-    return counter_tables(admit_pair(base, head, entries), which, patterns(allow))
+def compare_stats(base, head, *, entries=None, which="both", allow=None, coverage=False):
+    return counter_tables(admit_pair(base, head, entries), which, patterns(allow), coverage=coverage)
 
 
 def display_stats(results):

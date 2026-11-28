@@ -12,7 +12,7 @@ from .diff_edges import compare_edges
 from .diff_stats import compare_stats, display_stats
 from .receipt import trace_settings
 from .run import DEFAULT_GUARD, run
-from . import oracle, review_diff
+from . import gate, oracle, review_diff
 
 
 def positive_integer(value):
@@ -25,7 +25,8 @@ def corpus_roots(parser):
     parser.add_argument("--corpora-root", action="append", type=Path, default=[])
 
 
-def main(argv=None, *, gate_sha256=None, gate_step_id=None, prediction_sha256=None):
+def main(argv=None, *, gate_sha256=None, gate_step_id=None, prediction_sha256=None,
+         gate_context=None):
     parser = argparse.ArgumentParser(prog="measure")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -60,9 +61,14 @@ def main(argv=None, *, gate_sha256=None, gate_step_id=None, prediction_sha256=No
     stats_diff.add_argument("--allow", type=Path)
     stats_diff.add_argument("--which", choices=("dfg", "call", "both"), default="both")
     oracle.register(commands)
-    review_diff.register(commands)
+    review_diff.register(commands, structured=gate_context is not None and "review_plan" in gate_context)
+    gate.register(commands)
     args = parser.parse_args(argv)
 
+    if args.command == "gate":
+        return gate.run_gate(args)
+    if gate_context is not None:
+        args.gate_context = gate_context
     if args.command == "review-diff":
         try:
             return review_diff.review(args, gate_sha256=gate_sha256, gate_step_id=gate_step_id)
@@ -82,13 +88,19 @@ def main(argv=None, *, gate_sha256=None, gate_step_id=None, prediction_sha256=No
         if args.command == "oracle":
             return oracle.run_oracle(args, entries, gate_sha256=gate_sha256, gate_step_id=gate_step_id)
         if args.command == "diff-stats":
-            return display_stats(compare_stats(args.base, args.head, entries=entries,
-                                               which=args.which, allow=args.allow))
+            tables = compare_stats(args.base, args.head, entries=entries, which=args.which,
+                                   allow=args.allow, coverage=gate_context is not None)
+            if gate_context is not None:
+                gate_context["stats"] = tables
+            return display_stats(tables)
         if args.command == "diff-edges":
             certificate = compare_edges(args.base, args.head, args.classifier, entries=entries,
                                         key=args.key, line_reason=args.line_reason, out=args.out,
                                         listing=args.list, gate_sha256=gate_sha256,
-                                        gate_step_id=gate_step_id)
+                                        gate_step_id=gate_step_id,
+                                        classifier_runs=(gate_context or {}).get("classifier_runs"),
+                                        recheck_classifier=(gate_context or {}).get("recheck_classifier"),
+                                        classifier_package=(gate_context or {}).get("classifier_package"))
             return int(certificate["result"] == "fail")
         if args.corpus not in entries:
             raise ValueError(f"unknown corpus key: {args.corpus}")

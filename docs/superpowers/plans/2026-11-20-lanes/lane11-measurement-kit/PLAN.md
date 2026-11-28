@@ -345,6 +345,8 @@ in `test_matrix.py`. Cover verdict rows with self-check cases and admission, sel
 
 ### S5: `gate` and the report skeleton (2 days; G-hermetic)
 
+The S5 implementation follows FORMATS §6 and the IC-1 through IC-7 input contract. The [S5 dispositions](FORMATS-OPEN-ROWS.md) record its evidence and stated limits.
+
 **Files:** create `scripts/measure/{gate,report}.py`, `examples/gate_783_4b.json`,
 `tests/{test_gate,test_report}.py`; enable `gate` in `test_matrix.py`.
 
@@ -428,7 +430,7 @@ The cloud launchers are a follow-up issue (DESIGN section 7, decision 3; close-o
 
 ## Close-out (1 day, plus the wait for G-adopt)
 
-- [ ] **G-adopt** (DESIGN section 6). Lane 9 remains the named adopter. Hand it the oracle contract and self-check layout when S3 merges. Lane 10’s recall decision uses its own comparator and trace and gives no G-adopt credit. A later decision by lane 10 can qualify if it uses the kit for its registered population. For an adopter migrating after stage M, first replay the baseline and show parity. Allowed files are one classifier, at most one oracle question, gate files, predictions and census scripts for questions outside the kit. Record the consuming lane, registered scope, decided denominator and limitations. If no eligible lane takes a measured decision on kit output by close, report G-adopt unmet and name the blocker.
+- [ ] **G-adopt** (DESIGN section 6). Lane 9 remains the named adopter. Hand it the oracle contract and self-check layout when S3 merges. Lane 10’s recall decision uses its own comparator and trace and gives no G-adopt credit. A later decision by lane 10 can qualify if it uses the kit for its registered population. For an adopter migrating after stage M, first replay the baseline and show parity. Allowed files are one classifier and arm evidence sidecars registered by arm and digest under `classifier_files`, at most one oracle question, gate files, predictions and census scripts for questions outside the kit. Record the consuming lane, registered scope, decided denominator and limitations. If no eligible lane takes a measured decision on kit output by close, report G-adopt unmet and name the blocker.
 - [ ] Issues (filed, not started), each with the decision it would support: rule-aware finding scoring after
       lane 7 (benchmark rule columns); the cloud launchers (a lane that needs a kit gate in a cloud session);
       `review-diff` as a cross-check for PR #841 (only if #841's merge needs an independent count; same format

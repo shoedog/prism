@@ -9,6 +9,7 @@ import gzip
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import select
 import shutil
@@ -264,16 +265,19 @@ def run(args, entry, trace, *, gate_sha256=None, gate_step_id=None, prediction_s
             "commands": [],
             "artifacts": {},
         }
+        observed = getattr(args, "gate_context", None)
+        if observed is not None:
+            record["runtime"] = {"python": platform.python_version()}
         with claim_output(out), TemporaryDirectory(prefix=".stage-", dir=out) as temp:
             stage = Path(temp)
-            return measure(args.expect_version, corpus, out, stage, binary, guard, record)
+            return measure(args.expect_version, corpus, out, stage, binary, guard, record, observed=observed)
     except OutputError as error:
         return diagnostic(error, 2)
     except (OSError, PinError, RuntimeError) as error:
         return diagnostic(error, 4)
 
 
-def measure(expect_version, corpus, out, stage, binary, guard, record):
+def measure(expect_version, corpus, out, stage, binary, guard, record, *, observed=None):
     root = out / "snapshot"
     retain = False
     try:
@@ -292,6 +296,8 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
         version_args = [str(binary), "--version"]
         version = guarded(guard, limit, version_args, guard_env(host, {}, guard),
                           stage / receipt.VERSION, stage / receipt.VERSION_STDERR)
+        if observed is not None:
+            observed["attempt"] = version
         code = outcome(version)
         if code:
             return diagnostic("version refused by host quiet" if code == 75 else "version failed", code)
@@ -325,10 +331,12 @@ def measure(expect_version, corpus, out, stage, binary, guard, record):
                 break
             attempt = produce(stage, guard, limit, host, definition, artifacts)
             record["commands"].append(attempt)
-            observed = attempt["guard_status"]
+            if observed is not None:
+                observed["attempt"] = attempt
+            guard_status = attempt["guard_status"]
             # An invalid status after a wrapper actually ran cannot certify
             # no launch. Retain diagnostics as a failed attempted analysis.
-            launched |= observed["launched"] if observed else attempt["exit"] is not None
+            launched |= guard_status["launched"] if guard_status else attempt["exit"] is not None
             code = outcome(attempt)
             if code:
                 status = "failed"
