@@ -1,5 +1,8 @@
 # Prism Boundary
 
+**Status: PROVISIONAL.** The admission claim of this crate is scoped to what the
+real-pair replay measures; see [P1d admission claim](#p1d-admission-claim-provisional).
+
 The `prism-boundary` package owns the `prism_boundary` library and the
 `prism-boundary` binary. It is an opt-in workspace member.
 
@@ -405,6 +408,46 @@ The schema tests use Python with `jsonschema`. Set
 `PRISM_BOUNDARY_SCHEMA_PYTHON` to that interpreter when it differs from
 `python3`.
 
+## P1d admission claim (PROVISIONAL)
+
+This crate is PROVISIONAL. The admission claim is certified only for the request
+shape that the real-pair replay exercises, and for nothing else.
+
+**Certified shape.** A historical review (`historical_as_of`) whose subject head
+is the service after input at the cutoff, with two inputs that each carry one
+blob receipt, and two receipt-backed schema claims. No consumer side, no
+computed tree, no merge, no held alias, no selection pin, no media, config or
+reference receipts, and no frozen consumer records. On the 37 usable revision
+pairs of the public pair this shape admitted 74 of 74 claims, with no refusal of
+any kind. A read-only code census of the settlement paths leaves, in this shape,
+9 minor cases and no serious one (about, plus or minus 3).
+
+**Accepted but not certified.** Every other review mode and request shape
+(live, version comparison, other historical shapes, joint reports, computed
+trees, merges, media decisions, saved status, bindings, membership and every
+frozen-document check on a hand-edited or foreign document) is accepted by the
+code but NOT CERTIFIED. A claim marked admitted there can rest on a dependency
+that was not itself admitted. The census found about 105 such cases in 38
+settlement paths and no reviewer calls the list complete (see issue #960).
+The census was read from code and not executed. Almost every case needs a state
+the replay never builds (a refused or unchecked input, a pin, a merge, a consumer
+side), so the replay shows nothing about incidence there. For the 12 cases that
+depend on schema contents rather than on the request, incidence on the public
+pair is not measured.
+
+**Where the status is carried.** `BindingsDocument` and `ImpactDocument` have no
+document-level admission status: `warnings` holds unchecked claims (status
+`unchecked`, tied to a claim) and `coverage` holds limits keyed to a comparison,
+an input and a claim kind. Adding a document-level status is a format change, so
+it is not made here and documents produced outside the certified shape do not
+carry the status themselves. The status is carried by this README and by the
+report slice, which shows the standing limits both as one note beside each
+change it blocks and as a count in the appendix (owner decision, 2026-11-27).
+
+**Fix.** A redesign of the settlement path is its own slice and lands before P4.
+Until then the known-limit rows below pin the cases reviewers found, beside
+controls, as expected-until-redesign.
+
 ## P1d supported forms and known limits
 
 The supported source of document claims is this library's admitted projection.
@@ -461,7 +504,10 @@ document already records a negative.
 
 Count each refused or withheld claim under its refusal reason, including claims
 withheld at the accept-list boundary. At ingress, count a decoder error as one
-envelope refusal. The eight [known-limit rows](tests/fixtures/p1d_rows/fixtures/known-limits.json)
+envelope refusal. The twelve [known-limit rows](tests/fixtures/p1d_rows/fixtures/known-limits.json)
 record where the current APIs can accept or refuse an unsupported input and
-pair each case with a supported control. The standalone Draft 2020-12 schema
+pair each case with a supported control. Rows 12 to 15 pin the four round-6
+findings (live exemption, historical media decision, duplicate merge holders and
+an unchecked Before input in the frozen cutoff) and are expected until the
+redesign, which deletes them. The standalone Draft 2020-12 schema
 checks count bounds and nullability. The typed validator checks count ordering.

@@ -1,4 +1,9 @@
 //! Typed identities for service boundary declarations.
+//!
+//! PROVISIONAL: admission is certified only for the request shape the real-pair
+//! replay exercises (historical review, two inputs with one blob receipt each, two
+//! schema claims). Every other mode and shape is accepted but not certified; see
+//! the crate README, section "P1d admission claim".
 
 mod diff;
 pub mod element;

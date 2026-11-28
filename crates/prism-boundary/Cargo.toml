@@ -3,7 +3,7 @@ name = "prism-boundary"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Typed service boundary identities and schema declarations"
+description = "Typed service boundary identities and schema declarations (PROVISIONAL admission claim)"
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["std"] }
