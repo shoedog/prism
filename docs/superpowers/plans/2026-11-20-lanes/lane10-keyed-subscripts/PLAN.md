@@ -215,6 +215,10 @@ Replace the three corresponding rows of `ORCHESTRATION.md` §11 with the followi
 | Argument binding (`src/cpg/build.rs` step 5b, `src/cpg/callee_params.rs`) | lanes 3 and 9 | Each adds modules and call lines, rebases after the other's merged slice and reruns its matrix. Lane 10 verifies the existing binding edges by differential. |
 | `src/cpg/trace.rs` and the reasoning layer | PR #841 (merged), then lane 8 | Lanes 3 and 9 wait for lane 8's name-only guard where their descent rules depend on it. Lane 10 consumes the existing walkers and can proceed independently of that guard. |
 
+## Owner decisions of 2026-11-27 (activation)
+
+The three open questions below were decided as recommended ("10 - fine with rec"); DESIGN change log 2026-11-27 states them: chained assignment in scope; the 34 `try`/`with` owners out of the denominator (A of 787 and A of 734 both reported; routing them is a follow-up issue); precision scored on the A-credit population. The original question text follows as history.
+
 ## Open questions for the owner (diagnostics PR #946, measured 2026-11-26; I2 stays blocked)
 
 1. **The 53 unreconciled in-frame owners (all Python: P1 31, P2 22).** 34 are routes into or out of `try` (19) or `with` (15); none involve `match`. Options: leave them refused and drop them from the admission population (A stays 298, denominator 787 to 734), or route them in the product (pending completions through `finally`, `__exit__` suppression; a contract change that adds edges). The other 19 are explained (counts per cause): tuple-key `d[(a, b)]` flagged by the independent frontend but admitted by the product (7, independent-frontend defect); write root captured from an enclosing function counted in raw P by the product only (6, accounting difference, standing limit); chained assignment `a = d["k"] = t` admitted by the product, not by the independent frontend (2, needs a ruling on DESIGN section 4 "single-target"); `await` transparent in the product, unproven in the independent frontend (2, standing limit); a read in a comprehension's leftmost iterable fenced by the product (2, product recall loss).
