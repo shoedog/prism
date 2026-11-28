@@ -11,7 +11,7 @@ type Inputs<'a> = BTreeMap<&'a str, &'a DocumentInput>;
 pub(super) fn input_refusals(doc: &ImpactDocument, input: &DocumentInput) -> Vec<Refusal> {
     use crate::model::SchemaOrigin;
     let id = &input.input_id;
-    let Some((tree, rev)) = input.snapshot.identity() else {
+    let Some((tree, _)) = input.snapshot.identity() else {
         return vec![Refusal::new("unsupported_kind", id)];
     };
     if matches!(&input.snapshot, SnapshotInput::Commit { committed_at: Some(date), .. } if instant(date).is_none())
@@ -74,34 +74,10 @@ pub(super) fn input_refusals(doc: &ImpactDocument, input: &DocumentInput) -> Vec
         return vec![refusal];
     }
     if let Some(schema) = &input.schema {
+        if !crate::model::schema_receipt_agrees(schema, &input.snapshot, None) {
+            return vec![Refusal::new("slot_mismatch", id).dimension("schema.source.metadata")];
+        }
         let (repo, source_tree) = match &schema.source {
-            SchemaOrigin::File {
-                rev: source_rev,
-                committed_at,
-                subject,
-                ..
-            } if source_rev.as_deref() != rev
-                || match &input.snapshot {
-                    crate::SnapshotInput::ComputedTree { .. } => {
-                        committed_at.is_some() || subject.is_some()
-                    }
-                    crate::SnapshotInput::Commit {
-                        committed_at: date,
-                        subject: title,
-                        ..
-                    } => {
-                        committed_at
-                            .as_ref()
-                            .is_some_and(|at| instant(at) != date.as_deref().and_then(instant))
-                            || subject
-                                .as_ref()
-                                .is_some_and(|text| Some(text) != title.as_ref())
-                    }
-                    _ => true,
-                } =>
-            {
-                return vec![Refusal::new("slot_mismatch", id).dimension("schema.source.metadata")];
-            }
             SchemaOrigin::File { repo, tree, .. }
             | SchemaOrigin::RouteTable { repo, tree, .. }
             | SchemaOrigin::MissingExpectedSchema { repo, tree, .. } => (repo, tree),

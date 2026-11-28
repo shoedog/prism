@@ -1041,6 +1041,23 @@ unchecked. The statement supplies no evidence for the public gate.
   grammar remains a counted occurrence with an explicit reason.
 - **Annotation drift.** P2 always reads registrations for evidence. A contradiction is scoped to its
   authorities and linked sites. Missing annotation or registration evidence alone gives a coverage limit (§5.3).
+- **P2-1 input contract and known limits.** P2-1 binds inputs that the lane's own acquisition code produced from a
+  pinned tree. A caller-built input whose declared fields disagree with one another or with the index is refused
+  where the shared check (`schema_receipt_agrees`, called by both the P1d input validator and the P2 admission)
+  sees it, and is otherwise outside the contract, under the PROVISIONAL admission scope P1d states. Inside it the
+  annotation adapter has three known limits, each CONSTRUCTED with incidence 0 on the public pair (Apache Answer
+  pinned checkout: 199 directives, 446 files, 0 entry gaps, root base path, single server), pinned by rows
+  `kl_p2_1_01` to `_09` in `crates/prism-boundary/tests/producer_fold2.rs` and `producer_fold3.rs` beside controls.
+  KL1 (rows 01 to 04): a keyless gap from a read file (a malformed or block-comment directive) withholds
+  uniqueness for every operation of the document although the visible directive may concern one other operation;
+  the direction is conservative (a valid edge drops to Candidate). KL2 (rows 05 to 07 and 09): gap keys join the
+  schema base to the directive path. Row 05 keeps a Bound edge that is correct under swaggo's base-relative
+  `@Router` semantics (a detached comment generates nothing), so it is the one case that is not conservative by this
+  crate's own attached-directive rule, and it is correct; row 06 blocks one of several server prefixes; row 07
+  applies a prefix learned from an operation-level server override to every operation, and row 09 records the
+  consequence: a detached `/y` gains a spurious `/fixed/y` key, so a separately annotated `GET /fixed/y` drops to
+  Candidate. KL3 (row 08): the unprojected-deployments region is document-wide, taken from any server diagnostic;
+  it adds a limit record and never removes a claim. No change to the P1d admission claim.
 
 - **Field names are matched by spelling** under the configured `response_root`. A client that renames fields in a
   mapper is outside the field-read model. Record the missing linkage for the affected call.

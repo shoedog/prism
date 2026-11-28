@@ -651,10 +651,12 @@ version = "4.0.0"
 dependencies = [
  "chrono",
  "clap",
+ "prism",
  "regex",
  "serde",
  "serde_json",
  "sha2",
+ "tree-sitter",
 ]
 
 [[package]]

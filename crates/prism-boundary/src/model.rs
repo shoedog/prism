@@ -10,9 +10,13 @@
 mod bindings;
 mod decode;
 mod impact;
+mod producer;
+mod receipt;
 pub use crate::revision::{BindingStatus, SnapshotInput};
 pub use bindings::*;
 pub use impact::*;
+pub use producer::*;
+pub(crate) use receipt::schema_receipt_agrees;
 
 use crate::revision::{ConfigSource, ReceiptOrigin, Role, Scope};
 use serde::{Deserialize, Serialize};
@@ -42,13 +46,16 @@ pub struct DocumentInput {
 
 impl DocumentInput {
     pub(super) fn matches_schema_source(&self, source: &crate::inventory::SchemaSource) -> bool {
-        if self.role != Role::Producer
-            || self.api != source.api
-            || self.operation_authority != source.authority
-            || self.snapshot.identity() != Some((&source.tree, source.commit.as_deref()))
-        {
-            return false;
-        }
+        self.role == Role::Producer
+            && self.api == source.api
+            && self.operation_authority == source.authority
+            && self.snapshot.identity() == Some((&source.tree, source.commit.as_deref()))
+            && self.declares_schema_source(source)
+    }
+
+    /// Whether the schema this document declares (path, blob, repo, tree; or the named-tree
+    /// entry when it carries no schema evidence) is the one `source` indexed.
+    pub(crate) fn declares_schema_source(&self, source: &crate::inventory::SchemaSource) -> bool {
         match self.schema.as_ref().map(|schema| &schema.source) {
             Some(SchemaOrigin::File {
                 path,
@@ -65,6 +72,18 @@ impl DocumentInput {
                 (&self.input_id, &self.repo, &source.tree, &source.path, &source.blob)),
             _ => false,
         }
+    }
+}
+
+impl DocumentInput {
+    /// Whether the schema receipt this document declares agrees with its own snapshot and with
+    /// the index it is bound to, on every identity field (`schema_receipt_agrees` owns the list;
+    /// the validator calls it without an index). A document with no schema evidence declares
+    /// nothing here; its named-tree fallback is judged by `declares_schema_source`.
+    pub(crate) fn declared_receipt_agrees(&self, schema: &crate::SchemaIndex) -> bool {
+        self.schema
+            .as_ref()
+            .is_none_or(|evidence| schema_receipt_agrees(evidence, &self.snapshot, Some(schema)))
     }
 }
 

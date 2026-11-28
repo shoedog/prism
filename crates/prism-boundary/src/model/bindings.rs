@@ -22,6 +22,9 @@ pub struct BindingsDocument {
     pub calls: Option<Vec<Unbound>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub saved_scan: Option<SavedScan>,
+    /// P2: every annotation directive the reader recognised, with its disposition.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<Vec<super::AnnotationRecord>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -42,6 +45,15 @@ pub struct Binding {
     pub fields: Vec<FieldRecord>,
     #[serde(default)]
     pub observed_fields: Vec<FieldRecord>,
+    /// P2: how the source named this operation. Absent for schema-derived rows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grade: Option<super::EdgeGrade>,
+    /// P2: the declaration the annotation is attached to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handler: Option<super::HandlerSite>,
+    /// P2: evidence notes such as `generated_file` or `competing_handlers`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -296,6 +308,9 @@ impl BindingsDocument {
                     message_roots,
                     fields,
                     observed_fields,
+                    grade: None,
+                    handler: None,
+                    evidence: Vec::new(),
                 });
             }
         }

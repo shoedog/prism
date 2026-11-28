@@ -524,7 +524,7 @@ fn path_parameter_override_is_keyed_by_name_and_location() {
 }
 
 #[test]
-fn boundary_has_no_prism_dependency_before_adapters() {
+fn boundary_depends_only_on_the_prism_core_library() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let output = Command::new(env!("CARGO"))
         .args([
@@ -549,12 +549,17 @@ fn boundary_has_no_prism_dependency_before_adapters() {
         .iter()
         .find(|pkg| pkg["name"] == "prism-boundary")
         .unwrap();
+    // P2 added the first adapter, which parses Go with the core library. The review layer
+    // and the MCP server stay out of the boundary crate.
+    let names: Vec<&str> = package["dependencies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|dep| dep["name"].as_str().unwrap())
+        .collect();
     assert!(
-        package["dependencies"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|dep| dep["name"] != "prism"),
-        "add the prism dependency when adapters use prism::api"
+        names.contains(&"prism"),
+        "the Go adapters use the core parser"
     );
+    assert!(!names.contains(&"prism-review") && !names.contains(&"prism-mcp"));
 }
