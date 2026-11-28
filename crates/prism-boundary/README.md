@@ -428,7 +428,8 @@ trees, merges, media decisions, saved status, bindings, membership and every
 frozen-document check on a hand-edited or foreign document) is accepted by the
 code but NOT CERTIFIED. A claim marked admitted there can rest on a dependency
 that was not itself admitted. The census found about 105 such cases in 38
-settlement paths and no reviewer calls the list complete (see issue #960).
+settlement paths and no reviewer calls the list complete (backlog counts: issue
+#1002; related: #960).
 The census was read from code and not executed. Almost every case needs a state
 the replay never builds (a refused or unchecked input, a pin, a merge, a consumer
 side), so the replay shows nothing about incidence there. For the 12 cases that

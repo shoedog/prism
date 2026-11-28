@@ -136,7 +136,7 @@
       "schema_claim": "admitted",
       "head_claim": "unchecked"
     },
-    "outside_accept_list": "Live admission is accepted but not certified (README, P1d supported forms). Expected until the settlement redesign (issue #960 family): the redesign slice before P4 closes this row and the row is then deleted.",
+    "outside_accept_list": "Live admission is accepted but not certified (README, P1d supported forms). Expected until the settlement redesign (issue #1002): the redesign slice before P4 closes this row and the row is then deleted.",
     "control": {
       "fixture": "admission.json",
       "input": "The head carries a correct live_ref pin.",
@@ -158,7 +158,7 @@
       "schema_claim": "unchecked",
       "media_claim": "admitted"
     },
-    "outside_accept_list": "Media decision claims are settled outside the derived dependency edges. The projection and its media receipts are dropped because the schema claim is unchecked, so no document consumes the admitted media claim. Expected until the settlement redesign (issue #960 family): the redesign slice before P4 closes this row and the row is then deleted.",
+    "outside_accept_list": "Media decision claims are settled outside the derived dependency edges. The projection and its media receipts are dropped because the schema claim is unchecked, so no document consumes the admitted media claim. Expected until the settlement redesign (issue #1002): the redesign slice before P4 closes this row and the row is then deleted.",
     "control": {
       "fixture": "media.json",
       "input": "The head carries a correct historical pin.",
@@ -179,7 +179,7 @@
       "duplicate_input_admitted": false,
       "report_cutoff_admitted": true
     },
-    "outside_accept_list": "A frozen document with duplicate input ids is a hand-edited or foreign document; the validator is certified only for documents the admitted projection produced. Expected until the settlement redesign (issue #960 family): the redesign slice before P4 closes this row and the row is then deleted.",
+    "outside_accept_list": "A frozen document with duplicate input ids is a hand-edited or foreign document; the validator is certified only for documents the admitted projection produced. Expected until the settlement redesign (issue #1002): the redesign slice before P4 closes this row and the row is then deleted.",
     "control": {
       "fixture": "operations-only.json",
       "input": "The same two records in the other order.",
@@ -199,7 +199,7 @@
       "before_input_admitted": false,
       "report_cutoff_admitted": true
     },
-    "outside_accept_list": "A frozen document whose Before input is unchecked is outside the certified shape (historical, two commit inputs). Expected until the settlement redesign (issue #960 family): the redesign slice before P4 closes this row and the row is then deleted.",
+    "outside_accept_list": "A frozen document whose Before input is unchecked is outside the certified shape (historical, two commit inputs). Expected until the settlement redesign (issue #1002): the redesign slice before P4 closes this row and the row is then deleted.",
     "control": {
       "fixture": "operations-only.json",
       "input": "The Before input has no missing dependency.",
