@@ -21,6 +21,8 @@ pub(crate) mod anon_guard_tests;
 mod asserted_member_tests;
 pub(crate) mod binding_facts;
 pub(crate) use build::spread_args::dense_array_length;
+#[cfg(test)]
+mod bare_arrow_cross_file_tests;
 mod build;
 #[cfg(test)]
 mod callback_identity_tests;
