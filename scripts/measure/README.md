@@ -260,6 +260,45 @@ See [the formats of record](../../docs/superpowers/plans/2026-11-20-lanes/lane11
 for the evidence schemas and [R4B](fixtures/repro-4b/README.md) for the
 retained fixture capture and control generator.
 
+## Review comparison
+
+Run from `scripts/` with two review binaries and local source clones:
+
+```sh
+python3 -m measure review-diff --population measure/populations/602-m2-120.json \
+  --clones /path/to/clones --arm base=/path/to/base --arm head=/path/to/head \
+  --out /path/to/new-review
+```
+
+The shipped population pins 120 diffs, 20 from each of six repositories.
+Use `--only N,M,...` to select ordinals. Each selected commit is checked out
+in a separate detached scratch clone. The command validates the commit's
+parent and tree, regenerates the pinned spec, and checks the spec and
+worktree around each guarded arm. A checkout filter that changes the pinned
+source bytes causes a refusal. Source clones are read-only inputs.
+
+The two `--arm NAME=BIN[::ARG...]` options bind the base and head in order.
+The default shared arguments are `--algorithm taint --resolution scoped`.
+`--review-args STRING` replaces them using POSIX quoting and supports literal
+`::` in a shared argument. In an arm-local argument string `::` is the separator.
+
+`per-diff.jsonl` accounts for every ordinal. `totals.json` sums presence and
+payload changes and ambiguous bags over successful comparisons.
+`sample.jsonl` draws up to 30 successful ordinals with seed 20261101 by default.
+Use `--sample` and `--seed` to change the draw. `review-receipt.json` binds the
+population, arm commands, and hashes of the summaries and retained raw
+stdout and stderr. A launched child failure retains both streams.
+
+Exit 0 means all selected ordinals completed, with or without findings.
+Exit 1 means a selected ordinal failed or was refused. Exit 2 means invocation
+or population admission failed. A host-quiet interruption exits 75 and
+marks all remaining selected ordinals refused.
+
+The S4 fixture suite contains 47 tests, including two provisional skips for
+environment recording and arm-specific literal `::` arguments. It also runs
+15 review matrix rows and the `review-019` worktree drift ledger case. See
+[the review format](../../docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md#5-review-population-and-comparison).
+
 ## TypeScript oracle
 
 Run the Python commands from `scripts/`.

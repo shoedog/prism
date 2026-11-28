@@ -599,17 +599,26 @@ with open({str(self.log)!r}, encoding="utf-8") as prior:
             self.assertFalse(any(key.startswith("PRISM_") for key in env), env)
             self.assertEqual(env, log[0]["env"])
 
-    @unittest.skip("OPEN-ROW open-n1-27: disposition not stated")
     def test_conflicting_single_and_multi_markers(self):
-        """open-n1-27: compare conflicting active arrays only after marker precedence is defined."""
+        """open-n1-27: contradictory envelope markers fail the arm."""
         self.make_population()
         self.make_arm("head", {**single(finding()), "algorithms_run": ["Taint"], "all_findings": []})
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["arms"]["head"]["status"]), ("failed", "failed"))
+        self.assertIn("review-envelope-contradictory", row["reason"])
+        self.assert_null_metrics(row)
 
-    @unittest.skip("OPEN-ROW open-n1-29: disposition not stated")
     def test_description_and_message_change_together(self):
-        """open-n1-29: the wording singles out description or message."""
+        """open-n1-29: a change to both text fields is text-only."""
         self.make_population()
         self.pair([finding(message="old")], [finding(description="new", message="new")])
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, payload=1)
+        anchor, = row["anchors"]
+        pair, = anchor["pairs"]
+        self.assertEqual((pair["fields"], pair["text_only"]), (["description", "message"], True))
 
     @unittest.skip("OPEN-ROW open-n2-11: disposition not stated")
     def test_effective_review_environment_is_recorded(self):
@@ -617,31 +626,44 @@ with open({str(self.log)!r}, encoding="utf-8") as prior:
         self.make_population()
         self.env["PRISM_TEST_SWITCH"] = "tainted"
 
-    @unittest.skip("OPEN-ROW open-n2-26: disposition not stated")
     def test_envelope_without_mode_marker(self):
-        """open-n2-26: no marker selects either array."""
+        """open-n2-26: an unmarked envelope fails the arm."""
         self.make_population()
         self.make_arm("head", {"findings": [finding()], "all_findings": []})
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["arms"]["head"]["status"]), ("failed", "failed"))
+        self.assertIn("review-envelope-unmarked", row["reason"])
+        self.assert_null_metrics(row)
 
-    @unittest.skip("OPEN-ROW open-n3-18: disposition not stated")
     def test_unlocated_finding(self):
-        """open-n3-18: no rule states how a finding without file or line is accounted."""
+        """open-n3-18: a finding without a location fails the ordinal."""
         self.make_population()
         self.make_arm("head", single({"category": "taint_sink"}))
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual(row["status"], "failed")
+        self.assertIn("review-finding-location-missing", row["reason"])
+        self.assert_null_metrics(row)
 
-    @unittest.skip("OPEN-ROW open-n3-19: disposition not stated")
     def test_repeated_rule_ids_with_distinct_metadata(self):
-        """open-n3-19: complete RuleRefs form a set but the repeated-ID projection is open."""
+        """open-n3-19: different metadata on the same ID gives distinct rule units."""
         self.make_population()
         self.pair([finding(rules=[{"id": "A", "cwe": "CWE-1"}])],
                   [finding(rules=[{"id": "A", "cwe": "CWE-1"}, {"id": "A", "cwe": "CWE-2"}])])
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, payload=1)
+        self.assertEqual(row["rule_transitions"], [
+            {"from": ["A"], "to": ["A", "A"], "count": 1, "from_state": "list", "to_state": "list"},
+        ])
 
-    @unittest.skip("OPEN-ROW open-n3-20: disposition not stated")
     def test_only_explicitly_lists_the_complete_population(self):
-        """open-n3-20: the scope label for an exhaustive --only is open."""
+        """open-n3-20: an exhaustive --only still has population scope."""
         self.make_population(ordinals=(2, 1))
         self.review("--only", "1,2")
-        self.assertEqual(self.read_json("totals.json")["selected"], 2)
+        totals = self.read_json("totals.json")
+        self.assertEqual((totals["selected"], totals["scope"]), (2, "population"))
 
     @unittest.skip("OPEN-ROW open-n4-19: disposition not stated")
     def test_literal_double_colon_in_one_arm_only(self):
