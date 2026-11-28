@@ -106,25 +106,25 @@ fn compare_graphs(files: &BTreeMap<String, ParsedFile>) {
 fn generated_complete_index_and_serialization() {
     let files = generated();
     let expected = sequential::build(&files);
-    assert_eq!(expected.0.len(), files.len() - 2);
-    assert!(expected.0["empty.js"].program_supported);
+    assert_eq!(expected.files.len(), files.len() - 2);
+    assert!(expected.files["empty.js"].program_supported);
     for file in ["broken.ts", "unsupported.js", "escaped.ts"] {
-        assert!(!expected.0[file].program_supported, "{file}");
+        assert!(!expected.files[file].program_supported, "{file}");
     }
-    let methods = &expected.0["methods.js"];
+    let methods = &expected.files["methods.js"];
     assert!(methods.property_methods.len() >= 3);
     assert!(!methods.owners.is_empty() && !methods.returns.is_empty() && !methods.sites.is_empty());
-    assert!(expected.0["unit000.js"]
+    assert!(expected.files["unit000.js"]
         .owners
         .keys()
         .any(|id| crate::anon_owner::is_anonymous_owner_name(&id.name)));
-    let duplicate = expected.0["duplicates.ts"]
+    let duplicate = expected.files["duplicates.ts"]
         .returns
         .iter()
         .find(|(id, _)| id.name == "same")
         .unwrap();
     assert!(duplicate.1 .1.iter().any(|e| e.binding.local == "remote"));
-    let jsx = &expected.0["jsx.tsx"];
+    let jsx = &expected.files["jsx.tsx"];
     assert!(jsx.sites.len() >= 3);
     assert!(jsx.sites.values().any(|e| !e.imports.is_empty()));
     for threads in [1, 4, 16] {
@@ -252,9 +252,9 @@ fn incremental_direct_subset_and_merge_match_sequential() {
             let direct = CallGraph::build_direct_subset(&files, &changed);
             let serial_direct =
                 with_sequential(|| CallGraph::build_direct_subset(&reparse(&files), &changed));
-            assert_eq!(direct.js_anonymous, serial_direct.js_anonymous);
+            assert_eq!(direct.js_anonymous.files, serial_direct.js_anonymous.files);
             // Main's direct constructor deliberately supplies ALL files to proofs.
-            assert_eq!(direct.js_anonymous, sequential::build(&files));
+            assert_eq!(direct.js_anonymous.files, sequential::build(&files).files);
             let merge = |mut previous: CallGraph, incoming: CallGraph| {
                 previous.remove_files(&changed);
                 previous.merge(incoming);
@@ -292,7 +292,10 @@ fn incremental_direct_subset_and_merge_match_sequential() {
                 actual.call_graph.js_anonymous
             );
             assert!(observations(&expected) == observations(&actual));
-            assert_eq!(actual.call_graph.js_anonymous, ProofIndex::build(&files));
+            assert_eq!(
+                actual.call_graph.js_anonymous.files,
+                ProofIndex::build(&files).files
+            );
         });
     }
 }

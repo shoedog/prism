@@ -18,8 +18,29 @@ impl ParsedFile {
         name: &str,
         cache: &mut JsBindingCache<'a>,
     ) -> bool {
+        self.js_ts_scoped_written_within(scope, None, name, cache)
+    }
+
+    /// Entry defaults run before the holder body. Use the raw formal-list ID
+    /// for this narrower memo entry instead of the canonical holder ID.
+    pub(crate) fn js_ts_formal_written<'a>(
+        &'a self,
+        formals: Node<'a>,
+        name: &str,
+        cache: &mut JsBindingCache<'a>,
+    ) -> bool {
+        self.js_ts_scoped_written_within(formals, Some(formals), name, cache)
+    }
+
+    fn js_ts_scoped_written_within<'a>(
+        &'a self,
+        scope: Node<'a>,
+        formals: Option<Node<'a>>,
+        name: &str,
+        cache: &mut JsBindingCache<'a>,
+    ) -> bool {
         let canon = canonical_write_scope(scope);
-        let key = (canon.id(), name.to_string());
+        let key = (formals.unwrap_or(canon).id(), name.to_string());
         if let Some(w) = cache.written.get(&key) {
             return *w;
         }
@@ -31,6 +52,7 @@ impl ParsedFile {
             .unwrap_or_default();
         let written = targets
             .into_iter()
+            .filter(|t| formals.is_none_or(|list| list.byte_range().contains(&t.start_byte())))
             .any(|t| match self.js_ts_binding_walk(t, name, cache) {
                 Walk::Found(s, _) => {
                     canonical_write_scope(s).id() == canon.id() || s.kind() == "with_statement"

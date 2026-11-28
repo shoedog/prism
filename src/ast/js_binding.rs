@@ -67,6 +67,7 @@ pub(super) type NamespaceImports<'a> = BTreeMap<String, Vec<(Node<'a>, Option<St
 #[derive(Default)]
 pub(crate) struct JsBindingCache<'a> {
     pub(crate) proof_trace: Option<Vec<Node<'a>>>,
+    pub(super) walk_steps: Option<super::js_binding_walk::WalkSteps<'a>>,
     pub(super) decls: BTreeMap<usize, (Index<'a>, BTreeSet<String>)>,
     pub(super) clean: BTreeMap<usize, Result<(), &'static str>>,
     pub(super) braces: Option<bool>,
@@ -84,6 +85,14 @@ impl<'a> JsBindingCache<'a> {
     /// S1b-3b: one cache per file, shared across every call-site binding lookup in it.
     pub(crate) fn for_sites() -> Self {
         Self::default()
+    }
+
+    /// Argument discovery, caller indexing and grounding revisit the same tree.
+    pub(crate) fn for_arg_follow() -> Self {
+        Self {
+            walk_steps: Some(Default::default()),
+            ..Self::for_sites()
+        }
     }
 }
 

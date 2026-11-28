@@ -58,7 +58,7 @@ fn array_spread_length(caller: &ParsedFile, span: &Range<usize>) -> Option<usize
     dense_array_length(caller.spread_argument_operand(span)?)
 }
 
-pub(super) fn dense_array_length(array: tree_sitter::Node<'_>) -> Option<usize> {
+pub(crate) fn dense_array_length(array: tree_sitter::Node<'_>) -> Option<usize> {
     if array.kind() != "array" {
         return None;
     }
