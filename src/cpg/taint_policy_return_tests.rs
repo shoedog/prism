@@ -15,8 +15,8 @@ use petgraph::visit::EdgeRef;
 
 use super::taint_policy_tests::{files, loc, EXACT, WEAK};
 use super::{
-    BoundaryEdge, BoundaryKind, CodePropertyGraph, CpgEdge, CpgNode, CrossingCeiling,
-    FlowConfidence, Relation, ReturnFlowMode, TaintCrossingPolicy, Trace, VarAccess,
+    BoundaryKind, CodePropertyGraph, CpgEdge, CpgNode, CrossingCeiling, FlowConfidence, Relation,
+    ReturnFlowMode, TaintCrossingPolicy, Trace, VarAccess,
 };
 use crate::ast::ParsedFile;
 use crate::finding_confidence::{EvidenceHop, EvidencePath};
@@ -166,11 +166,8 @@ pub(super) fn reached_in_file(
 }
 
 pub(super) fn refused(trace: &Trace, root: NodeIndex, from: NodeIndex, to: NodeIndex) -> bool {
-    trace.boundary.contains(&BoundaryEdge {
-        root,
-        from,
-        to,
-        kind: BoundaryKind::CrossFunction,
+    trace.boundary.iter().any(|edge| {
+        (edge.root, edge.from, edge.to, edge.kind) == (root, from, to, BoundaryKind::CrossFunction)
     })
 }
 

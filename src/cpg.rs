@@ -128,6 +128,7 @@ mod taint_policy_tests;
 #[cfg(test)]
 mod tests;
 mod trace;
+mod trace_cuts;
 mod trace_descent;
 #[cfg(test)]
 mod trace_descent_tests;
@@ -161,7 +162,9 @@ pub(crate) use reaching::{
 pub(crate) use reaching::{with_availability_limits, RD_MAX_DEFS, RD_MAX_LINES};
 pub use taint_policy::{CrossingCeiling, TaintCrossingPolicy};
 pub use trace::{
-    BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
-    Relation, ReturnFlowMode, SameLineOrderView, Trace,
+    BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning, Relation,
+    ReturnFlowMode, SameLineOrderView, Trace,
 };
+pub use trace_cuts::{BoundaryEdge, CrossingSite, TraceCut};
+pub use trace_descent::LossReason;
 pub use types::{CpgEdge, CpgNode, StmtKind, VarAccess};
