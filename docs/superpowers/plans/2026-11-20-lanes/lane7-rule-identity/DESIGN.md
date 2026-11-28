@@ -455,8 +455,27 @@ used as a selector segment (`eval(_)`, `eval = _`, `b._`; compile error), a Pyth
 an argument list whose order is a SyntaxError (keyword before positional, repeated keyword,
 `*` after `**`), and a TS/TSX `const enum` initializer that is not a constant expression
 (TS2474). Their incidence is counted by the census (`price.rs`, `pending_shape` column): zero
-on the lane corpora. Runtime mutation, `-O`, preprocessors and code rewriting are out of
-model, as for `Exact`.
+on the lane corpora. The certificate states the **syntactic role** of an occurrence (for example the callee of a call
+expression in valid source, default build). It does not claim that the call executes, so
+statically dead code is outside the contract: a constant-false guard, and a short circuit on a
+literal nullish base (`(void 0)?.eval(x)`, `null?.m(eval(x))`, `null?.[eval(x)]`). Those three inputs
+are pinned as `known_limit` rows (r10-limit-js-*) beside controls (r10-control-js-*). The narrowed
+cell stays as an extra refusal and is named as such: an optional call or member chain directly on a
+literal `null` or `undefined` base is withheld (`op_special_form`), although the contract would not
+require it. Census (price.rs, five-language run `price-5l-fold11`, 2026-11-27): statically
+nullish optional chains (`null`, `undefined`, `void <literal>`, parenthesized, non-null or `as`
+wrappers of them) in the JS, TS and TSX corpora number **0**, and certified hits under one (callee,
+argument or computed-key position) number **0**, against 2,116 certified JavaScript, 708 TypeScript
+and 21 TSX hits. Go `len(p.a)`/`cap(p.a)` on an array field (the compiler folds the operand) is the
+same class, pinned as an adapter-obligation `known_limit` beside a slice control. A comment-only JSX
+body that overwrites nothing is refused as `attribute_overwritten`: an accepted over-refusal
+(conservative, no code change; rows `r2-*-jsx-children-empty-expr`). The census tool counts each
+limit once per hit; known limits of the census tool itself are that its Go blank classification
+reads the grammar roles it lists (parameters, `var`/`const` specs, fields, `left` lists, receives)
+and that Python keyword names are compared after NFKC. Runtime mutation, `-O`, preprocessors and
+code rewriting are out of model, as for `Exact`. The fixtures are minimal and omit unrelated
+declarations; a control is valid apart from names and types its snippet leaves undeclared, except
+where a row says otherwise.
 
 For the next fold, certify the operation, target and operand against three closed tables for the
 parsed language. The claimed role selects the applicable rows. An omitted shape earns no receipt.

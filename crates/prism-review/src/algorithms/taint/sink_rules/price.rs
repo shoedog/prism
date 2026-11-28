@@ -18,6 +18,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tree_sitter::Node;
+use unicode_normalization::UnicodeNormalization;
 
 #[derive(Default)]
 struct Counts {
@@ -27,7 +28,8 @@ struct Counts {
     refusals: Refusals,
     no_operation: usize,
     parse_error_files: usize,
-    // Certified hits whose input shape the owner has not yet ruled on (PENDING rows).
+    // Certified hits whose shape is a known limit of the input contract, plus whole-file
+    // counts of statically nullish optional chains (`js_nullish_optional_chain_any`).
     shapes: BTreeMap<&'static str, usize>,
 }
 
@@ -94,16 +96,27 @@ fn go_blank_read(parsed: &ParsedFile, operation: Node<'_>) -> bool {
     let mut stack = vec![operation];
     while let Some(node) = stack.pop() {
         if blank(parsed, node) {
-            let declaring = successors(Some(node), Node::parent)
-                .take_while(|&up| up != operation.parent().unwrap_or(operation))
-                .any(|up| {
-                    up.parent().is_some_and(|parent| {
+            let declaring = node.parent().is_some_and(|parent| {
+                matches!(
+                    parent.kind(),
+                    "parameter_declaration"
+                        | "variadic_parameter_declaration"
+                        | "var_spec"
+                        | "const_spec"
+                        | "field_declaration"
+                ) || [Some(node), Some(parent)].into_iter().flatten().any(|up| {
+                    up.parent().is_some_and(|outer| {
                         matches!(
-                            parent.kind(),
-                            "short_var_declaration" | "assignment_statement" | "range_clause"
-                        ) && parent.child_by_field_name("left") == Some(up)
+                            outer.kind(),
+                            "short_var_declaration"
+                                | "assignment_statement"
+                                | "range_clause"
+                                | "receive_statement"
+                        ) && outer.child_by_field_name("left") == Some(up)
                     })
-                });
+                }) && (parent.kind() == "expression_list"
+                    || parent.child_by_field_name("left") == Some(node))
+            });
             if !declaring {
                 return true;
             }
@@ -123,7 +136,7 @@ fn python_invalid_argument_list(parsed: &ParsedFile, list: Node<'_>) -> bool {
                 keyword = true;
                 let name = arg
                     .child_by_field_name("name")
-                    .map(|name| parsed.node_text(&name).to_owned());
+                    .map(|name| parsed.node_text(&name).nfkc().collect::<String>());
                 if names.contains(&name) {
                     return true;
                 }
@@ -132,6 +145,13 @@ fn python_invalid_argument_list(parsed: &ParsedFile, list: Node<'_>) -> bool {
             "dictionary_splat" => double_star = true,
             "list_splat" if double_star => return true,
             "comment" | "list_splat" => {}
+            "parenthesized_expression"
+                if arg
+                    .named_child(0)
+                    .is_some_and(|inner| inner.kind() == "list_splat") =>
+            {
+                return true
+            }
             _ if keyword || double_star => return true,
             _ => {}
         }
@@ -147,6 +167,13 @@ fn pending_shapes(parsed: &ParsedFile, id: Node<'_>) -> Vec<&'static str> {
         if operation_of(parsed, id).is_some_and(|operation| go_blank_read(parsed, operation)) {
             shapes.push("go_blank_read_or_selector");
         }
+    }
+    if matches!(
+        parsed.language,
+        Language::JavaScript | Language::TypeScript | Language::Tsx
+    ) && under_nullish_chain(parsed, id)
+    {
+        shapes.push("js_certified_under_nullish_optional_chain");
     }
     for node in successors(id.parent(), Node::parent) {
         match (parsed.language, node.kind()) {
@@ -164,7 +191,72 @@ fn pending_shapes(parsed: &ParsedFile, id: Node<'_>) -> Vec<&'static str> {
             _ => {}
         }
     }
+    shapes.sort_unstable();
+    shapes.dedup();
     shapes
+}
+
+// A value that is statically `null` or `undefined`: the literals, `void <literal>`, and
+// parenthesized, non-null or `as` wrappers of them.
+fn nullish_value(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    match node.kind() {
+        "null" | "undefined" => true,
+        "identifier" => parsed.node_text(&node) == "undefined",
+        "parenthesized_expression" | "non_null_expression" | "as_expression" => node
+            .named_child(0)
+            .is_some_and(|inner| nullish_value(parsed, inner)),
+        "unary_expression" => {
+            parsed.node_text(&node).trim_start().starts_with("void")
+                && node.child_by_field_name("argument").is_some_and(|arg| {
+                    matches!(
+                        arg.kind(),
+                        "number" | "string" | "true" | "false" | "null" | "undefined"
+                    )
+                })
+        }
+        _ => false,
+    }
+}
+
+// An optional chain link (`?.`) whose base is statically nullish; returns the base.
+fn nullish_chain_base<'t>(parsed: &ParsedFile, node: Node<'t>) -> Option<Node<'t>> {
+    let field = match node.kind() {
+        "member_expression" | "subscript_expression" => "object",
+        "call_expression" => "function",
+        _ => return None,
+    };
+    let base = node.child_by_field_name(field)?;
+    let optional = node.child_by_field_name("optional_chain").is_some()
+        || node.children(&mut node.walk()).any(|c| c.kind() == "?.");
+    (optional && nullish_value(parsed, base)).then_some(base)
+}
+
+// A certified hit inside a chain that a nullish optional link short-circuits (the callee,
+// arguments and computed keys the chain skips), but not inside the link's evaluated base.
+// The skipped region is the whole chain: the link and every call, member and subscript that
+// continues it; a parenthesis ends the chain.
+fn under_nullish_chain(parsed: &ParsedFile, id: Node<'_>) -> bool {
+    let inside = |outer: Node<'_>| {
+        outer.start_byte() <= id.start_byte() && id.end_byte() <= outer.end_byte()
+    };
+    for expr in successors(id.parent(), Node::parent) {
+        let mut node = expr;
+        loop {
+            if nullish_chain_base(parsed, node).is_some_and(|base| !inside(base)) {
+                return true;
+            }
+            let field = match node.kind() {
+                "member_expression" | "subscript_expression" => "object",
+                "call_expression" => "function",
+                _ => break,
+            };
+            match node.child_by_field_name(field) {
+                Some(next) => node = next,
+                None => break,
+            }
+        }
+    }
+    false
 }
 
 fn certify_hit(parsed: &ParsedFile, id: Node<'_>) -> Hit {
@@ -227,6 +319,20 @@ fn visit_file(
     let mut cursor = root.walk();
     loop {
         let id = cursor.node();
+        if matches!(
+            language,
+            Language::JavaScript | Language::TypeScript | Language::Tsx
+        ) && nullish_chain_base(&parsed, id).is_some()
+        {
+            *totals
+                .shapes
+                .entry("js_nullish_optional_chain_any")
+                .or_default() += 1;
+            *corpus
+                .shapes
+                .entry("js_nullish_optional_chain_any")
+                .or_default() += 1;
+        }
         if language.is_identifier_node(id.kind())
             && classifier
                 .classify(&file, &parsed, id, parsed.node_text(&id), SINK_PATTERNS)
@@ -629,5 +735,46 @@ mod census_tests {
 
         let none = run_child(&root, &out, "Rust");
         assert!(!none.contains("price-miss"), "{none}");
+    }
+
+    #[test]
+    fn counts_nullish_chains_and_invalid_shapes_once_per_hit() {
+        // Callee, argument and computed-key positions under a nullish optional base.
+        let report = census(&[(
+            "a.js",
+            "function g(x, a) {\n  (void 0)?.eval(x);\n  a?.m(eval(x));\n  null?.[eval(x)];\n  undefined?.m(eval(x));\n  (null?.m)(eval(x));\n}\n",
+        )]);
+        assert!(
+            line(&report, "JavaScript\tjs_nullish_optional_chain_any").ends_with("\t4"),
+            "{report}"
+        );
+        // The argument of `(null?.m)(..)` is evaluated, `a?.m(..)` has no nullish base.
+        assert!(
+            line(
+                &report,
+                "JavaScript\tjs_certified_under_nullish_optional_chain"
+            )
+            .ends_with("\t3"),
+            "{report}"
+        );
+        // Python: an NFKC-repeated keyword and a parenthesized unpacking are invalid lists, and
+        // two enclosing invalid lists count the hit once.
+        let report = census(&[(
+            "a.py",
+            "def g(x, a):\n    outer(k=0, \u{ff4b}=eval(x))\n    outer(eval(x), (*a))\n    outer(k=0, middle(j=0, eval(x)))\n",
+        )]);
+        assert!(
+            line(&report, "Python\tpython_invalid_outer_arguments").ends_with("\t3"),
+            "{report}"
+        );
+        // Go: a blank selector inside an assignment target is a read; a blank parameter is not.
+        let report = census(&[(
+            "a.go",
+            "package p\nfunc g(x int) {\n\texec.Command(x, func(_ string) string { return \"ok\" }(\"s\"))\n\texec.Command(x, b._.f)\n}\n",
+        )]);
+        assert!(
+            line(&report, "Go\tgo_blank_read_or_selector").ends_with("\t1"),
+            "{report}"
+        );
     }
 }
