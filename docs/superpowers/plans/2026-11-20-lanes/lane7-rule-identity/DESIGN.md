@@ -472,10 +472,24 @@ enlarges the count), templates, regexes, sequence and conditional expressions an
 count as possibly nullish. Counted: such chains in the corpora at all
 (`js_possibly_nullish_chain_any`) and certified hits inside one, in callee, argument or
 computed-key position (`js_certified_under_possibly_nullish_chain`, the skipped region being the
-whole chain through `!` and not the evaluated base). Constant guards (`constant_guard_certified`):
-certified hits lexically inside an `if`, `while`, ternary, `&&`, `||`, `??`, `and` or `or` whose
-test or left operand is a literal (or `undefined`, or Python `TYPE_CHECKING`) after the same
-peeling, JS, TS, TSX, Python and Go. Results are written as explicit rows, zero included. RESULT_PLACEHOLDER
+whole chain through `!` and not the evaluated base). Unreachable code under a constant test
+(`constant_dead_code_certified`): certified hits inside the consequence of an `if`, `elif`, ternary or
+`while` whose test is a literal false (`false`, `null`, `undefined`, `none`, zero, the empty string,
+Python `TYPE_CHECKING`), inside the else arm of a literal-true test, or in the right operand that a
+literal left makes unreachable (`false && ..`, `true || ..`, `1 ?? ..`), JS, TS, TSX, Python and Go.
+A constant-TRUE test (`while (true)`, `while True`, `if true`) is live code and is not counted, and
+`null ?? x` is live. Results are written as explicit rows, zero included.
+
+**Census result (run `price-5l-fold13`, 2026-11-27; certified of all flat hits: Go 22,575 of 22,591, JavaScript 2,116 of 2,172, TypeScript 708 of 735, TSX 21 of 36, Python 2,899 of 3,039; shares unchanged).**
+Optional chains with a possibly nullish base in the JS, TS and TSX corpora: 5 (TypeScript source 4,
+excalidraw 1), all live bases (a parenthesized conditional or `||`, or a comment-wrapped live
+expression), listed in `price/shapes-list.log`. Certified hits under a nullish-base chain: **0**. Certified hits
+under unreachable code: **1**, a Go test file (cockroach
+`pkg/server/debug/goroutineui/dump_test.go:58`, `if false { _ = os.WriteFile("test.html", ..) }`, a
+debugging toggle); JS 0, TS 0, TSX 0, Python 0. What the contract means for that row: the certificate
+states that the occurrence is the callee of a call, which is true there; it never claimed that
+the call executes, so a reader who needs reachability must not read it from the certificate. The
+row is recorded as a **counted instance outside the contract, not as zero**.
 Go `len`/`cap` of an array or pointer-to-array operand without calls or receives (the compiler
 folds the operand; `len(p.a)` is the pinned row) is the same class, pinned as an adapter-obligation
 `known_limit` beside a slice control. They are builtins, not flat sinks, so their incidence among
