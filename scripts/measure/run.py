@@ -65,6 +65,11 @@ def read_status(read_fd, process):
     os.set_blocking(read_fd, False)
     while True:
         ready, _, _ = select.select([read_fd], [], [], 0.1)
+        if not ready and process.poll() is not None:
+            # The guard can publish its status between the timeout and poll.
+            ready, _, _ = select.select([read_fd], [], [], 0)
+            if not ready:
+                break
         if ready:
             try:
                 chunk = os.read(read_fd, MAX_STATUS_BYTES)
@@ -74,8 +79,6 @@ def read_status(read_fd, process):
                 break
             if len(data) <= MAX_STATUS_BYTES:
                 data.extend(chunk)
-        elif process.poll() is not None:
-            break
     return bytes(data)
 
 

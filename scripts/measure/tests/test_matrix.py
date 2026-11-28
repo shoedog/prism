@@ -6,16 +6,18 @@ from collections import Counter
 import gzip
 import importlib
 import json
+import random
 import re
 import unittest
 
 from .comparator_fixtures import ComparatorFixture, read_rows
-from . import test_diff_edges, test_oracle
+from . import test_diff_edges, test_oracle, test_review_diff
 from .helpers import REPO, Workbench, write_tree
 from .test_matrix_rows import CASES, MATRIX, read_jsonl
+from .test_population import AFTER, METRICS, POPULATION_FIELDS
 from .test_syntax import parse_as_python_39
 
-ENABLED_GROUPS = {"run", "comparator", "join", "oracle"}
+ENABLED_GROUPS = {"run", "comparator", "join", "oracle", "review"}
 
 
 # Ledger "Materialize" IDs of the run group that the enabled matrix does not
@@ -45,9 +47,10 @@ S1_TESTS = {
                 ("test_corpora", "CorporaTests", "test_link_hops_refuse_even_when_dangling")],
 }
 # Round-four IDs owned by later slices, with their owning group.
-LATER_SLICE_IDS = {"gate-026": "gate", "cmp-061": "comparator", "review-019": "review"}
+LATER_SLICE_IDS = {"gate-026": "gate", "cmp-061": "comparator"}
 S3_TESTS = {"oracle-065": "test_declared_question_data_restricts_ambient_reads",
             "oracle-066": "test_drop_reason_substitution_survives_cancellation"}
+S4_TESTS = {"review-019": "test_review_019"}
 
 
 class MatrixLedgerTests(unittest.TestCase):
@@ -63,9 +66,11 @@ class MatrixLedgerTests(unittest.TestCase):
         self.assertIn("adds all eight IDs", handoff.split("**Handoff.**", 1)[1])
         # Every ID is executed here or assigned to a later slice, none dropped.
         self.assertEqual(set(ids), {i for i in S1_TESTS if i >= "run-021"}
-                         | set(S3_TESTS) | set(LATER_SLICE_IDS))
+                         | set(S3_TESTS) | set(S4_TESTS) | set(LATER_SLICE_IDS))
         for method in S3_TESTS.values():
             self.assertTrue(callable(getattr(test_oracle.OracleTests, method, None)))
+        for method in S4_TESTS.values():
+            self.assertTrue(callable(getattr(ReviewMatrixTests, method, None)))
         self.assertTrue(all(S1_TESTS[i] for i in S1_TESTS), "every S1 ID needs a nonempty mapping")
 
     def test_every_run_materialize_id_is_a_matrix_row_or_a_named_test(self):
@@ -367,8 +372,97 @@ class OracleMatrixTests(unittest.TestCase):
         harness.check_matrix(row["id"])
 
 
+class ReviewMatrixTests(test_review_diff.ReviewChecks):
+    def check_row(self, row):
+        ident, inputs, truth = row["id"], row["input"], row["truth"]
+        self.matrix_arms(ident, inputs)
+        setup = json.loads((CASES / ident / inputs["setup"]).read_bytes()) if "setup" in inputs else {}
+        if ident == "review-010":
+            self.make_population(ordinals=(setup["ordinal"],))
+            self.make_arm("head", exit_code=setup["head_exit"], stdout=b"")
+            self.review(expected=1)
+            result, = self.read_rows()
+            self.assertEqual({key: result[key] for key in truth["row_accounting"]},
+                             truth["row_accounting"])
+            self.assert_null_metrics(result)
+            self.assertEqual(self.read_json("totals.json")["failed_ordinals"],
+                             truth["totals_failed_ordinals"])
+            self.assertEqual(result["arms"]["head"]["exit"], setup["head_exit"])
+            if not setup["head_stdout_present"]:
+                self.assert_streams(result, "head", stdout=b"", stderr=b"head diagnostic\n")
+            return
+
+        if ident == "review-011":
+            self.make_population(spec=setup["manifest_spec"],
+                                 edits={"src/a.ts": "".join(AFTER.splitlines(keepends=True)[:3])})
+            self.review(expected=1)
+            self.assert_row_refused()
+            result, = self.read_rows()
+            self.assertEqual({key: result[key] for key in truth["row_accounting"]},
+                             truth["row_accounting"])
+            self.assertEqual(bool(self.attempts()), truth["arms_started"])
+            return
+
+        if ident == "review-012":
+            self.prepare_m2()
+            self.review()
+            self.assert_measured_spec(truth["spec"])
+            return
+
+        if ident == "review-013":
+            self.make_population(ordinals=(setup["ordinal"],))
+            self.keep_dirty_source()
+            write_tree(self.source, setup["source_clone"]["uncommitted"])
+            before = self.source_state()
+        elif ident == "review-014":
+            self.make_population(ordinals=setup["sample"]["candidate_ordinals"])
+        elif ident == "review-015":
+            self.make_population(ordinals=range(1, setup["population"]["ordinals"] + 1))
+        else:
+            self.make_population()
+
+        if ident == "review-014":
+            sample = setup["sample"]
+            expected = sorted(random.Random(sample["seed"]).sample(
+                sorted(sample["candidate_ordinals"]), sample["size"]))
+            for index in range(sample["repeat"]):
+                self.out = self.work / f"draw-{index}"
+                self.review("--sample", str(sample["size"]), "--seed", str(sample["seed"]))
+                self.assertEqual([row["ordinal"] for row in self.read_rows("sample.jsonl")], expected)
+        elif ident == "review-015":
+            self.review("--only", "120")
+            results = self.read_rows()
+            self.assertEqual([row["ordinal"] for row in results],
+                             list(range(1, truth["accounting_rows"] + 1)))
+            self.assertTrue(all(row["status"] == "excluded" for row in results[:-1]))
+            self.assertEqual(results[-1]["status"], "ok")
+            registration = json.loads(self.population.read_bytes())
+            for registered in registration["diffs"]:
+                self.assertEqual(set(registered), POPULATION_FIELDS)
+                self.assertTrue(registered.keys().isdisjoint(truth["content_fields_absent"]))
+        else:
+            self.review()
+
+        if ident == "review-013":
+            self.assertEqual(self.source_state() == before, truth["source_clone_unchanged"])
+        if ident == "review-008":
+            # FORMATS-DECISIONS resolves the provisional matrix truth.
+            truth = {**truth, "payload_changes": 2, "rule_transitions": []}
+        totals = self.read_json("totals.json")
+        self.assertEqual({key: totals[key] for key in METRICS}, {key: truth[key] for key in METRICS})
+        transitions = [{key: transition[key] for key in ("from", "to")}
+                       for result in self.read_rows() if result["status"] == "ok"
+                       for transition in result["rule_transitions"]]
+        self.assertEqual(transitions, truth["rule_transitions"])
+
+    def test_review_019(self):
+        """Round-four ledger case for drift after base's post-check."""
+        self.check_drift_between_arms()
+
+
 MATRIX_TESTS = {"run": MatrixTests, "comparator": ComparatorMatrixTests,
-                "join": ComparatorMatrixTests, "oracle": OracleMatrixTests}
+                "join": ComparatorMatrixTests, "oracle": OracleMatrixTests,
+                "review": ReviewMatrixTests}
 for row in read_jsonl(MATRIX / "rows.jsonl"):
     group = row["group"]
     if group in ENABLED_GROUPS:
