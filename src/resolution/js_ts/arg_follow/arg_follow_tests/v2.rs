@@ -264,7 +264,9 @@ fn exported_mutable_prototype_cannot_supply_inherited_callback() {
 #[test]
 fn unexported_prototype_control_is_credited() {
     // Control for the `exported` guard: the same shape without `export`
-    // supplies the inherited callback, so only the export makes it stale.
+    // records no `stale_path` refusal (the inherited selection itself is
+    // withheld as `undefined_lookup` in both rows), so only the export
+    // guard moves the `stale_path` count.
     let fixture = direct_case(
         "function holder({cb = fallback}) { cb('mixed'); }",
         "holder({cb: verified}); const proto = {cb: stale}; holder({__proto__: proto});",
@@ -529,4 +531,34 @@ fn default_closure_can_read_a_supplied_slot_only_after_entry() {
         Some(&ArgOutcome::Empty("read_timing".into()))
     );
     assert_eq!(fixture.index.refusal_count("read_timing"), 2);
+}
+
+fn undefined_default_case(prelude: &str) -> Fixture {
+    Fixture::build(
+        format!(
+            "function outer() {{\n{prelude}\n\
+             function caller() {{\n\
+             function holder(cb = () => 'fallback') {{ return cb(); }}\n\
+             return holder(undefined);\n\
+             }}\nreturn caller();\n}}\nouter();"
+        ),
+        Language::JavaScript,
+    )
+}
+
+#[test]
+fn intrinsic_undefined_selects_the_default() {
+    // Control: with no eval, `undefined` is the intrinsic and the default arrow runs.
+    let fixture = undefined_default_case("");
+    let outcome = format!("{:?}", fixture.outcome("cb()"));
+    assert!(outcome.contains("Targets"), "{outcome}");
+}
+
+#[test]
+fn direct_eval_that_may_declare_undefined_withholds_the_default() {
+    // A sloppy direct eval in an enclosing function can declare `undefined`
+    // there, so the argument no longer proves the default is taken.
+    let fixture = undefined_default_case("eval('var undefined = function replacement() {}');");
+    let outcome = format!("{:?}", fixture.outcome("cb()"));
+    assert!(!outcome.contains("Targets"), "{outcome}");
 }

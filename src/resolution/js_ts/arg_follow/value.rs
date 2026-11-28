@@ -398,10 +398,30 @@ impl<'a> Evaluation<'a, '_> {
                 if param_slot::name(parsed, node).as_deref() == Some("undefined") =>
             {
                 let mut cache = self.context.bindings[file].cache();
-                if matches!(
-                    parsed.js_ts_binding_walk(node, "undefined", &mut cache),
-                    Walk::Unbound
-                ) {
+                // A sloppy direct eval anywhere in the file that may declare
+                // `undefined` can shadow the intrinsic in an enclosing
+                // variable environment the lexical walk does not see.
+                let eval_may_shadow = self.context.bindings[file]
+                    .eval_sites
+                    .get_or_init(|| super::identity::index_eval_sites(parsed))
+                    .get(&parsed.tree.root_node().id())
+                    .into_iter()
+                    .flatten()
+                    .any(|&(call, callee)| {
+                        super::identity::eval_may_write(
+                            parsed,
+                            call,
+                            callee,
+                            "undefined",
+                            &mut cache,
+                        )
+                    });
+                if !eval_may_shadow
+                    && matches!(
+                        parsed.js_ts_binding_walk(node, "undefined", &mut cache),
+                        Walk::Unbound
+                    )
+                {
                     return vec![Ok(Value::Undefined)];
                 }
                 vec![Ok(Value::Node(file, node))]
