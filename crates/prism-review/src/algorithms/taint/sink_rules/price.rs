@@ -139,7 +139,8 @@ fn python_invalid_argument_list(parsed: &ParsedFile, list: Node<'_>) -> bool {
     false
 }
 
-// Shapes of a certified hit that the certificate accepts but a valid default build may not run.
+// Shapes of a certified hit that are outside the input contract (known limits: invalid programs)
+// or counted for disclosure (python_assert is certified: a real call in a default build).
 fn pending_shapes(parsed: &ParsedFile, id: Node<'_>) -> Vec<&'static str> {
     let mut shapes = Vec::new();
     if parsed.language == Language::Go {

@@ -442,6 +442,22 @@ starting point, **not in use, unpriced for adapters**: a future adapter for one 
 re-reviews its own tables before relying on them. The census numbers and the `no_operation`
 explanation are in the PRICE paragraph at the end of this subsection.
 
+**Input contract (owner decision, 2026-11-27, option A).** The certificate is correct for **valid
+source in a default build**: the parsed file is a program its language's compiler or interpreter
+accepts, built without flags that remove or rewrite code (`python -O`, `-DNDEBUG`-style
+switches, `tsc` options that erase code). Where the language runs a construct in that setting,
+the certificate certifies it. A Python `assert` condition or message is a real call in a default
+build and is certified; `python -O` is outside the contract. A shape that is not a valid,
+compiling program is a **known limit**: the certificate does not judge validity, accepts what
+its tables list, and the limit is pinned as a `known_limit` row beside a control (an accepted
+row of the valid neighbour). The known limits are: a Go blank identifier read as a value or
+used as a selector segment (`eval(_)`, `eval = _`, `b._`; compile error), a Python call inside
+an argument list whose order is a SyntaxError (keyword before positional, repeated keyword,
+`*` after `**`), and a TS/TSX `const enum` initializer that is not a constant expression
+(TS2474). Their incidence is counted by the census (`price.rs`, `pending_shape` column): zero
+on the lane corpora. Runtime mutation, `-O`, preprocessors and code rewriting are out of
+model, as for `Exact`.
+
 For the next fold, certify the operation, target and operand against three closed tables for the
 parsed language. The claimed role selects the applicable rows. An omitted shape earns no receipt.
 Count the first applicable refusal per candidate in table order (a), (b), (c), with specific rows
