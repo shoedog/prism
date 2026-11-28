@@ -1,6 +1,6 @@
 # Lane 3 report addendum: issue #991 diagnosis and the review-example re-measure (2026-11-28)
 
-Product: main f720d717 (the later commits on main are docs and targets). Evidence: `~/prism-evidence/jsx-props/f991/` (`DIAGNOSIS.md` with the 53 rows, `ledger-3.txt`, `ws-counts.json`) and `~/prism-evidence/jsx-props/g/examples/f991/` (records, packs, reader labels). Tools: `tools/seed_diag.py`, `seed_ledger.sh`, `jsx_sites.cjs`, `examples.py` (fixed).
+Product: main f720d717 (the later commits on main are docs and targets). Evidence (not in the repository; tools under `~/prism-evidence/jsx-props/tools/`): `~/prism-evidence/jsx-props/f991/` (`DIAGNOSIS.md` with the 53 rows, `ledger-3.txt`, `ws-counts.json`) and `~/prism-evidence/jsx-props/g/examples/f991/` (records, packs, reader labels). Tools: `tools/seed_diag.py`, `seed_ledger.sh`, `jsx_sites.cjs`, `examples.py` (fixed).
 
 ## 1. Why 2 of 15 forward cal.com commits gained context: the 53 seeds, in counts
 
