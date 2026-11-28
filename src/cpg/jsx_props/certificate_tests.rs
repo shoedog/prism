@@ -471,6 +471,8 @@ fn every_listed_object_kind_stays_certified() {
         ("regex", "see(x); /a/[x]; /a/.test(x);"),
         ("new_expression", "see(x); new A()[x]; new A().b;"),
         ("tagged template", "see(x); tag`t${x}`; a.tag`t`;"),
+        ("undefined", "see(x); undefined.b; undefined[x];"),
+        ("null, true, false", "see(x); null.b; true.b; false[x];"),
         ("meta_property", "see(x); new.target[x]; new.target.b;"),
     ] {
         assert!(app("jsx", "x", body).keeps(), "{kind}: {body:?}");
