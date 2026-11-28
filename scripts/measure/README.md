@@ -290,11 +290,14 @@ population, arm commands, and hashes of the summaries and retained raw
 stdout and stderr. A launched child failure retains both streams.
 
 Exit 0 means all selected ordinals completed, with or without findings.
-Exit 1 means a selected ordinal failed or was refused. Exit 2 means invocation
+Exit 1 means a selected ordinal failed or was refused, or a storage error
+interrupted publication after the arms ran. Exit 2 means invocation
 or population admission failed. A host-quiet interruption exits 75 and
-marks all remaining selected ordinals refused.
+marks all remaining selected ordinals refused. A guard that returns no status
+while the child wrote output or errors keeps both streams and fails the arm
+(`review-guard-status-missing`).
 
-The S4 fixture suite contains 47 tests, including two provisional skips for
+The S4 fixture suite (`test_population` and `test_review_diff`) contains 62 tests, including two skips, owned by S5, for
 environment recording and arm-specific literal `::` arguments. It also runs
 15 review matrix rows and the `review-019` worktree drift ledger case. See
 [the review format](../../docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md#5-review-population-and-comparison).
@@ -821,5 +824,9 @@ residuals. Census emits no deltas. Call differential emits all site deltas,
 while defaults grade gained exact head claims. Aggregate-only retains
 tuples, denominators and receipt. Edge changes count the selected arm's
 residual occurrences as `selected`, independently of the arm's full size.
+
+Known limit (PROVISIONAL, known-s4-2): the spec file, scratch worktree and executable are checked at arm boundaries, not during launch, so a writer that changes and restores them (or changes the spec's mode alone) during the launch is not detected, and a persistent executable replacement fails the row while its retained output stays attributed to the originally hashed executable.
+
+Known limit (PROVISIONAL, known-s4-3): replay checks the internal integrity of the receipt and its retained streams; a consistently resealed receipt, or a different binary identity and argv around unchanged streams, is not detected without an independently supplied expected tree and binary identity (S5's gate binds them).
 
 Known limit (PROVISIONAL, known-s4-1, issue #992): `review-diff` refuses an ordinal whose pinned tree holds a gitlink, so the 20 apache/superset ordinals of `602-m2-120.json` are REFUSED and the command exits 1 on the full population (100 of 120 measured).

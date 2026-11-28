@@ -9,7 +9,7 @@ from . import population as populations
 from . import receipt
 from .corpora import text
 from .edges import integer
-from .review_findings import compare, decode, METRICS, review_json, review_object
+from .review_findings import compare, decode, METRICS, review_json, review_object, structure_object
 
 SCHEMA = "prism.measure.review-receipt/1"
 TOTALS_SCHEMA = "prism.measure.review/1"
@@ -21,6 +21,7 @@ ARM_FIELDS = {"status", "exit", "guard_status", "output", "output_sha256", "stde
               "input_before_sha256", "input_after_sha256"}
 DATA_FILES = ("per-diff.jsonl", "totals.json", "sample.jsonl")
 RECEIPT_FILE = "review-receipt.json"
+STATUS_MISSING = "review-guard-status-missing"
 RESERVED = {"--", "--repo", "--diff", "--format", "--cache", "--cache-dir", "--no-cache"}
 SHORT_RESERVED = re.compile(r"^-[rdf]")
 
@@ -95,8 +96,8 @@ def _read(directory, artifacts, name):
     return receipt.verified_bytes(path, artifacts[name])
 
 
-def _rows(raw):
-    return [review_object(line) for line in raw.split(b"\n") if line]
+def _rows(raw, parse=structure_object):
+    return [parse(line) for line in raw.split(b"\n") if line]
 
 
 def _commands(arms):
@@ -146,20 +147,30 @@ def _streams(directory, artifacts, arm, role, ordinal, argv, expected):
         wrapper = receipt.GUARD_EXITS.get(str(guard.get("kind")), guard.get("child_exit"))
         receipt.check_guard_status(guard, wrapper)
     launched = guard is not None and guard["launched"]
-    _require(launched == (argv is not None), "review command coverage differs from launch status")
+    # No guard status but kept streams: an indeterminate launch (review-guard-status-missing).
+    indeterminate = guard is None and arm["output"] is not None
+    _require((launched or indeterminate) == (argv is not None),
+             "review command coverage differs from launch status")
     _require(arm["status"] in ("ok", "failed", "refused", "unlaunched"), "invalid review arm status")
+    _require(guard is None or guard["kind"] != "host_quiet" or arm["status"] == "refused",
+             "host-quiet review arm is not refused")
     before, after = arm["input_before_sha256"], arm["input_after_sha256"]
     _require(all(value is None or receipt.is_digest(value) for value in (before, after)),
              "invalid observed review input hash")
-    if not launched:
+    if not launched and not indeterminate:
         _require(arm["status"] != "ok" and all(arm[key] is None for key in (
             "exit", "output", "output_sha256", "stderr", "stderr_sha256", "input_after_sha256",
         )), "unlaunched review arm has launch evidence")
         _require(arm["status"] != "unlaunched" or (before is None and guard is None),
                  "unattempted review arm has input or guard evidence")
         return None
-    _require(arm["status"] in ("ok", "failed") and arm["exit"] == guard["child_exit"]
-             and type(arm["exit"]) is int and receipt.is_digest(before), "invalid review child evidence")
+    if indeterminate:
+        _require(arm["status"] == "failed" and arm["exit"] is None and after is None
+                 and receipt.is_digest(before), "invalid review child evidence")
+    else:
+        _require(arm["status"] in ("ok", "failed") and arm["exit"] == guard["child_exit"]
+                 and type(arm["exit"]) is int and receipt.is_digest(before),
+                 "invalid review child evidence")
     if arm["status"] == "ok":
         _require(guard["kind"] == "child" and arm["exit"] == 0 and before == after,
                  "successful review arm lacks matching input and exit evidence")
@@ -173,7 +184,7 @@ def _streams(directory, artifacts, arm, role, ordinal, argv, expected):
     return data["output"]
 
 
-def _check_row(directory, artifacts, row, pin, arms, commands, expected):
+def _check_row(directory, artifacts, row, written, pin, arms, commands, expected):
     _closed(row, {*IDENTITY, *COMPARISON_FIELDS, "status", "reason", "arms"}, "invalid review row")
     _require(integer(row["ordinal"], 1) and all(row[key] == pin[key] for key in IDENTITY),
              "review row disagrees with the population")
@@ -185,6 +196,8 @@ def _check_row(directory, artifacts, row, pin, arms, commands, expected):
     streams = [_streams(directory, artifacts, arm, role, pin["ordinal"], argv[role], expected)
                for role, arm in zip(ROLES, observed)]
     status, reason = row["status"], row["reason"]
+    if any(arm["guard_status"] is None and arm["output"] is not None for arm in observed):
+        _require(reason == STATUS_MISSING, "indeterminate review launch has another reason")
     if status == "ok":
         _require(reason is None and all(arm["status"] == "ok" for arm in observed)
                  and observed[0]["input_before_sha256"] == observed[1]["input_before_sha256"],
@@ -199,7 +212,8 @@ def _check_row(directory, artifacts, row, pin, arms, commands, expected):
         _require(status == last if last is not None else status in ("refused", "excluded"),
                  "review row disposition disagrees with the arm evidence")
         actual = {**dict.fromkeys(METRICS), "rule_transitions": [], "anchors": []}
-    _require(review_json(actual) == review_json({key: row[key] for key in COMPARISON_FIELDS}),
+    # Payload numbers keep their spelling (`-0` is not `0`), so compare the spelled row.
+    _require(review_json(actual) == review_json({key: written[key] for key in COMPARISON_FIELDS}),
              "review row comparison does not match its evidence")
 
 
@@ -209,7 +223,7 @@ def admit(directory, *, population):
     registered = populations.load(Path(population))
     completion = directory / RECEIPT_FILE
     _require(completion.is_file() and not completion.is_symlink(), "missing or linked review receipt")
-    record = review_object(completion.read_bytes())
+    record = structure_object(completion.read_bytes())
     _closed(record, {"schema", "population_sha256", "arms", "gate_sha256", "gate_step_id", "artifacts"},
             "invalid review receipt")
     _require(record["schema"] == SCHEMA and record["population_sha256"] == registered.sha256,
@@ -219,12 +233,13 @@ def admit(directory, *, population):
     commands = _commands(arms)
     _require(isinstance(artifacts, dict), "invalid review artifact registry")
     expected = set(DATA_FILES)
-    rows = _rows(_read(directory, artifacts, DATA_FILES[0]))
+    raw_rows = _read(directory, artifacts, DATA_FILES[0])
+    rows, spelled = _rows(raw_rows), _rows(raw_rows, review_object)
     _require(len(rows) == len(registered.diffs), "incomplete review population accounting")
-    for row, pin in zip(rows, registered.diffs):
-        _check_row(directory, artifacts, row, pin, arms, commands, expected)
+    for row, written, pin in zip(rows, spelled, registered.diffs):
+        _check_row(directory, artifacts, row, written, pin, arms, commands, expected)
     _require(artifacts.keys() == expected and not any(commands.values()), "unexpected review evidence")
-    totals = review_object(_read(directory, artifacts, DATA_FILES[1]))
+    totals = structure_object(_read(directory, artifacts, DATA_FILES[1]))
     sample = _rows(_read(directory, artifacts, DATA_FILES[2]))
     seed = totals.get("seed")
     _require(type(seed) is int, "invalid review sample seed")

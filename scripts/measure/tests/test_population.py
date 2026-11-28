@@ -411,3 +411,72 @@ class PopulationTests(ReviewFixture):
                 self.assertGreaterEqual(row[field], 0)
         self.assertNotIn('"diff_lines"', path.read_text(encoding="utf-8"))
         self.assertNotIn('"files"', path.read_text(encoding="utf-8"))
+
+    def refused_by_replaced_patch(self, real, replacement, name):
+        self.out = self.work / name
+        self.replace_git_patch(replacement)
+        self.review(expected=1)
+        self.assertTrue(self.diff_log.exists())
+        self.diff_log.unlink()
+        self.assert_row_refused()
+        self.assertNotEqual(real, replacement)
+
+    def test_added_file_with_deletions_refuses_ordinal(self):
+        """review-s4-r1: an addition from /dev/null has no preimage lines to delete."""
+        expected = spec_for({"src/a.ts": [3, 4], "src/new.ts": [1, 2]})
+        self.make_population(spec=expected, edits={"src/a.ts": AFTER, "src/new.ts": "one\ntwo\n"})
+        real = self.diff_patch()
+        header = b"--- /dev/null\n+++ b/src/new.ts\n@@ -0,0 +1,2 @@\n+one\n+two\n"
+        self.assertIn(header, real)
+        forged = b"--- /dev/null\n+++ b/src/new.ts\n@@ -1 +1,2 @@\n-gone\n+one\n+two\n"
+        self.refused_by_replaced_patch(real, real.replace(header, forged), "added-with-deletion")
+
+    def test_hunks_with_overlapping_or_backward_new_ranges_refuse_ordinal(self):
+        self.make_population()
+        real = self.diff_patch()
+        hunk = b"@@ -3 +3,2 @@ const b = 2;\n-const c = 3;\n+const c = 30;\n+const d = 4;\n"
+        self.assertIn(hunk, real)
+        backward = (b"@@ -4,0 +4 @@ const b = 2;\n+const d = 4;\n"
+                    b"@@ -3 +3 @@\n-const c = 3;\n+const c = 30;\n")
+        for name, replacement in (("overlap", hunk * 2), ("backward", backward)):
+            with self.subTest(name):
+                self.refused_by_replaced_patch(real, real.replace(hunk, replacement), name)
+
+    def test_git_record_without_names_refuses_ordinal(self):
+        self.make_population()
+        real = self.diff_patch()
+        record = b"diff --git a/src/a.ts b/src/a.ts\n"
+        self.assertIn(record, real)
+        for name, bare in (("empty", b"diff --git \n"), ("blank", b"diff --git   \n")):
+            with self.subTest(name):
+                self.refused_by_replaced_patch(real, real.replace(record, bare + record), name)
+
+    def test_metadata_only_records_still_parse(self):
+        """Control for the stricter record checks: a pure rename has no ---/+++ headers."""
+        self.parent = self.commit_files({"src/old.ts": BEFORE})
+        self.make_population(delete=("src/old.ts",), edits={"src/a.ts": AFTER, "src/moved.ts": BEFORE})
+        self.assertIn(b"rename from src/old.ts\n", self.diff_patch())
+        self.review()
+        self.assert_measured_spec(STANDARD_SPEC)
+
+    def test_population_git_ignores_the_user_attributes_file(self):
+        self.make_population()
+        real_git = shutil.which("git")
+        shim = self.work / "git"
+        self.git_log = self.work / "git-args.jsonl"
+        executable(shim, f"""
+import json
+import os
+import sys
+with open({str(self.git_log)!r}, "a", encoding="utf-8") as stream:
+    print(json.dumps(sys.argv[1:]), file=stream)
+os.execv({real_git!r}, [{real_git!r}, *sys.argv[1:]])
+""")
+        self.env["PATH"] = str(shim.parent) + os.pathsep + self.env["PATH"]
+        self.review()
+        calls = [json.loads(line) for line in self.git_log.read_text().splitlines()]
+        population_calls = [args for args in calls if "diff" in args or "clone" in args]
+        self.assertTrue(any("diff" in args for args in population_calls))
+        self.assertTrue(any("clone" in args for args in population_calls))
+        for args in population_calls:
+            self.assertIn("core.attributesFile=/dev/null", args)

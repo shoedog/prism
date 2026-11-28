@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from contextlib import ExitStack
 import json
+import os
 from pathlib import Path
 import random
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
-from .helpers import DEFAULT_VERSION, fixture_digest, sha256_of
+from .helpers import DEFAULT_VERSION, executable, fixture_digest, sha256_of
 from .test_matrix_rows import CASES
 from .test_population import (
-    EMPTY, METRICS, QUIET, STANDARD_SPEC, ReviewFixture, envelope_bytes,
+    AFTER, EMPTY, METRICS, QUIET, STANDARD_SPEC, ReviewFixture, envelope_bytes,
 )
 
 ROW_FIELDS = {"ordinal", "repo", "commit", "status", "reason", "arms", *METRICS,
@@ -640,7 +643,7 @@ with open({str(self.log)!r}, encoding="utf-8") as prior:
         pair, = anchor["pairs"]
         self.assertEqual((pair["fields"], pair["text_only"]), (["description", "message"], True))
 
-    @unittest.skip("OPEN-ROW open-n2-11: disposition not stated")
+    @unittest.skip("OPEN-ROW open-n2-11: re-scoped to S5 (review environment recording for gate custody)")
     def test_effective_review_environment_is_recorded(self):
         """open-n2-11: §5 gives no location in its exact receipt shapes for the effective environment."""
         self.make_population()
@@ -685,9 +688,221 @@ with open({str(self.log)!r}, encoding="utf-8") as prior:
         totals = self.read_json("totals.json")
         self.assertEqual((totals["selected"], totals["scope"]), (2, "population"))
 
-    @unittest.skip("OPEN-ROW open-n4-19: disposition not stated")
+    @unittest.skip("OPEN-ROW open-n4-19: re-scoped to S5 (structured arm argument array in gate steps)")
     def test_literal_double_colon_in_one_arm_only(self):
         """open-n4-19: the shared-argument escape route applies to both arms."""
         self.make_population()
         left, right = self.binaries.values()
         self.review(arms=[f"left={left}", f"right={right}::--taint-source::std::exec"])
+
+
+FINDING_JSON = (b'{"algorithm":"Taint","findings":[{"file":"src/a.ts","line":3,"algorithm":"taint",'
+                b'"category":"taint_sink","other":%s}]}\n')
+
+
+class ReviewFoldOneTests(ReviewChecks):
+    """Fold 1 of PR 984: payload spelling, marker contents, guard custody and replay."""
+
+    def reseal(self, mutate):
+        rows, totals = self.read_rows(), self.read_json("totals.json")
+        record = self.read_json("review-receipt.json")
+        mutate(rows, totals, record)
+        totals["arms"] = record["arms"]
+        for name, data in (("per-diff.jsonl", b"".join(json.dumps(row).encode() + b"\n" for row in rows)),
+                           ("totals.json", json.dumps(totals).encode() + b"\n")):
+            path = self.out / name
+            path.write_bytes(data)
+            record["artifacts"][name] = {"bytes": len(data), "sha256": sha256_of(path)}
+        (self.out / "review-receipt.json").write_bytes(json.dumps(record).encode())
+
+    def admit(self):
+        from measure import review_diff
+
+        return review_diff.admit(self.out, population=self.population)
+
+    def test_integer_token_spelling_is_part_of_the_payload(self):
+        self.make_population()
+        self.make_arm("base", stdout=FINDING_JSON % b"-0")
+        self.make_arm("head", stdout=FINDING_JSON % b"0")
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row, payload=1)
+        self.admit()
+        # Control: equal spellings cancel.
+        self.out = self.work / "same"
+        self.make_arm("base", stdout=FINDING_JSON % b"0")
+        self.review()
+        row, = self.read_rows()
+        self.assert_counts(row)
+
+    def test_line_is_still_a_positive_integer(self):
+        from measure.review_findings import decode
+
+        ok = b'{"algorithm":"Taint","findings":[{"file":"a.ts","line":%s}]}'
+        self.assertEqual(len(decode(ok % b"3")), 1)
+        for line in (b"0", b"-0", b"-1", b"1.0", b"1e0", b'"3"', b"true", b"null"):
+            with self.subTest(line=line), self.assertRaises(ValueError):
+                decode(ok % line)
+
+    def test_marker_contents_are_validated(self):
+        bad = (b'{"results":[42],"all_findings":[]}', b'{"algorithms_run":[false],"all_findings":[]}',
+               b'{"algorithms_run":[],"all_findings":[]}', b'{"algorithms_run":[""],"all_findings":[]}',
+               b'{"algorithm":"","findings":[]}', b'{"algorithm":7,"findings":[]}')
+        self.make_population()
+        for index, raw in enumerate(bad):
+            with self.subTest(raw=raw):
+                self.out = self.work / f"bad-{index}"
+                self.make_arm("head", stdout=raw)
+                self.review(expected=1)
+                row, = self.read_rows()
+                self.assertEqual(row["status"], "failed")
+                self.assertIn("review-envelope-malformed", row["reason"])
+                self.assert_null_metrics(row)
+        self.out = self.work / "wellformed"
+        self.make_arm("head", stdout=b'{"algorithms_run":["Taint"],"results":[{}],"all_findings":[]}')
+        self.review()
+
+    def silent_guard(self, *, run_child=True):
+        guard = executable(self.work / "silent-guard", f"""
+import subprocess
+import sys
+args = sys.argv[4:]
+code = subprocess.call(args) if {run_child!r} else 1
+sys.exit(128 - code if code < 0 else code)
+""")
+        normal = self.guard
+        self.guard_for = lambda argv: guard if "--diff" in argv else normal
+
+    def test_missing_guard_status_keeps_the_launched_streams(self):
+        self.make_population()
+        self.make_arm("base", exit_code=7)
+        self.silent_guard()
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("failed", "review-guard-status-missing"))
+        base = row["arms"]["base"]
+        self.assertEqual((base["status"], base["guard_status"], base["exit"]), ("failed", None, None))
+        self.assert_streams(row, "base", stdout=envelope_bytes(EMPTY), stderr=b"base diagnostic\n")
+        self.assert_unlaunched(row["arms"]["head"])
+        self.assert_null_metrics(row)
+        self.admit()
+
+    def test_missing_guard_status_without_a_launch_keeps_nothing(self):
+        """Control: a guard that never started the child leaves no streams to keep."""
+        self.make_population()
+        self.silent_guard(run_child=False)
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("failed", "review-guard-failed"))
+        self.assert_unlaunched(row["arms"]["base"])
+        self.assertFalse((self.out / "arms").exists() and any((self.out / "arms").rglob("*.std*")))
+        self.admit()
+
+    def test_replay_rejects_structured_host_quiet_relabelled_as_failed(self):
+        self.make_population()
+        self.make_guard({"--diff": (75, QUIET)})
+        self.review(expected=75)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["arms"]["base"]["guard_status"]), ("refused", QUIET))
+        self.admit()
+
+        def relabel(rows, totals, record):
+            rows[0]["status"] = "failed"
+            rows[0]["reason"] = "relabelled"
+            rows[0]["arms"]["base"]["status"] = "failed"
+            totals["failed_ordinals"], totals["refused_ordinals"] = [1], []
+
+        self.reseal(relabel)
+        with self.assertRaises(ValueError):
+            self.admit()
+
+    def test_known_limit_transient_writer_during_launch_is_not_detected(self):
+        """PROVISIONAL (known-s4-2): the spec and worktree are checked at arm boundaries only."""
+        edited = json.dumps({"files": [{"file_path": "src/a.ts", "modify_type": "Modified",
+                                        "diff_lines": [1, 2]}]}).encode()
+        original = json.dumps(STANDARD_SPEC).encode()
+        self.make_population()
+        cases = {
+            "transient-spec": (
+                f"os.chmod(spec_path, 0o600); spec_path.write_bytes({edited!r})",
+                f"spec_path.write_bytes({original!r}); os.chmod(spec_path, 0o400)"),
+            "mode-only": ("os.chmod(spec_path, 0o600)", ""),
+            "transient-worktree": (
+                "(root / 'src/a.ts').write_bytes(b'transient\\n')",
+                f"(root / 'src/a.ts').write_bytes({AFTER.encode()!r})"),
+        }
+        for name, (before, after) in cases.items():
+            with self.subTest(name):
+                self.out = self.work / name
+                self.make_arm("head", before_read=before, after_read=after)
+                self.review()
+                row, = self.read_rows()
+                self.assertEqual(row["status"], "ok")
+                self.assert_counts(row)
+        # Control: the same writer without the restore is caught at the post-arm check.
+        self.out = self.work / "control"
+        self.make_arm("head", before_read=cases["transient-spec"][0])
+        self.review(expected=1)
+        row, = self.read_rows()
+        self.assertEqual((row["status"], row["reason"]), ("failed", "review-input-changed"))
+
+    def test_known_limit_replay_checks_internal_integrity_only(self):
+        """PROVISIONAL (known-s4-3): a consistently resealed receipt is admitted."""
+        self.make_population()
+        self.review()
+        self.admit()
+        stderr = self.out / "arms/1/base.stderr"
+        saved = stderr.read_bytes()
+        stderr.write_bytes(b"x" + saved[1:])
+        with self.assertRaises(ValueError):
+            self.admit()
+        stderr.write_bytes(saved)
+
+        def unequal(rows, totals, record):
+            rows[0]["arms"][record["arms"]["head"]["name"]]["input_after_sha256"] = "d" * 64
+
+        self.reseal(unequal)
+        with self.assertRaises(ValueError):
+            self.admit()
+        self.out = self.work / "forged"
+        self.review()
+
+        def digests(rows, totals, record):
+            for arm in rows[0]["arms"].values():
+                arm["input_before_sha256"] = arm["input_after_sha256"] = "f" * 64
+
+        self.reseal(digests)
+        self.admit()
+        self.out = self.work / "forged-binary"
+        self.review()
+
+        def binary(rows, totals, record):
+            head = record["arms"]["head"]
+            head["binary"].update(path="/nonexistent/forged-head", sha256="e" * 64)
+            for command in head["commands"]:
+                command["argv"][0] = head["binary"]["path"]
+
+        self.reseal(binary)
+        self.admit()
+
+
+class ReadStatusRaceTests(unittest.TestCase):
+    def test_status_written_before_exit_is_read_when_the_first_poll_reports_nothing(self):
+        from measure import run
+
+        process = subprocess.Popen([sys.executable, "-c", "pass"])
+        process.wait()
+        read_fd, write_fd = os.pipe()
+        os.write(write_fd, b'{"kind":"child"}\n')
+        os.close(write_fd)
+        self.addCleanup(os.close, read_fd)
+        real = run.select.select
+        calls = []
+
+        def stale_once(*args):
+            calls.append(args)
+            return ([], [], []) if len(calls) == 1 else real(*args)
+
+        with patch.object(run.select, "select", stale_once):
+            self.assertEqual(run.read_status(read_fd, process), b'{"kind":"child"}\n')
+        self.assertGreaterEqual(len(calls), 2)

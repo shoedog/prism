@@ -3,7 +3,7 @@
 from collections import Counter, defaultdict
 
 from .edges import canonical, integer, residual_rows
-from .inputs import NumberToken, json_object
+from .inputs import NumberToken, json_object, wire_int
 
 ANCHOR = ("file", "line", "algorithm", "category")
 METRICS = ("presence_changes", "payload_changes", "ambiguous_bags")
@@ -12,8 +12,13 @@ TEXT_FIELDS = {"description", "message"}
 
 
 def review_object(raw):
-    # Retain the decimal spelling of unknown numeric members. Binary floats
-    # can round two different serialized payloads to the same value.
+    """Parse finding payloads with every number kept as its spelling: binary floats
+    can round two serialized payloads together and `-0` is an int equal to `0`."""
+    return json_object(raw, numbers=NumberToken)
+
+
+def structure_object(raw):
+    """Parse receipt structure, whose integers (ordinals, counts, exits) are plain ints."""
     return json_object(raw, numbers=lambda lexeme: NumberToken(lexeme))
 
 
@@ -37,7 +42,7 @@ def _rule_identity(rule):
 
 def _canonical_finding(finding):
     if (not isinstance(finding, dict) or not isinstance(finding.get("file"), str)
-            or not finding["file"].strip() or not integer(finding.get("line"), 1)):
+            or not finding["file"].strip() or not integer(wire_int(finding.get("line")), 1)):
         raise ValueError("review-finding-location-missing")
     finding = finding.copy()
     for field in SET_FIELDS:
@@ -55,6 +60,18 @@ def _canonical_finding(finding):
     return finding
 
 
+def _text(value):
+    return isinstance(value, str) and bool(value)
+
+
+def _multi_marker(envelope):
+    run, results = envelope.get("algorithms_run"), envelope.get("results")
+    return (("algorithms_run" not in envelope
+             or isinstance(run, list) and bool(run) and all(map(_text, run)))
+            and ("results" not in envelope
+                 or isinstance(results, list) and all(isinstance(r, dict) for r in results)))
+
+
 def decode(raw, *, mode=None):
     """Read only the array selected by explicit or observed envelope mode."""
     envelope = review_object(raw)
@@ -63,11 +80,10 @@ def decode(raw, *, mode=None):
         multi = "algorithms_run" in envelope or "results" in envelope
         if single == multi:
             raise ValueError("review-envelope-contradictory" if single else "review-envelope-unmarked")
-        if single and not isinstance(envelope["algorithm"], str):
-            raise ValueError("invalid-review-envelope")
-        if multi and any(key in envelope and not isinstance(envelope[key], list)
-                         for key in ("algorithms_run", "results")):
-            raise ValueError("invalid-review-envelope")
+        if single and not _text(envelope["algorithm"]):
+            raise ValueError("review-envelope-malformed")
+        if multi and not _multi_marker(envelope):
+            raise ValueError("review-envelope-malformed")
         mode = "single" if single else "multi"
     field = {"single": "findings", "multi": "all_findings"}.get(mode)
     if field is None or not isinstance(envelope.get(field), list):

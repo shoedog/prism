@@ -32,6 +32,7 @@ DIFF_ARGS = (
     "--indent-heuristic", "--inter-hunk-context=0", "-U0", "-M",
 )
 HUNK = re.compile(rb"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?: .*)?")
+RECORD = re.compile(rb'diff --git "?a/.* "?b/.*', re.S)
 ESCAPES = dict(zip(b'"\\abtnvfr', b'"\\\a\b\t\n\v\f\r'))
 ESCAPE = re.compile(rb'\\(?:["\\abtnvfr]|[0-3][0-7]{2})')
 QUOTED_PATH = re.compile(rb'"((?:[^"\\]|\\(?:["\\abtnvfr]|[0-3][0-7]{2}))*)"')
@@ -77,7 +78,9 @@ def _git(checkout, *args):
     env = git_env()
     env.update(LC_ALL="C", GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null",
                GIT_ALLOW_PROTOCOL="file", GIT_ATTR_NOSYSTEM="1")
-    proc = subprocess.run(git_args(checkout, *args), env=env, capture_output=True)
+    # A user attributes file can select clean/smudge filters for the scratch checkout.
+    proc = subprocess.run(git_args(checkout, "-c", "core.attributesFile=/dev/null", *args),
+                          env=env, capture_output=True)
     if proc.returncode:
         raise PinError(proc.stderr.decode("utf-8", "replace").strip() or "Git command failed")
     return proc.stdout
@@ -109,11 +112,20 @@ def _path(token, prefix):
     return path
 
 
-def _hunk(lines, index, header, added):
+def _hunk(lines, index, header, added, sides, floor):
+    """Consume one hunk; `sides` says which of the preimage and postimage exist and
+    `floor` is the last postimage line an earlier hunk of this file reached."""
     old, new = (int(header[group] or b"1") for group in (2, 4))
     line_number = int(header[3])
     if (old and int(header[1]) == 0) or (new and line_number == 0) or not (old or new):
         raise PinError("invalid Git patch hunk range")
+    if (old and not sides[0]) or (new and not sides[1]):
+        raise PinError("Git patch hunk has lines on an absent file side")
+    # -U0 hunks of one file are disjoint and ascending in the postimage; a pure
+    # deletion sits after the line its header names.
+    if line_number < floor + bool(new):
+        raise PinError("Git patch hunks overlap or go backwards")
+    floor = line_number + new - 1 if new else line_number
     while old or new:
         line = lines[index] if index < len(lines) else b""
         marker = line[:1]
@@ -129,7 +141,7 @@ def _hunk(lines, index, header, added):
         index += 1
         if index < len(lines) and lines[index] == NO_NEWLINE:
             index += 1
-    return index
+    return index, floor
 
 
 def patch_spec(patch):
@@ -140,14 +152,17 @@ def patch_spec(patch):
     files = {}
     index = 0
     in_file = has_postimage = False
-    added = None
+    added = sides = None
+    floor = 0
     while index < len(lines):
         line = lines[index]
         index += 1
         if line.startswith(b"diff --git "):
+            if not RECORD.fullmatch(line):
+                raise PinError("Git patch file record names no files")
             in_file, has_postimage = True, False
         elif line.startswith(b"--- ") and in_file and not has_postimage:
-            _path(line[4:], b"a/")
+            old_path = _path(line[4:], b"a/")
             if index == len(lines) or not lines[index].startswith(b"+++ "):
                 raise PinError("missing Git patch postimage header")
             path = _path(lines[index][4:], b"b/")
@@ -156,11 +171,12 @@ def patch_spec(patch):
             if path is not None and path in files:
                 raise PinError("duplicate Git patch postimage")
             added = files.setdefault(path, set()) if path is not None else None
+            sides, floor = (old_path is not None, path is not None), 0
         elif line.startswith(b"@@") and has_postimage:
             header = HUNK.fullmatch(line)
             if not header:
                 raise PinError("malformed Git patch hunk header")
-            index = _hunk(lines, index, header, added)
+            index, floor = _hunk(lines, index, header, added, sides, floor)
         elif not in_file or has_postimage or line[:1] in (b"@", b"+", b"-", b" ", b"\\"):
             raise PinError("unexpected Git patch line")
     return {"files": [

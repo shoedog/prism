@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from . import inputs, population, receipt, run
 from .corpora import text
 from .review_findings import compare, decode, METRICS
-from .review_receipt import admit, argv_for, check_args, publish, ROLES
+from .review_receipt import STATUS_MISSING, admit, argv_for, check_args, publish, ROLES
 
 DEFAULT_SHARED = "--algorithm taint --resolution scoped"
 DEFAULT_SAMPLE = 30
@@ -141,9 +141,14 @@ class ReviewExecution:
     def _retain(self, role, ordinal, argv, observed, attempt, streams):
         status = attempt["guard_status"]
         observed["guard_status"] = status
-        if status and status["launched"]:
+        # Without a status the launch is indeterminate: streams the child wrote are
+        # evidence of it and are kept, never deleted (the arm then fails).
+        wrote = status is None and any(
+            (self.stage / name).is_file() and (self.stage / name).stat().st_size
+            for name in streams.values())
+        if wrote or status and status["launched"]:
             self.arms[role]["commands"].append({"ordinal": ordinal, "argv": argv})
-            observed["exit"] = status["child_exit"]
+            observed["exit"] = status["child_exit"] if status else None
             for field, name in streams.items():
                 self.artifacts[name] = receipt.artifact(self.stage / name)
                 observed[field] = name
@@ -179,6 +184,8 @@ class ReviewExecution:
         result = run.outcome(attempt)
         if result == 75:
             return "refused", QUIET, None, state
+        if observed["output"] is not None and not launched:
+            return "failed", STATUS_MISSING, None, state
         if not launched:
             return "failed", "review-guard-failed", None, state
         if after is None:
