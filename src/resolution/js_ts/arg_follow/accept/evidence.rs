@@ -106,7 +106,22 @@ impl<'a> Proof<'a, '_> {
                 .is_some_and(primitive);
         }
         let mut cache = self.context.bindings[file].cache();
-        name(parsed, node).as_deref() == Some("undefined")
+        // A sloppy direct eval anywhere in the file that may declare
+        // `undefined` can shadow the intrinsic in an enclosing variable
+        // environment the lexical walk does not see; a proved non-callable
+        // `eval` binding cannot.
+        let eval_may_shadow = self.context.bindings[file]
+            .eval_sites
+            .get_or_init(|| identity::index_eval_sites(parsed))
+            .get(&parsed.tree.root_node().id())
+            .into_iter()
+            .flatten()
+            .any(|&(call, callee)| {
+                !self.primitive_eval(parsed, callee, &mut cache)
+                    && identity::eval_may_write(parsed, call, callee, "undefined", &mut cache)
+            });
+        !eval_may_shadow
+            && name(parsed, node).as_deref() == Some("undefined")
             && matches!(
                 parsed.js_ts_binding_walk(node, "undefined", &mut cache),
                 Walk::Unbound

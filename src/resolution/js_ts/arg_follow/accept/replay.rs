@@ -48,7 +48,17 @@ impl<'a> Proof<'a, '_> {
             .get_key_value(&hop.slot.holder.file)
             .expect("indexed holder file");
         let file = file.as_str();
-        if args.iter().any(|arg| arg.kind() == "spread_element") {
+        if let Some(spread) = args.iter().position(|arg| arg.kind() == "spread_element") {
+            // An explicit `undefined` before the spread already takes the
+            // tracked formal's default; keep that provenance so timing is
+            // judged before the spread is reported.
+            if spread > p.position
+                && self.undefined((recipe.file, args[p.position]))
+                && formal_list(p.owner)
+                    .is_ok_and(|formals| formals.get(p.position).is_some_and(|f| f.1.is_some()))
+            {
+                recipe.tracked_default = true;
+            }
             return Err("unknown_spread");
         }
         let formals = formal_list(p.owner)?;

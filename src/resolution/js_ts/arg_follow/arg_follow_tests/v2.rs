@@ -533,18 +533,26 @@ fn default_closure_can_read_a_supplied_slot_only_after_entry() {
     assert_eq!(fixture.index.refusal_count("read_timing"), 2);
 }
 
-fn undefined_default_case(prelude: &str) -> Fixture {
+fn undefined_case(prelude: &str, holder: &str, calls: &str) -> Fixture {
     Fixture::build(
         format!(
             "function outer() {{\n{prelude}\n\
-             function caller() {{\n\
-             function holder(cb = () => 'fallback') {{ return cb(); }}\n\
-             return holder(undefined);\n\
+             function caller() {{\n{holder}\n{calls}\n\
              }}\nreturn caller();\n}}\nouter();"
         ),
         Language::JavaScript,
     )
 }
+
+fn undefined_default_case(prelude: &str) -> Fixture {
+    undefined_case(
+        prelude,
+        "function holder(cb = () => 'fallback') { return cb(); }",
+        "return holder(undefined);",
+    )
+}
+
+const EVAL_UNDEFINED: &str = "eval('var undefined = function replacement() {}');";
 
 #[test]
 fn intrinsic_undefined_selects_the_default() {
@@ -558,7 +566,82 @@ fn intrinsic_undefined_selects_the_default() {
 fn direct_eval_that_may_declare_undefined_withholds_the_default() {
     // A sloppy direct eval in an enclosing function can declare `undefined`
     // there, so the argument no longer proves the default is taken.
-    let fixture = undefined_default_case("eval('var undefined = function replacement() {}');");
+    let fixture = undefined_default_case(EVAL_UNDEFINED);
+    assert!(
+        matches!(fixture.outcome("cb()"), Some(ArgOutcome::Empty(_))),
+        "{:?}",
+        fixture.outcome("cb()")
+    );
+}
+
+#[test]
+fn proved_non_callable_eval_does_not_withhold_the_default() {
+    let fixture = undefined_default_case("const eval = 0; false && eval('var undefined = 1');");
     let outcome = format!("{:?}", fixture.outcome("cb()"));
-    assert!(!outcome.contains("Targets"), "{outcome}");
+    assert!(outcome.contains("Targets"), "{outcome}");
+}
+
+#[test]
+fn eval_guard_cannot_lift_the_baseline_fanout_veto() {
+    // Eight distinct supplied arrows plus the default arrow reach nine
+    // baseline targets; the eval refusal applies at admission, so the capped
+    // site stays capped instead of dropping to eight.
+    let calls: String = (0..8)
+        .map(|i| format!("holder(() => {i});\n"))
+        .chain(["return holder(undefined);".to_owned()])
+        .collect();
+    let fixture = undefined_case(
+        EVAL_UNDEFINED,
+        "function holder(cb = () => 'fallback') { return cb(); }",
+        &calls,
+    );
+    assert!(
+        matches!(fixture.outcome("cb()"), Some(ArgOutcome::Fanout(_))),
+        "{:?}",
+        fixture.outcome("cb()")
+    );
+}
+
+#[test]
+fn trailing_spread_keeps_the_default_timing_reason() {
+    let fixture = undefined_case(
+        "",
+        "function holder(cb = () => 1) { if (true) return cb(); }",
+        "holder(undefined, ...[]);",
+    );
+    fixture.refuses("cb()", "read_timing");
+}
+
+// Known limit (#994): a sloppy direct eval behind a catch binding of the same
+// name declares a function-scope variable that the eval-site lookup does not
+// see, so the outer callable is still credited. Pinned beside a control.
+fn catch_eval_case(eval_line: &str) -> Fixture {
+    Fixture::build(
+        format!(
+            "function outer() {{
+               function original() {{ return 'original'; }}
+               function middle() {{
+                 try {{ throw 0; }} catch (original) {{ {eval_line} }}
+                 function caller() {{
+                   function holder(cb = () => 'fallback') {{ return cb(); }}
+                   return holder(original);
+                 }}
+                 return caller();
+               }}
+               return middle();
+             }}
+             outer();"
+        ),
+        Language::JavaScript,
+    )
+}
+
+#[test]
+fn catch_scoped_eval_known_limit_credits_the_outer_callable() {
+    let limit = catch_eval_case("eval('var original = 1');");
+    let control = catch_eval_case("");
+    for fixture in [&limit, &control] {
+        let outcome = format!("{:?}", fixture.outcome("cb()"));
+        assert!(outcome.contains("Targets"), "{outcome}");
+    }
 }
