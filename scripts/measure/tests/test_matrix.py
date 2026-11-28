@@ -10,12 +10,12 @@ import re
 import unittest
 
 from .comparator_fixtures import ComparatorFixture, read_rows
-from . import test_diff_edges
+from . import test_diff_edges, test_oracle
 from .helpers import REPO, Workbench, write_tree
 from .test_matrix_rows import CASES, MATRIX, read_jsonl
 from .test_syntax import parse_as_python_39
 
-ENABLED_GROUPS = {"run", "comparator", "join"}
+ENABLED_GROUPS = {"run", "comparator", "join", "oracle"}
 
 
 # Ledger "Materialize" IDs of the run group that the enabled matrix does not
@@ -45,8 +45,9 @@ S1_TESTS = {
                 ("test_corpora", "CorporaTests", "test_link_hops_refuse_even_when_dangling")],
 }
 # Round-four IDs owned by later slices, with their owning group.
-LATER_SLICE_IDS = {"gate-026": "gate", "oracle-065": "oracle", "oracle-066": "oracle",
-                   "cmp-061": "comparator", "review-019": "review"}
+LATER_SLICE_IDS = {"gate-026": "gate", "cmp-061": "comparator", "review-019": "review"}
+S3_TESTS = {"oracle-065": "test_declared_question_data_restricts_ambient_reads",
+            "oracle-066": "test_drop_reason_substitution_survives_cancellation"}
 
 
 class MatrixLedgerTests(unittest.TestCase):
@@ -61,7 +62,10 @@ class MatrixLedgerTests(unittest.TestCase):
         self.assertEqual(len(set(ids)), 8)
         self.assertIn("adds all eight IDs", handoff.split("**Handoff.**", 1)[1])
         # Every ID is executed here or assigned to a later slice, none dropped.
-        self.assertEqual(set(ids), {i for i in S1_TESTS if i >= "run-021"} | set(LATER_SLICE_IDS))
+        self.assertEqual(set(ids), {i for i in S1_TESTS if i >= "run-021"}
+                         | set(S3_TESTS) | set(LATER_SLICE_IDS))
+        for method in S3_TESTS.values():
+            self.assertTrue(callable(getattr(test_oracle.OracleTests, method, None)))
         self.assertTrue(all(S1_TESTS[i] for i in S1_TESTS), "every S1 ID needs a nonempty mapping")
 
     def test_every_run_materialize_id_is_a_matrix_row_or_a_named_test(self):
@@ -355,7 +359,17 @@ def make_test(row):
     return test
 
 
+class OracleMatrixTests(unittest.TestCase):
+    def check_row(self, row):
+        harness = test_oracle.OracleTests()
+        self.addCleanup(harness.doCleanups)
+        harness.setUp()
+        harness.check_matrix(row["id"])
+
+
+MATRIX_TESTS = {"run": MatrixTests, "comparator": ComparatorMatrixTests,
+                "join": ComparatorMatrixTests, "oracle": OracleMatrixTests}
 for row in read_jsonl(MATRIX / "rows.jsonl"):
-    if row["group"] in ENABLED_GROUPS:
-        setattr(MatrixTests if row["group"] == "run" else ComparatorMatrixTests,
-                "test_" + row["id"].replace("-", "_"), make_test(row))
+    group = row["group"]
+    if group in ENABLED_GROUPS:
+        setattr(MATRIX_TESTS[group], "test_" + row["id"].replace("-", "_"), make_test(row))

@@ -1,0 +1,431 @@
+{
+  "C01": {
+    "variants": [
+      {
+        "name": "missing-scan",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_saved_scan",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": null,
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "omit_scan": true
+      }
+    ]
+  },
+  "C03": {
+    "variants": [
+      {
+        "name": "checked-absence",
+        "expect": {
+          "/binding_status/0/status": "element_absent_from_scan_schema",
+          "/binding_status/0/reason": null,
+          "/binding_status/0/selected_presence": "absent",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /forge",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /forge",
+        "side": "before",
+        "location": null
+      },
+      {
+        "name": "out-of-scope",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "scope_unchecked",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-after",
+          "/binding_status/0/side": "after",
+          "/binding_status/0/element_id": "op:GET /other",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /other",
+        "side": "after",
+        "location": null,
+        "inventory_scope": ["kiln"],
+        "selected": "unrelated.json"
+      }
+    ]
+  },
+  "C05": {
+    "variants": [
+      {
+        "name": "schema",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_dependency",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "receipt_patch": [{"path": "/receipts/0"}],
+        "record_id": "schema"
+      },
+      {
+        "name": "config",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_dependency",
+          "/binding_status/0/selected_presence": "unknown",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "receipt_patch": [{"path": "/receipts/1"}],
+        "record_id": "config"
+      },
+      {
+        "name": "mapping",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_dependency",
+          "/binding_status/0/selected_presence": "unknown",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "receipt_patch": [{"path": "/receipts/2"}],
+        "record_id": "mapping"
+      },
+      {
+        "name": "settings",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_dependency",
+          "/binding_status/0/selected_presence": "unknown",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "receipt_patch": [{"path": "/receipts/3"}],
+        "record_id": "settings"
+      },
+      {
+        "name": "scan-origin",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_dependency",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "receipt_patch": [{"path": "/receipts/8"}],
+        "record_id": "scan-origin"
+      },
+      {
+        "name": "coverage",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_dependency",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "receipt_patch": [{"path": "/receipts/9"}],
+        "record_id": "coverage"
+      }
+    ]
+  },
+  "C06": {
+    "variants": [
+      {
+        "name": "client_tree",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "slot_mismatch",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [
+          {"path": "/client_tree", "value": "wrong-tree"}
+        ],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "dimension": "client_tree"
+      },
+      {
+        "name": "api",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "slot_mismatch",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [
+          {"path": "/api", "value": "other-api"}
+        ],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "dimension": "api"
+      },
+      {
+        "name": "authority",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "slot_mismatch",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [
+          {"path": "/authority", "value": "registration"}
+        ],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "dimension": "authority"
+      },
+      {
+        "name": "source_tree",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "slot_mismatch",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [
+          {"path": "/source_tree", "value": "wrong-tree"}
+        ],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "dimension": "source_tree"
+      },
+      {
+        "name": "source_hash",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "slot_mismatch",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [
+          {"path": "/source_hash", "value": "0000000000000000000000000000000000000000000000000000000000000000"}
+        ],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "dimension": "source_hash"
+      },
+      {
+        "name": "schema_inventory_id",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "slot_mismatch",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [
+          {"path": "/schema_inventory_id", "value": "other-inventory"}
+        ],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "dimension": "schema_inventory_id"
+      },
+      {
+        "name": "config_era",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "slot_mismatch",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [
+          {"path": "/config_era", "value": "v2"}
+        ],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "dimension": "config_era"
+      },
+      {
+        "name": "selected-slot",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "slot_mismatch",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "selected_input_id": "service-after",
+        "dimension": "selected_input_id"
+      }
+    ]
+  },
+  "C07": {
+    "variants": [
+      {
+        "name": "missing-segment",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "missing_dependency",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [
+          {"path": "/admitted_segments", "value": []}
+        ],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "record_id": "sender.js"
+      },
+      {
+        "name": "conflicting-location",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "receipt_conflict",
+          "/binding_status/0/selected_presence": "present",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "field:resp:GET /kiln:200#/stamp",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": "saved-site",
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "field:resp:GET /kiln:200#/stamp",
+        "side": "before",
+        "location": "saved-site",
+        "save": "field",
+        "conflict_location": true
+      }
+    ]
+  },
+  "C08": {
+    "variants": [
+      {
+        "name": "relevant-gap",
+        "expect": {
+          "/binding_status/0/status": "not_checked",
+          "/binding_status/0/reason": "membership_unchecked",
+          "/binding_status/0/selected_presence": "unknown",
+          "/binding_status/0/selected_input_id": "service-before",
+          "/binding_status/0/side": "before",
+          "/binding_status/0/element_id": "op:GET /kiln",
+          "/binding_status/0/scan_id": "scan-1",
+          "/binding_status/0/saved_location": null,
+          "/binding_status/1": {"$missing": true}
+        },
+        "patches": [],
+        "element": "op:GET /kiln",
+        "side": "before",
+        "location": null,
+        "inventory": "unknown.json",
+        "selected": "unknown.json"
+      }
+    ]
+  }
+}

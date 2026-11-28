@@ -1,0 +1,1 @@
+{"key": {"site": {"file": "cases.ts", "line": 16, "start_byte": 291, "end_byte": 305}, "target": {"file": "cases.ts", "name": "sameA", "start_line": 22, "end_line": 22}}, "relation": "call_target", "property": "callee-implementation", "verdict": "UNDECIDED"}

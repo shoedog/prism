@@ -24,7 +24,7 @@ fn parse(sources: &BTreeMap<String, String>) -> BTreeMap<String, ParsedFile> {
     sources
         .iter()
         .map(|(path, source)| {
-            let file = ParsedFile::parse(path, source, Language::JavaScript).unwrap();
+            let file = ParsedFile::parse(path, source, Language::from_path(path).unwrap()).unwrap();
             assert_eq!(file.parse_error_count, 0, "{path}");
             (path.clone(), file)
         })
@@ -408,4 +408,243 @@ fn props_s2_pattern_formal_graph_and_pending_parity() {
         [true, true, true],
         "cold, unrelated edit, changed pattern"
     );
+}
+
+fn jsx_parity_sources(edited: bool) -> BTreeMap<String, String> {
+    let (key, local, value) = if edited {
+        ("b", "next", "y")
+    } else {
+        ("a", "local", "x")
+    };
+    BTreeMap::from([
+        ("ui.tsx".into(), format!(
+            "export function D({{{key}: {local}}}) {{\n  return use({local});\n}}\n\
+            export function P(props) {{\n  return use(props.a);\n}}\n\
+            export function L({{a}}) {{\n  return use(a);\n}}\n\
+            export function M({{a}}) {{\n  return use(a);\n}}\n",
+        )),
+        ("app.tsx".into(), format!(
+            "import {{D, P, L, M}} from './ui';\nfunction App(x,y,z,w) {{\n\
+              L({{a: y}});\n  M({{a: w}}); <M a={{w}}/>;\n\
+              return <><D {key}={{{value}}}/><D {key}={{{value}}}/><P a={{z}}/><P a={{call()}}/></>;\n}}\n",
+        )),
+        ("other.js".into(), OTHER.into()),
+    ])
+}
+
+#[test]
+fn props_s3_jsx_graph_and_pending_parity() {
+    use crate::cpg::props_generated_tests::{endpoint, Access};
+    use crate::cpg::props_s2_test_support::{capture, Assembly};
+
+    fn same_final(left: &CodePropertyGraph, right: &CodePropertyGraph) {
+        assert_eq!(multiset(left), multiset(right));
+        assert_eq!(left.dfg_label_stats, right.dfg_label_stats);
+    }
+    fn graph_snapshot(graph: &DiGraph<CpgNode, CpgEdge>) -> (Vec<String>, Vec<String>) {
+        let nodes = graph
+            .node_weights()
+            .map(|node| format!("{node:?}"))
+            .collect();
+        let edges = graph
+            .edge_indices()
+            .map(|edge| {
+                format!(
+                    "{:?} {:?}",
+                    graph.edge_endpoints(edge).unwrap(),
+                    graph[edge]
+                )
+            })
+            .collect();
+        (nodes, edges)
+    }
+    fn same_pending(left: &Assembly, right: &Assembly) {
+        let l = left.pre_binding.as_ref().unwrap();
+        let r = right.pre_binding.as_ref().unwrap();
+        assert_eq!(graph_snapshot(&l.graph), graph_snapshot(&r.graph));
+        assert_eq!(l.lookup, r.lookup);
+        assert_eq!(l.exact, r.exact);
+        for key in l.lookup.keys() {
+            assert_eq!(
+                l.live_lookup.get(&l.graph, key),
+                r.live_lookup.get(&r.graph, key),
+                "{key:?}"
+            );
+        }
+        assert_eq!(left.pending, right.pending, "ordered edges and guard flags");
+        assert_eq!(left.literal_attempts, right.literal_attempts);
+        assert_eq!(left.literal_witnesses, right.literal_witnesses);
+        let l = left.guard_input.as_ref().unwrap();
+        let r = right.guard_input.as_ref().unwrap();
+        assert_eq!(graph_snapshot(&l.graph), graph_snapshot(&r.graph));
+        assert_eq!(l.counters, r.counters);
+        assert_eq!(l.seeds, r.seeds);
+        assert_eq!(l.bare_literals, r.bare_literals);
+    }
+
+    let inputs = jsx_parity_sources(false);
+    let files = parse(&inputs);
+    let (cold, production) = capture(&files, || CodePropertyGraph::build(&files));
+    let assemble = || {
+        CodePropertyGraph::assemble_graph(
+            CallGraph::build(&files),
+            DataFlowGraph::build(&files),
+            &files,
+            None,
+        )
+    };
+    let (legacy, legacy_pending) = capture(&files, || with_legacy(assemble));
+    let (serial, serial_pending) = capture(&files, || {
+        super::super::step5b_reference::with_serial(assemble)
+    });
+    for (graph, assembly) in [(&legacy, &legacy_pending), (&serial, &serial_pending)] {
+        same_final(&cold, graph);
+        same_pending(&production, assembly);
+    }
+
+    let mut literal_inputs = inputs.clone();
+    let jsx = "<M a={w}/>;";
+    let mixed = literal_inputs.get_mut("app.tsx").unwrap();
+    *mixed = mixed.replace(jsx, &" ".repeat(jsx.len()));
+    let literal_files = parse(&literal_inputs);
+    let (_, literal) = capture(&literal_files, || CodePropertyGraph::build(&literal_files));
+    let mixed_witnesses = |observed: &Assembly| {
+        let pre = &observed.pre_binding.as_ref().unwrap().graph;
+        observed
+            .pending
+            .iter()
+            .filter_map(|((from, to, edge), foreign, bare)| {
+                let src = endpoint(&pre[*from])?;
+                let dst = endpoint(&pre[*to])?;
+                (src.owner == "App" && dst.owner == "M" && edge.is_data_flow())
+                    .then(|| (src, dst, edge.clone(), *foreign, *bare))
+            })
+            .collect::<Vec<_>>()
+    };
+    let inherited = mixed_witnesses(&literal);
+    assert_eq!(inherited.len(), 1, "literal occurrence precondition");
+    assert_eq!(
+        mixed_witnesses(&production),
+        inherited,
+        "same-line JSX preserves the literal occurrence and flags"
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let hashes = cpg_cache::compute_file_hashes(&inputs);
+    cpg_cache::save_cache(&cold, &hashes, false, dir.path()).unwrap();
+    let CacheResult::Hit(full) = cpg_cache::load_cache(&hashes, false, dir.path()) else {
+        panic!("expected serialized full cache hit");
+    };
+    same_final(&cold, &full);
+
+    let mut unrelated = inputs.clone();
+    unrelated.insert("other.js".into(), OTHER.replace('1', "2"));
+    let edited = jsx_parity_sources(true);
+    let mut checks = Vec::new();
+    for (sources, expected_changes, changed_jsx) in [
+        (&inputs, &[][..], false),
+        (&unrelated, &["other.js"][..], false),
+        (&edited, &["app.tsx", "ui.tsx"][..], true),
+    ] {
+        let rebuilt;
+        let graph = if expected_changes.is_empty() {
+            &cold
+        } else {
+            let CacheResult::PartialHit {
+                cached_call_graph,
+                cached_dfg,
+                changed_files,
+            } = cpg_cache::load_cache(&cpg_cache::compute_file_hashes(sources), false, dir.path())
+            else {
+                panic!("expected partial hit for {expected_changes:?}")
+            };
+            assert_eq!(
+                changed_files,
+                expected_changes
+                    .iter()
+                    .map(|file| (*file).to_owned())
+                    .collect()
+            );
+            let changed = parse(sources);
+            rebuilt = CodePropertyGraph::build_incremental(
+                cached_call_graph,
+                cached_dfg,
+                &changed_files,
+                &changed,
+                None,
+            );
+            same_final(&CodePropertyGraph::build(&changed), &rebuilt);
+            &rebuilt
+        };
+        let mut observed: Vec<_> = graph
+            .graph
+            .edge_indices()
+            .filter_map(|id| {
+                let (from, to) = graph.graph.edge_endpoints(id).unwrap();
+                let (from, to) = (endpoint(graph.node(from))?, endpoint(graph.node(to))?);
+                let CpgEdge::DataFlow(label) = graph.graph[id] else {
+                    return None;
+                };
+                (from.owner == "App" && to.file == "ui.tsx")
+                    .then_some((from.bytes, to.owner, to.bytes, to.access, label))
+            })
+            .collect();
+        observed.sort();
+        let (key, local, value) = if changed_jsx {
+            ("b", "next", "y")
+        } else {
+            ("a", "local", "x")
+        };
+        let app = &sources["app.tsx"];
+        let ui = &sources["ui.tsx"];
+        let (pattern_src, pattern_dst) = (
+            app.find(&format!("<D {key}={{{value}")).unwrap() + "<D a={".len(),
+            ui.find(&format!("D({{{key}: {local}")).unwrap() + "D({a: ".len(),
+        );
+        let plain_src = app.find("<P a={z").unwrap() + "<P a={".len();
+        let plain_dst = ui.find("props.a").unwrap();
+        let mut expected = vec![
+            (
+                [pattern_src, pattern_src + 1],
+                "D".into(),
+                [pattern_dst, pattern_dst + local.len()],
+                Access::Def,
+                FlowConfidence::Exact,
+            ),
+            (
+                [plain_src, plain_src + 1],
+                "P".into(),
+                [plain_dst, plain_dst + "props.a".len()],
+                Access::Use,
+                FlowConfidence::Exact,
+            ),
+        ];
+        for (callee, value) in [("L", "y"), ("M", "w")] {
+            let from = app.find(&format!("{callee}({{a: {value}")).unwrap() + "L({a: ".len();
+            let to = ui.find(&format!("{callee}({{a}}")).unwrap() + "L({".len();
+            expected.push((
+                [from, from + 1],
+                callee.into(),
+                [to, to + 1],
+                Access::Def,
+                FlowConfidence::Exact,
+            ));
+        }
+        expected.sort();
+        let stats = BTreeMap::from([
+            ("sites_literal".into(), 2),
+            ("sites_jsx".into(), 5),
+            ("edges_to_def".into(), 3),
+            ("edges_to_use".into(), 1),
+            ("refused_value_not_data".into(), 1),
+        ]);
+        if (observed.as_slice(), &graph.dfg_label_stats.dfg_props) != (expected.as_slice(), &stats)
+        {
+            checks.push(format!(
+                "{expected_changes:?}: expected {expected:?} / {stats:?}, observed {observed:?} / {:?}",
+                graph.dfg_label_stats.dfg_props
+            ));
+        }
+    }
+    assert!(checks.is_empty(), "{}", checks.join("\n"));
 }

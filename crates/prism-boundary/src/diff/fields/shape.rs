@@ -56,13 +56,12 @@ pub(super) fn shape_limits(
             } else {
                 reason
             };
-            root.limit(
+            root.inventory_limit(
                 side,
                 ledger,
                 pointer,
                 ComparisonClaim::Property(slot),
                 reason,
-                None,
             );
         }
     }

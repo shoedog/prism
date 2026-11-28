@@ -2,6 +2,7 @@ use super::context::ContextUse;
 use crate::targets::dependency_identity::python_imports;
 use crate::targets::inventory::python::{
     source::{children, name, ungroup, ungroup_target},
+    type_syntax::alias_name,
     walk::{ScopeId, ScopeKind, Walk},
 };
 use prism::ast::ParsedFile;
@@ -216,8 +217,17 @@ impl<'tree> Census<'tree> {
                     }
                 }
                 "type_alias_statement" => {
-                    if let Some(target) = children(node).next().and_then(first_identifier) {
+                    if let Some(target) = alias_name(node) {
+                        // A PEP 695 `type NAME [params] = value`.
                         this.add(parsed, walk, scope, target, node, Kind::Other);
+                    } else {
+                        // The grammar also reads `type(x).attr = v` as an alias
+                        // statement. It is an assignment whose operands the
+                        // walk skips, so every name in it is unreadable and
+                        // refuses (a walrus on the right rebinds a name).
+                        for target in identifiers(node) {
+                            this.add(parsed, walk, scope, target, node, Kind::Other);
+                        }
                     }
                 }
                 _ => {}
@@ -351,11 +361,11 @@ pub(super) fn parameter_name(node: Node<'_>) -> Option<Node<'_>> {
     }
 }
 
-fn first_identifier(node: Node<'_>) -> Option<Node<'_>> {
+fn identifiers(node: Node<'_>) -> Vec<Node<'_>> {
     if node.kind() == "identifier" {
-        Some(node)
+        vec![node]
     } else {
-        children(node).find_map(first_identifier)
+        children(node).flat_map(identifiers).collect()
     }
 }
 

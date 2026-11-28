@@ -1,0 +1,23 @@
+{
+  "scan_id": "scan-1",
+  "client_input_id": "client-before",
+  "client_tree": "client-before-tree",
+  "api": "pilot-api",
+  "authority": "schema",
+  "source_tree": "service-before-tree",
+  "source_hash": "from_inventory",
+  "config_era": "v1",
+  "schema_inventory_id": "inventory-before",
+  "expected_segments": [
+    "sender.js"
+  ],
+  "admitted_segments": [
+    "sender.js"
+  ],
+  "dependencies": [
+    "scan-origin",
+    "config",
+    "inventory-before"
+  ],
+  "matches": []
+}

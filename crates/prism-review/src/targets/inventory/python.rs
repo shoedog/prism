@@ -1,5 +1,6 @@
 mod anchor;
 pub(super) mod source;
+pub(super) mod type_syntax;
 pub(super) mod walk;
 
 use super::{
@@ -60,7 +61,7 @@ pub(super) fn collect_file(
     let recovered = walk::recover_starred_annotations(parsed);
     let parsed = recovered.parsed.as_ref().unwrap_or(parsed);
     let walk = walk::Walk::with_refused_annotations(parsed, &recovered.refused);
-    let resolver = Resolver::new(parsed, &walk, repo, file);
+    let resolver = Resolver::new(parsed, &walk, repo, file, &source);
     let anchors = anchor::winners(&walk.calls);
     let owners: Vec<_> = walk
         .scopes
@@ -127,6 +128,7 @@ pub(super) fn collect_file(
                 callee: super::evidence::Span::new(&source, call.callee),
                 receiver: result.receiver,
                 declaration: result.declaration,
+                field: result.field,
             },
         });
 

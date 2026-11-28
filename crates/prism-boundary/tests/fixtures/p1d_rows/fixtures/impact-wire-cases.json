@@ -1,0 +1,1048 @@
+{
+  "B27": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/change/elements",
+            "value": [
+              {
+                "row_id": "format-stamp",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": "field:resp:GET /kiln:200#/stamp",
+                "after_element_id": "field:resp:GET /kiln:200#/stamp",
+                "change_kinds": ["field_format_changed"],
+                "before_presence": "present",
+                "after_presence": "present",
+                "before_shape": [["unknown"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+                "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+                "coverage_limits": ["claim-type"]
+              }
+            ]
+          },
+          {
+            "path": "/coverage",
+            "value": [
+              {
+                "limit_id": "claim-type",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+                "pointer": [{"kind": "property", "name": "stamp"}],
+                "claim": "type",
+                "reason": "type_unreadable",
+                "source": "comparison",
+                "evidence": ["schema-blob"],
+                "affected_claims": ["format-stamp"]
+              },
+              {
+                "limit_id": "keyless",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {
+                  "kind": "operation",
+                  "operation_id": null,
+                  "path_scope": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "other"}]]}
+                },
+                "pointer": [],
+                "claim": "operation_presence",
+                "reason": "operation_unreadable",
+                "source": "input_inventory",
+                "evidence": ["schema-blob"],
+                "affected_claims": []
+              }
+            ]
+          }
+        ],
+        "expect": {
+          "/change/elements/0": {
+            "row_id": "format-stamp",
+            "operation_id": "op:GET /kiln",
+            "before_element_id": "field:resp:GET /kiln:200#/stamp",
+            "after_element_id": "field:resp:GET /kiln:200#/stamp",
+            "change_kinds": ["field_format_changed"],
+            "before_presence": "present",
+            "after_presence": "present",
+            "before_shape": [["unknown"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+            "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+            "coverage_limits": ["claim-type"]
+          },
+          "/coverage": [
+            {
+              "limit_id": "claim-type",
+              "comparison_id": "actual_before",
+              "input_id": "service-before",
+              "side": "before",
+              "authority": "schema",
+              "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+              "pointer": [{"kind": "property", "name": "stamp"}],
+              "claim": "type",
+              "reason": "type_unreadable",
+              "source": "comparison",
+              "evidence": ["schema-blob"],
+              "affected_claims": ["format-stamp"]
+            },
+            {
+              "limit_id": "keyless",
+              "comparison_id": "actual_before",
+              "input_id": "service-before",
+              "side": "before",
+              "authority": "schema",
+              "scope": {
+                "kind": "operation",
+                "operation_id": null,
+                "path_scope": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "other"}]]}
+              },
+              "pointer": [],
+              "claim": "operation_presence",
+              "reason": "operation_unreadable",
+              "source": "input_inventory",
+              "evidence": ["schema-blob"],
+              "affected_claims": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "B28": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/coverage",
+            "value": [
+              {
+                "limit_id": "standing-before",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "request", "status": null},
+                "pointer": [],
+                "claim": "coverage",
+                "reason": "body_presence_unchecked",
+                "source": "input_inventory",
+                "evidence": ["schema-blob"],
+                "affected_claims": []
+              },
+              {
+                "limit_id": "standing-after",
+                "comparison_id": "actual_after",
+                "input_id": "service-after",
+                "side": "after",
+                "authority": "schema",
+                "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "request", "status": null},
+                "pointer": [],
+                "claim": "coverage",
+                "reason": "body_presence_unchecked",
+                "source": "input_inventory",
+                "evidence": ["schema-blob"],
+                "affected_claims": []
+              },
+              {
+                "limit_id": "claim-type",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+                "pointer": [{"kind": "property", "name": "stamp"}],
+                "claim": "type",
+                "reason": "type_unreadable",
+                "source": "comparison",
+                "evidence": ["schema-blob"],
+                "affected_claims": ["format-stamp"]
+              }
+            ]
+          },
+          {
+            "path": "/change/elements",
+            "value": [
+              {
+                "row_id": "format-stamp",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": "field:resp:GET /kiln:200#/stamp",
+                "after_element_id": "field:resp:GET /kiln:200#/stamp",
+                "change_kinds": ["field_format_changed"],
+                "before_presence": "present",
+                "after_presence": "present",
+                "before_shape": [["unknown"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+                "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+                "coverage_limits": ["claim-type"]
+              }
+            ]
+          }
+        ],
+        "expect": {
+          "/coverage": [
+            {
+              "limit_id": "standing-before",
+              "comparison_id": "actual_before",
+              "input_id": "service-before",
+              "side": "before",
+              "authority": "schema",
+              "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "request", "status": null},
+              "pointer": [],
+              "claim": "coverage",
+              "reason": "body_presence_unchecked",
+              "source": "input_inventory",
+              "evidence": ["schema-blob"],
+              "affected_claims": []
+            },
+            {
+              "limit_id": "standing-after",
+              "comparison_id": "actual_after",
+              "input_id": "service-after",
+              "side": "after",
+              "authority": "schema",
+              "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "request", "status": null},
+              "pointer": [],
+              "claim": "coverage",
+              "reason": "body_presence_unchecked",
+              "source": "input_inventory",
+              "evidence": ["schema-blob"],
+              "affected_claims": []
+            },
+            {
+              "limit_id": "claim-type",
+              "comparison_id": "actual_before",
+              "input_id": "service-before",
+              "side": "before",
+              "authority": "schema",
+              "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+              "pointer": [{"kind": "property", "name": "stamp"}],
+              "claim": "type",
+              "reason": "type_unreadable",
+              "source": "comparison",
+              "evidence": ["schema-blob"],
+              "affected_claims": ["format-stamp"]
+            }
+          ],
+          "/change/elements/0/coverage_limits": ["claim-type"],
+          "/standing_mismatches": []
+        }
+      }
+    ]
+  },
+  "B29": {
+    "variants": [
+      {
+        "name": "shared-links",
+        "expect": {
+          "/coverage": [
+            {
+              "limit_id": "shared-type",
+              "comparison_id": "actual_before",
+              "input_id": "service-before",
+              "side": "before",
+              "authority": "schema",
+              "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+              "pointer": [],
+              "claim": "type",
+              "reason": "type_unreadable",
+              "source": "comparison",
+              "evidence": ["schema-blob"],
+              "affected_claims": ["format-stamp", "format-color"]
+            },
+            {
+              "limit_id": "stamp-enum",
+              "comparison_id": "actual_before",
+              "input_id": "service-before",
+              "side": "before",
+              "authority": "schema",
+              "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+              "pointer": [{"kind": "property", "name": "stamp"}],
+              "claim": "enum",
+              "reason": "type_unreadable",
+              "source": "comparison",
+              "evidence": ["schema-blob"],
+              "affected_claims": ["format-stamp"]
+            }
+          ],
+          "/change/elements": [
+            {
+              "row_id": "format-stamp",
+              "operation_id": "op:GET /kiln",
+              "before_element_id": "field:resp:GET /kiln:200#/stamp",
+              "after_element_id": "field:resp:GET /kiln:200#/stamp",
+              "change_kinds": ["field_format_changed"],
+              "before_presence": "present",
+              "after_presence": "present",
+              "before_shape": [["unknown"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+              "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+              "coverage_limits": ["shared-type", "stamp-enum"]
+            },
+            {
+              "row_id": "format-color",
+              "operation_id": "op:GET /kiln",
+              "before_element_id": "field:resp:GET /kiln:200#/color",
+              "after_element_id": "field:resp:GET /kiln:200#/color",
+              "change_kinds": ["field_format_changed"],
+              "before_presence": "present",
+              "after_presence": "present",
+              "before_shape": [["unknown"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+              "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+              "coverage_limits": ["shared-type"]
+            },
+            {
+              "row_id": "independent-status-format",
+              "operation_id": "op:GET /kiln",
+              "before_element_id": "field:resp:GET /kiln:202#/stamp",
+              "after_element_id": "field:resp:GET /kiln:202#/stamp",
+              "change_kinds": ["field_format_changed"],
+              "before_presence": "present",
+              "after_presence": "present",
+              "before_shape": [["known", "string"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+              "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+              "coverage_limits": []
+            }
+          ],
+          "/standing_mismatches": []
+        },
+        "patches": [
+          {
+            "path": "/coverage",
+            "value": [
+              {
+                "limit_id": "shared-type",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+                "pointer": [],
+                "claim": "type",
+                "reason": "type_unreadable",
+                "source": "comparison",
+                "evidence": ["schema-blob"],
+                "affected_claims": ["format-stamp", "format-color"]
+              },
+              {
+                "limit_id": "shared-type",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+                "pointer": [],
+                "claim": "type",
+                "reason": "type_unreadable",
+                "source": "comparison",
+                "evidence": ["schema-blob"],
+                "affected_claims": ["format-stamp", "format-color"]
+              },
+              {
+                "limit_id": "stamp-enum",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+                "pointer": [{"kind": "property", "name": "stamp"}],
+                "claim": "enum",
+                "reason": "type_unreadable",
+                "source": "comparison",
+                "evidence": ["schema-blob"],
+                "affected_claims": ["format-stamp"]
+              }
+            ]
+          },
+          {
+            "path": "/change/elements",
+            "value": [
+              {
+                "row_id": "format-stamp",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": "field:resp:GET /kiln:200#/stamp",
+                "after_element_id": "field:resp:GET /kiln:200#/stamp",
+                "change_kinds": ["field_format_changed"],
+                "before_presence": "present",
+                "after_presence": "present",
+                "before_shape": [["unknown"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+                "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+                "coverage_limits": ["shared-type", "stamp-enum"]
+              },
+              {
+                "row_id": "format-color",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": "field:resp:GET /kiln:200#/color",
+                "after_element_id": "field:resp:GET /kiln:200#/color",
+                "change_kinds": ["field_format_changed"],
+                "before_presence": "present",
+                "after_presence": "present",
+                "before_shape": [["unknown"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+                "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+                "coverage_limits": ["shared-type"]
+              },
+              {
+                "row_id": "independent-status-format",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": "field:resp:GET /kiln:202#/stamp",
+                "after_element_id": "field:resp:GET /kiln:202#/stamp",
+                "change_kinds": ["field_format_changed"],
+                "before_presence": "present",
+                "after_presence": "present",
+                "before_shape": [["known", "string"], ["known", "date"], ["known", false], ["missing"], ["missing"]],
+                "after_shape": [["known", "string"], ["known", "date-time"], ["known", false], ["missing"], ["missing"]],
+                "coverage_limits": []
+              }
+            ]
+          }
+        ],
+        "derive_coverage": true
+      },
+      {
+        "name": "zero-change",
+        "expect": {
+          "/coverage": [
+            {
+              "limit_id": "blocked-root",
+              "comparison_id": "actual_before",
+              "input_id": "service-before",
+              "side": "before",
+              "authority": "schema",
+              "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+              "pointer": [],
+              "claim": "root_pairing",
+              "reason": "media_unverified",
+              "source": "comparison",
+              "evidence": ["schema-blob"],
+              "affected_claims": ["blocked-pair"]
+            }
+          ],
+          "/change/elements": [],
+          "/change/call_changes": [],
+          "/standing_mismatches": [],
+          "/warnings/0": {"claim_id": "blocked-pair", "status": "unchecked", "coverage_limits": ["blocked-root"]}
+        },
+        "patches": [
+          {
+            "path": "/coverage",
+            "value": [
+              {
+                "limit_id": "blocked-root",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {"kind": "root", "operation_id": "op:GET /kiln", "direction": "response", "status": "200"},
+                "pointer": [],
+                "claim": "root_pairing",
+                "reason": "media_unverified",
+                "source": "comparison",
+                "evidence": ["schema-blob"],
+                "affected_claims": ["blocked-pair"]
+              }
+            ]
+          },
+          {"path": "/change/elements", "value": []},
+          {"path": "/change/call_changes", "value": []},
+          {
+            "path": "/summary/changed_field_count",
+            "value": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null}
+          },
+          {
+            "path": "/summary/operation_count",
+            "value": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null}
+          },
+          {"path": "/warnings", "value": [{"claim_id": "blocked-pair", "status": "unchecked", "coverage_limits": ["blocked-root"]}]}
+        ]
+      }
+    ]
+  },
+  "B32": {
+    "variants": [
+      {
+        "name": "inserted",
+        "expect": {
+          "/usages/0": {
+            "site_id": "call-after",
+            "before_site": null,
+            "after_site": {"tree": "client-after-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+            "before_presence": "absent",
+            "after_presence": "present",
+            "requested_target": {"before": null, "after": {"method": "GET", "path": "/forge"}},
+            "match_before": null,
+            "match_after": {"comparison_id": "actual_after", "site_id": "call-after"},
+            "match_service_first": null,
+            "match_client_first": {"comparison_id": "client_first", "site_id": "call-after"},
+            "reason": null
+          },
+          "/comparisons/0/matches": {},
+          "/comparisons/2/matches": {}
+        },
+        "patches": [
+          {
+            "path": "/usages",
+            "value": [
+              {
+                "site_id": "call-after",
+                "before_site": null,
+                "after_site": {"tree": "client-after-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "before_presence": "absent",
+                "after_presence": "present",
+                "requested_target": {"before": null, "after": {"method": "GET", "path": "/forge"}},
+                "match_before": null,
+                "match_after": {"comparison_id": "actual_after", "site_id": "call-after"},
+                "match_service_first": null,
+                "match_client_first": {"comparison_id": "client_first", "site_id": "call-after"},
+                "reason": null
+              }
+            ]
+          },
+          {"path": "/comparisons/0/matches", "value": {}},
+          {"path": "/comparisons/2/matches", "value": {}}
+        ]
+      },
+      {
+        "name": "deleted",
+        "expect": {
+          "/usages/0": {
+            "site_id": "call-before",
+            "before_site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+            "after_site": null,
+            "before_presence": "present",
+            "after_presence": "absent",
+            "requested_target": {"before": {"method": "GET", "path": "/kiln"}, "after": null},
+            "match_before": {"comparison_id": "actual_before", "site_id": "call-before"},
+            "match_after": null,
+            "match_service_first": {"comparison_id": "service_first", "site_id": "call-before"},
+            "match_client_first": null,
+            "reason": null
+          },
+          "/comparisons/1/matches": {},
+          "/comparisons/3/matches": {}
+        },
+        "patches": [
+          {
+            "path": "/usages",
+            "value": [
+              {
+                "site_id": "call-before",
+                "before_site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "after_site": null,
+                "before_presence": "present",
+                "after_presence": "absent",
+                "requested_target": {"before": {"method": "GET", "path": "/kiln"}, "after": null},
+                "match_before": {"comparison_id": "actual_before", "site_id": "call-before"},
+                "match_after": null,
+                "match_service_first": {"comparison_id": "service_first", "site_id": "call-before"},
+                "match_client_first": null,
+                "reason": null
+              }
+            ]
+          },
+          {"path": "/comparisons/1/matches", "value": {}},
+          {"path": "/comparisons/3/matches", "value": {}}
+        ]
+      }
+    ]
+  },
+  "B33": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/usages",
+            "value": [
+              {
+                "site_id": "call-before",
+                "before_site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "after_site": null,
+                "before_presence": "present",
+                "after_presence": "unknown",
+                "requested_target": {"before": {"method": "GET", "path": "/kiln"}, "after": null},
+                "match_before": {"comparison_id": "actual_before", "site_id": "call-before"},
+                "match_after": null,
+                "match_service_first": {"comparison_id": "service_first", "site_id": "call-before"},
+                "match_client_first": null,
+                "reason": "unreadable_bytes"
+              },
+              {
+                "site_id": "call-after",
+                "before_site": null,
+                "after_site": {"tree": "client-after-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "before_presence": "unknown",
+                "after_presence": "present",
+                "requested_target": {"before": null, "after": {"method": "GET", "path": "/forge"}},
+                "match_before": null,
+                "match_after": {"comparison_id": "actual_after", "site_id": "call-after"},
+                "match_service_first": null,
+                "match_client_first": {"comparison_id": "client_first", "site_id": "call-after"},
+                "reason": "unreadable_bytes"
+              }
+            ]
+          }
+        ],
+        "expect": {
+          "/usages": [
+            {
+              "site_id": "call-before",
+              "before_site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+              "after_site": null,
+              "before_presence": "present",
+              "after_presence": "unknown",
+              "requested_target": {"before": {"method": "GET", "path": "/kiln"}, "after": null},
+              "match_before": {"comparison_id": "actual_before", "site_id": "call-before"},
+              "match_after": null,
+              "match_service_first": {"comparison_id": "service_first", "site_id": "call-before"},
+              "match_client_first": null,
+              "reason": "unreadable_bytes"
+            },
+            {
+              "site_id": "call-after",
+              "before_site": null,
+              "after_site": {"tree": "client-after-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+              "before_presence": "unknown",
+              "after_presence": "present",
+              "requested_target": {"before": null, "after": {"method": "GET", "path": "/forge"}},
+              "match_before": null,
+              "match_after": {"comparison_id": "actual_after", "site_id": "call-after"},
+              "match_service_first": null,
+              "match_client_first": {"comparison_id": "client_first", "site_id": "call-after"},
+              "reason": "unreadable_bytes"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "B35": {
+    "variants": [
+      {
+        "patches": [],
+        "resolve_matches": true,
+        "expect": {
+          "/usages/0/match_before": {"comparison_id": "actual_before", "site_id": "call-before"},
+          "/usages/0/match_after": {"comparison_id": "actual_after", "site_id": "call-after"},
+          "/usages/0/match_service_first": {"comparison_id": "service_first", "site_id": "call-before"},
+          "/usages/0/match_client_first": {"comparison_id": "client_first", "site_id": "call-after"}
+        }
+      }
+    ]
+  },
+  "B36": {
+    "variants": [
+      {
+        "name": "0",
+        "expect": {
+          "/comparisons/0/matches/call-before": {
+            "service_input_id": "service-before",
+            "client_input_id": "client-before",
+            "status": "checked",
+            "grade": "bound",
+            "reason": null,
+            "mapping": null,
+            "target_ids": ["op:GET /kiln"],
+            "alternates": [],
+            "overlaps": [],
+            "prefix_hints": []
+          }
+        },
+        "patches": [
+          {
+            "path": "/comparisons/0/matches/call-before",
+            "value": {
+              "service_input_id": "service-before",
+              "client_input_id": "client-before",
+              "status": "checked",
+              "grade": "bound",
+              "reason": null,
+              "mapping": null,
+              "target_ids": ["op:GET /kiln"],
+              "alternates": [],
+              "overlaps": [],
+              "prefix_hints": []
+            }
+          },
+          {"path": "/comparisons/0/unchecked_count", "value": 0}
+        ]
+      },
+      {
+        "name": "1",
+        "expect": {
+          "/comparisons/0/matches/call-before": {
+            "service_input_id": "service-before",
+            "client_input_id": "client-before",
+            "status": "checked",
+            "grade": "candidate",
+            "reason": "conditional_url",
+            "mapping": {"entry": 1},
+            "target_ids": ["op:GET /kiln"],
+            "alternates": [
+              {
+                "operation_id": "op:GET /kiln",
+                "method": "GET",
+                "grade": "candidate",
+                "reason": "conditional_url",
+                "condition": "path readable",
+                "evidence": ["client-blob"]
+              }
+            ],
+            "overlaps": [],
+            "prefix_hints": []
+          }
+        },
+        "patches": [
+          {
+            "path": "/comparisons/0/matches/call-before",
+            "value": {
+              "service_input_id": "service-before",
+              "client_input_id": "client-before",
+              "status": "checked",
+              "grade": "candidate",
+              "reason": "conditional_url",
+              "mapping": {"entry": 1},
+              "target_ids": ["op:GET /kiln"],
+              "alternates": [
+                {
+                  "operation_id": "op:GET /kiln",
+                  "method": "GET",
+                  "grade": "candidate",
+                  "reason": "conditional_url",
+                  "condition": "path readable",
+                  "evidence": ["client-blob"]
+                }
+              ],
+              "overlaps": [],
+              "prefix_hints": []
+            }
+          },
+          {"path": "/comparisons/0/unchecked_count", "value": 0}
+        ]
+      },
+      {
+        "name": "2",
+        "expect": {
+          "/comparisons/0/matches/call-before": {
+            "service_input_id": "service-before",
+            "client_input_id": "client-before",
+            "status": "checked",
+            "grade": "unbound",
+            "reason": "no_operation",
+            "mapping": null,
+            "target_ids": [],
+            "alternates": [],
+            "overlaps": [{"operation_id": "op:GET /kiln", "method": "POST", "grade": "candidate", "reason": "method_mismatch"}],
+            "prefix_hints": [{"requested_path": "/api/kiln", "registered_path": "/kiln", "suffix": "/kiln"}]
+          }
+        },
+        "patches": [
+          {
+            "path": "/comparisons/0/matches/call-before",
+            "value": {
+              "service_input_id": "service-before",
+              "client_input_id": "client-before",
+              "status": "checked",
+              "grade": "unbound",
+              "reason": "no_operation",
+              "mapping": null,
+              "target_ids": [],
+              "alternates": [],
+              "overlaps": [{"operation_id": "op:GET /kiln", "method": "POST", "grade": "candidate", "reason": "method_mismatch"}],
+              "prefix_hints": [{"requested_path": "/api/kiln", "registered_path": "/kiln", "suffix": "/kiln"}]
+            }
+          },
+          {"path": "/comparisons/0/unchecked_count", "value": 0}
+        ]
+      },
+      {
+        "name": "3",
+        "expect": {
+          "/comparisons/0/matches/call-before": {
+            "service_input_id": "service-before",
+            "client_input_id": "client-before",
+            "status": "unchecked",
+            "grade": null,
+            "reason": "origin_unchecked",
+            "mapping": null,
+            "target_ids": [],
+            "alternates": [{"requested_path": "/kiln"}],
+            "overlaps": [],
+            "prefix_hints": []
+          }
+        },
+        "patches": [
+          {
+            "path": "/comparisons/0/matches/call-before",
+            "value": {
+              "service_input_id": "service-before",
+              "client_input_id": "client-before",
+              "status": "unchecked",
+              "grade": null,
+              "reason": "origin_unchecked",
+              "mapping": null,
+              "target_ids": [],
+              "alternates": [{"requested_path": "/kiln"}],
+              "overlaps": [],
+              "prefix_hints": []
+            }
+          },
+          {"path": "/comparisons/0/unchecked_count", "value": 1}
+        ]
+      }
+    ]
+  },
+  "B37": {
+    "variants": [
+      {
+        "patches": [],
+        "diff": ["inventory.json", "changed.json"],
+        "expect": {
+          "/change/subject_role": "both",
+          "/change/elements/0/change_kinds": ["field_type_changed"],
+          "/change/call_changes/0/kind": "retargeted",
+          "/comparisons/3/comparison_id": "client_first"
+        }
+      }
+    ]
+  },
+  "B38": {
+    "variants": [
+      {
+        "name": "absent",
+        "expect": {
+          "/usages/0/after_presence": "absent",
+          "/usages/0/before_site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+          "/usages/0/after_site": null,
+          "/usages/0/reason": null
+        },
+        "patches": [
+          {
+            "path": "/usages",
+            "value": [
+              {
+                "site_id": "call-before",
+                "before_site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "after_site": null,
+                "before_presence": "present",
+                "after_presence": "absent",
+                "requested_target": {"before": {"method": "GET", "path": "/kiln"}, "after": null},
+                "match_before": {"comparison_id": "actual_before", "site_id": "call-before"},
+                "match_after": null,
+                "match_service_first": {"comparison_id": "service_first", "site_id": "call-before"},
+                "match_client_first": null,
+                "reason": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "unknown",
+        "expect": {
+          "/usages/0/after_presence": "unknown",
+          "/usages/0/before_site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+          "/usages/0/after_site": null,
+          "/usages/0/reason": "unreadable_bytes"
+        },
+        "patches": [
+          {
+            "path": "/usages",
+            "value": [
+              {
+                "site_id": "call-before",
+                "before_site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "after_site": null,
+                "before_presence": "present",
+                "after_presence": "unknown",
+                "requested_target": {"before": {"method": "GET", "path": "/kiln"}, "after": null},
+                "match_before": {"comparison_id": "actual_before", "site_id": "call-before"},
+                "match_after": null,
+                "match_service_first": {"comparison_id": "service_first", "site_id": "call-before"},
+                "match_client_first": null,
+                "reason": "unreadable_bytes"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "B39": {
+    "variants": [
+      {
+        "name": "checked-empty",
+        "expect": {
+          "/summary": {
+            "operation_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+            "changed_field_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+            "listed_usage_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+            "possible_only_usage_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+            "known_unmatched_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+            "unknown_target_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null}
+          }
+        },
+        "patches": [
+          {"path": "/inputs/1/schema", "value": {"source": {"kind": "file", "repo": "pilot-producer", "tree": "service-after-tree", "rev": "service-after-rev", "committed_at": null, "path": "openapi.json", "blob": "schema-blob", "format": "json", "sha256": "a373f8913c85c37b1ca59747d076c2c119dad269ae42a46e90ef3bdbd7266785"}, "content_hash": "f85b4eefc6bd959dd3b0d114feb9b107405e2a076d19a2bec25ebb6195571c0d", "info_version": "1"}},
+          {
+            "path": "/summary",
+            "value": {
+              "operation_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+              "changed_field_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+              "listed_usage_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+              "possible_only_usage_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+              "known_unmatched_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null},
+              "unknown_target_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": null}
+            }
+          },
+          {"path": "/usages", "value": []},
+          {"path": "/change/elements", "value": []},
+          {"path": "/change/call_changes", "value": []},
+          {"path": "/comparisons/0/matches", "value": {}},
+          {"path": "/comparisons/1/matches", "value": {}},
+          {"path": "/comparisons/2/matches", "value": {}},
+          {"path": "/comparisons/3/matches", "value": {}}
+        ]
+      },
+      {
+        "name": "partial",
+        "expect": {
+          "/summary": {
+            "operation_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": "missing_relevant_population"},
+            "changed_field_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": "missing_relevant_population"},
+            "listed_usage_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": "missing_relevant_population"},
+            "possible_only_usage_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": null, "reason": "missing_relevant_population"},
+            "known_unmatched_count": {
+              "version": "actual_after",
+              "scope": {"kind": "api"},
+              "observed": 1,
+              "total": null,
+              "reason": "missing_relevant_population"
+            },
+            "unknown_target_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": null, "reason": "missing_relevant_population"}
+          }
+        },
+        "patches": [
+          {
+            "path": "/summary",
+            "value": {
+              "operation_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": "missing_relevant_population"},
+              "changed_field_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": "missing_relevant_population"},
+              "listed_usage_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": "missing_relevant_population"},
+              "possible_only_usage_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": null, "reason": "missing_relevant_population"},
+              "known_unmatched_count": {
+                "version": "actual_after",
+                "scope": {"kind": "api"},
+                "observed": 1,
+                "total": null,
+                "reason": "missing_relevant_population"
+              },
+              "unknown_target_count": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": null, "reason": "missing_relevant_population"}
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "B41": {
+    "variants": [
+      {
+        "patches": [],
+        "derive_counts": true,
+        "expect": {
+          "/comparisons/0/unchecked_count": 1,
+          "/summary/known_unmatched_count/observed": 1,
+          "/summary/unknown_target_count/observed": 1
+        }
+      }
+    ]
+  },
+  "B42": {
+    "variants": [
+      {
+        "name": "valid",
+        "expect": {
+          "/claims/review-action/status": "admitted"
+        },
+        "patches": [
+          {
+            "path": "/change/review_action",
+            "value": {
+              "claim_id": "review-action",
+              "comparison_id": "actual_before",
+              "evidence": [{"comparison_id": "actual_before", "site_id": "call-before"}]
+            }
+          }
+        ]
+      },
+      {
+        "name": "unknown-row",
+        "expect": {
+          "/claims/review-action/status": "unchecked",
+          "/claims/review-action/reasons/0/code": "missing_dependency",
+          "/claims/actual_before/status": "admitted"
+        },
+        "patches": [
+          {
+            "path": "/change/review_action",
+            "value": {
+              "claim_id": "review-action",
+              "comparison_id": "actual_before",
+              "evidence": [{"comparison_id": "actual_before", "site_id": "missing"}]
+            }
+          }
+        ]
+      },
+      {
+        "name": "wrong-pair",
+        "expect": {
+          "/claims/review-action/status": "unchecked",
+          "/claims/review-action/reasons/0/code": "slot_mismatch",
+          "/claims/actual_before/status": "admitted"
+        },
+        "patches": [
+          {
+            "path": "/change/review_action",
+            "value": {
+              "claim_id": "review-action",
+              "comparison_id": "actual_before",
+              "evidence": [{"comparison_id": "service_first", "site_id": "call-before"}]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "B46": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/change/elements",
+            "value": [
+              {
+                "row_id": "operation-edited",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": "op:GET /kiln",
+                "after_element_id": "op:GET /kiln",
+                "change_kinds": ["route_declaration_changed"],
+                "before_presence": "present",
+                "after_presence": "present",
+                "before_shape": null,
+                "after_shape": null,
+                "coverage_limits": []
+              }
+            ]
+          },
+          {
+            "path": "/summary/listed_usage_count",
+            "value": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": null, "reason": "missing_counterpart"}
+          }
+        ],
+        "expect": {
+          "/reference": null,
+          "/change/elements/0/operation_id": "op:GET /kiln",
+          "/summary/listed_usage_count/total": null,
+          "/summary/listed_usage_count/reason": "missing_counterpart",
+          "/comparisons": []
+        }
+      }
+    ]
+  }
+}

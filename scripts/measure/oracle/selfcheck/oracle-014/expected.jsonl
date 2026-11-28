@@ -1,0 +1,1 @@
+{"key": {"from": {"file": "cases.ts", "base": "actual", "fields": [], "line": 4, "start_byte": 121, "end_byte": 127}, "to": {"file": "cases.ts", "base": "value", "fields": [], "line": 2, "start_byte": 64, "end_byte": 69}}, "relation": "argument_binding", "property": "implementation-slot", "verdict": "WRONG"}

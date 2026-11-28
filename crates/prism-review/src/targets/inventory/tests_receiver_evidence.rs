@@ -320,3 +320,73 @@ fn stdlib_construction_and_starred_annotation_sidecar_spans_match_source() {
         }
     }
 }
+
+#[test]
+fn field_sidecar_has_occurrence_spans_by_default() {
+    let repo = tempdir().unwrap();
+    let key = "app/main.py";
+    let source = fixture_in("stdlib/pfield", "pf01");
+    let parsed =
+        prism::ast::ParsedFile::parse(key, &source, prism::languages::Language::Python).unwrap();
+    let out = super::collect(
+        &std::collections::BTreeMap::from([(key.into(), parsed)]),
+        repo.path(),
+        &super::InventoryOptions::default(),
+    );
+    let doc = inventory_document(&TargetsMeta::default(), &out);
+    let traces = serde_json::to_value(evidence::sidecar(&doc.targets, &out.occurrences)).unwrap();
+    let traces = traces.as_array().unwrap();
+    assert_eq!(traces.len(), 3, "{traces:#?}");
+    assert_eq!(
+        traces
+            .iter()
+            .filter(|t| t["proof"]["route"] == "r2")
+            .count(),
+        1
+    );
+    let expected = [
+        ("self.path.exists()", [8, 15, 8, 24]),
+        ("self.path.write_text(text)", [11, 15, 11, 24]),
+    ];
+    for (text, receiver_range) in expected {
+        let trace = traces
+            .iter()
+            .find(|t| t["proof"]["call"]["text"] == text)
+            .unwrap();
+        let proof = &trace["proof"];
+        assert_eq!(proof["route"], "r3");
+        assert!(proof.get("receiver").is_none());
+        assert!(proof.get("declaration").is_none());
+        assert_eq!(proof["field"]["class"], "pathlib.Path");
+        let source_lines: Vec<_> = source.split_inclusive('\n').collect();
+        for (key, range) in [
+            ("owner", [2, 0, 11, 41]),
+            ("initializer", [3, 4, 5, 24]),
+            ("parameter", [3, 23, 3, 33]),
+            ("annotation", [3, 29, 3, 33]),
+            ("store", [5, 8, 5, 24]),
+            ("receiver_use", receiver_range),
+        ] {
+            let span = &proof["field"][key];
+            assert_eq!(span["range"], json!(range), "{key}");
+            let [start_line, start_col, end_line, end_col] = range;
+            let start = source_lines[..start_line - 1]
+                .iter()
+                .map(|s| s.len())
+                .sum::<usize>()
+                + start_col;
+            let end = source_lines[..end_line - 1]
+                .iter()
+                .map(|s| s.len())
+                .sum::<usize>()
+                + end_col;
+            assert_eq!(span["text"], &source[start..end], "{key}");
+        }
+        let target = doc
+            .targets
+            .iter()
+            .find(|row| trace["id"] == row.id)
+            .unwrap();
+        assert!(serde_json::to_value(target).unwrap().get("proof").is_none());
+    }
+}

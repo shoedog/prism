@@ -12,6 +12,7 @@ mod cpp_type_provider_test;
 mod dfg_label_test;
 mod dfg_prune_test;
 mod dfg_test;
+mod element_recall_trace_test;
 mod field_test;
 mod go_blank_test;
 mod go_branches_test;

@@ -83,7 +83,7 @@ fn plain_identifier(text: &str) -> bool {
         && bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'$'))
 }
 
-fn operand_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
+pub(super) fn operand_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
     let node = strip_transparent_wrappers(node)?;
     match node.kind() {
         "identifier" | "shorthand_property_identifier" | "this" | "super" => {
@@ -105,6 +105,10 @@ fn operand_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
 }
 
 fn entries(parsed: &ParsedFile, object: Node<'_>) -> Option<Vec<PropsEntry>> {
+    parse_entries(parsed, object, false)
+}
+
+fn parse_entries(parsed: &ParsedFile, object: Node<'_>, jsx: bool) -> Option<Vec<PropsEntry>> {
     if object.has_error() {
         return None;
     }
@@ -144,19 +148,8 @@ fn entries(parsed: &ParsedFile, object: Node<'_>) -> Option<Vec<PropsEntry>> {
         let legacy = key.kind() != "string" || plain_identifier(&name);
         let value = if name == "__proto__" {
             PropsValue::Opaque
-        } else if let Some(value) = value.and_then(strip_transparent_wrappers) {
-            match value.kind() {
-                "object" => PropsValue::Object(self::entries(parsed, value)?),
-                "shorthand_property_identifier" | "identifier" | "member_expression" => {
-                    PropsValue::Operand {
-                        span: value.byte_range(),
-                        path: operand_path(parsed, value),
-                    }
-                }
-                _ => PropsValue::Opaque,
-            }
         } else {
-            PropsValue::Opaque
+            parse_value(parsed, value, jsx)?
         };
         entries.push(PropsEntry::Named(PropsWriter {
             key: name,
@@ -165,6 +158,30 @@ fn entries(parsed: &ParsedFile, object: Node<'_>) -> Option<Vec<PropsEntry>> {
         }));
     }
     Some(entries)
+}
+
+pub(super) fn parse_value(
+    parsed: &ParsedFile,
+    value: Option<Node<'_>>,
+    jsx: bool,
+) -> Option<PropsValue> {
+    let Some(value) = value.and_then(strip_transparent_wrappers) else {
+        return Some(PropsValue::Opaque);
+    };
+    Some(match value.kind() {
+        "object" => PropsValue::Object(parse_entries(parsed, value, jsx)?),
+        "shorthand_property_identifier" | "identifier" | "member_expression" => {
+            PropsValue::Operand {
+                span: value.byte_range(),
+                path: operand_path(parsed, value),
+            }
+        }
+        "this" | "super" if jsx => PropsValue::Operand {
+            span: value.byte_range(),
+            path: operand_path(parsed, value),
+        },
+        _ => PropsValue::Opaque,
+    })
 }
 
 pub(super) struct Literal<'tree> {
@@ -463,11 +480,18 @@ pub(super) fn collect<T, P, F>(
         props_binding::bind(
             output,
             &mut read_refusals,
-            site,
+            &props_binding::BindingSite {
+                kind: SiteKind::Literal,
+                #[cfg(test)]
+                bytes: site.call_bytes,
+                graph: site.graph,
+                callee: site.callee_parsed,
+                cross_file_free_single_exact: site.cross_file_free_single_exact,
+            },
             target,
             leaves,
             &rich,
-            |leaf| site.literal_sources(leaf),
+            |leaf| Ok(site.literal_sources(leaf)),
             &resolve_pattern,
         );
     }

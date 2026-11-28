@@ -1,0 +1,13 @@
+export {};
+const obj: { m?: number } = {};
+obj.m = 1;
+delete obj.m;
+void obj.m;
+const key = 'm';
+const bag: { [k: string]: number } = {};
+delete bag[key];
+let x = 1;
+delete (true ? x : 0);
+let y2 = 0;
+delete (y2 = 1);
+void y2;

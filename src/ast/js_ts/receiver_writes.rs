@@ -270,7 +270,7 @@ impl ParsedFile {
         written
     }
 
-    pub(in crate::ast) fn js_ts_write_target<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
+    pub(crate) fn js_ts_write_target<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
         let writes = matches!(
             node.kind(),
             "assignment_expression"

@@ -12,6 +12,7 @@ from .diff_edges import compare_edges
 from .diff_stats import compare_stats, display_stats
 from .receipt import trace_settings
 from .run import DEFAULT_GUARD, run
+from . import oracle
 
 
 def positive_integer(value):
@@ -58,6 +59,7 @@ def main(argv=None, *, gate_sha256=None, gate_step_id=None, prediction_sha256=No
     edge_diff.add_argument("--list", action="store_true")
     stats_diff.add_argument("--allow", type=Path)
     stats_diff.add_argument("--which", choices=("dfg", "call", "both"), default="both")
+    oracle.register(commands)
     args = parser.parse_args(argv)
 
     try:
@@ -69,6 +71,8 @@ def main(argv=None, *, gate_sha256=None, gate_step_id=None, prediction_sha256=No
             if any(key not in entries for key in keys):
                 raise ValueError("unknown corpus key(s): " + ", ".join(k for k in keys if k not in entries))
             return verify_corpora(entries, keys, args.corpora_root)
+        if args.command == "oracle":
+            return oracle.run_oracle(args, entries, gate_sha256=gate_sha256, gate_step_id=gate_step_id)
         if args.command == "diff-stats":
             return display_stats(compare_stats(args.base, args.head, entries=entries,
                                                which=args.which, allow=args.allow))

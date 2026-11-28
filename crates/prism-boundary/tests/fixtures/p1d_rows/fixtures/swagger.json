@@ -1,0 +1,49 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Pilot API",
+    "version": "1"
+  },
+  "paths": {
+    "/kiln": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Sample",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "stamp": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Empty"
+          }
+        }
+      }
+    },
+    "/neighbor": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Independent",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -73,7 +73,7 @@ function inspect(file, source) {
   const span = (node) => [bytes(node.getStart(tree)), bytes(node.end)];
   const line = (node) => tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1;
   const functions = tree.statements.filter(ts.isFunctionDeclaration);
-  return { checker, span, line, functions };
+  return { tree, checker, span, line, functions };
 }
 
 function boundNames(name, array = false) {
@@ -496,8 +496,10 @@ function generate() {
   assert.equal(new Set(cells.map((cell) => cell.id)).size, 576);
   assert.equal(cells.filter((cell) => !cell.excluded).length, 528);
   cells.push(...literalCells());
+  const s3 = require('./jsx_generated.cjs');
+  cells.push(...s3({ ts, inspect, boundNames, literalOutcome }));
   cells.sort((a, b) => (a.id < b.id ? -1 : Number(a.id > b.id)));
-  assert.equal(new Set(cells.map((cell) => cell.id)).size, 4624);
+  assert.equal(new Set(cells.map((cell) => cell.id)).size, 10280);
   return Buffer.from(cells.map((cell) => JSON.stringify(cell)).join('\n') + '\n');
 }
 
@@ -506,7 +508,7 @@ const generated = generate();
 const args = process.argv.slice(2);
 if (args.length === 1 && args[0] === '--check') {
   assert(fs.readFileSync(output).equals(generated), `${output} differs from TypeScript ${ts.version} regeneration`);
-  console.log(`Generator v${generator}, TypeScript ${ts.version}: 4624 deterministic cells, 4576 applicable, 48 excluded`);
+  console.log(`Generator v${generator}, TypeScript ${ts.version}: 10280 deterministic records, 9788 applicable, 492 excluded`);
 } else {
   assert.deepEqual(args, []);
   fs.writeFileSync(output, generated);

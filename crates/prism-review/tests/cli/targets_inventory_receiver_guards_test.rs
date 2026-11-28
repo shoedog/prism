@@ -176,9 +176,15 @@ fn field_tie_requires_the_owning_instance_parameter_and_literal_store() {
         &scan("    def fetch(self, u):\n        self.s = Session()\n        return self.s.get(u)"),
         "receiver_value_unproven",
     );
+    // DESIGN 6.12 (relaxed discovery): a constructor tie whose using method fails
+    // the shape still supplies the diagnostic, never a row.
     for methods in [
         "    @staticmethod\n    def fetch(self, u):\n        self.s = Session()\n        return self.s.get(u)",
         "    def fetch(other, self, u):\n        self.s = Session()\n        return self.s.get(u)",
+    ] {
+        assert_refusal(&scan(methods), "receiver_value_unproven");
+    }
+    for methods in [
         "    def fetch(self, u):\n        self.s: Session\n        return self.s.get(u)",
         "    def fetch(self, u):\n        setattr(self, slot, Session())\n        return self.s.get(u)",
         "    def fetch(self, u):\n        self.other = Session()\n        return self.s.get(u)",

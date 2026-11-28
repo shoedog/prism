@@ -105,6 +105,8 @@ impl<'tree> Resolver<'_, 'tree> {
                             #[cfg(any(test, feature = "inventory-evidence"))]
                             declaration: None,
                             #[cfg(any(test, feature = "inventory-evidence"))]
+                            field: None,
+                            #[cfg(any(test, feature = "inventory-evidence"))]
                             route: Some(super::super::evidence::Route::R2),
                             #[cfg(any(test, feature = "inventory-evidence"))]
                             receiver: Some(super::super::evidence::ReceiverProof::constructed(

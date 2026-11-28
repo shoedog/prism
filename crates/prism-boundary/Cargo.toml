@@ -3,11 +3,12 @@ name = "prism-boundary"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Typed service boundary identities and schema declarations"
+description = "Typed service boundary identities and schema declarations (PROVISIONAL admission claim)"
 
 [dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 regex = "1"
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["arbitrary_precision", "raw_value"] }
 sha2 = "0.10"
