@@ -8,12 +8,12 @@ use prism::repo_loader::load_repo;
 use std::sync::Arc;
 use tempfile::TempDir;
 
-struct Fixture {
+pub(super) struct Fixture {
     _dir: TempDir,
-    session: NavigationSession,
+    pub(super) session: NavigationSession,
 }
 
-fn fixture(files: &[(&str, &str)]) -> Fixture {
+pub(super) fn fixture(files: &[(&str, &str)]) -> Fixture {
     let dir = tempfile::tempdir().unwrap();
     for (file, src) in files {
         let path = dir.path().join(file);
@@ -1404,6 +1404,7 @@ fn sanitized_exact_plus_nameonly_boundary_stays_boundary_exited() {
         Reachability::BoundaryExited,
         "a NameOnly residual boundary must not be reported as a proven Sanitized cut"
     );
+    assert_eq!(source.reason, Some(prism::cpg::LossReason::NotExact));
     assert!(source.sanitized_by.is_empty(), "{:?}", source.sanitized_by);
     assert_eq!(source.descent_depth, 0);
     assert!(evidence.warnings.iter().any(|warning| {

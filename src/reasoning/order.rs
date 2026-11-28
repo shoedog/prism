@@ -22,6 +22,10 @@ impl<'a> AstOrderView<'a> {
 }
 
 impl SameLineOrderView for AstOrderView<'_> {
+    fn ledger_file(&self, file: &str) -> Option<&ParsedFile> {
+        self.files.get(file)
+    }
+
     fn admit_same_line_recovered_def_use(
         &self,
         def: NodeIndex,

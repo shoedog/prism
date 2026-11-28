@@ -1,7 +1,7 @@
 //! Slice D end-to-end endpoints, roles, and trace boundaries.
 
 use super::object_literal_arg_tests::{build, LANGS};
-use super::trace::{BoundaryEdge, BoundaryKind, Relation};
+use super::trace::{BoundaryKind, Relation};
 use super::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
 use petgraph::graph::NodeIndex;
 use std::collections::BTreeMap;
@@ -83,12 +83,11 @@ fn named_callback_and_exact_sibling_have_distinct_endpoints() {
         );
         let trace = cpg.taint_trace_nodes(&[items_def, direct_def], None);
         assert_eq!(
-            trace.boundary.contains(&BoundaryEdge {
-                root: items_def,
-                from: items,
-                to: formal,
-                kind: BoundaryKind::CrossFunction,
-            }),
+            trace
+                .boundary
+                .iter()
+                .any(|edge| (edge.root, edge.from, edge.to, edge.kind)
+                    == (items_def, items, formal, BoundaryKind::CrossFunction)),
             positive
         );
         assert!(trace.frontier_by_root[&items_def].contains(&items));
@@ -120,11 +119,17 @@ fn named_callback_and_exact_sibling_have_distinct_endpoints() {
         // Reuse identical endpoints to distinguish early label refusal from
         // site failure. Exact has already cached a successful site proof.
         let mut warm = BTreeMap::new();
-        assert!(cpg.descend_target(direct, formal, Some(FlowConfidence::Exact), &mut warm));
+        assert!(cpg
+            .descend_target(direct, formal, Some(FlowConfidence::Exact), &mut warm)
+            .is_ok());
         assert_eq!(warm.len(), 1);
-        assert!(!cpg.descend_target(direct, formal, Some(D), &mut warm));
+        assert!(cpg
+            .descend_target(direct, formal, Some(D), &mut warm)
+            .is_err());
         let mut empty = BTreeMap::new();
-        assert!(!cpg.descend_target(direct, formal, Some(D), &mut empty));
+        assert!(cpg
+            .descend_target(direct, formal, Some(D), &mut empty)
+            .is_err());
         assert!(empty.is_empty());
     }
 }
@@ -142,12 +147,11 @@ fn same_owner_callback_stops_at_a_self_function_param_boundary() {
     let start = source.find("use(item)").unwrap() + "use(".len();
     let read = endpoint(&cpg, "visit", "item", (start, start + 4), VarAccess::Use);
     let trace = cpg.taint_trace_nodes(&[root], None);
-    assert!(trace.boundary.contains(&BoundaryEdge {
-        root,
-        from: items,
-        to: formal,
-        kind: BoundaryKind::SelfFunctionParam,
-    }));
+    assert!(trace
+        .boundary
+        .iter()
+        .any(|edge| (edge.root, edge.from, edge.to, edge.kind)
+            == (root, items, formal, BoundaryKind::SelfFunctionParam)));
     assert!(trace.frontier_by_root[&root].contains(&items));
     assert!(!trace.frontier_by_root[&root].contains(&formal));
     assert!(!trace.frontier_by_root[&root].contains(&read));
