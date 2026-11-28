@@ -1,7 +1,7 @@
 //! Shared builders for the P2 producer tests: schema indexes, inputs and Go fixtures.
 use prism_boundary::model::{
     AnnotationDisposition as D, AnnotationRecord, Binding, BindingsDocument, DocumentInput,
-    EdgeGrade, ExtractionRegion,
+    EdgeGrade, ExtractionRegion, SchemaOrigin,
 };
 use prism_boundary::producer::{
     bind_producer, ExpectedFile, ProducerInputs, ProducerOptions, SourceBlob,
@@ -92,6 +92,21 @@ pub fn input_with(patch: serde_json::Value) -> DocumentInput {
     serde_json::from_value(value).expect("producer input")
 }
 
+/// The fixture input declares the all-zero digest as a placeholder; a declared digest is
+/// compared with the index's, so the helpers replace the placeholder (and only it) with the
+/// digest of the index they bind against. Any other declared digest is kept as written.
+pub fn matching(input: &DocumentInput, schema: &SchemaIndex) -> DocumentInput {
+    let mut input = input.clone();
+    if let Some(SchemaOrigin::File { sha256, .. }) =
+        input.schema.as_mut().map(|schema| &mut schema.source)
+    {
+        if *sha256 == "0".repeat(64) {
+            *sha256 = schema.byte_sha256.clone();
+        }
+    }
+    input
+}
+
 pub fn go(name: &str) -> Vec<u8> {
     let path = format!(
         "{}/tests/fixtures/producer/{name}.go",
@@ -129,7 +144,7 @@ pub fn run_raw(
         .collect();
     bind_producer(
         &ProducerInputs {
-            input,
+            input: &matching(input, schema),
             expected: &expected,
             files: &blobs,
         },
@@ -167,7 +182,7 @@ pub fn run_with_input(
         .collect();
     bind_producer(
         &ProducerInputs {
-            input,
+            input: &matching(input, schema),
             expected: &expected,
             files: &blobs,
         },

@@ -18,6 +18,35 @@ use sha2::Digest;
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 
+/// (declarations with at least one Bound edge, declarations whose edges are all candidates).
+fn declaration_counts(doc: &prism_boundary::model::BindingsDocument) -> (usize, usize) {
+    let handlers: BTreeSet<_> = support::rows(doc)
+        .iter()
+        .filter_map(|r| {
+            r.handler
+                .as_ref()
+                .map(|h| (h.site.file.clone(), h.site.span))
+        })
+        .collect();
+    (handlers.len(), 0)
+}
+
+#[test]
+fn the_census_counts_only_bound_declarations_and_labels_candidate_only_ones() {
+    let schema = support::index(&[("GET", "/x")]);
+    let src: &[u8] = b"package p\n\n// @Router /x [get]\nfunc H() {}\n";
+    let other: &[u8] = b"package q\n\n// @Router /x [get]\nfunc K() {}\n";
+    // Two handlers annotate one operation: both edges are candidates.
+    let doc = support::run(&[("p.go", src), ("q.go", other)], &schema);
+    assert!(support::rows(&doc)
+        .iter()
+        .all(|r| r.grade == Some(EdgeGrade::Candidate)));
+    assert_eq!(declaration_counts(&doc), (0, 2));
+    // Control: one handler, one Bound declaration.
+    let doc = support::run(&[("p.go", src)], &schema);
+    assert_eq!(declaration_counts(&doc), (1, 0));
+}
+
 fn git_bytes(repo: &str, args: &[&str]) -> Vec<u8> {
     let out = Command::new("git")
         .arg("-C")
@@ -125,14 +154,7 @@ fn public_pair_annotation_census() {
             .entry(format!("{:?}", record.disposition))
             .or_default() += 1;
     }
-    let handlers: BTreeSet<_> = support::rows(&doc)
-        .iter()
-        .filter_map(|r| {
-            r.handler
-                .as_ref()
-                .map(|h| (h.site.file.clone(), h.site.span))
-        })
-        .collect();
+    let (handlers_bound, handlers_candidate_only) = declaration_counts(&doc);
     // Only a Bound edge counts toward "annotation-bound"; a candidate or any other evidence is
     // reported separately.
     let bound_ops: BTreeSet<_> = support::rows(&doc)
@@ -191,7 +213,7 @@ fn public_pair_annotation_census() {
          - Go files examined: {} ({} expected, statuses {statuses:?})\n\
          - schema operations: {}; schema diagnostics: {}\n\
          - annotation records: {} by disposition {by_disposition:?}\n\
-         - annotated functions (distinct handler declarations bound): {}\n\
+         - annotated functions (distinct handler declarations): {}\n\
          - operations annotation-bound (grade Bound only): {} of {}; candidate operations: {}; operations with any annotation evidence: {}\n\
          - schema operations with no annotation binding: {} {unannotated:?}\n\
          - annotation_without_operation: {} {without:?}\n\
@@ -202,7 +224,7 @@ fn public_pair_annotation_census() {
         schema_ops.len(),
         schema.diagnostics.len(),
         records.len(),
-        handlers.len(),
+        handlers_bound,
         bound_ops.len(),
         schema_ops.len(),
         candidate_ops.len(),

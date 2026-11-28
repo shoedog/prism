@@ -35,8 +35,8 @@ fn d12_a_file_whose_blob_or_tree_differs_is_refused_for_that_file_only() {
             blob: "blobB",
         },
     ];
-    let input = input();
     let schema = index(&[("GET", "/x"), ("GET", "/y")]);
+    let input = matching(&input(), &schema);
     let cases = [
         SourceBlob {
             tree: TREE,
@@ -135,14 +135,15 @@ fn d01_missing_unexpected_duplicate_and_unreadable_files_have_their_own_status()
             bytes: K,
         },
     ];
-    let input = input();
+    let schema = index(&[("GET", "/x"), ("GET", "/y")]);
+    let input = matching(&input(), &schema);
     let doc = bind_producer(
         &ProducerInputs {
             input: &input,
             expected: &expected,
             files: &files,
         },
-        &index(&[("GET", "/x"), ("GET", "/y")]),
+        &schema,
         &ProducerOptions::default(),
     )
     .unwrap();
