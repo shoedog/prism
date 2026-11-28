@@ -172,11 +172,16 @@ pub struct FunctionBounds {
     pub end_line: usize,
 }
 
+fn field_rows_enabled() -> bool {
+    std::env::var_os("PRISM_INVENTORY_FIELD_ROWS").is_some_and(|value| value == "1")
+}
+
 pub fn collect(
     files: &BTreeMap<String, ParsedFile>,
     repo_root: &Path,
     opts: &InventoryOptions,
 ) -> InventoryOutput {
+    let field_rows = field_rows_enabled();
     let mut output = InventoryOutput::default();
     let selected = Family::supported()
         .iter()
@@ -197,7 +202,7 @@ pub fn collect(
         selected_files.insert(normalize_path(file), parsed);
     }
     for (file, parsed) in selected_files {
-        python::collect_file(&file, parsed, repo_root, &selected, &mut output);
+        python::collect_file(&file, parsed, repo_root, &selected, field_rows, &mut output);
         output.files.push(file);
     }
     output

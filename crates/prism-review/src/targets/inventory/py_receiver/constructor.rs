@@ -26,6 +26,8 @@ impl<'tree> Resolver<'_, 'tree> {
             #[cfg(any(test, feature = "inventory-evidence"))]
             declaration: None,
             #[cfg(any(test, feature = "inventory-evidence"))]
+            field: None,
+            #[cfg(any(test, feature = "inventory-evidence"))]
             route: proven.is_ok().then_some(super::super::evidence::Route::R1),
             #[cfg(any(test, feature = "inventory-evidence"))]
             receiver: proven

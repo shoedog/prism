@@ -170,6 +170,8 @@ impl<'tree> Resolver<'_, 'tree> {
                 #[cfg(any(test, feature = "inventory-evidence"))]
                 declaration: None,
                 #[cfg(any(test, feature = "inventory-evidence"))]
+                field: None,
+                #[cfg(any(test, feature = "inventory-evidence"))]
                 route: Some(if chosen.is_some() {
                     super::super::evidence::Route::R4
                 } else {
@@ -267,6 +269,8 @@ impl<'tree> Resolver<'_, 'tree> {
                             &declaration.class,
                             declaration.node,
                         )),
+                        #[cfg(any(test, feature = "inventory-evidence"))]
+                        field: None,
                     });
                 }
             }
