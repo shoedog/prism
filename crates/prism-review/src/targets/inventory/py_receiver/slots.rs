@@ -28,9 +28,6 @@ pub(super) enum Slot {
     ParameterMember {
         key: Option<String>,
     },
-    RecoveredFieldMember {
-        key: Option<String>,
-    },
     Instance {
         origin: Instance,
         key: Option<String>,

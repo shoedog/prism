@@ -57,7 +57,6 @@ impl<'tree> Resolver<'_, 'tree> {
             let key = match &write.slot {
                 Slot::Member { key, .. }
                 | Slot::ParameterMember { key }
-                | Slot::RecoveredFieldMember { key }
                 | Slot::Instance { key, .. } => key,
                 Slot::Name { .. } => continue,
             };
@@ -106,6 +105,13 @@ impl<'tree> Resolver<'_, 'tree> {
                         .into_iter()
                         .flat_map(children)
                         .map(ungroup)
+                        .filter_map(|base| {
+                            if base.kind() == "subscript" {
+                                base.child_by_field_name("value").map(ungroup)
+                            } else {
+                                Some(base)
+                            }
+                        })
                         .any(|base| {
                             if base.kind() == "attribute" {
                                 return base.child_by_field_name("attribute").is_some_and(|attr| {

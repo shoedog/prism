@@ -4,7 +4,7 @@ use crate::targets::inventory::{
         annotation::Declaration,
         census::{Binding, Kind},
         named::assignment_value,
-        Resolution, Resolver,
+        FieldRows, Resolution, Resolver,
     },
     py_tables,
     python::{
@@ -164,6 +164,13 @@ impl<'tree> Resolver<'_, 'tree> {
         family: Family,
         declaration: Result<Declaration<'tree>, UnprovenCause>,
     ) -> Resolution {
+        if self.field_rows == FieldRows::Refused {
+            return Resolution::refused(
+                family,
+                Grade::AnnotationTyped,
+                UnprovenCause::ReceiverNotUnique,
+            );
+        }
         let unique = self.field_parameter_unique(binding, key, store.value, store.scope)
             && self.field_parameter_unique(store.self_binding, "self", store.self_ref, store.scope);
         let veto = self.field_site_veto(site, store.node);

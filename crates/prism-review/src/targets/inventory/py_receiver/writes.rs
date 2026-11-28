@@ -58,7 +58,7 @@ impl<'tree> Resolver<'_, 'tree> {
             .copied()
             .filter(|(node, context)| {
                 context.evaluated
-                    && (matches!(
+                    && matches!(
                         node.kind(),
                         "assignment"
                             | "augmented_assignment"
@@ -67,7 +67,7 @@ impl<'tree> Resolver<'_, 'tree> {
                             | "as_pattern"
                             | "delete_statement"
                             | "call"
-                    ) || (self.field_rows && node.kind() == "type_alias_statement"))
+                    )
             })
             .collect();
         nodes.sort_by_key(|(node, _)| node.end_byte());
@@ -120,14 +120,6 @@ impl<'tree> Resolver<'_, 'tree> {
                     WriteAccess::DeleteAttribute
                 };
                 (self.objects(object, scope, true).slots(key, access), value)
-            } else if node.kind() == "type_alias_statement" {
-                if names_only {
-                    continue;
-                }
-                (
-                    self.recovered_field_slot(node, scope).into_iter().collect(),
-                    None,
-                )
             } else {
                 let roots = write_targets(node);
                 let value = match roots.as_slice() {
@@ -249,24 +241,6 @@ impl<'tree> Resolver<'_, 'tree> {
     fn attribute_key(&self, node: Node<'tree>, scope: ScopeId) -> Option<String> {
         node.child_by_field_name("attribute")
             .map(|attr| name(self.parsed.node_text(&attr), self.walk.class(scope)))
-    }
-
-    fn recovered_field_slot(&self, node: Node<'tree>, scope: ScopeId) -> Option<Slot> {
-        // The grammar consumes `type` as an alias keyword in `type(c).path = v`.
-        // The remaining tree supplies a key for the field veto but loses the receiver call.
-        let target = ungroup(children(node.child_by_field_name("left")?).next()?);
-        let key = match target.kind() {
-            "attribute" => Some(self.attribute_key(target, scope)?),
-            "subscript" => {
-                let value = ungroup(target.child_by_field_name("value")?);
-                match self.attribute_key(value, scope) {
-                    Some(key) if key != "__dict__" => Some(key),
-                    _ => strings::write_key(self.parsed, scalar_subscript(target)?)?,
-                }
-            }
-            _ => return None,
-        };
-        Some(Slot::RecoveredFieldMember { key })
     }
 
     pub(super) fn literal_receiver_write(&self, receiver: Node<'tree>, scope: ScopeId) -> bool {

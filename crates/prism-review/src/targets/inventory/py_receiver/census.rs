@@ -2,6 +2,7 @@ use super::context::ContextUse;
 use crate::targets::dependency_identity::python_imports;
 use crate::targets::inventory::python::{
     source::{children, name, ungroup, ungroup_target},
+    type_syntax::alias_name,
     walk::{ScopeId, ScopeKind, Walk},
 };
 use prism::ast::ParsedFile;
@@ -52,7 +53,7 @@ pub(super) struct Census<'tree> {
 }
 
 impl<'tree> Census<'tree> {
-    pub(super) fn new(parsed: &ParsedFile, walk: &Walk<'tree>) -> Self {
+    pub(super) fn new(parsed: &ParsedFile, walk: &Walk<'tree>, field_rows: bool) -> Self {
         let mut this = Self {
             spaces: walk.scopes.iter().map(|_| Namespace::default()).collect(),
             wildcard: false,
@@ -216,7 +217,12 @@ impl<'tree> Census<'tree> {
                     }
                 }
                 "type_alias_statement" => {
-                    if let Some(target) = children(node).next().and_then(first_identifier) {
+                    let target = if field_rows {
+                        alias_name(node)
+                    } else {
+                        children(node).next().and_then(first_identifier)
+                    };
+                    if let Some(target) = target {
                         this.add(parsed, walk, scope, target, node, Kind::Other);
                     }
                 }

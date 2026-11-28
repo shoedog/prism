@@ -15,7 +15,8 @@ mod writes;
 use super::{
     py_tables,
     python::{
-        source::chain,
+        source::{chain, Source},
+        type_syntax::has_ambiguous_type_syntax,
         walk::{ScopeId, Walk},
     },
     Family, Grade, UnprovenCause,
@@ -148,9 +149,16 @@ pub(super) struct Resolver<'a, 'tree> {
     roots: Vec<String>,
     census: Census<'tree>,
     writes: Vec<writes::Write>,
-    field_rows: bool,
+    field_rows: FieldRows,
     #[cfg(any(test, feature = "inventory-evidence"))]
-    source: &'a super::python::source::Source<'a>,
+    source: &'a Source<'a>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FieldRows {
+    Disabled,
+    Enabled,
+    Refused,
 }
 
 impl<'a, 'tree> Resolver<'a, 'tree> {
@@ -160,9 +168,7 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
         repo: &'a Path,
         file: &str,
         field_rows: bool,
-        #[cfg(any(test, feature = "inventory-evidence"))] source: &'a super::python::source::Source<
-            'a,
-        >,
+        source: &'a Source<'a>,
     ) -> Self {
         let mut roots = vec![String::new()];
         if repo.join("src").is_dir() {
@@ -177,12 +183,19 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
                 roots.push(directory.into_owned());
             }
         }
+        let field_rows = if !field_rows {
+            FieldRows::Disabled
+        } else if has_ambiguous_type_syntax(source.parsed()) {
+            FieldRows::Refused
+        } else {
+            FieldRows::Enabled
+        };
         let mut resolver = Self {
             parsed,
             walk,
             repo,
             roots,
-            census: Census::new(parsed, walk),
+            census: Census::new(parsed, walk, field_rows != FieldRows::Disabled),
             writes: Vec::new(),
             field_rows,
             #[cfg(any(test, feature = "inventory-evidence"))]
