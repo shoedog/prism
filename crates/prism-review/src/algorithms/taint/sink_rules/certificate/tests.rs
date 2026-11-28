@@ -474,3 +474,50 @@ fn error_outside_operation_does_not_refuse() {
     let operand = node(&parsed, op, ("identifier", "x"));
     assert_eq!(certify(&parsed, op, callee, operand, Argument(0)), Ok(()));
 }
+
+#[test]
+fn shapes_and_nodes_of_another_operation_or_parse_are_not_bound() {
+    let source = "eval(x); eval(y);";
+    let parsed = ParsedFile::parse("certificate", source, JavaScript).unwrap();
+    let root = parsed.tree.root_node();
+    let first = node(&parsed, root, ("call_expression", "eval(x)"));
+    let second = node(&parsed, root, ("call_expression", "eval(y)"));
+    let callee = node(&parsed, first, ("identifier", "eval"));
+    let operand = node(&parsed, first, ("identifier", "x"));
+    let outside = node(&parsed, second, ("identifier", "y"));
+    let shape = certify_operation(&parsed, first).unwrap();
+    let other_shape = certify_operation(&parsed, second).unwrap();
+    let copy = ParsedFile::parse("certificate", source, JavaScript).unwrap();
+    let copy_first = node(&copy, copy.tree.root_node(), ("call_expression", "eval(x)"));
+
+    // Controls: the operation the shape was made for certifies.
+    assert_eq!(certify_callee(&parsed, first, &shape, callee), Ok(()));
+    assert_eq!(
+        certify_operand(&parsed, first, &shape, callee, operand, Argument(0)),
+        Ok(())
+    );
+
+    // The shape is bound to its own operation node.
+    assert_eq!(
+        certify_callee(&parsed, second, &shape, callee),
+        Err(CalleeKindUnlisted)
+    );
+    assert_eq!(
+        certify_operand(&parsed, first, &other_shape, callee, operand, Argument(0)),
+        Err(RoleNotBound)
+    );
+    // An operation node of another parse is not the current tree's.
+    assert_eq!(
+        certify_callee(&parsed, copy_first, &shape, callee),
+        Err(CalleeKindUnlisted)
+    );
+    assert_eq!(
+        certify_operand(&parsed, copy_first, &shape, callee, operand, Argument(0)),
+        Err(RoleNotBound)
+    );
+    // An operand of a neighbouring operation is not inside this one.
+    assert_eq!(
+        certify_operand(&parsed, first, &shape, callee, outside, Argument(0)),
+        Err(RoleNotBound)
+    );
+}

@@ -1617,3 +1617,57 @@ r9-control-go-valid-selector	go	package p\nfunc g(b T) {\n\teval(b.f)\n}\n	eval(
 r9-control-py-valid-outer	python	def g(x):\n    outer(eval(47), k=0)\n	eval(47)	eval	47	arg:0	accept		accept_cell	Control for the Python invalid-argument-order known limits: a valid outer call is certified
 r9-control-ts-plain-enum	typescript	enum E { A = eval(47) }\n	eval(47)	eval	47	arg:0	accept		accept_cell	Control for the const enum known limits: a plain enum initializer runs and is certified
 r9-control-tsx-plain-enum	tsx	enum E { A = eval(47) }\n	eval(47)	eval	47	arg:0	accept		accept_cell	Control for the const enum known limits (TSX): a plain enum initializer runs and is certified
+cov-bash-N-name-dash	bash	g() {\n  local x="$1"\n  my-cmd "$x"\n}\n	my-cmd "$x"	my-cmd	"$x"	arg:0	refuse	callee_kind_unlisted	near_negative	Command name with a dash is not a plain identifier word
+cov-bash-N-name-digit	bash	g() {\n  local x="$1"\n  9cmd "$x"\n}\n	9cmd "$x"	9cmd	"$x"	arg:0	refuse	callee_kind_unlisted	near_negative	Command name starting with a digit is not a plain identifier word
+cov-bash-A-name-underscore	bash	g() {\n  local x="$1"\n  _my_cmd "$x"\n}\n	_my_cmd "$x"	_my_cmd#2	"$x"	arg:0	accept		accept_cell	Control for the dash and digit names: a leading and inner underscore is a plain word
+cov-hcl-N-assign-collection	hcl	locals {\n  eval = [x]\n}\n	eval = [x]	eval	[x]	assign	refuse	operand_kind_unlisted	near_negative	A collection value is not a listed attribute value
+cov-lua-N-assign-vararg	lua	function g(...)\n  eval = ...\nend\n	eval = ...	eval	...	assign	refuse	operand_spread	near_negative	A vararg value is a spread, not a plain value
+cov-python-N-arg-in-keyword	python	def g(x):\n    eval(k=x)\n	eval(k=x)	eval	x	arg:0	refuse	slot_mismatch	near_negative	A positional claim does not bind a keyword argument's value
+cov-python-N-kw-whole-slot	python	def g(x):\n    eval(k=x)\n	eval(k=x)	eval	k=x	kw:k	refuse	operand_not_direct_child	near_negative	The keyword claim binds the value, not the whole keyword argument
+cov-python-N-arg-callee-operand	python	def g(x):\n    eval(x)\n	eval(x)	eval	eval	arg:0	refuse	role_not_bound	near_negative	An operand outside every argument slot is not bound
+cov-python-N-assign-arg-role	python	def g(x):\n    eval = x\n	eval = x	eval	x	arg:0	refuse	role_not_bound	near_negative	An assignment has no argument slots
+cov-python-N-assign-kw-role	python	def g(x):\n    eval = x\n	eval = x	eval	x	kw:k	refuse	role_not_bound	near_negative	An assignment has no keyword slots
+cov-python-N-assign-receiver-role	python	def g(x):\n    eval = x\n	eval = x	eval	x	receiver	refuse	role_not_bound	near_negative	An assignment has no receiver
+cov-python-N-assign-subscript	python	def g(x, y):\n    x[0] = y\n	x[0] = y	x	y	assign	refuse	role_not_bound	near_negative	A subscript target is not a listed assignment target
+cov-python-N-type-alias	python	type X = eval(1)\n	eval(1)	eval	1	arg:0	refuse	op_context_non_runtime	near_negative	The right side of a type alias statement is not run
+cov-python-A-alias-control	python	X = eval(1)\n	eval(1)	eval	1	arg:0	accept		accept_cell	Control for the type alias row: an ordinary assignment value runs
+cov-c-N-enumerator	c	enum { A = eval(1) };\n	eval(1)	eval	1	arg:0	refuse	op_context_non_runtime	near_negative	An enumerator value is a constant expression, not run
+cov-cpp-N-enumerator	cpp	enum { A = eval(1) };\n	eval(1)	eval	1	arg:0	refuse	op_context_non_runtime	near_negative	An enumerator value is a constant expression, not run
+cov-c-N-case-label	c	void g(int v) { switch (v) { case eval(1): break; } }\n	eval(1)	eval	1	arg:0	refuse	op_context_non_runtime	near_negative	A case label value is a constant expression, not run
+cov-c-A-case-body	c	void g(int v) { switch (v) { case 1: eval(v); } }\n	eval(v)	eval	v	arg:0	accept		accept_cell	Control for the case label row: a call in a case body runs
+cov-c-N-query-typeof	c	void g(int x) {\n  y = typeof(x);\n}\n	typeof(x)	typeof	x	arg:0	refuse	op_special_form	near_negative	A typeof query is not a call
+cov-c-N-query-__typeof	c	void g(int x) {\n  y = __typeof(x);\n}\n	__typeof(x)	__typeof	x	arg:0	refuse	op_special_form	near_negative	A __typeof query is not a call
+cov-c-N-query-__typeof__	c	void g(int x) {\n  y = __typeof__(x);\n}\n	__typeof__(x)	__typeof__	x	arg:0	refuse	op_special_form	near_negative	A __typeof__ query is not a call
+cov-cpp-N-assign-member-pointer	cpp	void g(A a, int A::*eval, int x) { a.*eval = x; }\n	a.*eval = x	eval	x	assign	refuse	role_not_bound	near_negative	A member pointer access is not a listed assignment target
+cov-cpp-N-assign-qualified-field	cpp	void g(A a, int x) { a.Base::eval = x; }\n	a.Base::eval = x	eval	x	assign	refuse	role_not_bound	near_negative	A qualified field name is not a listed assignment target
+cov-cpp-N-call-qualified-field	cpp	void g(A a, int x) { a.Base::template eval<int>(x); }\n	a.Base::template eval<int>(x)	eval	x	arg:0	refuse	callee_kind_unlisted	near_negative	A template method name through a qualified object member is not a listed callee
+cov-rust-N-array-length	rust	fn g() {\n    let a: [u8; eval(1)] = [0; 1];\n}\n	eval(1)	eval	1	arg:0	refuse	op_context_non_runtime	near_negative	An array type length is a constant expression, not run
+cov-rust-A-array-repeat	rust	fn g() {\n    let a = [0; 1];\n    eval(1);\n}\n	eval(1)	eval	1	arg:0	accept		accept_cell	Control for the array length row: a call statement runs
+cov-rust-N-assign-tuple-index	rust	fn g(a: T, x: i32) {\n    a.0.eval = x;\n}\n	a.0.eval = x	eval	x	assign	refuse	role_not_bound	near_negative	A tuple index in the target chain is not a listed assignment target
+cov-rust-A-assign-chain	rust	fn g(a: T, x: i32) {\n    a.b.eval = x;\n}\n	a.b.eval = x	eval	x	assign	accept		accept_cell	Control for the tuple index row: a named field chain is a listed target
+cov-go-N-const-value	go	package p\nconst c = eval(1)\n	eval(1)	eval	1	arg:0	refuse	op_context_non_runtime	near_negative	A constant declaration value is a constant expression, not run
+cov-go-N-short-var-selector	go	package p\nfunc g(a T, x int) {\n\ta.eval := x\n}\n	a.eval := x	eval	x	assign	refuse	role_not_bound	near_negative	A short variable declaration target must be an identifier
+cov-java-N-assign-qualified-this	java	class A { void g(int x) { Outer.this.eval = x; } }\n	Outer.this.eval = x	eval	x	assign	refuse	role_not_bound	near_negative	A qualified this in the target chain is not a listed assignment target
+cov-java-A-assign-chain	java	class A { void g(int x) { a.b.eval = x; } }\n	a.b.eval = x	eval	x	assign	accept		accept_cell	Control for the qualified this row: a named field chain is a listed target
+cov-java-N-annotation-default	java	@interface A {\n  int v() default eval(1);\n}\n	eval(1)	eval	1	arg:0	refuse	op_context_non_runtime	near_negative	An annotation element default is not run
+cov-java-N-new-annotated-scope	java	class A { Object o = new a.@T Eval(x); }\n	new a.@T Eval(x)	Eval	x	arg:0	refuse	callee_type_unlisted	near_negative	An annotated scope segment is not a listed constructor type
+cov-javascript-N-attr-namespace	javascript	function g(x) {\n  <X xlink:href="text" />;\n}\n	xlink:href="text"	xlink:href	"text"	attr	refuse	role_not_bound	near_negative	A namespaced attribute name is not a listed attribute
+cov-javascript-N-attr-namespace-label	javascript	function g(x) {\n  <X xlink:href="text" />;\n}\n	xlink:href="text"	xlink:href	xlink:href	attr	refuse	operand_label	near_negative	The namespaced attribute name is a label, not a value
+cov-javascript-A-attr-other-later	javascript	function g(x) {\n  <X eval={x} other={x} />;\n}\n	eval={x}	eval	x	attr	accept		accept_cell	Control for the overwrite rows: a later attribute of another name does not overwrite
+cov-javascript-N-attr-valueless	javascript	function g(x) {\n  <X eval />;\n}\n	eval	eval#2	eval	attr	refuse	role_not_bound	near_negative	An attribute without a value binds no operand
+cov-javascript-N-attr-element-value	javascript	function g(x) {\n  <X eval=<c /> />;\n}\n	eval=<c />	eval	<c />	attr	refuse	operand_kind_unlisted	near_negative	An element as attribute value is not a listed value
+cov-javascript-N-attr-empty-expression	javascript	function g(x) {\n  <X eval={} />;\n}\n	eval={}	eval	{}	attr	refuse	operand_kind_unlisted	near_negative	An empty expression container has no value
+cov-javascript-N-attr-html-two-keys	javascript	function g(x) {\n  <X dangerouslySetInnerHTML={{__html:x, b:x}} />;\n}\n	dangerouslySetInnerHTML={{__html:x, b:x}}	dangerouslySetInnerHTML	x	attr	refuse	operand_kind_unlisted	near_negative	The inner HTML object must hold exactly the __html pair
+cov-javascript-N-attr-html-shorthand	javascript	function g(x) {\n  <X dangerouslySetInnerHTML={{__html}} />;\n}\n	dangerouslySetInnerHTML={{__html}}	dangerouslySetInnerHTML	__html	attr	refuse	operand_kind_unlisted	near_negative	A shorthand __html property is not the listed pair
+cov-javascript-N-jsx-child-spread	javascript	function g(x) {\n  <X>{...x}</X>;\n}\n	{...x}	x	x	attr	refuse	op_kind_unlisted	near_negative	A spread child expression is not an attribute spread or a listed operation
+cov-tsx-N-attr-namespace	tsx	function g(x: any) {\n  <X xlink:href="text" />;\n}\n	xlink:href="text"	xlink:href	"text"	attr	refuse	role_not_bound	near_negative	A namespaced attribute name is not a listed attribute
+cov-tsx-N-attr-namespace-label	tsx	function g(x: any) {\n  <X xlink:href="text" />;\n}\n	xlink:href="text"	xlink:href	xlink:href	attr	refuse	operand_label	near_negative	The namespaced attribute name is a label, not a value
+cov-tsx-A-attr-other-later	tsx	function g(x: any) {\n  <X eval={x} other={x} />;\n}\n	eval={x}	eval	x	attr	accept		accept_cell	Control for the overwrite rows: a later attribute of another name does not overwrite
+cov-tsx-N-attr-valueless	tsx	function g(x: any) {\n  <X eval />;\n}\n	eval	eval#2	eval	attr	refuse	role_not_bound	near_negative	An attribute without a value binds no operand
+cov-tsx-N-attr-element-value	tsx	function g(x: any) {\n  <X eval=<c /> />;\n}\n	eval=<c />	eval	<c />	attr	refuse	operand_kind_unlisted	near_negative	An element as attribute value is not a listed value
+cov-tsx-N-attr-empty-expression	tsx	function g(x: any) {\n  <X eval={} />;\n}\n	eval={}	eval	{}	attr	refuse	operand_kind_unlisted	near_negative	An empty expression container has no value
+cov-tsx-N-attr-html-two-keys	tsx	function g(x: any) {\n  <X dangerouslySetInnerHTML={{__html:x, b:x}} />;\n}\n	dangerouslySetInnerHTML={{__html:x, b:x}}	dangerouslySetInnerHTML	x	attr	refuse	operand_kind_unlisted	near_negative	The inner HTML object must hold exactly the __html pair
+cov-tsx-N-attr-html-shorthand	tsx	function g(x: any) {\n  <X dangerouslySetInnerHTML={{__html}} />;\n}\n	dangerouslySetInnerHTML={{__html}}	dangerouslySetInnerHTML	__html	attr	refuse	operand_kind_unlisted	near_negative	A shorthand __html property is not the listed pair
+cov-tsx-N-jsx-child-spread	tsx	function g(x: any) {\n  <X>{...x}</X>;\n}\n	{...x}	x	x	attr	refuse	op_kind_unlisted	near_negative	A spread child expression is not an attribute spread or a listed operation
+cov-javascript-N-assign-optional-chain	javascript	function g(x, y) {\n  x?.eval = y;\n}\n	x?.eval = y	eval	y	assign	refuse	role_not_bound	near_negative	An optional chain target is not a listed assignment target
+cov-javascript-A-assign-plain-member	javascript	function g(x, y) {\n  x.eval = y;\n}\n	x.eval = y	eval	y	assign	accept		accept_cell	Control for the optional chain row: a plain member target is listed

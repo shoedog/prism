@@ -392,12 +392,18 @@ mod census_tests {
     use super::*;
 
     fn census(files: &[(&str, &str)]) -> String {
+        census_with(|root| {
+            for (name, text) in files {
+                fs::write(root.join(name), text).unwrap();
+            }
+        })
+    }
+
+    fn census_with(setup: impl FnOnce(&Path)) -> String {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("corpus");
         fs::create_dir(&root).unwrap();
-        for (name, text) in files {
-            fs::write(root.join(name), text).unwrap();
-        }
+        setup(&root);
         let out = dir.path().join("out.tsv");
         run_census(vec![root], &out).unwrap();
         fs::read_to_string(out).unwrap()
@@ -447,5 +453,181 @@ mod census_tests {
             line(&report, "Go\tgo_blank_read_or_selector").ends_with("\t2"),
             "{report}"
         );
+    }
+
+    // The count in the `reason` row of a scope, 0 when the row is absent.
+    fn reason_count(report: &str, scope: &str, reason: &str) -> usize {
+        let prefix = format!("{scope}\t{reason}\t");
+        report
+            .lines()
+            .find_map(|line| line.strip_prefix(&prefix))
+            .map_or(0, |count| count.parse().unwrap())
+    }
+
+    #[test]
+    fn counts_every_refusal_table_and_hit_outcome() {
+        let report = census_with(|root| {
+            let python = [
+                "def g(x, a, b):",
+                // Certified through the keyword claim after the positional claim fails.
+                "    eval(k=x)",
+                // Refused: the positional claim fails first, the keyword value is not a plain value.
+                "    eval(k=f())",
+                "    eval(*a, *b)",
+                "    eval(x for x in a)",
+                // Certified: the argument is a plain value (the receiver is also a candidate).
+                "    x.eval(1)",
+                "",
+            ]
+            .join("\n");
+            fs::write(root.join("a.py"), python).unwrap();
+            // A file with a syntax error is still read.
+            fs::write(root.join("bad.py"), "eval(x\n").unwrap();
+            // Not UTF-8: skipped, not an error.
+            fs::write(root.join("latin.py"), b"\xff\xfe eval(x)\n").unwrap();
+            // A parallel assignment target is refused, not certified.
+            fs::write(root.join("s.lua"), "eval, b = 1, 2\n").unwrap();
+            fs::write(
+                root.join("j.js"),
+                "function g(x, el) {\n  <X dangerouslySetInnerHTML={{__html: x}} />;\n  <X dangerouslySetInnerHTML={f(x)} />;\n  el.innerHTML = x;\n}\n",
+            )
+            .unwrap();
+            // The callee is not the hit; a bare read is no operation.
+            fs::write(
+                root.join("a.c"),
+                "void g(A a, int x) {\n  a.eval.b(1);\n  y = eval;\n  eval(x);\n}\n",
+            )
+            .unwrap();
+            // A blank target that only declares inside the operation is not a blank read.
+            fs::write(
+                root.join("b.go"),
+                "package p\nfunc g(x int) {\n\texec.Command(1, func() { _ = x })\n}\n",
+            )
+            .unwrap();
+            // Directories the walk skips, and a link it does not follow.
+            for skipped in ["node_modules", ".hidden", "vendor", "target"] {
+                fs::create_dir(root.join(skipped)).unwrap();
+                fs::write(root.join(skipped).join("n.py"), "eval(x)\n").unwrap();
+            }
+            fs::create_dir(root.join("sub")).unwrap();
+            fs::write(root.join("sub").join("s.py"), "def g(x):\n    eval(x)\n").unwrap();
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(root.join("a.py"), root.join("link.py")).unwrap();
+        });
+
+        // Five hits in a.py and one in sub/s.py; the skipped directories and the link add none.
+        let python = line(&report, "Python\t");
+        let fields: Vec<_> = python.split('\t').collect();
+        assert_eq!(&fields[1..6], ["6", "3", "1", "0", "2"], "{report}");
+        for (scope, reason, count) in [
+            // Operation table.
+            ("Python", "op_arguments_unlisted", 1),
+            // Operand table: the furthest failing claim is reported.
+            ("Python", "operand_spread", 1),
+            ("Python", "operand_kind_unlisted", 1),
+            ("Lua", "parallel_assignment", 1),
+            ("JavaScript", "operand_kind_unlisted", 1),
+            ("C", "no_operation", 1),
+        ] {
+            assert_eq!(
+                reason_count(&report, scope, reason),
+                count,
+                "{scope} {reason}: {report}"
+            );
+        }
+        // Callee table.
+        assert!(
+            reason_count(&report, "C", "callee_target_unlisted") >= 1,
+            "{report}"
+        );
+        assert!(
+            line(&report, "JavaScript\t").starts_with("JavaScript\t3\t2\t0\t0\t1"),
+            "{report}"
+        );
+        // The declaring blank is no pending shape; the call is certified.
+        assert!(line(&report, "Go\t").starts_with("Go\t1\t1\t"), "{report}");
+        assert!(!report.contains("go_blank_read_or_selector"), "{report}");
+    }
+
+    #[test]
+    fn valid_outer_argument_lists_are_not_pending_shapes() {
+        let report = census(&[(
+            "a.py",
+            "def g(x, a):\n    outer(*a, eval(x))\n    outer(  # note\n        eval(x),\n        2)\n    outer(eval(x), k=0)\n",
+        )]);
+        assert!(
+            line(&report, "Python\t").starts_with("Python\t3\t3\t"),
+            "{report}"
+        );
+        assert!(
+            !report.contains("python_invalid_outer_arguments"),
+            "{report}"
+        );
+        // Control: the same calls with a positional argument after a keyword are pending.
+        let report = census(&[("a.py", "def g(x):\n    outer(k=0, eval(x))\n")]);
+        assert!(
+            line(&report, "Python\tpython_invalid_outer_arguments").ends_with("\t1"),
+            "{report}"
+        );
+    }
+
+    fn run_child(root: &Path, out: &Path, list: &str) -> String {
+        let name = format!(
+            "{}::price_corpora",
+            module_path!()
+                .trim_start_matches("prism_review::")
+                .trim_end_matches("::census_tests")
+        );
+        let output = std::process::Command::new(env::current_exe().unwrap())
+            .args(["--ignored", "--exact", "--nocapture", &name])
+            .env("PRICE_ROOTS", root)
+            .env("PRICE_OUT", out)
+            .env("PRICE_LIST", list)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stderr).into_owned()
+    }
+
+    #[test]
+    fn corpus_entry_point_reports_progress_and_lists_misses() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("corpus");
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("a.py"), "def g(x):\n    eval(x)\n    eval(*x)\n").unwrap();
+        fs::write(root.join("s.lua"), "eval, b = 1, 2\n").unwrap();
+        for i in 0..1000 {
+            fs::write(root.join(format!("n{i}.txt")), "").unwrap();
+        }
+        let out = dir.path().join("out.tsv");
+
+        let python = run_child(&root, &out, "Python");
+        // Files are visited in name order: the progress line comes before s.lua is read.
+        assert!(python.contains("price: 1000 files, 2 hits"), "{python}");
+        let misses: Vec<_> = python
+            .lines()
+            .filter(|line| line.starts_with("price-miss\t"))
+            .collect();
+        // Only the refused Python hit is listed, with its language, line, reason and source line.
+        assert_eq!(misses.len(), 1, "{python}");
+        assert!(misses[0].starts_with("price-miss\tPython\t"), "{python}");
+        assert!(
+            misses[0].contains("a.py:3\toperand_spread\teval(*x)"),
+            "{python}"
+        );
+        let table = fs::read_to_string(&out).unwrap();
+        assert!(table.contains("Python\t2\t1\t"), "{table}");
+
+        let all = run_child(&root, &out, "all");
+        assert_eq!(all.matches("price-miss\t").count(), 2, "{all}");
+        assert!(all.contains("price-miss\tLua\t"), "{all}");
+        assert!(all.contains("parallel_assignment"), "{all}");
+
+        let none = run_child(&root, &out, "Rust");
+        assert!(!none.contains("price-miss"), "{none}");
     }
 }
