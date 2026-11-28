@@ -33,6 +33,7 @@
 //! navigation). The legacy flat taint walk of the default review is intentionally NOT affected.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsString;
 use std::io::Write;
 use std::sync::OnceLock;
 
@@ -45,19 +46,52 @@ const SWITCHES: &str = "PRISM_TAINT_WALK_PROOFS";
 const FILE: &str = "PRISM_TAINT_WALK_PROOFS_FILE";
 const SUMMARY: &str = "taint-walk-proofs ";
 
-/// A variable's value; unset is `None`, a value that is not UTF-8 is a loud error.
-fn env_text(name: &str) -> Option<String> {
-    match std::env::var(name) {
-        Ok(value) => Some(value),
-        Err(std::env::VarError::NotPresent) => None,
-        Err(std::env::VarError::NotUnicode(_)) => panic!("{name}: the value is not valid UTF-8"),
+/// A variable's value; unset is `None`, a value that is not UTF-8 is an error naming it.
+fn utf8(name: &str, value: Option<OsString>) -> Result<Option<String>, String> {
+    value
+        .map(|value| {
+            value
+                .into_string()
+                .map_err(|_| format!("{name}: the value is not valid UTF-8"))
+        })
+        .transpose()
+}
+
+#[cfg(test)]
+thread_local! {
+    /// A test-installed configuration that stands in for the process-wide one on this thread.
+    static OVERRIDE: std::cell::RefCell<Option<Option<std::rc::Rc<WalkProofs>>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `f` with the test-installed configuration (`None` meaning every switch off) in place of
+/// the process-wide one, then restores what was there.
+#[cfg(test)]
+pub(super) fn with_walk_proofs<R>(proofs: Option<WalkProofs>, f: impl FnOnce() -> R) -> R {
+    struct Restore(Option<Option<std::rc::Rc<WalkProofs>>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            OVERRIDE.with(|slot| *slot.borrow_mut() = self.0.take());
+        }
     }
+    let _restore =
+        Restore(OVERRIDE.with(|slot| slot.borrow_mut().replace(proofs.map(std::rc::Rc::new))));
+    f()
+}
+
+/// The configuration in force: the process-wide one (or, in tests, the thread's override).
+fn with_proofs<R>(f: impl FnOnce(Option<&WalkProofs>) -> R) -> R {
+    #[cfg(test)]
+    if let Some(installed) = OVERRIDE.with(|slot| slot.borrow().clone()) {
+        return f(installed.as_deref());
+    }
+    f(WalkProofs::global())
 }
 
 /// Reads the configuration now (once per process) so a misconfiguration panics at walk entry
 /// even if no hop ever reaches the hook; one `Option` test when off.
 pub(super) fn check_walk_proofs() {
-    let _ = WalkProofs::global();
+    with_proofs(|_| ());
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -241,36 +275,62 @@ impl WalkProofs {
         Ok(Some(Self { rules }))
     }
 
-    /// The process-wide proofs, read once; panics on a misconfiguration. When a switch is on it
-    /// prints one stderr line per switched-on rule with the entries kept and the entries dropped
-    /// for a relation mismatch.
+    /// The proofs the two variables describe. `Ok(None)` when no rule is on (the file is then not
+    /// read); a value that is not UTF-8, an unreadable file or any other misconfiguration is an
+    /// `Err` naming the variable.
+    pub(super) fn from_env_values(
+        file: Option<OsString>,
+        switches: Option<OsString>,
+    ) -> Result<Option<Self>, String> {
+        let switches = utf8(SWITCHES, switches)?;
+        let file = utf8(FILE, file)?;
+        let on = parse_switches(switches.as_deref())?;
+        // The file is read only when a rule is on, exactly as `from_parts` decides.
+        let text = match file.filter(|_| !on.is_empty()) {
+            Some(path) => Some(
+                std::fs::read_to_string(&path)
+                    .map_err(|error| format!("{FILE}: cannot read {path}: {error}"))?,
+            ),
+            None => None,
+        };
+        Self::from_parts(text.as_deref(), switches.as_deref())
+    }
+
+    /// One line per switched-on rule: the filed entries kept, and those dropped because their
+    /// relation is not the rule's.
+    pub(super) fn summary(&self) -> String {
+        self.rules
+            .iter()
+            .map(|set| {
+                format!(
+                    "{SUMMARY}rule={} kept={} dropped_relation_mismatch={}\n",
+                    set.rule.name(),
+                    set.entries.len(),
+                    set.dropped
+                )
+            })
+            .collect()
+    }
+
+    /// Loads the proofs from the given environment values and prints their summary to stderr;
+    /// panics on a misconfiguration (loud on purpose).
+    pub(super) fn load(file: Option<OsString>, switches: Option<OsString>) -> Option<Self> {
+        let proofs =
+            Self::from_env_values(file, switches).unwrap_or_else(|message| panic!("{message}"));
+        if let Some(proofs) = &proofs {
+            // A diagnostic only: it has no bearing on the walk.
+            let _ = std::io::stderr()
+                .lock()
+                .write_all(proofs.summary().as_bytes());
+        }
+        proofs
+    }
+
+    /// The process-wide proofs, read once; panics on a misconfiguration.
     pub(super) fn global() -> Option<&'static WalkProofs> {
         static PROOFS: OnceLock<Option<WalkProofs>> = OnceLock::new();
         PROOFS
-            .get_or_init(|| {
-                let switches = env_text(SWITCHES);
-                let file = env_text(FILE);
-                let on = parse_switches(switches.as_deref())
-                    .unwrap_or_else(|message| panic!("{message}"));
-                // The file is read only when a rule is on, exactly as `from_parts` decides.
-                let text = file.filter(|_| !on.is_empty()).map(|path| {
-                    std::fs::read_to_string(&path)
-                        .unwrap_or_else(|error| panic!("{FILE}: cannot read {path}: {error}"))
-                });
-                let proofs = Self::from_parts(text.as_deref(), switches.as_deref())
-                    .unwrap_or_else(|message| panic!("{message}"));
-                for set in proofs.iter().flat_map(|proofs| &proofs.rules) {
-                    // A diagnostic only: it has no bearing on the walk.
-                    let _ = writeln!(
-                        std::io::stderr().lock(),
-                        "{SUMMARY}rule={} kept={} dropped_relation_mismatch={}",
-                        set.rule.name(),
-                        set.entries.len(),
-                        set.dropped
-                    );
-                }
-                proofs
-            })
+            .get_or_init(|| Self::load(std::env::var_os(FILE), std::env::var_os(SWITCHES)))
             .as_ref()
     }
 
@@ -304,12 +364,13 @@ impl CodePropertyGraph {
         to: NodeIndex,
         root: NodeIndex,
     ) -> Option<LossReason> {
-        let proofs = WalkProofs::global()?;
-        proofs.refusal_for_keys(
-            relation,
-            &self.trace_key(from),
-            &self.trace_key(to),
-            &self.trace_key(root),
-        )
+        with_proofs(|proofs| {
+            proofs?.refusal_for_keys(
+                relation,
+                &self.trace_key(from),
+                &self.trace_key(to),
+                &self.trace_key(root),
+            )
+        })
     }
 }

@@ -15,11 +15,11 @@ const GF: &str = "function g(x) { sink(x); }\nfunction f(t) {\n  g(t);\n}\n";
 const W05: &str = include_str!("../../tests/taint_parity/w05/a.js");
 const RULES: [&str; 7] = ["i", "ii", "iii", "iv", "v", "return_flow", "return_input"];
 
-fn file_text(rules: Value) -> String {
+pub(super) fn file_text(rules: Value) -> String {
     json!({"version": 1, "rules": rules}).to_string()
 }
 
-fn entry(relation: &str, from: &str, to: &str, root: Option<&str>) -> Value {
+pub(super) fn entry(relation: &str, from: &str, to: &str, root: Option<&str>) -> Value {
     match root {
         Some(root) => json!({"relation": relation, "from": from, "to": to, "root": root}),
         None => json!({"relation": relation, "from": from, "to": to}),
@@ -216,7 +216,7 @@ fn misconfiguration_is_an_error_naming_the_variable() {
 
 // ---- walk ------------------------------------------------------------------------------------
 
-fn keys(cpg: &CodePropertyGraph, nodes: &[petgraph::graph::NodeIndex]) -> Vec<String> {
+pub(super) fn keys(cpg: &CodePropertyGraph, nodes: &[petgraph::graph::NodeIndex]) -> Vec<String> {
     nodes.iter().map(|&node| cpg.trace_key(node)).collect()
 }
 
@@ -226,8 +226,14 @@ fn walk_child() {
     let Ok(case) = std::env::var(CASE) else {
         return;
     };
+    let report = walk_report(&case);
+    println!("<<<REPORT{report}REPORT>>>");
+}
+
+/// One walk of a named case under the current configuration, described as JSON.
+pub(super) fn walk_report(case: &str) -> Value {
     const LOCAL: &str = "function h(a) {\n  const b = a;\n  sink(b);\n}\n";
-    let (source, roots_at, mode, ordered) = match case.as_str() {
+    let (source, roots_at, mode, ordered) = match case {
         "gf" => (
             GF,
             vec![(GF.find("g(t)").unwrap() + 2, VarAccess::Use)],
@@ -318,7 +324,7 @@ fn walk_child() {
         "root": key(root), "hops": hops, "boundary": boundary, "cuts": cuts,
         "frontier": frontier, "frontier_by_root": by_root, "warnings": trace.warnings,
     });
-    println!("<<<REPORT{report}REPORT>>>");
+    report
 }
 
 struct Run {
@@ -410,11 +416,11 @@ fn run_raw(case: &str, switches: Option<&std::ffi::OsStr>, file: Option<&std::ff
     }
 }
 
-fn file(rules: Value) -> Value {
+pub(super) fn file(rules: Value) -> Value {
     json!({"version": 1, "rules": rules})
 }
 
-fn hop_of(report: &Value, relation: &str) -> (String, String) {
+pub(super) fn hop_of(report: &Value, relation: &str) -> (String, String) {
     let hop = report["hops"]
         .as_array()
         .unwrap()
@@ -427,7 +433,7 @@ fn hop_of(report: &Value, relation: &str) -> (String, String) {
     )
 }
 
-fn reached(report: &Value, key: &str) -> bool {
+pub(super) fn reached(report: &Value, key: &str) -> bool {
     report["frontier"]
         .as_array()
         .unwrap()
@@ -435,14 +441,14 @@ fn reached(report: &Value, key: &str) -> bool {
         .any(|node| node == key)
 }
 
-fn empty_rules() -> Value {
+pub(super) fn empty_rules() -> Value {
     RULES
         .iter()
         .map(|rule| (rule.to_string(), json!([])))
         .collect()
 }
 
-fn with_rule(rule: &str, entries: Vec<Value>) -> Value {
+pub(super) fn with_rule(rule: &str, entries: Vec<Value>) -> Value {
     let mut rules = empty_rules();
     rules[rule] = Value::Array(entries);
     file(rules)

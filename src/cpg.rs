@@ -135,6 +135,8 @@ mod trace_descent_tests;
 mod trace_proofs;
 #[cfg(test)]
 mod trace_proofs_tests;
+#[cfg(test)]
+mod trace_proofs_walk_tests;
 mod types;
 pub(crate) mod var_index;
 
