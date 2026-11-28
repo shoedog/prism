@@ -715,8 +715,9 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
   resolve to different VALUE bindings (variable, parameter, function, class,
   import, binding element by its name) are a proved different binding, WRONG
   `different-declaration`, without a neighbour check (matrix row oracle-007). The neighbour check runs only
-  when at least one of the two resolved declarations is not one of those (a class or
-  function expression name, an enum or a namespace); then a same-line neighbour with
+  unless both resolved declarations are one of those kinds; any other declaration (a
+  class or function expression name, an enum, a namespace, a UMD global declared with
+  `export as namespace`, and so on, not an exhaustive list) takes it, and then a same-line neighbour with
   the claimed spelling and a serving role (its binding is not compared, and it can be
   a member name) gives UNDECIDED `endpoint-coordinate-off` (known limits above).
 - `implements`, interface `extends`, computed property/method signatures in
