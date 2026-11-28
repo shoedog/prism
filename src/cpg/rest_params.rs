@@ -26,17 +26,39 @@ pub(super) fn compute_rest_def_node(
     if functions.next().is_some() {
         return None;
     }
+    let (offset, def) =
+        rest_def_for_implementation(parsed, callee, implementation, var_index, graph)?;
+    let CpgNode::Variable { path, .. } = &graph[def] else {
+        return None;
+    };
+    let mut bindings = JsBindingCache::for_sites();
+    (!parsed.js_ts_direct_eval_anywhere(&implementation)
+        && !parsed.js_ts_scoped_written(implementation, &path.base, &mut bindings))
+    .then_some((offset, def))
+}
+
+pub(super) fn runtime_formals(parameters: Node<'_>) -> Vec<Node<'_>> {
+    let mut cursor = parameters.walk();
+    parameters
+        .named_children(&mut cursor)
+        .filter(|node| !node.is_extra())
+        .map(|node| node.child_by_field_name("pattern").unwrap_or(node))
+        .filter(|node| node.kind() != "this")
+        .collect()
+}
+
+pub(super) fn rest_def_for_implementation(
+    parsed: &ParsedFile,
+    callee: &FunctionId,
+    implementation: Node<'_>,
+    var_index: &VarIndex,
+    graph: &DiGraph<CpgNode, CpgEdge>,
+) -> Option<(usize, NodeIndex)> {
     let parameters = parsed.find_parameters_node(&implementation)?;
     if parameters.has_error() {
         return None;
     }
-    let mut cursor = parameters.walk();
-    let formals = parameters
-        .named_children(&mut cursor)
-        .filter(|node| !node.is_extra())
-        .map(|node| node.child_by_field_name("pattern").unwrap_or(node))
-        .filter(|node| node.kind() != "this");
-    let (offset, rest) = formals.enumerate().last()?;
+    let (offset, rest) = runtime_formals(parameters).into_iter().enumerate().last()?;
     let identifier = parsed.js_ts_rest_identifier(rest)?;
     let name = parsed.node_text(&identifier);
     let path = AccessPath::simple(name);
@@ -56,12 +78,7 @@ pub(super) fn compute_rest_def_node(
     {
         return None;
     }
-    // This scopes writes to the formal, including captured rebinding and
-    // parameter expressions. An indexed write and a write to a shadow differ.
-    let mut bindings = JsBindingCache::for_sites();
-    (!parsed.js_ts_direct_eval_anywhere(&implementation)
-        && !parsed.js_ts_scoped_written(implementation, name, &mut bindings))
-    .then_some((offset, def))
+    Some((offset, def))
 }
 
 /// Admission for ordinary Step 5b rest edges.

@@ -74,10 +74,149 @@ type Facts = Option<Vec<Option<ParamTarget>>>;
 pub(super) type FactCell = Arc<OnceLock<Facts>>;
 type RestCell = Arc<OnceLock<Option<(usize, ParamTarget)>>>;
 
+/// The coordinate of an admitted binding, independent of graph numbering.
+#[derive(Clone)]
+pub(super) struct PatternTarget(ParamTarget);
+
+impl PatternTarget {
+    fn from_node(node: &CpgNode) -> Self {
+        Self(ParamTarget::from_node(node, None))
+    }
+
+    pub(super) fn resolve(
+        &self,
+        index: &ExactVarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Option<NodeIndex> {
+        resolve_pattern_target(index, graph, &self.0.key, self.0.bytes)
+    }
+}
+
+fn resolve_pattern_target(
+    index: &ExactVarIndex,
+    graph: &DiGraph<CpgNode, CpgEdge>,
+    key: &LegacyVarKey,
+    bytes: (usize, usize),
+) -> Option<NodeIndex> {
+    let [node] = index.get(key)?.get(&bytes)?.as_slice() else {
+        return None;
+    };
+    let CpgNode::Variable {
+        file,
+        function,
+        function_start_line,
+        line,
+        path,
+        access,
+        start_byte,
+        end_byte,
+    } = graph.node_weight(*node)?
+    else {
+        return None;
+    };
+    ((file, function, function_start_line, line, path, access)
+        == (&key.0, &key.1, &key.2, &key.3, &key.4, &key.5)
+        && (*start_byte, *end_byte) == bytes)
+        .then_some(*node)
+}
+
+pub(super) struct PatternPosition<T> {
+    pub(super) syntax: crate::ast::js_ts::PatternParam,
+    /// Aligned to syntax order, including absent Defs.
+    pub(super) targets: Vec<Option<T>>,
+}
+
+pub(super) struct PatternFacts<T> {
+    pub(super) callable: (usize, usize),
+    pub(super) positions: Vec<PatternPosition<T>>,
+}
+
+pub(super) type PatternCell = Arc<OnceLock<Option<PatternFacts<PatternTarget>>>>;
+
+pub(super) fn compute_pattern_formal_nodes(
+    parsed: &ParsedFile,
+    callee: &FunctionId,
+    exact: &ExactVarIndex,
+    graph: &DiGraph<CpgNode, CpgEdge>,
+) -> Option<PatternFacts<NodeIndex>> {
+    let anonymous = crate::anon_owner::is_anonymous_owner_name(&callee.name);
+    let mut functions = crate::anon_owner::candidate_nodes(parsed, anonymous)
+        .into_iter()
+        .filter(|node| {
+            parsed.node_line_range(node) == (callee.start_line, callee.end_line)
+                && node.child_by_field_name("body").is_some()
+                && crate::anon_owner::identity(parsed, node, &callee.file).as_ref() == Some(callee)
+        });
+    let callable = functions.next()?;
+    if functions.next().is_some() || callable.has_error() {
+        return None;
+    }
+    let positions = parsed
+        .js_ts_pattern_params(&callable)
+        .into_iter()
+        .map(|syntax| {
+            let targets = syntax
+                .elements
+                .iter()
+                .map(|element| {
+                    if !element.admitted {
+                        return None;
+                    }
+                    let key = (
+                        callee.file.clone(),
+                        callee.name.clone(),
+                        callee.start_line,
+                        callee.start_line,
+                        AccessPath::simple(&element.name),
+                        VarAccess::Def,
+                    );
+                    resolve_pattern_target(
+                        exact,
+                        graph,
+                        &key,
+                        (element.bytes.start, element.bytes.end),
+                    )
+                })
+                .collect();
+            PatternPosition { syntax, targets }
+        })
+        .collect();
+    Some(PatternFacts {
+        callable: (callable.start_byte(), callable.end_byte()),
+        positions,
+    })
+}
+
+#[cfg(test)]
+impl ParamCache<'_> {
+    fn pattern_positions(
+        &self,
+        callee: &FunctionId,
+        parsed: &ParsedFile,
+        exact: &ExactVarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> Vec<(usize, bool, Vec<PatternTarget>)> {
+        let cell = self.patterns(callee, parsed, exact, graph);
+        cell.get()
+            .and_then(Option::as_ref)
+            .into_iter()
+            .flat_map(|facts| &facts.positions)
+            .map(|position| {
+                (
+                    position.syntax.position,
+                    position.syntax.alias_skipped,
+                    position.targets.iter().flatten().cloned().collect(),
+                )
+            })
+            .collect()
+    }
+}
+
 pub(super) struct ParamCache<'a> {
     pub(super) files: &'a BTreeMap<String, ParsedFile>,
     entries: Mutex<BTreeMap<FunctionId, FactCell>>,
     rest_entries: Mutex<BTreeMap<FunctionId, RestCell>>,
+    pattern_entries: Mutex<BTreeMap<FunctionId, PatternCell>>,
 }
 
 impl<'a> ParamCache<'a> {
@@ -86,6 +225,7 @@ impl<'a> ParamCache<'a> {
             files,
             entries: Mutex::new(BTreeMap::new()),
             rest_entries: Mutex::new(BTreeMap::new()),
+            pattern_entries: Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -111,6 +251,41 @@ impl<'a> ParamCache<'a> {
                     .into_iter()
                     .map(|node| node.map(|def| ParamTarget::from_node(&graph[def.node], def.bare)))
                     .collect()
+            })
+        });
+        cell
+    }
+
+    pub(super) fn patterns(
+        &self,
+        callee: &FunctionId,
+        parsed: &ParsedFile,
+        exact: &ExactVarIndex,
+        graph: &DiGraph<CpgNode, CpgEdge>,
+    ) -> PatternCell {
+        let cell = self
+            .pattern_entries
+            .lock()
+            .expect("pattern parameter cache lock")
+            .entry(callee.clone())
+            .or_default()
+            .clone();
+        cell.get_or_init(|| {
+            let facts = compute_pattern_formal_nodes(parsed, callee, exact, graph)?;
+            Some(PatternFacts {
+                callable: facts.callable,
+                positions: facts
+                    .positions
+                    .into_iter()
+                    .map(|at| PatternPosition {
+                        syntax: at.syntax,
+                        targets: at
+                            .targets
+                            .into_iter()
+                            .map(|target| target.map(|node| PatternTarget::from_node(&graph[node])))
+                            .collect(),
+                    })
+                    .collect(),
             })
         });
         cell
@@ -181,7 +356,15 @@ pub(super) fn compute_param_def_nodes(
     }
 
     let function = locate_function(parsed, callee)?;
-    formal_def_nodes(parsed, callee, &function, var_index, graph)
+    let slots = parsed.function_parameter_slot_occurrences(&function)?;
+    Some(lookup_formal_defs(
+        parsed,
+        callee,
+        &function,
+        slots.into_iter().map(Some),
+        var_index,
+        graph,
+    ))
 }
 
 fn locate_function<'a>(parsed: &'a ParsedFile, callee: &FunctionId) -> Option<Node<'a>> {
@@ -201,16 +384,62 @@ fn locate_function<'a>(parsed: &'a ParsedFile, callee: &FunctionId) -> Option<No
     functions.next().is_none().then_some(function)
 }
 
-fn formal_def_nodes(
+/// Fixed runtime roles of a syntax-proved JS-family implementation.
+/// Destructured and unsupported formals occupy their slots without a target.
+pub(super) fn formal_def_nodes(
+    parsed: &ParsedFile,
+    function: &Node<'_>,
+    owner: &FunctionId,
+    var_index: &VarIndex,
+    graph: &DiGraph<CpgNode, CpgEdge>,
+    admit_bare: bool,
+) -> Option<Vec<Option<NodeIndex>>> {
+    let parameters = parsed.parameter_binding_region(function)?;
+    if !crate::parameter_slots::js_ts_parameter_list_is_clean(parsed, parameters) {
+        return None;
+    }
+    let slots = if parameters.kind() == "identifier" {
+        vec![admit_bare.then_some(parameters)]
+    } else {
+        rest_params::runtime_formals(parameters)
+            .into_iter()
+            .map(|pattern| {
+                let binding = if pattern.kind() == "assignment_pattern" {
+                    pattern.child_by_field_name("left")?
+                } else {
+                    pattern
+                };
+                (binding.kind() == "identifier").then_some(binding)
+            })
+            .collect()
+    };
+    let slots = slots.into_iter().map(|node| {
+        node.map(|node| {
+            (
+                parsed.node_text(&node).to_owned(),
+                node.start_byte(),
+                node.end_byte(),
+            )
+        })
+    });
+    Some(
+        lookup_formal_defs(parsed, owner, function, slots, var_index, graph)
+            .into_iter()
+            .map(|def| def.map(|def| def.node))
+            .collect(),
+    )
+}
+
+fn lookup_formal_defs(
     parsed: &ParsedFile,
     callee: &FunctionId,
     function: &Node<'_>,
+    slots: impl Iterator<Item = Option<crate::ast::ParameterOccurrence>>,
     var_index: &VarIndex,
     graph: &DiGraph<CpgNode, CpgEdge>,
-) -> Option<Vec<Option<ParamDef>>> {
+) -> Vec<Option<ParamDef>> {
     // Unsupported occurrences retain their positional holes. The entry Def
     // must match the runtime slot, and a bare slot must match the identifier.
-    let slots = parsed.function_parameter_slot_occurrences(function)?;
     let supported: BTreeSet<_> = parsed
         .function_parameter_occurrences(function)
         .into_iter()
@@ -235,40 +464,38 @@ fn formal_def_nodes(
                 },
             )
         });
-    Some(
-        slots
-            .into_iter()
-            .map(|slot| {
-                if !supported.contains(&slot)
-                    || bare
-                        .as_ref()
-                        .is_some_and(|(occurrence, _)| occurrence != &slot)
-                {
-                    return None;
-                }
-                let bare = bare.as_ref().map(|(_, marker)| *marker);
-                let path = AccessPath::simple(&slot.0);
-                let node = var_index.get_ref(
-                    graph,
-                    VarKeyRef {
-                        file: &callee.file,
-                        function: &callee.name,
-                        function_start_line: callee.start_line,
-                        line: callee.start_line,
-                        path: &path,
-                        access: VarAccess::Def,
-                    },
-                )?;
-                matches!(graph.node_weight(node), Some(CpgNode::Variable {
-                    file, function, function_start_line, line, path: actual_path,
-                    access: VarAccess::Def, start_byte, end_byte,
-                }) if file == &callee.file && function == &callee.name
-                    && *function_start_line == callee.start_line
-                    && *line == callee.start_line && actual_path == &path
-                    && (*start_byte, *end_byte) == (slot.1, slot.2)
-                )
-                .then_some(ParamDef { node, bare })
-            })
-            .collect(),
-    )
+    slots
+        .map(|slot| {
+            let slot = slot?;
+            if !supported.contains(&slot)
+                || bare
+                    .as_ref()
+                    .is_some_and(|(occurrence, _)| occurrence != &slot)
+            {
+                return None;
+            }
+            let bare = bare.as_ref().map(|(_, marker)| *marker);
+            let path = AccessPath::simple(&slot.0);
+            let node = var_index.get_ref(
+                graph,
+                VarKeyRef {
+                    file: &callee.file,
+                    function: &callee.name,
+                    function_start_line: callee.start_line,
+                    line: callee.start_line,
+                    path: &path,
+                    access: VarAccess::Def,
+                },
+            )?;
+            matches!(graph.node_weight(node), Some(CpgNode::Variable {
+                file, function, function_start_line, line, path: actual_path,
+                access: VarAccess::Def, start_byte, end_byte,
+            }) if file == &callee.file && function == &callee.name
+                && *function_start_line == callee.start_line
+                && *line == callee.start_line && actual_path == &path
+                && (*start_byte, *end_byte) == (slot.1, slot.2)
+            )
+            .then_some(ParamDef { node, bare })
+        })
+        .collect()
 }

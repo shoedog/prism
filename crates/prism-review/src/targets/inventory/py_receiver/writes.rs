@@ -1,6 +1,6 @@
 mod objects;
 mod strings;
-pub(super) use strings::literal as string_literal;
+pub(super) use strings::{is_literal_string, literal as string_literal};
 
 use super::{
     lookup::args,
@@ -11,7 +11,7 @@ use crate::targets::inventory::python::{
     source::{children, has_comma, name, outer_group, scalar_subscript, ungroup, ungroup_target},
     walk::{Context, ScopeId},
 };
-use objects::Objects;
+use objects::{Objects, WriteAccess};
 use tree_sitter::Node;
 
 #[derive(PartialEq, Eq)]
@@ -20,9 +20,14 @@ pub(super) struct Write {
     effect: Objects,
     read_point: Read,
     suite: Option<usize>,
+    occurrence: usize,
 }
 
 impl Write {
+    pub(super) fn at(&self, node: Node<'_>) -> bool {
+        self.occurrence == node.id()
+    }
+
     pub(super) fn reaches(&self, read: Read) -> bool {
         let write = self.read_point;
         // Module initialization is ordered. A deferred activation can see
@@ -109,7 +114,12 @@ impl<'tree> Resolver<'_, 'tree> {
                 let Some((object, key, value)) = self.reflection_write(node, scope) else {
                     continue;
                 };
-                (self.objects(object, scope, true).slots(key), value)
+                let access = if value.is_some() {
+                    WriteAccess::Attribute
+                } else {
+                    WriteAccess::DeleteAttribute
+                };
+                (self.objects(object, scope, true).slots(key, access), value)
             } else {
                 let roots = write_targets(node);
                 let value = match roots.as_slice() {
@@ -124,9 +134,14 @@ impl<'tree> Resolver<'_, 'tree> {
                     }
                     _ => None,
                 };
+                let access = if node.kind() == "delete_statement" {
+                    WriteAccess::DeleteAttribute
+                } else {
+                    WriteAccess::Attribute
+                };
                 let slots = roots
                     .into_iter()
-                    .flat_map(|target| self.targets(target, scope, names_only))
+                    .flat_map(|target| self.targets(target, scope, names_only, access))
                     .collect();
                 (slots, value)
             };
@@ -147,27 +162,32 @@ impl<'tree> Resolver<'_, 'tree> {
                 effect: effect.clone(),
                 read_point,
                 suite,
+                occurrence: node.id(),
             }));
         }
     }
 
-    fn targets(&self, target: Node<'tree>, scope: ScopeId, names_only: bool) -> Vec<Slot> {
+    fn targets(
+        &self,
+        target: Node<'tree>,
+        scope: ScopeId,
+        names_only: bool,
+        access: WriteAccess,
+    ) -> Vec<Slot> {
         match target.kind() {
             "attribute" if !names_only => {
                 let Some(object) = target.child_by_field_name("object") else {
                     return Vec::new();
                 };
-                let key = target
-                    .child_by_field_name("attribute")
-                    .map(|attr| name(self.parsed.node_text(&attr), self.walk.class(scope)));
-                self.objects(object, scope, true).slots(key)
+                let key = self.attribute_key(target, scope);
+                self.objects(object, scope, true).slots(key, access)
             }
             "subscript" => self
                 .subscript_write(target, scope, names_only)
                 .unwrap_or_default(),
             _ => target_parts(target)
                 .into_iter()
-                .flat_map(|item| self.targets(item, scope, names_only))
+                .flat_map(|item| self.targets(item, scope, names_only, access))
                 .collect(),
         }
     }
@@ -193,14 +213,11 @@ impl<'tree> Resolver<'_, 'tree> {
             return None;
         }
         if let Some(object) = self.vars_target(value, target, scope) {
-            return Some(self.objects(object, scope, true).slots(key));
+            return Some(self.namespace_slots(object, scope, key));
         }
-        if value.kind() == "attribute" {
-            let attribute = value.child_by_field_name("attribute")?;
-            if name(self.parsed.node_text(&attribute), self.walk.class(scope)) == "__dict__" {
-                let object = value.child_by_field_name("object")?;
-                return Some(self.objects(object, scope, true).slots(key));
-            }
+        if self.attribute_key(value, scope).as_deref() == Some("__dict__") {
+            let object = value.child_by_field_name("object")?;
+            return Some(self.namespace_slots(object, scope, key));
         }
         self.implicit_builtins(value, scope).then(|| {
             vec![Slot::Member {
@@ -209,6 +226,21 @@ impl<'tree> Resolver<'_, 'tree> {
                 key,
             }]
         })
+    }
+
+    fn namespace_slots(
+        &self,
+        object: Node<'tree>,
+        scope: ScopeId,
+        key: Option<String>,
+    ) -> Vec<Slot> {
+        self.objects(object, scope, true)
+            .slots(key, WriteAccess::Namespace)
+    }
+
+    fn attribute_key(&self, node: Node<'tree>, scope: ScopeId) -> Option<String> {
+        node.child_by_field_name("attribute")
+            .map(|attr| name(self.parsed.node_text(&attr), self.walk.class(scope)))
     }
 
     pub(super) fn literal_receiver_write(&self, receiver: Node<'tree>, scope: ScopeId) -> bool {

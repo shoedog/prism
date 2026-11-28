@@ -15,7 +15,7 @@ mod route_pins;
 mod supplied_site;
 pub(super) use supplied_site::assert_supplied_site_reaches_use;
 
-const ACTIVE_SLICES: &[&str] = &["control", "A", "B", "C"];
+const ACTIVE_SLICES: &[&str] = &["control", "A", "B", "C", "D"];
 type AssertionKey<'a> = (&'a str, &'a str, usize);
 type ExpectedRed<'a> = (AssertionKey<'a>, &'a str);
 
@@ -536,27 +536,9 @@ impl Fixture<'_> {
 }
 
 fn flow_label(label: FlowConfidence) -> String {
-    match label {
-        FlowConfidence::Exact => "exact".to_owned(),
-        FlowConfidence::NameOnly(doubt) => {
-            // Use the serialized variant name so future doubts can be fixture expectations
-            // as soon as the product emits them.
-            let value = serde_json::to_value(doubt).unwrap();
-            let name = value
-                .as_str()
-                .unwrap_or_else(|| value.as_object().unwrap().keys().next().unwrap());
-            let mut label = String::from("nameonly/");
-            for (index, c) in name.chars().enumerate() {
-                if c.is_ascii_uppercase() && index != 0 {
-                    label.push('_');
-                }
-                label.push(c.to_ascii_lowercase());
-            }
-            // The established spelling (`dfg-stats --edges`, navigation::queries) is one word.
-            label
-                .replace("nameonly/call_name_only", "nameonly/call_nameonly")
-                .replace("nameonly/same_line", "nameonly/sameline")
-        }
+    match label.doubt_spelling() {
+        Some(doubt) => format!("{}/{doubt}", label.level()),
+        None => label.level().to_owned(),
     }
 }
 
@@ -924,7 +906,7 @@ mod harness {
     #[test]
     fn staged_ordinals_and_integrated_coverage() {
         let rows = read_rows(ROWS).unwrap();
-        assert_eq!(rows.len(), 425);
+        assert_eq!(rows.len(), 432);
         let ordinals = |id, slices: &[&str]| {
             rows.iter()
                 .find(|row| row.id == id)

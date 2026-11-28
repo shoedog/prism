@@ -10,7 +10,7 @@ use crate::targets::inventory::{
         source::{children, name, ungroup},
         walk::{ScopeId, ScopeKind},
     },
-    Family, Grade, UnprovenCause,
+    Grade, UnprovenCause,
 };
 use tree_sitter::Node;
 
@@ -61,10 +61,10 @@ impl<'tree> Resolver<'_, 'tree> {
                 let Some(construction) = Construction::from_binding(binding) else {
                     continue;
                 };
-                let Some(class) = self.constructor(
+                let Some((family, class)) = self.method_constructor(
                     construction.call,
                     binding.scope,
-                    Some(&method),
+                    &method,
                     construction.protocol(),
                 ) else {
                     continue;
@@ -99,9 +99,13 @@ impl<'tree> Resolver<'_, 'tree> {
                 match result {
                     Ok(class) => {
                         return Some(Resolution {
-                            family: Family::Http,
+                            family,
                             grade: Grade::Exact,
                             identity: Ok(format!("{class}.{method}")),
+                            #[cfg(any(test, feature = "inventory-evidence"))]
+                            declaration: None,
+                            #[cfg(any(test, feature = "inventory-evidence"))]
+                            field: None,
                             #[cfg(any(test, feature = "inventory-evidence"))]
                             route: Some(super::super::evidence::Route::R2),
                             #[cfg(any(test, feature = "inventory-evidence"))]
@@ -112,21 +116,14 @@ impl<'tree> Resolver<'_, 'tree> {
                         })
                     }
                     Err(cause) => {
+                        let refusal_here = (cause, family);
                         refusal =
-                            Some(refusal.map_or(cause, |prior: UnprovenCause| prior.min(cause)))
+                            Some(refusal.map_or(refusal_here, |prior| refusal_here.min(prior)));
                     }
                 }
             }
         }
-        refusal.map(|cause| Resolution {
-            family: Family::Http,
-            grade: Grade::Exact,
-            identity: Err(cause),
-            #[cfg(any(test, feature = "inventory-evidence"))]
-            route: None,
-            #[cfg(any(test, feature = "inventory-evidence"))]
-            receiver: None,
-        })
+        refusal.map(|(cause, family)| Resolution::refused(family, Grade::Exact, cause))
     }
 
     pub(super) fn construction_origin(
@@ -139,12 +136,7 @@ impl<'tree> Resolver<'_, 'tree> {
         }
         let construction = Construction::from_binding(binding)?;
         let class = self
-            .constructor(
-                construction.call,
-                binding.scope,
-                None,
-                construction.protocol(),
-            )?
+            .constructor(construction.call, binding.scope, construction.protocol())?
             .ok()?;
         // The entry slot determines which object the context target names.
         if construction

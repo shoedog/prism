@@ -8,6 +8,9 @@ mod argument_nodes;
 #[path = "bare_param_admission.rs"]
 pub(in crate::cpg) mod bare_param_admission;
 
+#[path = "builtin_callbacks.rs"]
+mod builtin_callbacks;
+
 #[path = "callee_params.rs"]
 mod callee_params;
 
@@ -17,11 +20,18 @@ mod callee_returns;
 #[path = "e5_trace.rs"]
 mod e5_trace;
 
+#[path = "jsx_props.rs"]
+mod jsx_props;
+
+#[cfg(test)]
+#[path = "jsx_plain_read_tests.rs"]
+mod jsx_plain_read_tests;
+
 #[path = "object_literal_args.rs"]
 mod object_literal_args;
 
 #[path = "props_binding.rs"]
-mod props_binding;
+pub(super) mod props_binding;
 
 #[path = "rest_params.rs"]
 mod rest_params;
@@ -71,6 +81,10 @@ mod callee_legacy;
 #[cfg(test)]
 #[path = "param_binding_parity_tests.rs"]
 mod param_binding_parity_tests;
+
+#[cfg(test)]
+#[path = "param_binding_builtin_evidence_tests.rs"]
+mod param_binding_builtin_evidence_tests;
 
 #[cfg(test)]
 #[path = "rest_params_tests.rs"]
@@ -131,7 +145,7 @@ use crate::ast::ParsedFile;
 
 pub(super) use super::var_index::LegacyVarKey;
 use super::var_index::{VarIndex, VarKeyRef};
-type ExactVarIndex = BTreeMap<LegacyVarKey, BTreeMap<(usize, usize), Vec<NodeIndex>>>;
+pub(super) type ExactVarIndex = BTreeMap<LegacyVarKey, BTreeMap<(usize, usize), Vec<NodeIndex>>>;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ReturnFlowStats {
@@ -159,6 +173,7 @@ pub struct DfgLabelStats {
     pub dfg_label_nameonly_cfg_incomplete: usize,
     pub dfg_label_nameonly_alias_unstable: usize,
     pub dfg_label_nameonly_call: usize,
+    pub dfg_label_nameonly_builtin_callback: usize,
     pub dfg_rd_functions_over_cap: usize,
     pub dfg_rd_functions_without_cfg: usize,
     pub dfg_fallback_functions_capped: usize,
@@ -177,6 +192,8 @@ pub struct DfgLabelStats {
     /// JS/TS/TSX loop-plan counters summed over the files (#693, #697): `trees`, `admitted`,
     /// `refused.<reason>`, `overlap.<class>`, `owners_refused`. Empty when no file has a loop.
     pub dfg_loop_plan: BTreeMap<String, usize>,
+    /// Literal props inventory, refusals and pending edges from Step 5b.
+    pub dfg_props: BTreeMap<String, usize>,
 }
 
 impl DfgLabelStats {
@@ -198,6 +215,9 @@ impl DfgLabelStats {
                 &mut self.dfg_label_nameonly_alias_unstable
             }
             FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => &mut self.dfg_label_nameonly_call,
+            FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback) => {
+                &mut self.dfg_label_nameonly_builtin_callback
+            }
         }
     }
 
@@ -1157,6 +1177,12 @@ impl CodePropertyGraph {
 
         profile.next("cpg.step5b");
         // --- Step 5b: Interprocedural data flow edges ---
+        #[cfg(test)]
+        let props_observer = super::props_s2_test_support::observer(files);
+        #[cfg(test)]
+        if let Some(observer) = &props_observer {
+            observer.pre_binding(&graph, lookup, exact_lookup);
+        }
         let mut argument_seeds = Vec::new();
         let mut bare_literal_edges = BTreeSet::new();
         for flow in Self::collect_step5b_edges_with_exact(
@@ -1165,7 +1191,20 @@ impl CodePropertyGraph {
             exact_lookup,
             &graph,
             files,
+        )
+        .into_flows(
+            &mut dfg_label_stats,
+            #[cfg(test)]
+            props_observer.as_ref(),
         ) {
+            #[cfg(test)]
+            if let Some(observer) = &props_observer {
+                observer.pending(
+                    &flow.edge,
+                    flow.cross_file_free_single_exact,
+                    flow.bare_literal,
+                );
+            }
             let (from, to, w) = flow.edge;
             if flow.cross_file_free_single_exact {
                 argument_seeds.push(from);
@@ -1200,6 +1239,15 @@ impl CodePropertyGraph {
         // D12 incoming holes do not isolate outgoing E5 paths. After all flow
         // construction, guard the new Defs and bare literal-leaf destinations
         // against paths to cross-file Exact free_single argument edges.
+        #[cfg(test)]
+        if let Some(observer) = &props_observer {
+            observer.guard_input(
+                &graph,
+                &argument_seeds,
+                &bare_literal_edges,
+                &dfg_label_stats.dfg_props,
+            );
+        }
         Self::refuse_new_sources_exposing_free_single_calls(
             &mut graph,
             files,
@@ -1526,6 +1574,7 @@ impl CodePropertyGraph {
             graph,
             files,
         )
+        .flows
         .into_iter()
         .map(|flow| flow.edge)
         .collect()
@@ -1537,7 +1586,7 @@ impl CodePropertyGraph {
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
-    ) -> Vec<PendingArgumentFlow> {
+    ) -> props_binding::Step5bOutput {
         use rayon::prelude::*;
         let cg = go_satisfiers.graph();
         #[cfg(test)]
@@ -1548,7 +1597,13 @@ impl CodePropertyGraph {
         }
         #[cfg(test)]
         if step5b_reference::enabled() {
-            return Self::collect_step5b_flows_reference(cg, var_index, graph, files);
+            return Self::collect_step5b_flows_reference(
+                cg,
+                var_index,
+                exact_var_index,
+                graph,
+                files,
+            );
         }
         let shared_params = ParamCache::new(files);
 
@@ -1569,10 +1624,15 @@ impl CodePropertyGraph {
                     spread_args::for_call,
                 )
             })
-            .collect::<Vec<Vec<PendingArgumentFlow>>>()
+            .collect::<Vec<_>>()
             .into_iter()
-            .flatten()
-            .collect()
+            .fold(
+                props_binding::Step5bOutput::default(),
+                |mut output, caller| {
+                    output.merge(caller);
+                    output
+                },
+            )
     }
 
     /// Per-caller Step-5b emission with shared immutable parameter coordinates.
@@ -1597,6 +1657,7 @@ impl CodePropertyGraph {
             &ParamCache::new(files),
             spread_args::for_call,
         )
+        .flows
         .into_iter()
         .map(|flow| flow.edge)
         .collect()
@@ -1614,16 +1675,48 @@ impl CodePropertyGraph {
             &ParsedFile,
             &CallSite,
         ) -> (Vec<spread_args::Argument>, spread_args::Offsets),
-    ) -> Vec<PendingArgumentFlow> {
+    ) -> props_binding::Step5bOutput {
         let files = shared_params.files;
-        let mut out = Vec::new();
+        let mut output = props_binding::Step5bOutput::default();
+        let Some(caller_parsed) = files.get(&caller_id.file) else {
+            return output;
+        };
         let mut param_cache: BTreeMap<FunctionId, callee_params::FactCell> = BTreeMap::new();
         let trace_bare = bare_param_admission::trace_enabled();
+        let trace_builtin = builtin_callbacks::diagnostic::enabled();
+        let jsx = jsx_props::Collector::new(cg, caller_parsed, graph, var_index, exact_var_index);
         for site in sites {
-            let resolved_site = cg.resolve_call_site(site);
+            if let Some(parsed) = files.get(&caller_id.file) {
+                builtin_callbacks::collect(
+                    &mut output.flows,
+                    site,
+                    caller_id,
+                    parsed,
+                    var_index,
+                    exact_var_index,
+                    graph,
+                    trace_builtin,
+                );
+            }
+            let Some(resolved_site) = jsx.resolve_site(
+                site,
+                &mut output,
+                jsx_props::Patterns::Cached(shared_params),
+            ) else {
+                continue;
+            };
             let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
             let mut traced = trace_bare.then(bare_param_admission::TraceKeys::default);
             let mut call_args = None;
+            let literals = object_literal_args::inventory(
+                caller_parsed,
+                site,
+                &mut call_args,
+                &read_arguments,
+                &resolved_site,
+                files,
+                &mut output.props,
+            );
             for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
                 // maybe-edge (nav-only). DataFlow carries no confidence/kind and
@@ -1637,10 +1730,6 @@ impl CodePropertyGraph {
                 let cross_file_free_single_exact = resolved.kind == ResolutionKind::FreeSingle
                     && resolved.confidence == ResolutionConfidence::Exact
                     && callee_id.file != caller_id.file;
-                let caller_parsed = match files.get(&caller_id.file) {
-                    Some(p) => p,
-                    None => continue,
-                };
                 let (args, offsets) =
                     call_args.get_or_insert_with(|| read_arguments(caller_parsed, site));
                 if args.is_empty() {
@@ -1659,6 +1748,8 @@ impl CodePropertyGraph {
                     .as_deref()
                     .unwrap_or_default();
                 let inputs = object_literal_args::SiteInputs {
+                    #[cfg(test)]
+                    call_bytes: (site.start_byte, site.end_byte),
                     caller_id,
                     caller_parsed,
                     callee_parsed,
@@ -1684,12 +1775,19 @@ impl CodePropertyGraph {
                     admission.report(traced, site, &resolved, bare);
                 }
                 object_literal_args::collect(
-                    &mut out,
+                    &mut output,
+                    &literals,
                     &inputs,
+                    site,
+                    cg,
+                    callee_id,
                     param_nodes,
                     &admission,
-                    |t| t.bare,
-                    |t| t.resolve(var_index, graph),
+                    |target| target.bare,
+                    |target| target.resolve(var_index, graph),
+                    || shared_params.patterns(callee_id, callee_parsed, exact_var_index, graph),
+                    |cell| cell.get().and_then(Option::as_ref),
+                    |target| target.resolve(exact_var_index, graph),
                 );
                 for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
                     let Some((slot, param_target)) = slot.and_then(|slot| {
@@ -1715,7 +1813,7 @@ impl CodePropertyGraph {
                             if super::s1_trace::enabled() {
                                 super::s1_trace::argument(graph, site, arg_span, slot, from, to);
                             }
-                            out.push(PendingArgumentFlow {
+                            output.flows.push(PendingArgumentFlow {
                                 edge: (
                                     from,
                                     to,
@@ -1743,7 +1841,7 @@ impl CodePropertyGraph {
                     continue;
                 };
                 rest_params::collect(
-                    &mut out,
+                    &mut output.flows,
                     &inputs,
                     (offset, to),
                     offsets,
@@ -1751,7 +1849,7 @@ impl CodePropertyGraph {
                 );
             }
         }
-        out
+        output
     }
 
     /// Select the caller variable occurrence for one call argument. JavaScript,
@@ -1759,7 +1857,7 @@ impl CodePropertyGraph {
     /// the legacy first-wins line key. A zero or multi-match is ambiguous and
     /// fails closed.
     #[cfg(test)]
-    fn argument_var_node_in_span(
+    pub(super) fn argument_var_node_in_span(
         caller_id: &FunctionId,
         caller_parsed: &ParsedFile,
         arg_path: &AccessPath,

@@ -5,12 +5,12 @@ fn compact_codec_rejects_bad_bounds_groups_and_order() {
 }
 #[test]
 fn production_cache_version_activates_compact_codec() {
-    assert_eq!(super::CACHE_VERSION, 193);
+    assert_eq!(super::CACHE_VERSION, 196);
 }
 
 #[test]
 fn production_cache_version_includes_module_owners() {
-    assert_eq!(super::CACHE_VERSION, 193);
+    assert_eq!(super::CACHE_VERSION, 196);
 }
 
 #[test]
@@ -25,7 +25,15 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
         )
         .unwrap(),
     )]);
-    let cpg = CodePropertyGraph::build(&files);
+    let mut cpg = CodePropertyGraph::build(&files);
+    cpg.dfg_label_stats.dfg_props = BTreeMap::from([
+        ("sites_literal".into(), 1),
+        ("sites_jsx".into(), 4),
+        ("refused_jsx_caller_owner".into(), 1),
+        ("refused_jsx_site_syntax".into(), 1),
+        ("refused_source_ambiguous".into(), 1),
+        ("edges_to_def".into(), 2),
+    ]);
     let hashes = BTreeMap::from([("a.py".into(), "fixture".into())]);
     let dir = tempfile::tempdir().unwrap();
     assert_eq!(
@@ -34,14 +42,31 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
     );
     let path = cache_bin_path(dir.path());
     let bytes = fs::read(&path).unwrap();
-    let mut owned: CpgCache = bincode::deserialize(&bytes).unwrap();
-    assert_eq!(super::CACHE_VERSION, 193);
-    assert_eq!(bytes, bincode::serialize(&owned).unwrap());
-    assert!(matches!(
-        load_cache(&hashes, false, dir.path()),
-        CacheResult::Hit(_)
-    ));
-    assert_stale_version_miss(&hashes, dir.path());
+    let owned: CpgCache = bincode::deserialize(&bytes).unwrap();
+    assert_eq!(
+        owned.graph.dfg_label_stats.dfg_props,
+        cpg.dfg_label_stats.dfg_props
+    );
+    assert_eq!(bytes, stream::tests::owned_encoding(&cpg, &hashes));
+    stream::PAYLOAD_DECODES.with(|count| count.set(0));
+    let CacheResult::Hit(restored) = load_cache(&hashes, false, dir.path()) else {
+        panic!("expected a full cache hit");
+    };
+    assert_eq!(restored.dfg_label_stats, cpg.dfg_label_stats);
+    assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 1);
+    let pre_s3 = CpgCache {
+        version: 195,
+        ..owned
+    };
+    fs::write(&path, bincode::serialize(&pre_s3).unwrap()).unwrap();
+    stream::PAYLOAD_DECODES.with(|count| count.set(0));
+    let stale_missed = matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss);
+    let decodes = stream::PAYLOAD_DECODES.with(|count| count.get());
+    assert_eq!(
+        (super::CACHE_VERSION, stale_missed, decodes),
+        (196, true, 0),
+        "version 195 must miss before payload decode",
+    );
 }
 
 pub(crate) fn assert_stale_version_miss(

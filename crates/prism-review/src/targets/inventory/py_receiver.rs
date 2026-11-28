@@ -1,4 +1,4 @@
-//! Scope-local proof of imported callables and HTTP receivers.
+//! Scope-local proof of imported callables and listed receiver methods.
 
 mod annotation;
 mod census;
@@ -15,7 +15,8 @@ mod writes;
 use super::{
     py_tables,
     python::{
-        source::chain,
+        source::{chain, Source},
+        type_syntax::has_ambiguous_type_syntax,
         walk::{ScopeId, Walk},
     },
     Family, Grade, UnprovenCause,
@@ -37,9 +38,29 @@ pub(super) struct Resolution {
     pub route: Option<super::evidence::Route>,
     #[cfg(any(test, feature = "inventory-evidence"))]
     pub receiver: Option<super::evidence::ReceiverProof>,
+    #[cfg(any(test, feature = "inventory-evidence"))]
+    pub declaration: Option<super::evidence::ClassSource>,
+    #[cfg(any(test, feature = "inventory-evidence"))]
+    pub field: Option<Box<super::evidence::FieldProof>>,
 }
 
 impl Resolution {
+    fn refused(family: Family, grade: Grade, cause: UnprovenCause) -> Self {
+        Self {
+            family,
+            grade,
+            identity: Err(cause),
+            #[cfg(any(test, feature = "inventory-evidence"))]
+            route: None,
+            #[cfg(any(test, feature = "inventory-evidence"))]
+            receiver: None,
+            #[cfg(any(test, feature = "inventory-evidence"))]
+            declaration: None,
+            #[cfg(any(test, feature = "inventory-evidence"))]
+            field: None,
+        }
+    }
+
     fn prefer(earlier: Option<Self>, later: impl FnOnce() -> Option<Self>) -> Option<Self> {
         if earlier.as_ref().is_some_and(|proof| proof.identity.is_ok()) {
             return earlier;
@@ -69,23 +90,41 @@ enum PathUse<'a> {
         method: Option<&'a str>,
         static_only: bool,
     },
-    Optional {
+    Typing {
+        path: &'static str,
         static_only: bool,
     },
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum PathMatch {
+    Root(Family),
+    Class(Option<Family>),
+    Typing,
+}
+
 impl PathUse<'_> {
-    fn family(self, path: &str) -> Option<Family> {
+    fn matches(self, path: &str) -> Option<PathMatch> {
+        let class = |method: Option<&str>| {
+            if !py_tables::constructor(path) {
+                return None;
+            }
+            let family = match method {
+                Some(method) => Some(py_tables::method_family(path, method)?),
+                None => None,
+            };
+            Some(PathMatch::Class(family))
+        };
         match self {
-            Self::Root => py_tables::family(path),
-            Self::Constructor { method, protocol } => (py_tables::constructor(path)
-                && method.is_none_or(|method| py_tables::constructor_method(path, method))
-                && protocol.is_none_or(|protocol| protocol.accepts(path)))
-            .then_some(Family::Http),
-            Self::Declaration { method, .. } => (py_tables::constructor(path)
-                && method.is_none_or(|method| py_tables::constructor_method(path, method)))
-            .then_some(Family::Http),
-            Self::Optional { .. } => (path == "typing.Optional").then_some(Family::Http),
+            Self::Root => py_tables::family(path).map(PathMatch::Root),
+            Self::Constructor { method, protocol } => {
+                if protocol.is_some_and(|protocol| !protocol.accepts(path)) {
+                    return None;
+                }
+                class(method)
+            }
+            Self::Declaration { method, .. } => class(method),
+            Self::Typing { path: expected, .. } => (path == expected).then_some(PathMatch::Typing),
         }
     }
 
@@ -95,7 +134,10 @@ impl PathUse<'_> {
             Self::Declaration {
                 static_only: true,
                 ..
-            } | Self::Optional { static_only: true }
+            } | Self::Typing {
+                static_only: true,
+                ..
+            }
         )
     }
 }
@@ -107,6 +149,16 @@ pub(super) struct Resolver<'a, 'tree> {
     roots: Vec<String>,
     census: Census<'tree>,
     writes: Vec<writes::Write>,
+    field_rows: FieldRows,
+    #[cfg(any(test, feature = "inventory-evidence"))]
+    source: &'a Source<'a>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FieldRows {
+    Disabled,
+    Enabled,
+    Refused,
 }
 
 impl<'a, 'tree> Resolver<'a, 'tree> {
@@ -115,6 +167,8 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
         walk: &'a Walk<'tree>,
         repo: &'a Path,
         file: &str,
+        field_rows: bool,
+        source: &'a Source<'a>,
     ) -> Self {
         let mut roots = vec![String::new()];
         if repo.join("src").is_dir() {
@@ -129,13 +183,23 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
                 roots.push(directory.into_owned());
             }
         }
+        let field_rows = if !field_rows {
+            FieldRows::Disabled
+        } else if has_ambiguous_type_syntax(source.parsed()) {
+            FieldRows::Refused
+        } else {
+            FieldRows::Enabled
+        };
         let mut resolver = Self {
             parsed,
             walk,
             repo,
             roots,
-            census: Census::new(parsed, walk),
+            census: Census::new(parsed, walk, field_rows != FieldRows::Disabled),
             writes: Vec::new(),
+            field_rows,
+            #[cfg(any(test, feature = "inventory-evidence"))]
+            source,
         };
         resolver.index_writes();
         resolver
@@ -144,14 +208,23 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
     pub(super) fn resolve_call(&self, callee: Node<'tree>, scope: ScopeId) -> Option<Resolution> {
         let root = self
             .resolve_path(callee, scope, PathUse::Root)
-            .map(|(family, identity)| Resolution {
-                family,
-                grade: Grade::Exact,
-                #[cfg(any(test, feature = "inventory-evidence"))]
-                route: identity.is_ok().then_some(super::evidence::Route::Root),
-                #[cfg(any(test, feature = "inventory-evidence"))]
-                receiver: None,
-                identity,
+            .and_then(|(kind, identity)| {
+                let PathMatch::Root(family) = kind else {
+                    return None;
+                };
+                Some(Resolution {
+                    family,
+                    grade: Grade::Exact,
+                    #[cfg(any(test, feature = "inventory-evidence"))]
+                    route: identity.is_ok().then_some(super::evidence::Route::Root),
+                    #[cfg(any(test, feature = "inventory-evidence"))]
+                    receiver: None,
+                    #[cfg(any(test, feature = "inventory-evidence"))]
+                    declaration: None,
+                    #[cfg(any(test, feature = "inventory-evidence"))]
+                    field: None,
+                    identity,
+                })
             });
         let root = Resolution::prefer(root, || self.inline_receiver(callee, scope));
         let named = Resolution::prefer(root, || self.named_receiver(callee, scope));
@@ -164,7 +237,7 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
         callee: Node<'tree>,
         scope: ScopeId,
         path_use: PathUse<'_>,
-    ) -> Option<(Family, Result<String, UnprovenCause>)> {
+    ) -> Option<(PathMatch, Result<String, UnprovenCause>)> {
         let path = chain(self.parsed, callee, self.walk.class(scope))?;
         self.resolve_parts(&path, callee, scope, path_use)
     }
@@ -175,12 +248,12 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
         callee: Node<'tree>,
         scope: ScopeId,
         path_use: PathUse<'_>,
-    ) -> Option<(Family, Result<String, UnprovenCause>)> {
+    ) -> Option<(PathMatch, Result<String, UnprovenCause>)> {
         let (root, rest) = path.split_first()?;
         let spelled = if matches!(path_use, PathUse::Root) && root == "open" && rest.is_empty() {
-            Some(Family::Filesystem)
+            Some(PathMatch::Root(Family::Filesystem))
         } else {
-            path_use.family(&path.join("."))
+            path_use.matches(&path.join("."))
         };
         let alternatives = self.lookup(scope, root, callee);
 
@@ -190,23 +263,23 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
             if let [binding] = alt.bindings.as_slice() {
                 if let Kind::Import(import) = &binding.kind {
                     if py_tables::library(module_root(&import.path))
-                        && path_use.family(&import_path(import, rest)).is_none()
+                        && path_use.matches(&import_path(import, rest)).is_none()
                     {
                         return None;
                     }
                 }
             }
         }
-        let family = alternatives
+        let tie = alternatives
             .iter()
             .flat_map(|alt| &alt.bindings)
             .filter_map(|binding| match &binding.kind {
-                Kind::Import(import) => path_use.family(&import_path(import, rest)),
+                Kind::Import(import) => path_use.matches(&import_path(import, rest)),
                 _ => None,
             })
             .chain(spelled)
             .min()?;
-        let refuse = |cause| Some((family, Err(cause)));
+        let refuse = |cause| Some((tie, Err(cause)));
         if self.census.wildcard {
             return refuse(UnprovenCause::StarImport);
         }
@@ -234,7 +307,7 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
             });
         }
         let canonical = proven?;
-        Some((path_use.family(&canonical)?, Ok(canonical)))
+        Some((path_use.matches(&canonical)?, Ok(canonical)))
     }
 
     fn prove_alternative(
@@ -278,7 +351,7 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
         if import.relative {
             return Err(RepositoryLocalModule);
         }
-        if path_use.family(&path).is_none() {
+        if path_use.matches(&path).is_none() {
             return Err(ShadowedRoot);
         }
         if self.repository_local(&path) {

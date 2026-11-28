@@ -1,15 +1,23 @@
 //! JavaScript/TypeScript/TSX parts of `ParsedFile`, and the JS/TS export and return fact models
 //! (`exports`, `returns`).
 
+pub(crate) mod component_route;
+#[cfg(test)]
+mod component_route_coverage_tests;
+#[cfg(test)]
+mod component_route_tests;
+mod component_route_timing;
 mod exact_reads;
 mod export_facts;
+#[cfg(test)]
+mod export_facts_coverage_tests;
 pub mod exports;
 mod imports;
 mod local_bindings;
 mod param_alias;
 mod params;
 mod pattern_params;
-pub(crate) use pattern_params::formal_binding;
+pub(crate) use pattern_params::{formal_binding, PatternParam};
 #[cfg(test)]
 mod pattern_params_tests;
 pub(crate) mod props_keys;

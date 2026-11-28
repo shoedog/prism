@@ -1172,6 +1172,7 @@ its first-parent parent; all 74 documents admitted; 105 operations added, 18 rem
    `media_unverified` 918, `ref_siblings_unchecked` 109, `non_json_media` 114), against 618 change entries. A report
    must count and show standing limits separately from limits on changed elements, or they drown the changes.
    Open: the counting rule and where standing limits are shown (appendix count, per-root note, or both).
+   Recorded default (**OWNER** to ratify; 5,564 standing limits vs 618 changes on the public pair): within a comparison basis, count once per P1c key `(side, scope, pointer, claim, reason)`. A limit linked to several changes counts once in the change-linked subtotal. Show standing coverage separately by side and reason, with complete root detail in the appendix and the blocking limit beside each affected change. P1d preserves keyless and unlinked records, side-local multiplicity and many-to-many claim links.
 2. For P3/P6 (retention gate, 153 of 161): 7 of the prototype's 18 operation removals appear in the product's diff one
    revision later than in the prototype's replay, because the generated spec is regenerated one commit after the
    annotation commit (an eighth is the known trailing-slash miss). Open: how a prediction is aligned to a revision

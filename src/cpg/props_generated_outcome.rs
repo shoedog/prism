@@ -2,6 +2,8 @@
 
 use super::{endpoint, owner, Access, CodePropertyGraph, CpgEdge, Endpoint, Evidence, Label, Span};
 use crate::ast::ParsedFile;
+use crate::cpg::props_s2_generated_tests::{observe_source, LiteralOutcome};
+use crate::cpg::props_s2_test_support::PreBinding;
 use petgraph::{graph::NodeIndex, visit::EdgeRef};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -23,11 +25,18 @@ struct Path {
 #[derive(Debug, Deserialize)]
 pub(super) struct Outcome {
     pub(super) disposition: String,
+    pub(super) literal: LiteralOutcome,
     pattern: Pattern,
     defs: Vec<Endpoint>,
     edges: Vec<Edge>,
     paths: Vec<Path>,
     counts: Counts,
+}
+
+pub(super) fn observe_literal_sources(pre: &PreBinding, evidence: &Evidence) {
+    for source in &evidence.sources {
+        observe_source(pre, &source.base, &source.incoming.from);
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -134,6 +143,11 @@ pub(super) fn compare(
             };
             let from = nodes.get(&edge.source());
             let to = nodes.get(&edge.target());
+            if from.is_some_and(|at| at.owner == evidence.caller.name)
+                && to.is_some_and(|at| at.owner == evidence.target.name)
+            {
+                return None;
+            }
             let into_read = to.is_some_and(|at| {
                 evidence.reads.iter().any(|read| {
                     at.owner == read.owner

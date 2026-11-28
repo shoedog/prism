@@ -171,7 +171,7 @@ An inventory site becomes an ordinary targets row:
 | `expected` | `{ "property": "error_handled", "detail": "source callee: <callee text as written>" }` |
 | `dependency_hint` | `{ "kind": "<family>", "callee": "<resolved dotted callee>" }`, for example `requests.Session.send` for `s.send(req)`; for the three standard-library families the resolved callee is the canonical spelling of section 5.3 (`builtins.open`, `pathlib.Path.read_text`) |
 | `site` | `file`, `line` (first line of Python's callee expression), `symbol` (bare Python function name), `function_start_line`, `function_end_line`, `language: "python"`. Sections 5.4 and 6.6 define the source coordinates. |
-| `confidence` | `exact` when identity is proven by imports and constructor bindings (root identity, R1 or R2). R4/R5 use `nameonly` under §6.4, including admissible declaration-only standard-library receivers (§6.10). R3 supplies diagnostics only |
+| `confidence` | `exact` when identity is proven by imports and constructor bindings (root identity, R1 or R2). R4/R5 use `nameonly` under §6.4, including admissible declaration-only standard-library receivers (§6.10). R3 supplies diagnostics only, except the §6.12 stdlib initializer field, which is `nameonly` |
 | `tier` | `asserted` when the confidence is `exact` and the file's parse quality is `clean` (the schema's rule); `candidate` otherwise |
 | `severity` | `info` |
 | `description` | `<resolved dotted callee>: dependency call site` |
@@ -296,7 +296,7 @@ and admits eligible declaration-only standard-library receivers at `nameonly` (�
 |---|---|---|
 | R1 | The receiver expression is the listed constructor call itself. | exact |
 | R2 | A single name binding assigns the constructor result or takes the matching context-manager target (6.3). | exact |
-| R3 | A constructor store on the owning instance field ties a diagnostic. Positive field inference is deferred (§6.3). | no row |
+| R3 | A constructor store on the owning instance field ties a diagnostic. Positive field inference is deferred (§6.3), except the §6.12 stdlib initializer field. | no row, or a `nameonly` row under §6.12 |
 | R4 | Local annotated assignment with the matching, constructor-backed helper result in §6.4. A parameter alone ties a diagnostic. | nameonly |
 | R5 | A single local assignment calls one visible same-file module helper with an admissible return annotation, matching await form and constructor-backed return (§6.4). | nameonly |
 
@@ -449,7 +449,7 @@ whole routes qualify for the optional under-2%-in-every-corpus cut.
 | HTTP membership | Use only patchable callees. This drops the measured urllib population. | Declined |
 | HTTP membership | Maintain the explicit module and per-class lists above. Additions require an entry and a fixture. | Chosen |
 | Routes | Drop R1. This removes h10 and introduces a family-specific exception for direct construction. | Declined |
-| Routes | Defer positive R3. Even the unconditional field pattern in h07 loses its hint. No Stage M HTTP site uses it. Retain tied field diagnostics. | Chosen in escalation |
+| Routes | Defer positive R3. Even the unconditional field pattern in h07 loses its hint. No Stage M HTTP site uses it. Retain tied field diagnostics. Superseded for the stdlib initializer field by §6.12; h07 (HTTP) stays diagnostic. | Chosen in escalation |
 | HTTP routes | Keep R1/R2 and constructor-backed R4/R5. A default or parameter type cannot establish the supplied value. | Chosen in escalation |
 | Stdlib class routes (Q13) | Use construction when witnessed for `pathlib.Path`, `configparser.ConfigParser` and `configparser.RawConfigParser`. R4/R5 also admit the sole eligible declaration at `nameonly` (§§6.4, 6.10). | K, chosen by owner |
 
@@ -586,7 +586,7 @@ alone supplies no veto. Use the following bounded ordering rules.
 |---|---|
 | Root path | Check each imported slot at import/capture or live lookup as appropriate. A class-qualified `C.m` root reads the class member directly. It never constructs an instance or enters a context (esc25). |
 | R1/R2 | Check the chosen constructor binding, `__new__` and `__init__` at construction (esc06/30). Apply the instance lookup below to the method. A qualifying context adds its entry protocol and, when exit can affect the read, its exit protocol (as2-13, esc07/08). |
-| R3 | Apply the name, field and method diagnostics, then withhold the field hint (§6.3). |
+| R3 | Apply the name, field and method diagnostics, then withhold the field hint (§6.3), except the §6.12 stdlib initializer field. |
 | R4/R5 | Carry object identity from the witnessed construction through the returned temporary and the caller binding. Apply instance lookup at the call and check the annotation at its defining site. For declaration-only standard-library receivers, check the declared class, receiver binding and selected lookup. Construction slots apply only to a witnessed construction. |
 
 **Lookup slots.** For each attribute actually selected, use the lookup order of the pinned library
@@ -657,7 +657,7 @@ forms and the execution-order boundary. A surviving exact grade describes the mo
 A source-disproved HTTP positive still counts as an error in G-precision.
 
 1. Other-file writes, attached methods, subclass overrides and descriptor dispatch, including the
-   supplied subclass of as1-20. R3 records a field tie and withholds its hint for every owner.
+   supplied subclass of as1-20. R3 records a field tie and withholds its hint for every owner (§6.12 excepts the stdlib initializer field).
 2. A write through another receiver whose identity would require argument flow, a second assignment
    alias hop, a container lookup or equality of runtime objects. This includes `other.client` in the
    owning class or its methods and `owner.session` in wf40. A qualifying alias of the actual `self`
@@ -673,7 +673,7 @@ A source-disproved HTTP positive still counts as an error in G-precision.
 |---|---|
 | Chosen | Compare the selected name, field, class and callable paths. wf01–53 cover root writes (01–12), builtin namespaces (13–25), from-import capture (26–28), constructor/class prefixes (29–34), receiver names, fields and methods (35–47) and class methods (48–53). The ledger identifies the deciding slot for each row. |
 | Declined | Check only the imported spelling. Bare builtins and inferred methods can point at the replacement. |
-| Declined | Veto every write on any similarly named receiver. Sibling members such as wf03 lose valid rows. Unknown receiver aliasing in wf40 motivates deferring field hints. |
+| Declined | Veto every write on any similarly named receiver. Sibling members such as wf03 lose valid rows. Unknown receiver aliasing in wf40 motivates deferring field hints. §6.12 adopts exactly this name-keyed veto for the stdlib initializer-field route only. |
 
 | Repository-local lookup | Alternative and consequence |
 |---|---|
@@ -731,10 +731,10 @@ An independent constructor proof can explain a library-looking receiver (sl2-21)
   Apply the §6.2 write rule to this field and its selected method, including a one-hop alias of
   the owning self and literal instance-dictionary writes (as4-15, tr3-21). Owners and write
   forms beyond that rule have the numbered exclusions in §6.2. Positive R3 is deferred for the
-  entire release, including adjacent store/use. On a tied field keep the first applicable §5.2
+  entire release, including adjacent store/use, except the §6.12 stdlib initializer field. On a tied field keep the first applicable §5.2
   cause, otherwise count `receiver_value_unproven`. This covers parameterised setters (e07,
   tr3-20), subclass-supplied values (as1-20, esc27) and a function receiving the owner (wf40).
-  No caller enumeration or assumption that an instance has run this class’s initializer is required.
+  No caller enumeration or assumption that an instance has run this class’s initializer is required for the diagnostic tie; the §6.12 positive route does assume the initializer ran and states the vetoes that protect that assumption.
 
 | Decision | Option and main cost | Choice |
 |---|---|---|
@@ -742,7 +742,7 @@ An independent constructor proof can explain a library-looking receiver (sl2-21)
 | R1/R2 | Admit the direct constructor and single name/context bindings above. Wrapped or computed receiver results are lost. | Chosen |
 | R3 | Count only assignment statements. This misses literal deletion in as2-18. | Declined |
 | R3 | Model every possible attribute mutation. This needs alias and cross-file analysis. | Declined |
-| R3 | Keep explicit same-owner field diagnostics. The consumer gets no positive field hint, including for h07. | Chosen |
+| R3 | Keep explicit same-owner field diagnostics. The consumer gets no positive field hint, including for h07 (the §6.12 stdlib initializer field is the one exception). | Chosen |
 
 ### 6.4 Annotation and helper routes R4 and R5
 
@@ -795,8 +795,13 @@ call supplies no contradiction. For helpers, inspect returns only in their own c
 be `None`. Use the sole, available function-local or visible same-file module initializer when
 it is literal `None`. For an otherwise admissible same-file helper at an eligible R4 or R5 binding,
 including matching await, the result is known to be `None` when every return in its own compiler
-scope is explicit `return None` or bare `return`. Implicit fallthrough also supplies `None`,
-including a body with no own returns. A path that raises or never completes supplies no result.
+scope is explicit `return None` or bare `return` and there is at least one such return. For
+implicit fallthrough, known `None` is claimed only when normal completion is proved by a suite
+of docstrings or other expression statements (including `...` and calls), assignments, `pass`,
+and plain `if` statements with a provably completing arm. This check uses boolean, `None` and
+integer literals to select or skip arms and permits either outcome of a bare-name condition when
+checking explicit arms. A suite that raises, never completes, or is undecidable under this
+accept-list keeps an otherwise eligible standard-library declaration at `nameonly`.
 Count `receiver_is_none` in §6.5 order. A nullable declaration alone still qualifies under K,
 including with an opaque initializer or helper result. An overridable parameter default cannot
 prove the reaching value. esc39–44 cover the refusals and opaque control. No inherited verdict changes.
@@ -861,7 +866,7 @@ otherwise admissible annotated helper, including an opaque return (as1-28). Requ
 binding, availability and lookup checks. A known `None` receiver, known contradiction, failed
 returned-local escape or rebinding check, or inadmissible helper takes the first applicable
 cause under §6.5. Apply ordinary shape and anchor rules to admitted occurrences. HTTP R4/R5
-require the construction witness above. R3 remains diagnostic.
+require the construction witness above. R3 remains diagnostic (§6.12 excepts the stdlib initializer field).
 
 | Annotation evidence | r4 disposition |
 |---|---|
@@ -901,7 +906,7 @@ ties that make an identity failure count. Count at most once per call occurrence
    to the method. The constructor alone supplies no site. For a named receiver use the binding
    positions in §§6.3–6.4, including an R4 declared parameter or value-bearing local assignment, or a visible same-file module assignment of that form for a standard-library class.
    Require a listed method and a constructor, annotation or helper tie. Waive uniqueness and defer
-   the positive value test to proof; neither is required to establish the diagnostic tie. For R3 require a qualifying literal construction store on the owning
+   the positive value test to proof; neither is required to establish the diagnostic tie. (§6.12 also ties a listed parameter declaration assigned by `self.attr = param`.) For R3 require a qualifying literal construction store on the owning
    self field, again allowing competing writes for diagnosis. Check candidate class/method membership
    and then propagate the constructor or annotation root failure (Q5). A context must have the
    admitted constructor and sync/async pairing even to tie: `async with Path(...) as p` alone gives
@@ -1077,7 +1082,7 @@ no executable table call to recover.
 | Focused binding-position negatives (§6.5). An excluded annotation wrapper, valueless binding, unpacking, walrus, context, class or other inadmissible owner/target supplies no receiver tie. | wf56/57, wf74–91, wf93–95 |
 
 **G-parity has a narrower, closed list.** Apply it only to a standard-library injectable key present
-in scan and missing in prism on **scan's entire `diff.files`**, including files prism omitted.
+in scan and missing in prism on **scan's entire `diff.files`**, including source files prism's loader parsed but did not report on, and excluding dot-directory files, which are loader scope outside the denominator (see the gate amendment in section 7).
 Independently replay root identity, bare fallback, every applicable receiver route and the shape
 rule on the same source occurrence. A positive injectable proof disqualifies **every** loss class.
 Record the attempted routes, shape, key, source witness, class below and
@@ -1089,7 +1094,7 @@ the denominator. A missing key admitted by K remains unresolved.
 |---|---|
 | P1. Competing or unavailable binding | Demonstrate an actual wildcard, competing deciding-scope occurrence, explicit namespace/member mutation, unavailable binding or non-unique receiver as specified by 6.2–6.5. Name the precise cause and exclude a successful alternative (e.g. R2 in sl2-21). For a write, record the binding owner, object/slot, capture/lookup point and a feasible execution order from write to read (including a prior invocation for persistent state). A file-wide hit, unknown order alone, wf27's severed exporter link or wf38's later local delete cannot earn P1. For a competing binder, require that it can reach this read with a different value. Exclude a parameter killed by a dominating construction (as5-14), a dead write over an empty literal iterable (tr3-31), and a join where all reaching imports have the same available origin (sl3-01). If a standard-library scan miss has one of these shapes, it remains unresolved and counts against the per-corpus floor. A producer refusal alone earns no loss classification. |
 | P2. Relative or repository-local identity | Show a relative import, or identify the competing file/package and show its name is importable first under the corpus's recorded active roots and applicable precedence. A file under an inactive `src/` or a regular package sibling alone earns no P2. Apply §6.2 precedence for absolute `builtins`, `os`, `os.path` and `io` on the pinned startup profile. This includes genuine local shims re-exporting a stdlib function. |
-| P3. Indirect receiver or callable | Show the excluded expression or binding at this occurrence. Eligible witnesses are an assigned callable/module/object alias, constructor in an inadmissible binding position, wrapper or method/operator result requiring inference, R3 field, descriptor/container/subclass receiver, dynamic import/member lookup, indirect or cross-file helper, same-file helper failing §6.4 eligibility, or an excluded type form. Exclude all admitted routes, including R1/R2, the independently constructed class and K's eligible parameter, value-bearing assignment or helper declaration. The operator in pin05's initializer leaves its R4 proof intact. |
+| P3. Indirect receiver or callable | (An R3 field is P3 only outside the §6.12 admission, after independent replay of its initializer, parameter, owner and write checks; an eligible field still missing is unresolved.) Show the excluded expression or binding at this occurrence. Eligible witnesses are an assigned callable/module/object alias, constructor in an inadmissible binding position, wrapper or method/operator result requiring inference, R3 field, descriptor/container/subclass receiver, dynamic import/member lookup, indirect or cross-file helper, same-file helper failing §6.4 eligibility, or an excluded type form. Exclude all admitted routes, including R1/R2, the independently constructed class and K's eligible parameter, value-bearing assignment or helper declaration. The operator in pin05's initializer leaves its R4 proof intact. |
 | P4. Unrepresentable call or frame | Demonstrate an inner class or lambda body frame and record its owner. Scan already skips non-anchors. A different winner or a representable multiline scan key gets a matrix regression and fix, or owner escalation under §6.8. Neither earns P4. |
 | P5. Unevaluated annotation | Show that the recorded call occurs exclusively in an unevaluated annotation under 6.6 on 3.11. |
 
@@ -1190,7 +1195,7 @@ occurrence in a fixture. Duplicate text by itself cannot certify G-accept (u04a/
 | Unsupported group matching (T-1) | Match full group keys, symbol, reason and count. Consume each actual row at most once. | Independent existence checks allow either sl2-12 or sl2-13 to satisfy both. |
 | Parse quality (S2a) | Carry file parse quality into both projections. Recovered sites with clean owning subtrees retain the file's quality and candidate tier. | Inferring quality from a clean owner would mark o23a, sl1-24 and as4-09 asserted. |
 | Unsupported filters | Filter occurrences then group (§6.5). | Filtering a mixed group as a unit would drop or retain both calls for esc22 under an exact floor. |
-| Parity | Require independent proof and shape replay. Keep omitted files in scan's denominator (§6.7). | A failed spelling or the label “constructor” alone would excuse admitted R2 or R1 calls. |
+| Parity | Require independent proof and shape replay. Keep every in-scope file in scan's denominator (§6.7); dot-directory files are loader scope and excepted. | A failed spelling or the label “constructor” alone would excuse admitted R2 or R1 calls. |
 | Ledger custody | Use the sibling ledger and three digests in §6. | An external unversioned pointer leaves the design and test seats without a common input. |
 
 | Decision | Option and main cost | Choice |
@@ -1735,12 +1740,14 @@ declarations nor constructed-class precedence.
 
 ## 7. Gates
 
+**Gate amendment (owner 2026-11-27):** a file in a dot directory is loader scope (the S2a loader excludes dot directories by design, §5.2) and is outside the G-parity denominator for every corpus; the saleor `.claude/skills/...` key is therefore not counted. This does not waive the floor. The floor is recorded as NOT YET MET at S3 (httpie 24/26; saleor 47/52 as measured, 47/51 once the dot-directory key leaves the denominator) and applies at the end of the follow-up family (P-field, P-lambda); S3 reports it and does not claim it.
+
 | Gate | Statement | Oracle |
 |---|---|---|
 | G-overlay | on httpie at the pinned commit, the inventory emits a row for each of the overlay's HTTP sites (`client.py:114`, `update_warnings.py:44`) with the overlay row's file, line, bounds and kind, and the bare function name as symbol | the archived overlay; faultpath's site guard |
 | G-bounds | for every function of every census corpus, prism's (file, start line, end line, name) equals the `ast` listing of the stage M census: zero differences | Python `ast` under the pinned interpreter |
 | G-accept | on every census corpus, for every injectable inventory row: (1) faultpath's loader accepts the document; (2) the call faultpath binds at `site.line` is the row's call: the discovery and binder spans (callee and whole call, §6.8) and their source texts agree, and independent source replay agrees with the producer-selected route recorded in the sidecar. Import-root rows require the consumer's matching qualified name. Bare builtin rows require the consumer's matching canonical builtin identity (6.8). For receiver routes record both spellings and check the same occurrence spans; (3) the site guard, run with strict line checking, does not answer `site_call_unavailable`, `unsupported_multiline_callee`, `stale_function_bounds` or `stale_site_symbol`; (4) for a row whose resolved callee is in the consumer's tables (HTTP rows rooted in `requests`, `httpx`, `urllib3` or `aiohttp`; every standard-library row) and whose patch the planner resolves, the plan has no `dependency_identity_mismatch`, `no-dependency-hint` or `no-applicable-fault` note. Every other guard answer and planner note is tabulated per reason, not gated. The HTTP half runs in slices S2a and S2b, the standard-library half in S3 | faultpath's loader, call binder, site guard and planner, run read-only (the planner reads source only; no suite run) |
-| G-parity | For each census corpus, prism must match at least 95% of **all** injectable standard-library scan keys. Form the denominator from rows with bounds in scan's entire `diff.files`, including files prism omitted. Match on (file, line, function bounds, family, canonical callee). Every miss has a source witness in the closed list P1–P5 of section 6.7; every row prism lists that scan does not is confirmed against the source, and none is a call that is not that library call. Prism's `module_level` rows are compared with scan's bounds-less rows, and prism's unsupported and unproven sets with scan's warnings. If scan cannot run, G-parity is not met | `faultpath scan` |
+| G-parity | For each census corpus, prism must match at least 95% of **all** injectable standard-library scan keys. Form the denominator from rows with bounds in scan's entire `diff.files`, including source files prism's loader parsed but did not report on, and excluding dot-directory files, which are loader scope outside the denominator (see the gate amendment in section 7). Match on (file, line, function bounds, family, canonical callee). Every miss has a source witness in the closed list P1–P5 of section 6.7; every row prism lists that scan does not is confirmed against the source, and none is a call that is not that library call. Prism's `module_level` rows are compared with scan's bounds-less rows, and prism's unsupported and unproven sets with scan's warnings. If scan cannot run, G-parity is not met | `faultpath scan` |
 | G-precision | a reader checks HTTP rows against the source, stratified by the sidecar route verified by independent source replay (§6.8): every row of each of R1 to R5 and of root identity when a stratum has 50 rows or fewer across the census corpora, otherwise 50 drawn with a recorded seed; at most 1 row per stratum where the callee is not the listed library call; every stratum's size is reported | hand check |
 | G-live | on httpie at the pinned commit, with a document produced with `--inventory-kinds http`, the plain flow `faultpath plan` then `faultpath run` with `--only-target` for the two HTTP overlay sites, under the pilot's interpreter, package pins, pytest options and deselections, after a no-fault run for the flake control: (i) `client.py:114`: the planner resolves the patch to the requests session's `send`, the probe is reached, and at least one fault entry is delivered and gets a verdict naming test ids; (ii) `update_warnings.py:44`: the planner resolves `requests.get`, and the run reports the site as not reached or shadowed because the suite mocks it. Per-fault verdicts are recorded beside attempt 5's as information, not as a condition | faultpath run |
 | G-byte | without `--inventory`, `prism targets` output on the existing fixtures is identical between the merge-base binary and the head binary after removing `producer.version`, `producer.build_identity` and `repo.root` | fixture comparison |
@@ -1782,7 +1789,7 @@ limits, not reached, patch shadowed by a mock).
 - **A second discovery implementation next to scan.** G-parity makes the overlap measurable; decision 7 is
   where the owner picks one. Until then both may feed faultpath and duplicate sites differ in id (different
   source algorithm), which faultpath already tolerates for overlay rows.
-- **Receiver typing is shallow.** R3 field hints are deferred. §6.4 prefers a sole witnessed construction. §6.10 admits eligible standard-library declarations at `nameonly`. A supplied value can differ from its declaration. Sessions passed
+- **Receiver typing is shallow.** R3 field hints are deferred except the §6.12 stdlib initializer field. §6.4 prefers a sole witnessed construction. §6.10 admits eligible standard-library declarations at `nameonly`. A supplied value can differ from its declaration. Sessions passed
   through several functions or stored in containers are missed. Only the explicit ties in 6.5 enter the identity-unproven counts.
 - **OUT OF MODEL — runtime mutation through returned-local namespace or bound-method escapes.**
   The root `CLAUDE.md` contract states that runtime mutation of module objects (monkey-patching,
@@ -1876,6 +1883,36 @@ Their write-target accept-list is:
   `list_pattern`, `pattern_list` or a comma-bearing `tuple_pattern`. Coverage of grouped and starred
   leaves depends on the parser shape, as described below.
 
+The helper fallthrough accept-list in §6.4 does not model loops, imports, nested definitions,
+or other unsupported statements. These forms supply no implicit `None` evidence. The helper's
+own explicit `return None` and bare `return` rules still apply.
+
+For the tracked standard-library receiver classes and their Python-level bases, literal writes
+through `vars()` or `__dict__` do not count as writes to a read-only class namespace. Those
+routes also do not replace the actual `__class__` of `os.environ` or the modules behind
+`os.path`. `_Environ` lookup does not count writes to immutable `builtins.object`. Ordinary
+attribute stores on `typing.Mapping` and `typing.MutableMapping` forward to the origin.
+Wrapper dictionary writes, dunder stores, and attribute deletions supply neither a veto nor
+identity evidence for the origin.
+
+The starred vararg annotation recovery accept-list covers names, unformatted literals, displays
+and comprehensions, explicit groups, primary trailers (attribute, subscript, call),
+arithmetic/bitwise operators, and await in an eager annotation in an enclosing async function.
+Lambda, conditional, boolean and comparison operands need grouping. Grouped lambdas admit
+simple, distinct positional names.
+
+Recovery refuses f-strings, walrus expressions, yield expressions and lambda parameters with
+defaults. Validating those operands requires syntax or compiler-scope checks beyond the
+accept-list. A refused annotation emits no row for its call. A recognized call elsewhere in the
+affected function is counted as `parse_error_in_function`.
+
+Two known limits remain in the surrounding signature and scope. In CPython,
+`def inner(*a: *(yield None))` inside `def make() -> Path` makes `make` a generator. The
+helper-result proof misses that yield, so calling `p = make()` and then `p.read_text()` still
+emits a `nameonly` row. Recovery also skips duplicate-parameter validation on the enclosing
+signature. A duplicate name beside a starred annotation can leave an `exact` annotation-call
+row. The `known_limit_*` CLI tests pin both outcomes and the refused operands alongside controls.
+
 For a returned local, R4/R5 recognize evaluated identifier uses and permit same-scope member bases
 and supported literal member writes that leave the required slots intact. In a `match`, the subject
 and guards are walked as expressions, captures enter the binding census, and bare class-pattern
@@ -1907,10 +1944,78 @@ The recorded census across httpie, Saleor, Superset and Black prices the boundar
 | `match` statements | 109 | None capturing a returned local. |
 | `__class__` or `__dict__` string keys | 12 | None a write key on a receiver. |
 
+#### Known limits pinned after S3 fold 2 (issue #975, owner rule 2026-11-27)
+
+| Limit | Contract that excludes it | Current consequence | Pinned by |
+|---|---|---|---|
+| A wrapper-local dunder store followed by an alias read from it (`from typing import Mapping as W`; `W.__target__ = collections.abc.Mapping`; `A = W.__target__`; `A.get = replacement`) | Wrapper dunder stores supply neither a veto nor identity evidence for the origin (above), and the excluding rule is the one-hop alias rule in the §10.1 accept-list (§6.2): the right-hand side must directly name a tracked object, and `A = W.__target__` does not. Reading a binding back out of an attribute store is also runtime mutation, out of model under the `Exact` contract. | `os.environ.get` stays `exact` where CPython dispatches to the replacement. This is a wrong `exact` on a standard-library row; G-precision samples HTTP rows only, so no gate samples it. Recall is not affected. | `known_limit_wrapper_local_dunder_store_alias_chain` beside a control |
+| Correlated conditions in a helper's if/elif chain (`if flag: raise` / `elif flag: pass` / `else: raise`) | §6.4 treats each arm's condition as independent. A normal completion is proved only by the listed forms; value correlation between conditions is not modelled. | The unreachable `elif` arm counts as a completion, so the receiver is counted `receiver_is_none` where the `nameonly` row would have been emitted. A recall loss only. | `known_limit_correlated_flag_helper_completion` beside a control |
+
+Census on httpie, Saleor, Superset and Black (`limits-33/incidence.py`): dunder attribute stores whose base is a name imported from `typing`, `collections`, `collections.abc`, `os` or `pathlib` number 0, and if/elif chains that repeat an earlier test number 0. The four-corpus documents are unchanged.
+
 The four-corpus targets, warnings and G-accept results were identical before and after fold 1 and after the
 context-entry fix (only `producer.build_identity` differs). S2b closes the context-entry veto and leaves the five priced classes as accepted limits.
 Runtime mutation stays out of model under the CLAUDE.md Exact contract and §10.1. A future slice
 may close the five classes.
+
+### 6.12 P-field amendment: stdlib R3 initializer fields (S4a, proposed 2026-11-27)
+
+Status: PROPOSED for design review; no product code yet. Supersedes the "positive R3 is deferred" wording for the one shape below only; each stale sentence in §§5.1, 5.3, 6.1 (h07 row), 6.2 (slot table, exclusion 1), 6.3, 6.4, 6.7 and 10 now carries a cross-reference to this section. h07 and every HTTP field stay diagnostic. Source: lane brief `s4-pfield.md`.
+
+**Decision (owner question, controller default 2026-11-27): an annotated-initializer field MAY yield a `nameonly` candidate that unfiltered consumers see.** Grade is `nameonly` and tier `candidate`, as for every other unproven candidate (6.10 K); it is never `exact`. The consumer filters with `--min-confidence exact` or `--min-tier asserted`, and Faultpath delivery still needs a reached-call witness. Price (projected, to be measured in the product run before review): +2 sites on the four census corpora (httpie `config.py:93` `pathlib.Path.exists`, `:128` `pathlib.Path.write_text`), 0 rows lost, no new Prism-only site; httpie G-parity 24/26 to 26/26. Cost of the choice: a caller can pass a value that contradicts the annotation, so a wrong callee is possible on such a row (DESIGN 10); runtime mutation, subclass dispatch and cross-file inference stay out of model. Option declined: withhold the candidate (keeps httpie at 24/26 and the floor unmet).
+
+**§6.3 R3 positive exception.** Replace the positive deferral and qualify the decision table's h07 rule with these words.
+
+> An R3 declaration is eligible only for a method listed for a standard-library declaration class and assigned to a literal instance field by `self.attr = param`. Require an undecorated class with no base or one unshadowed builtin `object` or `dict` base, with no class keywords. A plain, synchronous, parse-clean `__init__` must be the sole initializer definition in that exact class. Its `self` is its first simple positional parameter. The store must be a simple unannotated, unchained, direct statement of that initializer. Before it allow an initial docstring, `pass` and at most one direct zero-argument `super().__init__()` with unshadowed builtin `super`. Reject generators and earlier control flow. The RHS must be a single required, non-variadic typed parameter of that initializer with no competing binding or modeled name write, including redirected writes. Resolve its annotation in the definition-header scope with §6.4's import/locality and eager, postponed or quoted rules. Admit a single non-nullable listed class written as a name or dotted name, with ordinary grouping and import aliases.
+>
+> Accept a direct `self.attr.method(...)` in a different undecorated instance method body defined in the same class, with a unique first-parameter `self`. Grouping is transparent. Require a single definition of the using method and apply §5.2 and §5.4 after identity. An owned method defined in a class with subclasses may qualify. A use written in a subclass, another class or a lexically nested routine does not inherit the proof.
+>
+> Require exactly one indexed write to this owning instance field, the admitted store. Veto same-owner competing stores and deletes including literal reflection, namespace subscripts and one-hop aliases under §6.2. Veto modeled writes to selected lookup slots on the parameter and field values and the declared class, including platform-class and `__getattribute__` checks. Veto modeled replacement of the owning instance's `__dict__` or `__class__`. Also veto owner class declarations or modeled writes that provide the field, replace the initializer or selected using method, or change instance lookup/storage (`__getattribute__`, `__getattr__`, `__setattr__`, `__delattr__`, `__slots__`, `__dict__`, `__class__`, `__bases__`). Repeated initializer or using-method definitions fail uniqueness. Ignore bare annotations that create no selected slot and unrelated fields or methods. This is declaration evidence and never a constructor proof. R3 constructor ties and HTTP field ties remain diagnostic.
+
+**§§5.1, 5.3, 6.2 (slot table and exclusion 1), 6.4 (K) and 6.10.** Use this wording where current text makes R3 diagnostic-only. Keep historical S3 projections labeled as such.
+
+> The §6.3 initializer-field exception emits `external_call` with a canonical stdlib hint and `nameonly` confidence (`candidate` tier). All other R3 ties are diagnostic. The finite field and lookup vetoes apply to this declaration. Runtime dispatch, inherited receiver proof and construction evidence from a field are outside this route.
+
+**§§5.2 and 6.5, R3 warning eligibility and causes.** Add the following to the existing first-cause rules.
+
+> An exact-owner literal field with a constructor tie or a direct RHS identifier tied to a listed parameter declaration supplies a diagnostic candidate even if placement, uniqueness or shape fails. A direct attribute chain rooted at that tied `self.attr` with an extra receiver hop and a listed terminal method is diagnostic only. Propagate annotation/root failures in existing order. Use `member_rebound` for a selected lookup or protocol veto, `receiver_not_unique` for competing field, self or parameter bindings/writes, and `receiver_value_unproven` for other excluded tied shapes. Count the first applicable cause once per occurrence. Ordinary no-tie calls and unrelated owners with no tie remain plain `none`.
+
+**§6.7 P3.** Replace the unqualified R3 loss entry with “R3 field outside §6.3 admission after independent replay of the initializer, parameter, owner and write/lookup checks. An eligible field still missing is unresolved.” Keep the full denominator.
+
+**§10 receiver risk and §§10.1–10.2.** Add “The R3 field route uses the existing finite same-file source write model. Runtime mutation, computed reflection, namespace and bound-method escapes, external or multi-hop aliases, caller lifetime, subclass dispatch and opaque descriptors remain outside the proof. A caller can supply a value that contradicts the annotation.” Explicitly visible owner field providers, including properties, are vetoes.
+
+**Fold 1 (design round 1: sol REJECT 2 WRONG MATERIAL, Opus REJECT; all items closed and enumerable).** These clauses are added to the admission rule above and win over it:
+
+1. **Seed is not `self` (sol 1).** The initializer's `self` is the literal spelling `self`, first positional parameter, unannotated; the RHS parameter must be a different binding. `def __init__(self: Path): self.path = self` is refused (`receiver_value_unproven`).
+2. **Field-name write veto by name, any object (Opus F2, F3; sol 4).** Beyond the owning-instance count, veto on ANY indexed write keyed by the field name other than the admitted seed, whatever its recorded object: `OwningSelf` of any class, `ParameterMember`, a `Member` with unknown object (`c.path = v`, `C.path = ..`, `K = C; K.path = ..`, `type(self).path = ..`), and likewise for the selected method name, `__init__`, the using method, and the lookup and storage names (`__getattribute__`, `__getattr__`, `__setattr__`, `__delattr__`, `__slots__`, `__dict__`, `__class__`, `__bases__`). An unknown-object write matches every owner; this is the closed rule, and it needs no class-identity analysis. A same-file class whose bases name the owner and that binds or writes the field is the same veto. Cause: `receiver_not_unique` for field writes, `member_rebound` for method, field-provider and protocol vetoes. Cost is recall only; priced on the four corpora in the product run.
+3. **Decorated methods (sol 2).** A store to the field inside a decorated method (for example a `@property` getter) is a write of the field: it counts as a competing store and vetoes. The decorated method is not itself a using method.
+4. **Field providers named.** A property, class-level value or descriptor providing the field is a field-provider veto (`member_rebound`).
+5. **Gate.** Slice 2 (enabling rows) waits for the owner or controller to confirm the visibility decision after seeing the measured price. Sol rates default visibility underpriced (SMELL MATERIAL): a wrong row passes default filters and costs a wasted planned fault plus one G-precision error, not a false finding (Faultpath delivery needs a reached-call witness). A one-key recovery already lifts httpie to 25/26, so the visibility choice does not decide the floor. Opt-in visibility is the declined alternative and stays available as the fallback.
+6. **Saleor denominator.** The exit gate uses 47/51 (dot-directory key outside the denominator, §7); 47/52 is the historical measurement.
+7. **Matrix additions to pf01 to pf13 (brief amended).** pf01 spelled `__init__` correctly; positives for `configparser.ConfigParser.read`, a class with no base and one with base `object`; shape refusals for shadowed `dict`/`object`/`super`, `super().__init__(x)` and two super calls, a decorated class, decorated or async `__init__`, a using method under `@property` or `@staticmethod`, a repeated using method; keyword-only and positional-only parameters; class-scope `Path = str`; `Union[Path, str]` and `PurePath`; write forms `setattr(self,'path',v)`, augmented, tuple, `with ... as self.path`, `for self.path in`, module-level `C.path = property()` and `C.__init__ = f`, subclass store, `def f(c): c.path = Other()`, `c = C(p); c.path = Other()`; a getter-store (`@property` storing the field); `def __init__(self: Path)`; one row with two failures to pin which cause wins; a working selected-method replacement on a mutable receiver (`ConfigParser`).
+
+**Fold 2 (design round 2: sol REJECT 1 new WRONG + bounded; Opus APPROVE with N1 to N4).**
+
+8. **Undecodable literal keys match (sol round 2).** A write whose literal key the decoder cannot read (`key: None` in the write index, for example `setattr(c, "caf\N{LATIN SMALL LETTER E WITH ACUTE}", v)`) matches every watched name across all member-slot variants (`Member`, `ParameterMember`, `Instance`), as `matches_member` already does. The seed is exempted by occurrence, not by name.
+9. **The veto is name-keyed, not class-identity.** An unknown-object write keyed by a watched name vetoes whichever class it names. Accepted recall cost, pinned by rows: `D.path = x` on a sibling class, a protocol write on another class or module (`D.__getattribute__ = f`, `sys.path = []`), `K = C; K.path = ..`, `type(self).path = ..`. The pf07 control is limited to an unrelated method name (no "provably different class" control: that would need the class-identity analysis this rule avoids). A same-file class with a spelled direct base naming the owner is covered only when it binds or writes the field itself (a subclass `__setattr__` or other dunder in a subclass is subclass dispatch, out of model, as are `object.__setattr__` calls); grandchild or alias-base subclasses are subclass dispatch, out of model (§10).
+10. **Which document G-parity reads (Opus N3).** Default visibility: G-parity reads the default document and httpie reaches 26/26 (24/26 plus the two sites). Opt-in visibility (the declined fallback): the two sites are absent from the default document and httpie stays 24/26 unless G-parity is measured with the opt-in flag. Item 5's remark that visibility does not decide the floor holds only for the default document.
+12. **Dispatch controls for the stdlib field rows (sol round 3).** G-precision samples HTTP rows only, so the product run adds a stdlib-field stratum: every emitted P-field row (projected 2) is checked against the source and by a Python dispatch probe with a conforming caller (an instance of the row's declared receiver class, for example a genuine `Path` for `pathlib.Path.exists` and a `ConfigParser` for `configparser.ConfigParser.read`) and a contrary caller (a value of another class with the same method), the contrary result being the accepted caller-value cost of §10 and reported, not gated. At most 0 rows where the callee is not the listed class under the conforming caller. The result goes in the PR beside the measured price; the owner confirmation of item 5 reads it.
+11. The using method's `self` is the literal spelling `self` too; a defaulted `self` is accepted as the same caller-value cost as an unbound `C.is_new(x)` (§10).
+
+**Slice 1 review fold.**
+
+13. **Initializer placement.** Direct class-suite placement is required. A conditional class-body definition, including a sole `__init__` under `if True`, is refused at a recall cost. `pf-ifTrue-init` pairs the refusal with a direct definition.
+14. **Accepted limits.** A hand-written decoration such as `C = deco(C)` can retain a candidate. These reflective writes are outside the write index and can retain a candidate: `object.__setattr__(c, "path", v)`, `c.__setattr__("path", v)`, `builtins.setattr(c, "path", v)`, `c.__dict__.update(path=v)`, `c.__dict__.__setitem__("path", v)`, and `getattr(c, "__dict__")["path"] = v`. `__new__`, `__init_subclass__`, and `__class_getitem__` can qualify as using methods even though Python binds their first parameter to the class. The `pf-limit-` rows pin these cases beside controls.
+
+15. **File-wide belt for ambiguous `type` syntax.** With the field-row gate enabled, inspect the original tree-sitter parse for a `type_alias_statement` with a non-identifier name (including attribute, subscript, call-headed and parenthesized forms), a `constrained_type` with a non-identifier left operand, or an `ERROR` node whose text starts with `type(`. Any match withholds declaration-based candidates in the file on every route (field, parameter and local annotation: the belt sits in the one declaration resolver) and counts each refused declaration tie as `receiver_not_unique`. The gated binding census trusts a `type_alias_statement` only when it has the PEP 695 shape (`type` NAME or `type` NAME `[` type parameters `]`, then `=`); any other statement in that position is an assignment the grammar misreads (issue #990), its operands are unreadable, and every identifier in it is recorded as a rebinding of that scope (so a walrus on its right side, `type(path).other = (path := Other())`, refuses `path`). Plain `type(c)` reads and ordinary aliases such as `type Alias = Path.path` and `type GenericAlias[T] = list[T]` preserve eligibility. Items 2 and 8 use this belt for misparsed `type(..)` writes. Correctly parsed writes, including `(type(c)).path: int = 1` and `C.__dict__["path"] = v`, use the regular write index.
+
+    The rule accepts over-refusals from unrelated writes such as `type(path).other = 1` after the seed and from unrelated classes sharing the file. The lane counted zero `type(..).attr` assignment statements in HTTPie, Saleor, and Black, and 16 statements across 11 files in Superset. The lane measured zero gained Superset field rows with the gate on, so this belt costs zero corpus rows at that measurement. Extending the belt to the parameter and local routes (closing fold) costs zero rows too: with the gate on, the four corpus documents are byte-identical to the head before the fold (httpie 91 sites, saleor 491, superset 273, black 138); the belt fires on 11 superset test files and nowhere else. `type(self).counter = 0` (a common idiom) was already an alias statement whose name the gate-off census read as `self`; with the gate on the file now refuses declaration-based receivers on every route (rows `pf06-type-self-counter*`), and only an ordinary PEP 695 alias file keeps them (`pf06-type-pep695`).
+
+For item 9, peel every level of subscription from a direct base such as `C[int]`, `C[T][int]` or `Outer.C[int]` and apply the same matching rule to its value. A qualified direct base such as `Outer.C` counts as naming the owner by its final attribute. This conservative match accepts the recall cost of distinct classes sharing the same final name. Accept-list for direct bases (closing amendment, notice 29.2): the subclass veto reads a base only when it is an identifier, an attribute chain, or any depth of subscripts and parentheses over those (comments among the bases are skipped). Every other base form (conditional, starred, call, keyword such as `metaclass=`, anything unlisted) fails closed: the class is treated as a possible provider of every field it binds, so the row is refused (`receiver_not_unique`). Rows `pf08-base-*` pin four such forms beside an accept-listed control. Priced on the four corpora: class definitions with a base outside the list (all keyword arguments such as `metaclass=`): httpie 1, saleor 1, superset 54, black 0; no corpus site changes.
+
+Runtime patching of a stdlib class is out of model (§10.1, and CLAUDE.md, "Exact is a static-binding grade"). A reflective write such as `type(c).other = setattr(ConfigParser, "read", replacement)` replaces a standard-library method at run time; the walker does not read the right side of a statement the grammar misreads as a type alias, so the row `pf-limit-runtime-patch` stays `exact` where CPython calls the replacement. It is a known limit pinned beside a control (`pf-limit-runtime-patch-control`), not chased. Incidence on the four corpora: `setattr` calls 2 (httpie), 50 (saleor), 101 (superset), 3 (black), none with a capitalised class-like first argument and none inside a `type(..)` statement.
+
+Implementation staging (brief): slice 1 lands initializer and parameter evidence with tests and no document change; slice 2 enables positives with the write and lookup vetoes, sidecar replay and corpus gates. Matrix fixtures pf01 to pf13 per the brief.
 
 ## Change log
 

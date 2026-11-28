@@ -47,3 +47,93 @@ fn parameter_targets_resolve_coordinates_after_graph_relocation() {
         "missing coordinate must refuse"
     );
 }
+
+fn variable(owner: &str, access: VarAccess, bytes: (usize, usize)) -> CpgNode {
+    CpgNode::Variable {
+        file: "coords.js".into(),
+        path: AccessPath::simple("local"),
+        function: owner.into(),
+        function_start_line: 1,
+        line: 1,
+        access,
+        start_byte: bytes.0,
+        end_byte: bytes.1,
+    }
+}
+
+#[test]
+fn pattern_parameter_cache_selects_second_same_name_def_after_reindex() {
+    let first = variable("D", VarAccess::Def, (12, 17));
+    let second = variable("D", VarAccess::Def, (22, 27));
+    let target = PatternTarget::from_node(&second);
+    let mut original = DiGraph::new();
+    original.add_node(first.clone());
+    let original_second = original.add_node(second.clone());
+    let mut relocated = DiGraph::new();
+    relocated.add_node(variable("wrong_owner", VarAccess::Def, (22, 27)));
+    relocated.add_node(first);
+    let expected = relocated.add_node(second);
+    let relocated_index = CodePropertyGraph::exact_var_index_from_graph(&relocated);
+    assert_eq!(
+        relocated_index.values().map(BTreeMap::len).sum::<usize>(),
+        3
+    );
+    assert_ne!(original_second, expected);
+    assert_eq!(target.resolve(&relocated_index, &relocated), Some(expected));
+    assert_eq!(
+        target.resolve(
+            &CodePropertyGraph::exact_var_index_from_graph(&original),
+            &original
+        ),
+        Some(original_second),
+    );
+}
+
+#[test]
+fn pattern_parameter_cache_refuses_wrong_owner_access_bytes_and_duplicates() {
+    let sought = variable("D", VarAccess::Def, (22, 27));
+    let target = PatternTarget::from_node(&sought);
+    for decoys in [
+        vec![variable("other", VarAccess::Def, (22, 27))],
+        vec![variable("D", VarAccess::Use, (22, 27))],
+        vec![variable("D", VarAccess::Def, (22, 28))],
+        vec![sought.clone(), sought.clone()],
+    ] {
+        let mut graph = DiGraph::new();
+        for node in decoys {
+            graph.add_node(node);
+        }
+        let index = CodePropertyGraph::exact_var_index_from_graph(&graph);
+        assert_eq!(target.resolve(&index, &graph), None, "{index:?}");
+    }
+}
+
+#[test]
+fn pattern_parameter_cache_keeps_empty_and_alias_skipped_slots() {
+    let path = "coords.js";
+    let src = "function D(defaults, {}, {a} = defaults, tail) {\n  use(a, tail);\n}\n";
+    let parsed = ParsedFile::parse(path, src, Language::JavaScript).unwrap();
+    let callable = parsed.all_functions()[0];
+    let syntax = parsed.js_ts_pattern_params(&callable);
+    assert_eq!(
+        syntax
+            .iter()
+            .map(|at| (at.position, at.alias_skipped, at.elements.len()))
+            .collect::<Vec<_>>(),
+        [(1, false, 0), (2, true, 0)]
+    );
+    let files = BTreeMap::from([(path.into(), parsed)]);
+    let cpg = CodePropertyGraph::build(&files);
+    let callee = &cpg.call_graph.functions["D"][0];
+    let cache = ParamCache::new(&files);
+    let exact = CodePropertyGraph::exact_var_index_from_graph(&cpg.graph);
+    for _ in 0..2 {
+        let got = cache.pattern_positions(callee, &files[path], &exact, &cpg.graph);
+        assert_eq!(
+            got.iter()
+                .map(|(position, alias, elements)| (*position, *alias, elements.len()))
+                .collect::<Vec<_>>(),
+            [(1, false, 0), (2, true, 0)]
+        );
+    }
+}
