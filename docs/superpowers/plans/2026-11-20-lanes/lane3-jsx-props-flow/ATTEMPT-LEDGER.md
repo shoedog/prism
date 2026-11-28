@@ -21,7 +21,7 @@ No private information appears here.
 | Review rounds on S3 (#964) | 6 (caps: 3, then 2, then a closure), all of them listed below |
 | Rounds past a declared cap | design of record +2, #925 +1, #934 +3, #929 +2, #959 +1, #964 +1 (the closure round after the cap-2 rounds); 10 in all, each with a recorded reason (converging findings, or an owner or controller decision) |
 | Times the gpt-6.2-sol seat was stopped by the provider's content filter | 3 (jobs 093 and 094 on #964 round 5, job 095 on the closure round). On the closure round the second seat became Sonnet-5.5 high (owner-approved fallback) |
-| Owner or controller decisions that changed the plan | 6: S1 rule D (astra escalation), S1 aliasing amendment, S2b strict accept-list, S3 rule R priced then replaced by P2 (notice 33.4), cap extensions (notices 27 and 29), the sol-seat fallback |
+| Owner or controller decisions that changed the plan | 6: S1 rule D (astra escalation), S1 aliasing amendment, S2b strict accept-list, S3 rule R (11 edges) priced then replaced by P2 (notice 33.4; 50 of 1,992 candidates withheld in all), cap extensions (notices 27 and 29), the sol-seat fallback |
 
 ## Stages M, T, E, D
 

@@ -9,7 +9,7 @@ The attempt ledger of every slice, fold and review round is in `ATTEMPT-LEDGER.m
 The lane connects a JSX attribute value to the component that receives it. On the two public React corpora it adds **1,942** such
 edges (X 615, R2 1,327); an independent TypeScript oracle certified all of them (0 wrong, 0 undecided), every one is connected in the final graph (100%),
 and they chain through nested components **1,205** times (gate: 25). The issue's own example now produces the sink finding and a `Reached` verdict.
-The certificate that keeps hidden writes out costs **39** correct edges (29 at pricing, 10 more in one cal.com file).
+The hidden-write certificate withholds **50** of 1,992 candidate edges, all of them correct flows (11 already refused by the interim rule R before it, 29 more at P2's pricing, 10 more in one cal.com file).
 **The lane gate is not fully met:** the review-example gate fails in both directions (cal.com: forward 2 of 15 and backward 1 of 15 commits gain context,
 against 8 of 15; none of the 3 was rated useful by both readers). Per the plan the threshold is not adjusted; #596 is not closed and the owner decides.
 Four follow-ups have a met threshold and an issue (F1, F3, F4, F5); two defects were filed (the resolver defect, the attribute-name anchors).
@@ -23,10 +23,10 @@ React corpora, prism adds these edges, each checked by an independent TypeScript
 
 | Slice (PR, merge commit) | What it adds | Added edges: Excalidraw (X) / cal.com (R2) | Oracle |
 |---|---|---|---|
-| S1 (#929, abc5b2f9) | Defs for destructured props formals, and the edges from them to their reads inside the component | 3,995 / 18,733 (TypeScript src 1,172) over the S1 base; 0 removed, 0 label moves | 3,073 / 15,353 CORRECT, 0 WRONG (run `s1/out6`) |
+| S1 (#929, abc5b2f9) | Defs for destructured props formals, and the edges from them to their reads inside the component | 3,995 / 18,736 (TypeScript src 1,174) over the S1 base (including the 1 / 3 / 2 arg-binding edges the comparator classes unclassified); 0 removed, 0 label moves | 3,073 / 15,353 certified CORRECT, 0 WRONG; the rest are pattern-def-capture edges the props oracle does not judge (run `s1/out6`) |
 | S2a (#952, 6179c7e1) | Moves the binder into its own module; no output change | 0 / 0 | byte-identical edge dumps and stats on four corpora |
-| S2b (#959, e37d644d) | Object-literal arguments through React wrappers (`memo`, `forwardRef`) and hooks (`useCallback`) | 511 / 2,402 (TypeScript src 188) | 448 / 2,388 CORRECT, 0 WRONG (run `s2b/out3`) |
-| S3 (#964, f720d717) | JSX element props: a caller's attribute value to the component's pattern local, rest local, member read or bare read | **615 / 1,327** (TypeScript src 0), 0 removed, 0 label moves | **615 / 1,327 CORRECT, 0 WRONG, 0 UNDECIDED** (run `s3/out9`, repeated on merged main `s4/out-main`) |
+| S2b (#959, e37d644d) | Object-literal arguments through React wrappers (`memo`, `forwardRef`) and hooks (`useCallback`) | 511 / 2,402 (TypeScript src 188) | 448 / 2,388 certified CORRECT, 0 WRONG; the other 63 / 14 are unclassified edges not judged by that oracle (run `s2b/out3`) |
+| S3 (#964, f720d717) | JSX element props: a caller's attribute value to the component's pattern local, rest local, member read or bare read | **615 / 1,327** (TypeScript src 0 at e63fdd66, `s3/out3`; not re-run on the final head), 0 removed, 0 label moves | **615 / 1,327 CORRECT, 0 WRONG, 0 UNDECIDED** (run `s3/out9`, repeated on merged main `s4/out-main`) |
 
 The S3 figures are the lane's headline: **1,942 JSX props edges** on the two public corpora together, all certified.
 They were measured again on a product built at the merged main (f720d717): its edge dumps and statistics files are
@@ -74,7 +74,7 @@ macOS footprint guard on the pinned corpus: prime LOADED 3,143.5 MiB, guarded UN
 
 | What is withheld | How much | Why |
 |---|---|---|
-| Edges lost to the certificate P2 (S3's proof that no hidden write changes the source between its definition and the JSX site) | **29** edges at pricing (X 15, R2 14, of 1,981 candidate edges), plus **10** more in one cal.com file (`BookingDetailsSheet.tsx`, shape `(booking.responses ?? {}) as Record<..>`): 39 in all, X 630 to 615, R2 1,351 to 1,327 | Each of the 39 was CORRECT. The certificate admits only a closed list of spelled forms, so each is a flow the proof could not rule a hidden write out of, not a defect found. Peeling TypeScript wrappers in the result position would give the 10 back (costed, not taken) |
+| Edges lost to the certificate P2 (S3's proof that no hidden write changes the source between its definition and the JSX site) | **50** of 1,992 candidate edges in all (no-guard run `s3/out2`: X 632, R2 1,360; final X 615, R2 1,327): 11 (X 2, R2 9) were already refused by the interim rule R that P2 replaced, 29 more at P2's pricing (X 15, R2 14), and **10** more in one cal.com file (`BookingDetailsSheet.tsx`, shape `(booking.responses ?? {}) as Record<..>`); the baseline of the oracle comparison (X 630, R2 1,351) already lacked the 11 | Each of the 39 beyond rule R's 11 was CORRECT in the oracle comparison (the 11 were priced as correct flows in `s3/price/PRICE.md`). The certificate admits only a closed list of spelled forms, so each is a flow the proof could not rule a hidden write out of, not a defect found. Peeling TypeScript wrappers in the result position would give the 10 back (costed, not taken) |
 | Three shapes the certificate admits although a write could change the value | 3 shapes; 0 on either corpus | `super.p = v` on a formal receiver; a const whose initializer reads an enum member while the enum is being built; `const a = x` followed by a store through another alias. Known-limit rows beside controls, linked to #783 (a write through an alias does not kill an earlier direct definition; same family) |
 | Sources whose text the parser reads differently from the language | 0 incidence on both corpora (cross-check of the owners of all 1,942 kept edges against a TypeScript-tree reference: 0 genuine differences; the structural rule would have cost 10 of 1,942 before two object kinds were admitted, 0 after) | Issue #983: the parser attaches a following-line `[..]` or `(..)` to an arrow function or as-expression where the language ends the statement. The certificate refuses such owners; the lane does not fix the parser |
 | Elements with no Exact singleton target | `refused_not_exact_singleton` 3,456 (X), 19,545 (R2), sites of both kinds | A props edge needs the component identified exactly. The largest refusal by far; F4 and the resolver defect (section 7) bear on it |
@@ -83,7 +83,7 @@ macOS footprint guard on the pinned corpus: prime LOADED 3,143.5 MiB, guarded UN
 | Spread sources not bound | 166 (X), 451 (R2) | F1 |
 | A wrapper other than `memo` or `forwardRef` | 0 (X), 20 (R2) sites | F9 |
 
-The counters are the product's `dfg_props` counters on the merged head (section 4); they count sites of both transports (JSX and object literal).
+The counters are the product's `dfg_props` counters on the merged head (section 4); they cover both transports (JSX and object literal), per site, except `refused_value_not_data`, `refused_key_not_read` and `refused_overwritten`, which count leaves or terminals (DESIGN 5.4).
 
 ## 4. The `dfg_props` breakdown (merged main, final graph)
 
@@ -130,9 +130,9 @@ A head-only line "gains context" when an added edge (head's dfg edges minus the 
 | Direction | Qualifying commits taken | Gain context | Gate (at least 8 of 15) | Head-only lines without a props edge (commits) |
 |---|---|---|---|---|
 | Forward | 15 | **2** (fwd-04, fwd-08) | **FAILS** | 1 (fwd-08 also gained) |
-| Backward | 15 | **1** (bwd-04) | **FAILS** | 6 |
+| Backward | 15 | **1** (bwd-04) | **FAILS** | 7 (bwd-04 also gained) |
 
-Forward detail (53 seed lines): 12 queries returned an error (reason not recorded in this run); 6 seeds started an added props edge; on 3 of them the head frontier gained lines in the receiving component, on 3 it did not (issue #991, F5).
+Forward detail (53 seed lines): 12 queries returned an error (reason not recorded in this run); 6 seeds started an added edge into another file (any edge head adds over the pre-lane base, so S1 and S2b edges are included); on 3 of them the head frontier gained lines in the receiving component, on 3 it did not (issue #991, F5).
 
 Two readers (Opus-5.5 high, Sonnet-5.5 high, separate sessions, blind to each other; labels in `g/examples/readers/`) labelled the 3 examples that gained context:
 
@@ -186,11 +186,13 @@ Also filed with this close-out, not follow-ups of the design but defects and dec
 - The per-site attempt ledger of DESIGN 5.7 (join of every JSX site with syntax, pre-Step-5b evidence, post-guard IDs, the three ambiguity buckets, unjoined sites, trace-boundary causes, F3's only-candidate proxy against all reached zero-width sites): not built. Its follow-up decisions stay pending where they depended on it (F3's proxy, F5's boundary causes).
 - First failures and post-S1 recoveries as separate tables, and pending-versus-final props edge counts: not computed; only the final head is tabulated.
 - Recall: the oracle certifies edges the product emits, it does not count flows the product misses.
-- Go or Python control, the TypeScript-source corpus and Tier-A matrix were not re-run on f720d717; they were run at each slice head (Go control identical at every slice; TypeScript src S3 delta 0; Tier-A matrix 178 ok on the S3 head).
+- Go or Python control, the TypeScript-source corpus and Tier-A matrix were not re-run on f720d717; they were run at each slice head (Go control identical at every slice; TypeScript src S3 delta 0 only up to e63fdd66 (`s3/out3`; later folds only refuse more, not re-run); Tier-A matrix 178 ok on the S3 head).
 - Review examples on Excalidraw (no full clone); the 12 forward seed queries that returned an error (reason not recorded).
 - The "gains context" test is an added-edge test, not the `compare_props.py` witness classification.
 - Hand-read of UNDECIDED edges: none were UNDECIDED.
 
 ## 9. Where things are
+
+The evidence directory is local to the lane's host (not in the repository); summaries are here and in the linked issues, raw dumps are archived there.
 
 Evidence directory `~/prism-evidence/jsx-props/`: `g/` (this report, `ATTEMPT-LEDGER.md`, paths tables, examples and reader labels), `s3/out9` and `s4/out-main` (product runs), `s4/bin/main` (binary f720d717), `s4/taint-gate`, `s4/issues`, `tools/` (`paths.py`, `examples.py`, `examples_scan.py`, `examples_pack.py`, `qualify.cjs`). Issues filed with this report: #985 resolver defect, #986 caller attribute-name anchors, #987 F1, #988 F3, #989 F4, #991 F5.
