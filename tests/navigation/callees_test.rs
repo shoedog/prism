@@ -223,7 +223,22 @@ fn disabled_level3_emits_no_callback_edges_in_either_direction() {
         })
         .collect();
     safe_files.sort_unstable();
-    assert!(safe_files.is_empty());
+    // Disabled Level-3 draws no `parameter_callback` edge. The two importers' callbacks are proved
+    // by their callers instead, as NameOnly `argument_follow` (lane 9 E2): never Level-3's kind.
+    assert_eq!(safe_files, ["b.js", "c.js"]);
+    for item in callees.items.iter().filter(
+        |item| matches!(&item.symbol, Some(SymbolRef::Function { name, .. }) if name == "safe"),
+    ) {
+        let kinds: Vec<_> = item
+            .why
+            .iter()
+            .filter_map(|reason| match reason {
+                Reason::Resolution { kind } => Some(kind.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(kinds, ["argument_follow"]);
+    }
 
     for file in ["b.js", "c.js"] {
         let callers = queries::callers(&s, Some("safe"), Some(file), None, 1).unwrap();
@@ -233,7 +248,9 @@ fn disabled_level3_emits_no_callback_edges_in_either_direction() {
                     &item.symbol,
                     Some(SymbolRef::Function { file, name, .. })
                         if file == "a.js" && name == "invoke"
-                )
+                ) && item.why.iter().any(|reason| {
+                    matches!(reason, Reason::Resolution { kind } if kind == "parameter_callback")
+                })
             }),
             "disabled Level-3 must not report a.js::invoke as caller of {file}::safe"
         );

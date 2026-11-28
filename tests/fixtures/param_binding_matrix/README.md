@@ -572,3 +572,14 @@ and loss reason. Inactive assertions emit no record. Restore
 ## Historical model-boundary skips
 
 Rows carrying `unexecuted` beginning `model boundary, not enabled:` need run-time reasoning the design excludes (reflection, runtime mutation of built-ins, dead calls, accessors, module-object mutation). The manifest preserves these skips. Metadata validation covers every row before selection.
+
+## Slice E2 activation
+
+`E2` is active. Every E-group fixture whose source is a classic script and does not depend on sloppy-mode
+semantics (`arguments`, `with`, direct `eval`, `var`, Annex B) gained a trailing `export {};` (after the last
+asserted line, so no endpoint moves): the accept-list refuses a classic-script global function as a terminal
+(F2), so a script form would credit nothing. The sloppy-mode rows stay scripts; their positive assertions are
+`loss` rows with first refusal `stale_terminal`, and the refusal itself is what their negatives pin. Every E2
+assertion the accept-list v2 withholds is a `loss` row naming the first refusal counter the index reports
+(`PRISM_E_ARG_FOLLOW_TRACE=1` or the `follow` field of the matrix observation). The s1-25 constructor rows stay
+RED (`EXPECTED_RED`, #892).

@@ -24,7 +24,8 @@ use rows::{
 };
 
 const ENABLED: &[&str] = &["control", "guard", "reasons"];
-const SHIPPED_SLICES: &[&str] = &["guard", "reasons"];
+// `lane9_call_nameonly`: lane 9 slice E2 draws the derived call_nameonly callback edge (row n01).
+const SHIPPED_SLICES: &[&str] = &["guard", "reasons", "lane9_call_nameonly"];
 
 /// `PARITY_ENABLED=control,binding` replaces `ENABLED` at run time (a worker's hand-enabled RED record);
 /// the committed constant is what CI runs.

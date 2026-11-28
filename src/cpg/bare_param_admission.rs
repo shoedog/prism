@@ -33,7 +33,11 @@ impl Admission {
                 } else {
                     None
                 }
-            } else if site.caller.file != resolved.target.file {
+            } else if site.caller.file != resolved.target.file
+                && resolved.kind != ResolutionKind::ArgumentFollow
+            {
+                // An argument-follow target is byte-identified by its own route (lane 9 E2), so the
+                // foreign ordinary-name veto of the C route does not apply to it.
                 Some("foreign_ordinary_name_only")
             } else {
                 None

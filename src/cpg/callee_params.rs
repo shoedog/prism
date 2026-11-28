@@ -369,9 +369,9 @@ pub(super) fn compute_param_def_nodes(
 
 fn locate_function<'a>(parsed: &'a ParsedFile, callee: &FunctionId) -> Option<Node<'a>> {
     if crate::anon_owner::is_anonymous_owner_name(&callee.name) {
-        // No fixed slots are opened by the newly reachable anonymous lookup.
-        return crate::anon_owner::node_for_id(parsed, callee)
-            .filter(|node| parsed.js_ts_bare_arrow_parameter(node).is_some());
+        // The facts are computed for every anonymous callable; `admit_anonymous_slots`
+        // withholds the fixed slots from every route but `argument_follow`.
+        return crate::anon_owner::node_for_id(parsed, callee);
     }
     let mut functions = parsed.all_functions().into_iter().filter(|node| {
         parsed.node_line_range(node) == (callee.start_line, callee.end_line)
@@ -498,4 +498,23 @@ fn lookup_formal_defs(
             .then_some(ParamDef { node, bare })
         })
         .collect()
+}
+
+/// Fixed slots of an anonymous callable are opened only for an `argument_follow`
+/// target (E2); every other route keeps the earlier bare-arrow-only reach (slice C),
+/// so no site resolved on main binds more than it did.
+pub(super) fn admit_anonymous_slots<'a, T>(
+    callee: &FunctionId,
+    kind: crate::resolution::ResolutionKind,
+    slots: &'a [Option<T>],
+    is_bare: impl Fn(&T) -> bool,
+) -> &'a [Option<T>] {
+    if kind == crate::resolution::ResolutionKind::ArgumentFollow
+        || !crate::anon_owner::is_anonymous_owner_name(&callee.name)
+        || slots.first().and_then(Option::as_ref).is_some_and(is_bare)
+    {
+        slots
+    } else {
+        &[]
+    }
 }

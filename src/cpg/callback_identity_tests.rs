@@ -722,10 +722,13 @@ fn anonymous_callables_are_not_invoked_targets() {
         let cpg = build(language, src);
         for site in cpg.call_graph.calls.values().flatten() {
             let outcome = cpg.call_graph.resolve_call_site_full(site);
-            assert!(outcome
-                .resolved
-                .iter()
-                .all(|r| !is_synthetic_owner(&r.target.name)));
+            // Only the argument-follow route (E2) names an anonymous callable, and only as a
+            // NameOnly candidate proved by its callers: `cb(1)` in `g` receives the literal.
+            assert!(outcome.resolved.iter().all(|r| {
+                !is_synthetic_owner(&r.target.name)
+                    || (r.kind == crate::resolution::ResolutionKind::ArgumentFollow
+                        && r.confidence == crate::resolution::ResolutionConfidence::NameOnly)
+            }));
         }
         // New callers may send arguments to f, but no invokes edge enters them (S3).
         for e in cpg.graph.edge_indices() {

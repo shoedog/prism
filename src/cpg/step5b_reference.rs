@@ -110,13 +110,18 @@ impl CodePropertyGraph {
                     let cross_file_free_single_exact = resolved.kind == ResolutionKind::FreeSingle
                         && resolved.confidence == ResolutionConfidence::Exact
                         && callee_id.file != caller_id.file;
-                    let param_nodes = param_cache
-                        .entry(callee_id.clone())
-                        .or_insert_with(|| {
-                            compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
-                        })
-                        .as_deref()
-                        .unwrap_or_default();
+                    let param_nodes = callee_params::admit_anonymous_slots(
+                        callee_id,
+                        resolved.kind,
+                        param_cache
+                            .entry(callee_id.clone())
+                            .or_insert_with(|| {
+                                compute_param_def_nodes(callee_parsed, callee_id, var_index, graph)
+                            })
+                            .as_deref()
+                            .unwrap_or_default(),
+                        |target| target.bare.is_some(),
+                    );
                     let inputs = object_literal_args::SiteInputs {
                         #[cfg(test)]
                         call_bytes: (site.start_byte, site.end_byte),

@@ -33,6 +33,7 @@ fn every_resolution_kind_has_its_exact_wire_name() {
         (ReturnTyped, "return_typed"),
         (FieldTyped, "field_typed"),
         (ParameterCallback, "parameter_callback"),
+        (ArgumentFollow, "argument_follow"),
         (ContextualOwner, "contextual_owner"),
     ];
     for (kind, name) in table {

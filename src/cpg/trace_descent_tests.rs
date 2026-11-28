@@ -24,11 +24,24 @@ pub(super) fn occurrence(cpg: &CodePropertyGraph, start: usize, access: VarAcces
 }
 
 fn add_binding(cpg: &mut CodePropertyGraph, from: NodeIndex, to: NodeIndex, label: FlowConfidence) {
-    assert!(cpg
+    // The product may already draw this binding (an argument-follow payload edge, lane 9 E2);
+    // then the test checks it carries the label it would have been given, instead of adding one.
+    let existing: Vec<_> = cpg
         .graph
         .edges_connecting(from, to)
-        .all(|edge| !edge.weight().is_data_flow()));
-    cpg.graph.add_edge(from, to, CpgEdge::DataFlow(label));
+        .filter(|edge| edge.weight().is_data_flow())
+        .map(|edge| edge.weight().clone())
+        .collect();
+    if existing.is_empty() {
+        cpg.graph.add_edge(from, to, CpgEdge::DataFlow(label));
+    } else {
+        assert!(
+            existing
+                .iter()
+                .all(|edge| edge == &CpgEdge::DataFlow(label)),
+            "{existing:?}"
+        );
+    }
 }
 
 fn assert_boundary(trace: &Trace, from: NodeIndex, to: NodeIndex, reason: LossReason) {

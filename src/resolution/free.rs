@@ -54,11 +54,12 @@ impl super::CallGraph {
     /// main drops (an addition). Both `CallGraph::resolve_call_site_full` and
     /// `GoSatisfierMemo::resolve_call_site_full` call this, so they cannot drift.
     pub(crate) fn admit_and_filter_family<'a>(
-        &self,
+        &'a self,
         site: &super::CallSite,
         outcome: super::ResolutionOutcome<'a>,
     ) -> super::ResolutionOutcome<'a> {
         let outcome = self.admit_anonymous_exact(site, outcome);
+        let outcome = self.js_ts_argument_follow(site, outcome);
         let outcome = outcome.retain_family(&site.caller.file);
         self.refuse_multi_occurrence(site, outcome)
     }

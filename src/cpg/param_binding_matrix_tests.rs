@@ -15,7 +15,7 @@ mod route_pins;
 mod supplied_site;
 pub(super) use supplied_site::assert_supplied_site_reaches_use;
 
-const ACTIVE_SLICES: &[&str] = &["control", "A", "B", "C", "D"];
+const ACTIVE_SLICES: &[&str] = &["control", "A", "B", "C", "D", "E2"];
 type AssertionKey<'a> = (&'a str, &'a str, usize);
 type ExpectedRed<'a> = (AssertionKey<'a>, &'a str);
 
@@ -55,6 +55,12 @@ const EXPECTED_RED: &[ExpectedRed<'_>] = &[
     (("s5-6", "tsx", 2), CONSTRUCTOR_RED_REASON),
     (("x3-5", "js", 1), CONSTRUCTOR_RED_REASON),
     (("x3-5", "js", 2), CONSTRUCTOR_RED_REASON),
+    (("s1-25", "js", 1), CONSTRUCTOR_RED_REASON),
+    (("s1-25", "js", 2), CONSTRUCTOR_RED_REASON),
+    (("s1-25", "ts", 1), CONSTRUCTOR_RED_REASON),
+    (("s1-25", "ts", 2), CONSTRUCTOR_RED_REASON),
+    (("s1-25", "tsx", 1), CONSTRUCTOR_RED_REASON),
+    (("s1-25", "tsx", 2), CONSTRUCTOR_RED_REASON),
 ];
 /// Doubt kinds as `dfg-stats --edges` spells them; `builtin_callback` is added by slice D.
 const LABEL_DOUBTS: &[&str] = &[
@@ -417,7 +423,9 @@ impl Fixture<'_> {
                 confidence,
                 route,
             } => {
-                let actual = self.cpg.call_graph.resolve_call_site_full(self.site(call)?);
+                let site = self.site(call)?;
+                let actual = self.cpg.call_graph.resolve_call_site_full(site);
+                let follow = self.cpg.call_graph.js_anonymous.arg_follow.lookup(site);
                 let mut got: Vec<_> = actual
                     .resolved
                     .iter()
@@ -446,7 +454,7 @@ impl Fixture<'_> {
                 want.sort_unstable();
                 Ok((
                     got == want,
-                    format!("targets {got:?}, drop {:?}", actual.drop),
+                    format!("targets {got:?}, drop {:?}, follow {follow:?}", actual.drop),
                 ))
             }
             Check::Drop { call, reason } => {

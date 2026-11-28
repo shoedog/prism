@@ -346,7 +346,8 @@ mod stream;
 /// - v195: JS/TS/TSX literal arguments bind to proved object-pattern Defs and selected plain-formal reads. Step 5b props inventory, refusals and edge counters are serialized.
 /// - v196: JSX props bind to proved destinations. The statistics record includes JSX site inventory and refusal counts.
 /// - v197: Persist the whole-graph JS-family argument-follow facts with the proof index (admitted by the lane 9 accept-list).
-const CACHE_VERSION: u32 = 197;
+/// - v198: JS-family calls through a parameter resolve as NameOnly `argument_follow` (new `ResolutionKind::ArgumentFollow` and `DropReason::ArgFanout`), changing call edges, DataFlow payload edges and the call statistics.
+const CACHE_VERSION: u32 = 198;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -879,7 +880,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 197);
+        assert_eq!(super::CACHE_VERSION, 198);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
