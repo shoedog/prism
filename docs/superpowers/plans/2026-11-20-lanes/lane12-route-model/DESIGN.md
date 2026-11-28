@@ -320,6 +320,11 @@ reaching value comes from an import from another module is also a re-export, for
 can still name a directly imported declaration under the value rules above. Recognized native Flask imports continue to supply `Flask`,
 `Blueprint`, `View` and `MethodView` under the existing framework checks.
 
+For a direct factory call, the written capture is the callee. For class-view metadata, it
+is the class operand of `as_view`. A refused factory receiver or mount child leaves the written
+registration fields available. A refused class operand leaves the written callback and explicit
+methods available and withholds view-derived metadata.
+
 Require one unconditional eligible terminal binding. The capturing module must also contain
 exactly one binding of the captured import's local name, the import that creates it.
 Find the candidate import by lexical lookup of the written capture's root name, whether bare or
@@ -443,7 +448,10 @@ imported callee, the no-effect exemption is unavailable and dependent fields are
 `unestablished_hop` names a census outcome only; `terminal_reexport` is also the wire receiver reason above and is not a counted import refusal.
 
 During escape indexing, keep possible targets when an import proof fails and withhold their
-view-derived metadata if the escape cannot be cleared. In fk-34, the helper captures and mutates
+view-derived metadata if the escape cannot be cleared. Include competing imports to the same
+lexical binding, including guarded imports and writes redirected by `global` or `nonlocal`.
+Resolve a qualified argument's member path against each such module root. A proved no-effect
+callee still clears the escape. In fk-34, the helper captures and mutates
 one of two definitions of `f`. Keep the resolved written local callback and withhold inferred
 endpoint and effective methods. In fk-c44 this amendment deliberately recovers `setup.patch`:
 at `56a9a0d4`, `setup.unused = _mut` invalidated the entire module for the no-effect exemption.
@@ -881,6 +889,17 @@ The frozen populations, binding floors and ledger dispositions above govern each
   - **Python 3.12 generic type parameter (fk-95).** Generic parameter bindings are outside
     the lexical census. The scanner selects `views.f` with no counted predicate flagged.
     Flask installs a `TypeVar` and dispatch raises `TypeError`.
+  - **Rebound native Flask imports.** Native constructor and class-base recognition uses
+    the framework checks. A lexical rebind of a native import can leave a source router or
+    class-view metadata proof attached to the original framework binding.
+  - **Parser recovery.** The lexical census counts binding nodes exposed by the parser.
+    Syntax recovered into error or missing nodes can hide a competing write. A capture
+    elsewhere in the file can still appear unique.
+  - **Opaque Flask mounts with untraced children.** For an opaque parent, the escape index
+    widens a traced Blueprint child to competing allocations at that binding. When the child
+    is reachable only via an unproved read, such as a sole import inside a `with` block, the
+    mount can hide a child escape. Independently proved source registrations keep their
+    receiver proof. The opaque mount and paths through it earn zero installation or dispatch credit.
 
   **Reason-label note (IMMATERIAL).** When a later assignment hides the import in fk-89 and
   the source also declares `__getattr__`, the scanner reports `multi_write` where the

@@ -2,7 +2,7 @@
 use super::{allocation, values::mutation_candidates, Allocation};
 use crate::ast::ParsedFile;
 use crate::framework_entries::routes::{
-    python::{attribute, literal_string, ungroup},
+    python::{attribute, literal_string, normalized, ungroup},
     receivers::{PythonBindings, PythonValue},
     Invocation, RouterId,
 };
@@ -34,7 +34,7 @@ impl<'a> ViewMapWrites<'a> {
         else {
             return;
         };
-        if file.node_text(&field) != "view_functions" {
+        if normalized(file.node_text(&field)) != "view_functions" {
             return;
         }
         let key = target

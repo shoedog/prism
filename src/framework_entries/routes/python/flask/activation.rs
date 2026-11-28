@@ -79,7 +79,9 @@ fn setup_function<'a>(
             return None;
         }
         let class_name = ungroup(object.child_by_field_name("function")?);
-        if class_name.kind() != "identifier" {
+        if class_name.kind() != "identifier"
+            || bindings.has_global_write(file, file.node_text(&class_name))
+        {
             return None;
         }
         let class =
@@ -109,7 +111,9 @@ fn setup_function<'a>(
     } else {
         (module, callee, false)
     };
-    if name.kind() != "identifier" {
+    if name.kind() != "identifier"
+        || (!method && bindings.has_global_write(file, file.node_text(&name)))
+    {
         return None;
     }
     let function = bindings.reaching(

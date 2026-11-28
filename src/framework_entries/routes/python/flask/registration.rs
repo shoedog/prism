@@ -7,11 +7,14 @@ pub(in crate::framework_entries::routes) fn native_view_argument<'a>(
     value: Node<'a>,
     context: &SetupContext<'a>,
 ) -> bool {
-    let Some((object, "add_url_rule")) = call_method(file, call) else {
+    let Some((object, method)) = call_method(file, call) else {
         return false;
     };
     let args = arguments(call);
-    if args.unpacked() || args.get(file, "view_func", 2).written().map(ungroup) != Some(value) {
+    if method != "add_url_rule"
+        || args.unpacked()
+        || args.get(file, "view_func", 2).written().map(ungroup) != Some(value)
+    {
         return false;
     }
     let blueprint = record_once_owner(bindings, file, python_scope(call), object);

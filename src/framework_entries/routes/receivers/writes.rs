@@ -1,20 +1,11 @@
 use super::{
     children, comprehension,
     imports::{import_items, imported_as},
-    python_scope, ParsedFile,
+    normalized, python_scope, ParsedFile,
 };
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
-use unicode_normalization::UnicodeNormalization;
-
-pub(super) fn normalized(name: &str) -> Cow<'_, str> {
-    if name.is_ascii() {
-        Cow::Borrowed(name)
-    } else {
-        Cow::Owned(name.nfkc().collect())
-    }
-}
 
 pub(super) fn private_name(name: &str) -> bool {
     name.starts_with("__") && !name.ends_with("__")
@@ -198,6 +189,25 @@ impl<'a> LexicalWrites<'a> {
 
     pub(super) fn directive(&self, scope: Node<'a>, name: &str) -> Option<Directive> {
         self.scopes.get(&scope.id())?.directives.get(name).copied()
+    }
+
+    pub(super) fn read_binding_scope(
+        &self,
+        mut scope: Node<'a>,
+        name: &str,
+        before: usize,
+    ) -> Option<Node<'a>> {
+        loop {
+            let owns_name = match scope.kind() {
+                "module" => true,
+                "class_definition" => self.named_before(scope, name, before).is_some(),
+                _ => self.binds_local(scope, name),
+            };
+            if owns_name && self.directive(scope, name).is_none() {
+                return Some(scope);
+            }
+            scope = self.outer_binding_scope(scope, name)?;
+        }
     }
 
     pub(super) fn outer_binding_scope(&self, scope: Node<'a>, name: &str) -> Option<Node<'a>> {

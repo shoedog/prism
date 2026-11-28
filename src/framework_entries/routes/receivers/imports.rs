@@ -1,8 +1,8 @@
 //! Source import paths and package member reads for Flask setup.
 use super::{
-    attribute, children, direct, import_parts, python_scope,
+    arguments, attribute, children, direct, import_parts, normalized, python_scope,
     refusals::{Capture, ImportRefusalReason},
-    writes::{effective_name, normalized, private_name},
+    writes::{effective_name, private_name},
     ParsedFile, PythonBindings, PythonKind, PythonMember, PythonValue, Reason, SetupContext,
 };
 use crate::framework_entries::routes::python::ungroup;
@@ -14,6 +14,7 @@ mod lookup;
 mod predicates;
 mod reexports;
 
+#[derive(Clone)]
 struct Step<'a> {
     name: String,
     read: Option<Node<'a>>,
@@ -169,10 +170,36 @@ impl<'a> PythonBindings<'a> {
         statement: Node<'a>,
         name: &str,
     ) -> Option<ImportPath<'a>> {
+        self.import_paths(file, statement, name).next()
+    }
+
+    fn import_paths<'b>(
+        &'b self,
+        file: &'a ParsedFile,
+        statement: Node<'a>,
+        name: &'b str,
+    ) -> impl Iterator<Item = ImportPath<'a>> + 'b
+    where
+        'a: 'b,
+    {
         let scope = python_scope(statement);
-        let (path, alias) = import_items(statement).find(|&(path, alias)| {
-            effective_name(file, scope, imported_as(file, path, alias)) == name
-        })?;
+        import_items(statement)
+            .filter(move |&(path, alias)| {
+                matches!(
+                    statement.kind(),
+                    "import_statement" | "import_from_statement"
+                ) && effective_name(file, scope, imported_as(file, path, alias)) == name
+            })
+            .filter_map(move |(path, alias)| self.import_item_path(file, statement, path, alias))
+    }
+
+    fn import_item_path(
+        &self,
+        file: &'a ParsedFile,
+        statement: Node<'a>,
+        path: Node<'a>,
+        alias: Option<Node<'a>>,
+    ) -> Option<ImportPath<'a>> {
         let local = normalized(imported_as(file, path, alias));
         let written = source_path(file, path);
         let from = statement.child_by_field_name("module_name");

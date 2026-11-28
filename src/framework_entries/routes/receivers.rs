@@ -209,7 +209,9 @@ fn unproven(entry: &str) -> EntryError {
     }
 }
 
-use super::python::{arguments, attribute, children, comprehension, first_iterable, walk};
+use super::python::{
+    arguments, attribute, children, comprehension, first_iterable, normalized, ungroup, walk,
+};
 use super::Framework;
 use crate::ast::ParsedFile;
 use std::collections::BTreeMap;
@@ -221,7 +223,7 @@ pub(crate) mod refusals;
 mod writes;
 use mutations::AttributeWrites;
 use refusals::{Capture, ImportRefusals};
-use writes::{normalized, targets, LexicalWrites};
+use writes::{targets, LexicalWrites};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PythonKind {
@@ -406,7 +408,7 @@ impl<'a> PythonBindings<'a> {
         })
     }
 
-    fn has_global_write(&self, file: &ParsedFile, name: &str) -> bool {
+    pub(super) fn has_global_write(&self, file: &ParsedFile, name: &str) -> bool {
         self.writes[file.path.as_str()].global_write(&normalized(name))
     }
 
@@ -525,16 +527,11 @@ impl<'a> PythonBindings<'a> {
                     PythonValue::Definition(member)
                         if !arguments(value).unpacked() && arguments(value).nodes().is_empty() =>
                     {
-                        let mut frames = context.frames.clone();
-                        frames.push(Invocation::Call {
-                            file: file.path.clone(),
-                            start_byte: value.start_byte(),
-                            end_byte: value.end_byte(),
-                        });
-                        self.factory(member, frames, depth - 1).map_or(
-                            PythonValue::Opaque(PythonMember { file, node: value }),
-                            PythonValue::Router,
-                        )
+                        self.factory_at_call(file, value, member, context, depth - 1)
+                            .map_or(
+                                PythonValue::Opaque(PythonMember { file, node: value }),
+                                PythonValue::Router,
+                            )
                     }
                     _ => PythonValue::Opaque(PythonMember { file, node: value }),
                 }
@@ -564,11 +561,30 @@ impl<'a> PythonBindings<'a> {
         let Some(&source) = self.files.get(file) else {
             return PythonValue::Unknown(Reason::ReceiverUnproven);
         };
-        self.imported(source, value, context, 24, Capture::Value)
-            .map_or_else(
-                || self.value_at(file, value, context),
-                |value| self.checked_router(value),
-            )
+        if let Some(captured) = self.imported(source, value, context, 24, Capture::Value) {
+            return self.checked_router(captured);
+        }
+        if self.refused_factory(source, ungroup(value), context) {
+            return PythonValue::Unknown(Reason::ImportedUnproven);
+        }
+        self.value_at(file, value, context)
+    }
+
+    fn factory_at_call(
+        &self,
+        file: &ParsedFile,
+        call: Node<'a>,
+        member: PythonMember<'a>,
+        context: &SetupContext<'a>,
+        depth: usize,
+    ) -> Option<PythonRouter<'a>> {
+        let mut frames = context.frames.clone();
+        frames.push(Invocation::Call {
+            file: file.path.clone(),
+            start_byte: call.start_byte(),
+            end_byte: call.end_byte(),
+        });
+        self.factory(member, frames, depth)
     }
 
     fn factory(
@@ -672,7 +688,10 @@ impl<'a> PythonBindings<'a> {
                     "keyword_argument" => {
                         parent.child_by_field_name("name") == Some(node)
                             || parent.child_by_field_name("name").is_some_and(|key| {
-                                matches!(file.node_text(&key), "view_func" | "blueprint")
+                                matches!(
+                                    normalized(file.node_text(&key)).as_ref(),
+                                    "view_func" | "blueprint"
+                                )
                             })
                     }
                     "argument_list" => parent
@@ -681,7 +700,7 @@ impl<'a> PythonBindings<'a> {
                         .and_then(attribute)
                         .is_some_and(|(_, method)| {
                             matches!(
-                                file.node_text(&method),
+                                normalized(file.node_text(&method)).as_ref(),
                                 "register_blueprint" | "add_url_rule"
                             )
                         }),

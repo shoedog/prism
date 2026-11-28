@@ -3,7 +3,10 @@ use super::{
     PythonValue, SetupContext,
 };
 use crate::ast::ParsedFile;
-use crate::framework_entries::routes::python::{arguments, literal_string, ungroup};
+use crate::framework_entries::routes::{
+    python::{arguments, literal_string, normalized, ungroup},
+    Reason,
+};
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
@@ -15,7 +18,7 @@ mod view_map;
 use escapes::ViewArgument;
 use metadata::MetadataWrites;
 use reach::FileReach;
-use values::{possible_values, unbound_name};
+use values::{mutation_candidates, possible_values, unbound_name};
 use view_map::ViewMapWrites;
 
 type Allocation<'a> = (&'a str, usize);
@@ -58,7 +61,8 @@ impl<'a> AttributeWrites<'a> {
                             && node.child_by_field_name("left") == Some(target))
                         .then(|| node.child_by_field_name("right"))
                         .flatten();
-                        writes.field(bindings, file, node, object, file.node_text(&field), value);
+                        let field = normalized(file.node_text(&field));
+                        writes.field(bindings, file, node, object, &field, value);
                         stored = true;
                     } else if target.kind() == "subscript" {
                         if let Some(container) = target.child_by_field_name("value") {
@@ -183,8 +187,8 @@ impl<'a> AttributeWrites<'a> {
         };
         let args = arguments(call);
         let mut native_owner = None;
-        let function = file.node_text(&callee);
-        if matches!(function, "setattr" | "delattr") {
+        let function = normalized(file.node_text(&callee));
+        if matches!(function.as_ref(), "setattr" | "delattr") {
             let slots = if function == "setattr" {
                 &["obj", "name", "value"][..]
             } else {
@@ -204,38 +208,21 @@ impl<'a> AttributeWrites<'a> {
                 }
             }
         } else if let Some((object, method)) = attribute(callee) {
-            let method = file.node_text(&method);
+            let method = normalized(file.node_text(&method));
             if method == "register_blueprint"
                 && args.accepts(file, &["blueprint"], true)
                 && !args.unpacked()
             {
-                let context = SetupContext::default();
-                let blueprint = args.get(file, "blueprint", 0).written().and_then(|child| {
-                    match bindings.value_at(&file.path, child, &context) {
-                        PythonValue::Router(router) if router.kind == PythonKind::Blueprint => {
-                            Some((child, allocation(&router)))
-                        }
-                        _ => None,
-                    }
-                });
-                if let Some((child, child_allocation)) = blueprint {
-                    if let PythonValue::Router(parent) =
-                        bindings.capture_value(&file.path, object, &context)
-                    {
-                        mounts
-                            .entry(allocation(&parent))
-                            .or_default()
-                            .insert(child_allocation);
+                if let Some(child) = args.get(file, "blueprint", 0).written() {
+                    if self.mount_children(bindings, file, object, child, mounts) {
                         native_owner = Some(child);
-                    } else {
-                        self.escaped_mount_children.insert(child_allocation);
                     }
                 }
             }
             self.converters
                 .extend(url_map_owner(bindings, file, object));
             if matches!(
-                method,
+                method.as_ref(),
                 "update"
                     | "clear"
                     | "setdefault"
@@ -258,6 +245,58 @@ impl<'a> AttributeWrites<'a> {
                 self.escape(bindings, file, value, Some(call));
             }
         }
+    }
+
+    fn mount_children(
+        &mut self,
+        bindings: &PythonBindings<'a>,
+        file: &'a ParsedFile,
+        object: Node<'a>,
+        child: Node<'a>,
+        mounts: &mut Mounts<'a>,
+    ) -> bool {
+        let context = SetupContext::default();
+        let (children, proved_child) = match bindings.capture_value(&file.path, child, &context) {
+            PythonValue::Router(router) if router.kind == PythonKind::Blueprint => {
+                (vec![allocation(&router)], true)
+            }
+            PythonValue::Unknown(Reason::ImportedUnproven) => (
+                mutation_candidates(bindings, file, child, true)
+                    .into_iter()
+                    .filter_map(|value| match value {
+                        PythonValue::Router(router) if router.kind == PythonKind::Blueprint => {
+                            Some(allocation(&router))
+                        }
+                        _ => None,
+                    })
+                    .collect(),
+                false,
+            ),
+            _ => return false,
+        };
+        if children.is_empty() {
+            return false;
+        }
+        if let PythonValue::Router(parent) = bindings.capture_value(&file.path, object, &context) {
+            mounts
+                .entry(allocation(&parent))
+                .or_default()
+                .extend(children);
+            return proved_child;
+        }
+        // For an opaque parent, widen a traced child escape to its competing
+        // allocations. A refused import alone (for example, inside a `with`)
+        // gives no established child read to start from.
+        if proved_child
+            || matches!(
+                bindings.value_at(&file.path, child, &context),
+                PythonValue::Router(router) if router.kind == PythonKind::Blueprint
+            )
+        {
+            self.routers.extend(children.iter().copied());
+            self.escaped_mount_children.extend(children);
+        }
+        false
     }
 
     fn escape(
@@ -307,7 +346,7 @@ impl<'a> AttributeWrites<'a> {
                             let Some((object, field)) = attribute(member.node) else {
                                 continue;
                             };
-                            match member.file.node_text(&field) {
+                            match normalized(member.file.node_text(&field)).as_ref() {
                                 "url_map" => self.converters.extend(router_allocations(
                                     bindings,
                                     member.file,
@@ -345,7 +384,7 @@ fn is_builtin_object<'a>(
             .node
             .child_by_field_name("function")
             .is_some_and(|callee| {
-                member.file.node_text(&callee) == "object"
+                normalized(member.file.node_text(&callee)) == "object"
                     && unbound_name(bindings, member.file, callee)
             })
 }
@@ -417,7 +456,7 @@ fn members_named<'a>(
 ) -> Vec<(&'a ParsedFile, Node<'a>)> {
     let object = ungroup(object);
     if object.kind() != "identifier"
-        && attribute(object).is_none_or(|(_, name)| file.node_text(&name) != field)
+        && attribute(object).is_none_or(|(_, name)| normalized(file.node_text(&name)) != field)
     {
         return vec![];
     }
@@ -428,7 +467,7 @@ fn members_named<'a>(
                 return None;
             };
             let (object, name) = attribute(member.node)?;
-            (member.file.node_text(&name) == field).then_some((member.file, object))
+            (normalized(member.file.node_text(&name)) == field).then_some((member.file, object))
         })
         .collect()
 }

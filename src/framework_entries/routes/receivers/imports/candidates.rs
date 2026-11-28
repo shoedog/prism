@@ -2,6 +2,43 @@ use super::*;
 use std::collections::{BTreeSet, VecDeque};
 
 impl<'a> PythonBindings<'a> {
+    pub(in crate::framework_entries::routes::receivers) fn refused_factory(
+        &self,
+        file: &'a ParsedFile,
+        call: Node<'a>,
+        context: &SetupContext<'a>,
+    ) -> bool {
+        if call.kind() != "call" || call.has_error() || !arguments(call).nodes().is_empty() {
+            return false;
+        }
+        let Some(callee) = call.child_by_field_name("function") else {
+            return false;
+        };
+        let Some(path) = self.trace_import_root(file, callee, context, 24, true) else {
+            return false;
+        };
+        let proof = self.prove_import(file, &path, 24);
+        let reason = proof.reason;
+        if proof.selection().is_some() {
+            return false;
+        }
+        // A refused import can retain a registration only if a candidate has
+        // the supported factory shape. The candidate cannot prove its receiver.
+        let recognized = self
+            .possible_imported_values(file, callee, context, false)
+            .into_iter()
+            .any(|value| match value {
+                PythonValue::Definition(member) => self
+                    .factory_at_call(file, call, member, context, 23)
+                    .is_some(),
+                _ => false,
+            });
+        if let (true, Some(reason)) = (recognized, reason) {
+            self.record_import_refusal(file, call, reason);
+        }
+        recognized
+    }
+
     pub(in crate::framework_entries::routes::receivers) fn possible_imported_values(
         &self,
         file: &'a ParsedFile,
@@ -9,10 +46,14 @@ impl<'a> PythonBindings<'a> {
         context: &SetupContext<'a>,
         keep_routers: bool,
     ) -> Vec<PythonValue<'a>> {
-        let Some(path) = self.trace_import_root(file, expression, context, 24, true) else {
-            return Vec::new();
-        };
-        let mut pending = VecDeque::from(self.possible_members(&path));
+        let mut pending: VecDeque<_> = self
+            .trace_import_root(file, expression, context, 24, true)
+            .into_iter()
+            .flat_map(|path| self.possible_members(&path))
+            .collect();
+        for path in self.competing_import_paths(file, expression, context) {
+            pending.extend(self.possible_members(&path));
+        }
         let mut seen = BTreeSet::new();
         let mut values = Vec::new();
         while let Some((member, name)) = pending.pop_front() {
@@ -22,7 +63,7 @@ impl<'a> PythonBindings<'a> {
             match member.node.kind() {
                 "function_definition" => values.push(PythonValue::Definition(member)),
                 "import_statement" | "import_from_statement" => {
-                    if let Some(path) = self.import_path(member.file, member.node, &name) {
+                    for path in self.import_paths(member.file, member.node, &name) {
                         pending.extend(self.possible_members(&path));
                     }
                 }
@@ -42,6 +83,67 @@ impl<'a> PythonBindings<'a> {
             }
         }
         values
+    }
+
+    // The proof counts same-spelling sites throughout the file. For an escape,
+    // only writes to the lexical binding actually read can contribute targets.
+    fn competing_import_paths(
+        &self,
+        file: &'a ParsedFile,
+        expression: Node<'a>,
+        context: &SetupContext<'a>,
+    ) -> Vec<ImportPath<'a>> {
+        let mut root = ungroup(expression);
+        let mut suffix = Vec::new();
+        while let Some((object, field)) = attribute(root) {
+            suffix.push(Step {
+                name: normalized(file.node_text(&field)).into_owned(),
+                read: Some(root),
+            });
+            root = ungroup(object);
+        }
+        if root.kind() != "identifier" {
+            return Vec::new();
+        }
+        let local = python_scope(root);
+        let name = effective_name(file, local, file.node_text(&root));
+        let writes = &self.writes[file.path.as_str()];
+        let Some(binding) = writes.read_binding_scope(local, &name, root.start_byte()) else {
+            return Vec::new();
+        };
+        let before = if local == binding {
+            root.start_byte()
+        } else if binding.kind() == "module" {
+            self.module_before(file, context)
+        } else {
+            binding.end_byte()
+        };
+        let mut paths = Vec::new();
+        let mut seen = BTreeSet::new();
+        for &write in writes.capture_sites(&name) {
+            if !seen.insert(write.id()) {
+                continue;
+            }
+            let scope = python_scope(write);
+            let owner = if writes.directive(scope, &name).is_some() {
+                writes.outer_binding_scope(scope, &name)
+            } else {
+                Some(scope)
+            };
+            if owner != Some(binding)
+                || (scope == binding && write.end_byte() > before)
+                || (scope == local && write.end_byte() > root.start_byte())
+            {
+                continue;
+            }
+            let aliases = assignment_alias(write)
+                .and_then(|rhs| self.trace_import_root(file, rhs, context, 24, true));
+            for mut path in self.import_paths(file, write, &name).chain(aliases) {
+                path.steps.extend(suffix.iter().rev().cloned());
+                paths.push(path);
+            }
+        }
+        paths
     }
 
     // Keep candidate definitions and allocations for metadata checks even through a

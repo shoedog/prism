@@ -47,10 +47,12 @@ pub(super) fn view_metadata<'a>(
         }
     }
     let native = argument.and_then(|call| {
-        let (class, "as_view") = call_method(file, call)? else {
+        let (class, method) = call_method(file, call)?;
+        if method != "as_view" {
             return None;
-        };
-        let PythonValue::Definition(class) = bindings.value_at(&file.path, class, context) else {
+        }
+        let PythonValue::Definition(class) = bindings.capture_value(&file.path, class, context)
+        else {
             return None;
         };
         native_view(bindings, class, file, call, context, &mut metadata)
@@ -152,13 +154,13 @@ fn native_view<'a>(
     let mut handlers = Vec::new();
     for node in body {
         if node.kind() == "function_definition" {
-            let name = class.file.node_text(&node.child_by_field_name("name")?);
+            let name = normalized(class.file.node_text(&node.child_by_field_name("name")?));
             if name == "as_view" {
                 return None;
             }
             if kind == PythonKind::MethodView
                 && matches!(
-                    name,
+                    name.as_ref(),
                     "get" | "head" | "post" | "options" | "delete" | "put" | "trace" | "patch"
                 )
             {

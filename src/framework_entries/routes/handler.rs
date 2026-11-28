@@ -1,5 +1,5 @@
 //! Callback values at Python registration sites.
-use super::python::{attribute, children};
+use super::python::{attribute, children, normalized};
 use super::receivers::{PythonBindings, PythonMember, PythonValue, SetupContext};
 use super::{CallableId, Callback, CallbackStatus, Reason};
 use crate::ast::ParsedFile;
@@ -47,7 +47,7 @@ pub(crate) fn python_callback<'a>(
                 if node
                     .child_by_field_name("function")
                     .and_then(attribute)
-                    .is_some_and(|(_, name)| file.node_text(&name) == "as_view") =>
+                    .is_some_and(|(_, name)| normalized(file.node_text(&name)) == "as_view") =>
             {
                 Reason::ClassView
             }

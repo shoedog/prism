@@ -1,7 +1,7 @@
 //! Flask declarations and local setup facts. Native activation is a consumer of these facts.
 use super::{
-    arguments, attribute, children, literal_methods, literal_string, site, ungroup, PythonArg,
-    PythonArgs,
+    arguments, attribute, children, literal_methods, literal_string, normalized, site, ungroup,
+    PythonArg, PythonArgs,
 };
 use crate::ast::ParsedFile;
 use crate::framework_entries::routes::{
@@ -12,6 +12,7 @@ use crate::framework_entries::routes::{
     Callback, CallbackStatus, Declaration, DeclaredPath, Diagnostic, Framework, MethodSet,
     MountPrefix, PathToken, Protocol, Reason, Receiver, Route, Site,
 };
+use std::borrow::Cow;
 use tree_sitter::Node;
 
 mod activation;
@@ -161,9 +162,9 @@ fn receiver(value: PythonValue<'_>) -> Receiver {
 fn call_method<'a, 'source>(
     file: &'source ParsedFile,
     call: Node<'a>,
-) -> Option<(Node<'a>, &'source str)> {
+) -> Option<(Node<'a>, Cow<'source, str>)> {
     let (object, name) = attribute(call.child_by_field_name("function")?)?;
-    Some((object, file.node_text(&name)))
+    Some((object, normalized(file.node_text(&name))))
 }
 
 fn route_method(name: &str) -> bool {
@@ -236,6 +237,7 @@ pub(crate) fn flask_facts<'a>(
             }
             continue;
         };
+        let method = method.as_ref();
         let invocation = (!decorator && method == "add_url_rule")
             .then(|| invocations.get(&scope.id()))
             .flatten();
@@ -270,6 +272,12 @@ pub(crate) fn flask_facts<'a>(
         let default_converters =
             matches!(&owner, PythonValue::Router(router) if bindings.default_converters(router));
         let mut parent = receiver(owner);
+        let refused_factory = matches!(
+            parent,
+            Receiver::Unproven {
+                reason: Reason::ImportedUnproven
+            }
+        ) && ungroup(object).kind() == "call";
         if !decorator && method == "register_blueprint" {
             let argument = options.get(file, "blueprint", 0).written();
             let child = match argument.map(value) {
@@ -283,6 +291,7 @@ pub(crate) fn flask_facts<'a>(
             let escaped = matches!(child, Receiver::Unproven { .. })
                 && argument.is_some_and(|child| bindings.escaped_mount_child(file, child, context));
             if matches!(parent, Receiver::Unproven { .. })
+                && !refused_factory
                 && !escaped
                 && !bindings.router_hint(file, object, context)
             {
@@ -319,7 +328,7 @@ pub(crate) fn flask_facts<'a>(
                     };
                     true
                 }
-                _ => false,
+                _ => refused_factory,
             };
             if matches!(parent, Receiver::Unproven { .. })
                 && !retained_source
@@ -408,7 +417,7 @@ fn transparent_decorator<'a>(bindings: &PythonBindings<'a>, use_site: PythonUse<
             } else {
                 "rule"
             };
-            accepted_call(file, &args, method, true)
+            accepted_call(file, &args, &method, true)
                 && !args.unpacked()
                 && args.get(file, required, 0).written().is_some()
                 && matches!(
@@ -447,7 +456,7 @@ fn saved_decorator<'a>(
         return false;
     };
     call_method(saved.file, saved.node).is_some_and(|(receiver, method)| {
-        route_method(method)
+        route_method(&method)
             && matches!(
                 bindings.value_at(&saved.file.path, receiver, context),
                 PythonValue::Router(_)
@@ -468,11 +477,11 @@ fn record_once_owner<'a>(
     let [parameter] = parameters.as_slice() else {
         return None;
     };
-    let name = file.node_text(&object);
+    let name = normalized(file.node_text(&object));
     if parameter.kind() != "identifier"
-        || file.node_text(parameter) != name
+        || normalized(file.node_text(parameter)) != name
         || bindings
-            .reaching(file, scope, name, object.start_byte())
+            .reaching(file, scope, &name, object.start_byte())
             .is_some()
     {
         return None;
@@ -485,7 +494,7 @@ fn record_once_owner<'a>(
         return None;
     };
     let (owner, name) = attribute(decorator.named_child(0)?)?;
-    (file.node_text(&name) == "record_once").then_some(owner)
+    (normalized(file.node_text(&name)) == "record_once").then_some(owner)
 }
 
 fn mapping_write<'a>(
@@ -496,7 +505,8 @@ fn mapping_write<'a>(
 ) -> Option<FlaskEvent<'a>> {
     let left = node.child_by_field_name("left")?;
     let (owner, field) = attribute(left.child_by_field_name("value")?)?;
-    let field = file.node_text(&field);
+    let field = normalized(file.node_text(&field));
+    let field = field.as_ref();
     if !matches!(field, "config" | "view_functions") {
         return None;
     }

@@ -97,7 +97,7 @@ fn may_resolve<'a>(
         }),
         "attribute" => attribute(node).is_some_and(|(root, field)| {
             matches!(
-                file.node_text(&field),
+                normalized(file.node_text(&field)).as_ref(),
                 "url_map" | "converters" | "view_functions"
             ) || may_resolve(bindings, file, root, depth - 1)
         }),

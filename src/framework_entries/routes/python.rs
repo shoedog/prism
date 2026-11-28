@@ -2,6 +2,15 @@
 use crate::ast::ParsedFile;
 use std::{borrow::Cow, collections::BTreeSet};
 use tree_sitter::Node;
+use unicode_normalization::UnicodeNormalization;
+
+pub(super) fn normalized(name: &str) -> Cow<'_, str> {
+    if name.is_ascii() {
+        Cow::Borrowed(name)
+    } else {
+        Cow::Owned(name.nfkc().collect())
+    }
+}
 
 pub(crate) fn literal_string(file: &ParsedFile, node: Node<'_>) -> Option<String> {
     match node.kind() {
@@ -140,7 +149,7 @@ impl<'tree> PythonArgs<'tree> {
                 "keyword_argument"
                     if arg
                         .child_by_field_name("name")
-                        .is_some_and(|name| file.node_text(&name) == key) =>
+                        .is_some_and(|name| normalized(file.node_text(&name)) == key) =>
                 {
                     return arg
                         .child_by_field_name("value")
@@ -187,9 +196,9 @@ impl<'tree> PythonArgs<'tree> {
                     let Some(key) = arg.child_by_field_name("name") else {
                         return false;
                     };
-                    let key = file.node_text(&key);
+                    let key = normalized(file.node_text(&key));
                     if key == "self"
-                        || (!extra_keywords && !slots.contains(&key))
+                        || (!extra_keywords && !slots.contains(&key.as_ref()))
                         || !names.insert(key)
                     {
                         return false;
@@ -201,7 +210,7 @@ impl<'tree> PythonArgs<'tree> {
                     if count == slots.len() {
                         return false;
                     }
-                    if !splat && !names.insert(slots[count]) {
+                    if !splat && !names.insert(Cow::Borrowed(slots[count])) {
                         return false;
                     }
                     count += 1;
