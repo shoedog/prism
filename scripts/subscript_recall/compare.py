@@ -34,7 +34,7 @@ ARTIFACTS = ("edges.jsonl", "dfg-stats.json", "call-stats.json", "graph.jsonl",
              "edges.err", "dfg-stats.err", "call-stats.err", "graph.err", "trace.txt")
 LABEL_COUNTERS = ("dfg_label_exact", "dfg_label_nameonly_killed", "dfg_label_nameonly_sameline",
                   "dfg_label_nameonly_cfg_incomplete", "dfg_label_nameonly_alias_unstable",
-                  "dfg_label_nameonly_call")
+                  "dfg_label_nameonly_call", "dfg_label_nameonly_builtin_callback")
 
 
 class Refused(Exception):

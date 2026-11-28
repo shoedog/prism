@@ -202,6 +202,7 @@ fn edge_rec(edge: &CpgEdge) -> EdgeRec {
                 FlowDoubt::CfgIncomplete => ("cfg_incomplete", None),
                 FlowDoubt::AliasUnstable => ("alias_unstable", None),
                 FlowDoubt::CallNameOnly => ("call_nameonly", None),
+                FlowDoubt::BuiltinCallback => ("builtin_callback", None),
             };
             EdgeRec::DataFlow {
                 confidence: "nameonly",

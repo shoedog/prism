@@ -632,5 +632,15 @@ class StreamingTests(Harness):
             self.assertEqual(compare.main(run("on")), 1)
 
 
+
+class LabelCounterCoverageTests(unittest.TestCase):
+    def test_label_counters_cover_every_dfg_label_counter_the_product_declares(self):
+        import re
+        build = os.path.join(os.path.dirname(__file__), "..", "..", "src", "cpg", "build.rs")
+        with open(build, encoding="utf-8") as f:
+            declared = set(re.findall(r"pub (dfg_label_(?:exact|nameonly_\w+)): usize", f.read()))
+        self.assertIn("dfg_label_nameonly_builtin_callback", declared)  # control: the parse sees the new counter
+        self.assertEqual(declared - {"dfg_label_loop_carried"}, set(compare.LABEL_COUNTERS))
+
 if __name__ == "__main__":
     unittest.main()
