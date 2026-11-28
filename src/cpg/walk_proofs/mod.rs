@@ -149,6 +149,14 @@ pub(super) struct ProofCache {
     verdicts: BTreeMap<ProofKey, Verdict>,
 }
 
+impl ProofCache {
+    /// How many hops hold a verdict.
+    #[cfg(test)]
+    pub(super) fn entries(&self) -> usize {
+        self.verdicts.len()
+    }
+}
+
 /// What the walk hands a proof: the parsed-file view (absent for graph-only entries), the
 /// hop's edge label and the cache.
 pub(super) struct ProofCtx<'a> {

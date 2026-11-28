@@ -42,7 +42,12 @@
 //! `PRISM_TAINT_WALK_PROOFS_COMPARE=1` is observational: it never changes the walk, and prints
 //! for every crossing the base gate admitted one stderr line per implemented rule,
 //! `taint-walk-proof-compare rule=<r> relation=<R> from=<key> to=<key> root=<key>
-//! verdict=proved|refused|unknown reason=<r> family=<f>` (keys as the crossing ledger prints them).
+//! verdict=proved|refused|unknown|unsupported reason=<r> family=<f>` (keys as the crossing
+//! ledger prints them). A ReturnFlow crossing prints `relation=ReturnFlow verdict=unsupported
+//! family=return_proofs_pending` until the return proofs land. `+unknown` with no rule is a
+//! misconfiguration (panics naming the variable). With a real rule on, a recursive Use binding
+//! (an actual of a self-call bound straight to a read of the same owner) is refused
+//! `self_param`, as the self-call descent it is.
 //!
 //! Scope: the primary and bypass walks (`taint_trace_from_root`, used by trace-review and
 //! navigation). The legacy flat taint walk of the default review is intentionally NOT affected.
@@ -273,10 +278,12 @@ fn parse_real(value: Option<&str>) -> Result<RealRules, String> {
             rule.name()
         ));
     }
-    Ok(RealRules {
-        unknown: unknown && !rules.is_empty(),
-        rules,
-    })
+    if unknown && rules.is_empty() {
+        return Err(format!(
+            "{REAL}: `+unknown` needs at least one rule before it (got `{value}`)"
+        ));
+    }
+    Ok(RealRules { unknown, rules })
 }
 
 /// `PRISM_TAINT_WALK_PROOFS_COMPARE`: `1` on, unset, empty or `0` off.
@@ -518,8 +525,12 @@ impl WalkProofs {
         relation: Relation,
         (from, to, root): (NodeIndex, NodeIndex, NodeIndex),
     ) -> Option<LossReason> {
-        if self.compare && relation == Relation::CallDescent {
-            self.print_compare(cpg, ctx, (from, to, root));
+        if self.compare {
+            match relation {
+                Relation::CallDescent => self.print_compare(cpg, ctx, (from, to, root)),
+                Relation::ReturnFlow => Self::print_compare_return(cpg, (from, to, root)),
+                _ => {}
+            }
         }
         let crossing = matches!(relation, Relation::CallDescent | Relation::ReturnFlow);
         for rule in Rule::ALL {
@@ -554,6 +565,28 @@ impl WalkProofs {
         None
     }
 
+    /// One stderr line per implemented rule for an accepted return crossing. The walk has no
+    /// proof for the return relation yet (it needs relation-aware records), so the verdict is
+    /// an explicit `unsupported`, never a silent gap in the table.
+    fn print_compare_return(
+        cpg: &CodePropertyGraph,
+        (from, to, root): (NodeIndex, NodeIndex, NodeIndex),
+    ) {
+        let keys = format!(
+            "from={:?} to={:?} root={:?}",
+            cpg.trace_key(from),
+            cpg.trace_key(to),
+            cpg.trace_key(root)
+        );
+        for rule in Rule::ALL.into_iter().filter(|rule| rule.implemented()) {
+            let _ = writeln!(
+                std::io::stderr().lock(),
+                "{COMPARE_LINE}rule={} relation=ReturnFlow {keys} verdict=unsupported reason=- family=return_proofs_pending",
+                rule.name()
+            );
+        }
+    }
+
     /// One stderr line per implemented rule: its verdict for a crossing the base gate admitted.
     fn print_compare(
         &self,
@@ -581,6 +614,23 @@ impl WalkProofs {
 }
 
 impl CodePropertyGraph {
+    /// With a real rule on, the crossing kind of a recursive Use binding the ordinary crossing
+    /// test does not see (a graph-only guarantee DESIGN 5.2 needs: such a hop is a
+    /// `self_param` exit, never local flow). `None` (one `Option` test) when no real rule is
+    /// on, so the walk without one is exactly main's.
+    pub(super) fn walk_proof_self_binding(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        relation: Relation,
+    ) -> Option<super::BoundaryKind> {
+        with_proofs(|proofs| {
+            proofs.filter(|proofs| !proofs.real.rules.is_empty())?;
+            self.is_recursive_use_binding(from, to, relation)
+                .then_some(super::BoundaryKind::SelfFunctionParam)
+        })
+    }
+
     /// The reason a switched-on walk-proof rule (filed or real) refuses the hop `from -> to`
     /// under `root`; `None` (one `Option` test) when no switch is on.
     pub(super) fn walk_proof_verdicts(

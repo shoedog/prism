@@ -511,7 +511,11 @@ impl CodePropertyGraph {
                 }
                 let mut relation = rel;
                 let mut next_depth = depth;
-                if let Some(kind) = self.crossing_kind(node, next, rel, label) {
+                let kind = self.crossing_kind(node, next, rel, label).or_else(|| {
+                    // OFF (no real rule): None, so the walk is main's.
+                    self.walk_proof_self_binding(node, next, rel)
+                });
+                if let Some(kind) = kind {
                     if rel != Relation::ReturnFlow {
                         relation = Relation::CallDescent;
                     }

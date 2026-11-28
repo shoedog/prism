@@ -81,10 +81,17 @@ pub(super) fn inspect(
         let wraps = listed.iter().any(|&(start, end)| {
             start <= call_span.0 && call_span.1 <= end && (start, end) != call_span
         });
-        return if wraps {
-            Outcome::Refused("outer_site_only")
-        } else {
+        return if !wraps {
             Outcome::Unknown("target_or_site_unbound")
+        } else if let Some(family) = inner_site_undecided(
+            cpg,
+            &caller,
+            call_span,
+            &(target_file.clone(), target_function.clone(), *target_start),
+        ) {
+            Outcome::Unknown(family)
+        } else {
+            Outcome::Refused("outer_site_only")
         };
     }
     let exact = span(*arg) == actual || unwrap_wrappers(Some(*arg)).map(span) == Some(actual);
@@ -101,6 +108,47 @@ pub(super) fn inspect(
             "nested_value_operand"
         },
     })
+}
+
+/// The index lists a target's sites under the spelling each call was written with, so a wider
+/// call listed under the target's own name does not show what the inner call is. The inner site
+/// is proven not to be a site of the target only when the call graph holds it at exactly these
+/// bytes in the same caller, spelled with the target's own name or resolving to other callees;
+/// an inner call spelled otherwise that resolves to the target (an import alias) or to nothing
+/// (a builtin, a conversion, an unfollowed alias) is undecided.
+fn inner_site_undecided(
+    cpg: &CodePropertyGraph,
+    caller: &OwnerId,
+    call_span: (usize, usize),
+    target: &OwnerId,
+) -> Option<&'static str> {
+    let inner = cpg
+        .call_graph
+        .calls
+        .iter()
+        .filter(|(id, _)| (&id.file, &id.name, id.start_line) == (&caller.0, &caller.1, caller.2))
+        .flat_map(|(_, sites)| sites)
+        .find(|site| (site.start_byte, site.end_byte) == call_span);
+    let Some(inner) = inner else {
+        return Some("inner_site_unbound");
+    };
+    if inner.callee_name == target.1 {
+        return None;
+    }
+    let resolved = cpg.call_graph.resolve_call_site_full(inner).resolved;
+    if resolved.is_empty() {
+        Some("inner_site_unresolved")
+    } else if resolved.iter().any(|entry| {
+        (
+            &entry.target.file,
+            &entry.target.name,
+            entry.target.start_line,
+        ) == (&target.0, &target.1, target.2)
+    }) {
+        Some("inner_site_other_spelling")
+    } else {
+        None
+    }
 }
 
 pub(super) fn prove_occurrence(

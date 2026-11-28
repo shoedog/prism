@@ -526,20 +526,68 @@ pub(in crate::cpg) fn writes<'a>(
     found
 }
 
+const JS_SCOPES: [&str; 6] = [
+    "statement_block",
+    "for_statement",
+    "for_in_statement",
+    "switch_body",
+    "class_static_block",
+    "program",
+];
+const GO_SCOPES: [&str; 11] = [
+    "block",
+    "if_statement",
+    "for_statement",
+    "expression_switch_statement",
+    "type_switch_statement",
+    "select_statement",
+    "expression_case",
+    "default_case",
+    "type_case",
+    "communication_case",
+    "source_file",
+];
+
+/// Is the binding the write `statement` makes visible at `site`? Block-scoped declarations
+/// (JS `let`/`const`, Go `:=`, `var`, `const`) are visible only inside their block; a JS `var`
+/// and every plain assignment name a variable of the whole function. `None` when the
+/// declaration's scope cannot be established.
+pub(in crate::cpg) fn write_visible_at(statement: Node<'_>, site: Node<'_>) -> Option<bool> {
+    let scopes: &[&str] = match statement.kind() {
+        "variable_declarator" => match statement.parent()?.kind() {
+            "variable_declaration" => return Some(true),
+            "lexical_declaration" => &JS_SCOPES,
+            _ => return None,
+        },
+        "short_var_declaration" | "var_spec" | "const_spec" => &GO_SCOPES,
+        _ => return Some(true),
+    };
+    let scope = ancestors(statement.parent()).find(|node| scopes.contains(&node.kind()))?;
+    Some(covers(scope, span(site)))
+}
+
 /// What a call is spelled as: member calls by selector and receiver; a bare callee by its text,
-/// or by the identifier a single unconditional alias write binds it to.
-pub(in crate::cpg) fn spelling<'a>(
+/// or by the identifier a single unconditional alias write visible at the call binds it to.
+/// `Err` when the visibility of a candidate alias cannot be established.
+pub(in crate::cpg) fn spelling_checked<'a>(
     parsed: &'a ParsedFile,
     call: Node<'a>,
     function: Option<Node<'a>>,
-) -> (Option<&'a str>, Option<&'a str>) {
+) -> Result<(Option<&'a str>, Option<&'a str>), &'static str> {
     let member = receiver(call);
     let node = unwrap_wrappers(callee(call));
     let Some(node) = node.filter(|node| member.is_none() && IDENTS.contains(&node.kind())) else {
-        return call_labels(parsed, call);
+        return Ok(call_labels(parsed, call));
     };
     if let Some(function) = function {
-        let assignments = writes(parsed, function, parsed.node_text(&node), node.start_byte());
+        let mut assignments = Vec::new();
+        for write in writes(parsed, function, parsed.node_text(&node), node.start_byte()) {
+            match write_visible_at(write.2, call) {
+                Some(true) => assignments.push(write),
+                Some(false) => {}
+                None => return Err("alias_scope_unknown"),
+            }
+        }
         if let [(_, value, statement)] = assignments.as_slice() {
             let value = value.map(|value| match children(value).as_slice() {
                 [only] if value.kind() == "expression_list" => *only,
@@ -550,10 +598,20 @@ pub(in crate::cpg) fn spelling<'a>(
             });
             if let (false, Some(value)) = (conditional, value) {
                 if IDENTS.contains(&value.kind()) {
-                    return (txt(parsed, Some(value)), None);
+                    return Ok((txt(parsed, Some(value)), None));
                 }
             }
         }
     }
-    (txt(parsed, Some(node)), None)
+    Ok((txt(parsed, Some(node)), None))
+}
+
+/// [`spelling_checked`] with an alias of unknown visibility left unfollowed.
+#[cfg(test)]
+pub(in crate::cpg) fn spelling<'a>(
+    parsed: &'a ParsedFile,
+    call: Node<'a>,
+    function: Option<Node<'a>>,
+) -> (Option<&'a str>, Option<&'a str>) {
+    spelling_checked(parsed, call, function).unwrap_or_else(|_| call_labels(parsed, call))
 }

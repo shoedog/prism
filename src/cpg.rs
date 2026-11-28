@@ -157,6 +157,10 @@ mod walk_proofs;
 #[cfg(test)]
 mod walk_proofs_cover_tests;
 #[cfg(test)]
+mod walk_proofs_fold1_cfg_tests;
+#[cfg(test)]
+mod walk_proofs_fold1_tests;
+#[cfg(test)]
 mod walk_proofs_golden_tests;
 #[cfg(test)]
 mod walk_proofs_tests;

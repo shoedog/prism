@@ -150,6 +150,52 @@ impl CodePropertyGraph {
             })
     }
 
+    /// Is `from -> to` a Use bound straight to a Use of the same owner by one of that owner's
+    /// own recursive calls (the producer connects an actual of `f({a: x})` to the reads of
+    /// `p.a` in `f`)? Such a hop has no formal Def to enter, so the ordinary crossing test
+    /// misses it, yet it is the self-call descent the walk refuses as `self_param`.
+    pub(super) fn is_recursive_use_binding(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        rel: Relation,
+    ) -> bool {
+        if rel != Relation::DataFlow {
+            return false;
+        }
+        let (
+            CpgNode::Variable {
+                access: VarAccess::Use,
+                file,
+                function,
+                function_start_line,
+                start_byte,
+                end_byte,
+                ..
+            },
+            CpgNode::Variable {
+                access: VarAccess::Use,
+                file: to_file,
+                function: to_function,
+                function_start_line: to_start,
+                ..
+            },
+        ) = (&self.graph[from], &self.graph[to])
+        else {
+            return false;
+        };
+        (file, function, function_start_line) == (to_file, to_function, to_start)
+            && self.call_graph.callers.get(function).is_some_and(|sites| {
+                sites.iter().any(|site| {
+                    site.caller.file == *file
+                        && site.caller.name == *function
+                        && site.caller.start_line == *function_start_line
+                        && site.start_byte <= *start_byte
+                        && *end_byte <= site.end_byte
+                })
+            })
+    }
+
     /// Under Exact, a binding edge's own `call_nameonly` or `builtin_callback`
     /// doubt refuses as `not_exact` before consulting any site proof. Only
     /// existing read-side doubts can proceed to the site check, so the
