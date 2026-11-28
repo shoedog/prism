@@ -1,0 +1,383 @@
+{
+ "_note": "Gold units are held in the private evidence store and are not published; this report keeps the per-question coverage counts, ceilings (covered/total/share), reached-line counts and verdicts only. covered_units was removed from every T0/T1 entry.",
+ "P4": {
+  "seeds": [
+   "httpx/_client.py:922 (target line in question)"
+  ],
+  "T0": {
+   "covered": 2,
+   "total": 3,
+   "share": 0.6667,
+   "lines": 8
+  },
+  "T1": {
+   "covered": 2,
+   "total": 3,
+   "share": 0.6667,
+   "lines": 59
+  },
+  "T0_lines": [
+   [
+    "httpx/_client.py",
+    879
+   ],
+   [
+    "httpx/_client.py",
+    914
+   ],
+   [
+    "httpx/_client.py",
+    920
+   ],
+   [
+    "httpx/_client.py",
+    921
+   ],
+   [
+    "httpx/_client.py",
+    922
+   ],
+   [
+    "httpx/_client.py",
+    924
+   ],
+   [
+    "httpx/_client.py",
+    927
+   ],
+   [
+    "httpx/_client.py",
+    928
+   ]
+  ],
+  "T1_lines": [
+   [
+    "httpx/_client.py",
+    156
+   ],
+   [
+    "httpx/_client.py",
+    157
+   ],
+   [
+    "httpx/_client.py",
+    158
+   ],
+   [
+    "httpx/_client.py",
+    159
+   ],
+   [
+    "httpx/_client.py",
+    879
+   ],
+   [
+    "httpx/_client.py",
+    881
+   ],
+   [
+    "httpx/_client.py",
+    884
+   ],
+   [
+    "httpx/_client.py",
+    885
+   ],
+   [
+    "httpx/_client.py",
+    904
+   ],
+   [
+    "httpx/_client.py",
+    905
+   ],
+   [
+    "httpx/_client.py",
+    906
+   ],
+   [
+    "httpx/_client.py",
+    907
+   ],
+   [
+    "httpx/_client.py",
+    910
+   ],
+   [
+    "httpx/_client.py",
+    912
+   ],
+   [
+    "httpx/_client.py",
+    914
+   ],
+   [
+    "httpx/_client.py",
+    915
+   ],
+   [
+    "httpx/_client.py",
+    916
+   ],
+   [
+    "httpx/_client.py",
+    917
+   ],
+   [
+    "httpx/_client.py",
+    918
+   ],
+   [
+    "httpx/_client.py",
+    920
+   ],
+   [
+    "httpx/_client.py",
+    921
+   ],
+   [
+    "httpx/_client.py",
+    922
+   ],
+   [
+    "httpx/_client.py",
+    924
+   ],
+   [
+    "httpx/_client.py",
+    926
+   ],
+   [
+    "httpx/_client.py",
+    927
+   ],
+   [
+    "httpx/_client.py",
+    928
+   ],
+   [
+    "httpx/_client.py",
+    930
+   ],
+   [
+    "httpx/_client.py",
+    931
+   ],
+   [
+    "httpx/_client.py",
+    932
+   ],
+   [
+    "httpx/_client.py",
+    933
+   ],
+   [
+    "httpx/_client.py",
+    934
+   ],
+   [
+    "httpx/_client.py",
+    935
+   ],
+   [
+    "httpx/_client.py",
+    936
+   ],
+   [
+    "httpx/_client.py",
+    937
+   ],
+   [
+    "httpx/_client.py",
+    938
+   ],
+   [
+    "httpx/_client.py",
+    939
+   ],
+   [
+    "httpx/_client.py",
+    940
+   ],
+   [
+    "httpx/_client.py",
+    941
+   ],
+   [
+    "httpx/_client.py",
+    942
+   ],
+   [
+    "httpx/_client.py",
+    943
+   ],
+   [
+    "httpx/_client.py",
+    944
+   ],
+   [
+    "httpx/_client.py",
+    945
+   ],
+   [
+    "httpx/_client.py",
+    946
+   ],
+   [
+    "httpx/_client.py",
+    947
+   ],
+   [
+    "httpx/_client.py",
+    948
+   ],
+   [
+    "httpx/_client.py",
+    949
+   ],
+   [
+    "httpx/_client.py",
+    950
+   ],
+   [
+    "httpx/_client.py",
+    951
+   ],
+   [
+    "httpx/_client.py",
+    952
+   ],
+   [
+    "httpx/_client.py",
+    953
+   ],
+   [
+    "httpx/_client.py",
+    954
+   ],
+   [
+    "httpx/_client.py",
+    955
+   ],
+   [
+    "httpx/_client.py",
+    956
+   ],
+   [
+    "httpx/_client.py",
+    957
+   ],
+   [
+    "httpx/_client.py",
+    958
+   ],
+   [
+    "httpx/_client.py",
+    959
+   ],
+   [
+    "httpx/_client.py",
+    960
+   ],
+   [
+    "httpx/_client.py",
+    961
+   ],
+   [
+    "httpx/_client.py",
+    962
+   ]
+  ]
+ },
+ "P3": {
+  "seeds": [
+   "Client.request params (771 start line; 781 fails)",
+   "Request.__init__ params (383)"
+  ],
+  "T1_followups": [
+   "httpx/_client.py:340 build_request score=1.0",
+   "httpx/_client.py:879 send score=1.0",
+   "httpx/_client.py:391 _merge_url score=0.5",
+   "httpx/_client.py:413 _merge_cookies score=0.5",
+   "httpx/_client.py:424 _merge_headers score=0.5",
+   "httpx/_client.py:433 _merge_queryparams score=0.5",
+   "httpx/_client.py:457 _build_request_auth score=0.5",
+   "httpx/_client.py:584 _set_timeout score=0.5",
+   "httpx/_client.py:930 _send_handling_auth score=0.5",
+   "httpx/_client.py:253 timeout score=0.3",
+   "httpx/_config.py:132 as_dict score=0.3",
+   "httpx/_models.py:468 read score=0.3",
+   "httpx/_models.py:876 read score=0.3"
+  ],
+  "T0": {
+   "covered": 5,
+   "total": 29,
+   "share": 0.1724,
+   "lines": 37
+  },
+  "T1": {
+   "covered": 23,
+   "total": 29,
+   "share": 0.7931,
+   "lines": 227
+  }
+ },
+ "G3": {
+  "seeds": [
+   "SetArgs 281",
+   "execute 905",
+   "ValidateArgs 1172",
+   "ExecuteC 1084 (no params)"
+  ],
+  "field_store_followups": [
+   "command.go:1102",
+   "command.go:1105"
+  ],
+  "T0": {
+   "covered": 14,
+   "total": 32,
+   "share": 0.4375,
+   "lines": 120
+  },
+  "T1": {
+   "covered": 25,
+   "total": 32,
+   "share": 0.7812,
+   "lines": 209
+  }
+ },
+ "J3": {
+  "seeds": [
+   "onChange arrow at App.tsx:677 (678 fails)"
+  ],
+  "T1_followups": [
+   "excalidraw-app/collab/Collab.tsx:281 isCollaborating score=0.6",
+   "excalidraw-app/collab/Collab.tsx:955 syncElements score=0.6",
+   "excalidraw-app/collab/Collab.tsx:944 broadcastElements score=0.5"
+  ],
+  "T0": {
+   "covered": 3,
+   "total": 19,
+   "share": 0.1579,
+   "lines": 6
+  },
+  "T1": {
+   "covered": 3,
+   "total": 19,
+   "share": 0.1579,
+   "lines": 15
+  }
+ },
+ "_calls": {
+  "slice": 9,
+  "taint": 28,
+  "callees": 2
+ },
+ "_log": [
+  "httpx taint httpx/_client.py:781: {\"SymbolNotFound\": {\"seed\": \"httpx/_client.py:781\"}}",
+  "httpx taint httpx/_client.py:584: {\"SymbolNotFound\": {\"seed\": \"httpx/_client.py:584\"}}",
+  "httpx taint httpx/_client.py:253: {\"SymbolNotFound\": {\"seed\": \"httpx/_client.py:253\"}}",
+  "httpx taint httpx/_config.py:132: {\"SymbolNotFound\": {\"seed\": \"httpx/_config.py:132\"}}",
+  "excalidraw taint excalidraw-app/App.tsx:678: {\"SymbolNotFound\": {\"seed\": \"excalidraw-app/App.tsx:678\"}}"
+ ]
+}
