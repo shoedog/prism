@@ -129,7 +129,7 @@ Unproven receivers suppress callback identity but retain the callback slots and 
 Go selector values see 5.6.
 
 **Reason** is one closed snake_case enum shared by records, exposure cuts, diagnostics and matrix validation. Its variants are
-`receiver_unproven imported_unproven mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
+`receiver_unproven imported_unproven terminal_reexport mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
 non_literal_path regex_path mount_cycle expansion_truncated`,
 `getattr_module star_import global_write multi_write nested_single submodule_shadow module_descriptor_name
 class_private_name class_body_import` (Python import diagnostics),
@@ -140,6 +140,8 @@ method_value_external func_field_value qualified_function_value method_expressio
 hapi_route_not_literal hapi_handler_object hapi_handler_conflict`,
 and `runtime_generated_registration unsupported_registration build_only superseded dispatch_conflict entry_unproven`. All query errors, including malformed selectors, missing exports and ambiguous roots, use entry_unproven. A diagnostic has a site and reason, not a
 fabricated path. Accepted-loss descriptions in the matrix are audit notes; the enum is the wire contract.
+The public Flask summary carries counted import refusals as `{site,reason}` diagnostics in the
+precedence specified in §5.3. Role-only reasons such as `terminal_reexport` stay on the affected record.
 
 ### 5.2 Composition, ordering and comparison
 
@@ -254,7 +256,7 @@ children of `register_blueprint`, `include_router` and `mount`, and the view sup
 
 A subscript (including tuple, list or dict lookup), conditional, arbitrary call result, lambda, `self`/`cls`
 member or value returned through an unproved helper never supplies a value proof. An unproved receiver is
-`receiver_unproven` or `imported_unproven` when the site is retained (Flask drops sites without a receiver hint).
+`receiver_unproven`, `imported_unproven` or `terminal_reexport` (a terminal re-export) when the site is retained (Flask drops sites without a receiver hint).
 An unproved mount child is `mount_child_unproven`. A view argument stays unresolved with its existing reason,
 including `callback_unproven`, `wrapper_call`, `anonymous_unindexed`, `member_handler`, `imported_unproven`,
 `inner_decorator` or `spread_callback` as applicable.
@@ -277,7 +279,9 @@ Source-only pins still compare the declaration and written callback. Explicit se
 supported view metadata writes, endpoint decorators and Blueprint view-map merges. For mutation of the
 `view_functions` mapping itself, d2-14 covers only direct `X.view_functions[key] = v`. App registry
 `.update`, `.pop`, `del` on an entry and writes through a `view_functions` alias are out-of-model mutations
-pinned as `KNOWN_LIMIT` in fk-26–29.
+pinned as `KNOWN_LIMIT` in fk-26–29. The direct-store barrier applies only when lexical evidence traces
+`X` to a router allocation. A parameter, `current_app` or `self.app` with no traced allocation can
+hide a registry write. This is a known limit with zero runtime credit for affected dispatch claims.
 
 **Static import binding (controller decision, Option 1).** `PROVEN` for an imported router, view or
 no-effect callee means that the source import, in its lexical scope, identifies one eligible router
@@ -316,12 +320,144 @@ reaching value comes from an import from another module is also a re-export, for
 can still name a directly imported declaration under the value rules above. Recognized native Flask imports continue to supply `Flask`,
 `Blueprint`, `View` and `MethodView` under the existing framework checks.
 
+For a direct factory call, the written capture is the callee. For class-view metadata, it
+is the class operand of `as_view`. A refused factory receiver or mount child leaves the written
+registration fields available. A refused class operand leaves the written callback and explicit
+methods available and withholds view-derived metadata.
+
+**Contract and certificate (PR #928 part 2; owner decision 2026-11-27: "we cover what is, not what
+may be").** A Python route proof is a static-binding proof, in the words CLAUDE.md uses for `Exact`:
+the name the proof relies on resolves, by Python's declaration, scope, import and `global`/`nonlocal`
+syntax as prism models it, to exactly one binding. It does not assert runtime truth. Run-time mutation
+(monkey-patching, reflective writes through `globals()`, `setattr`, `exec` or `sys.modules`, descriptor
+and metaclass behaviour) and changes made through ANOTHER HOLDER of the same object (a view passed to
+a call, an attribute store on a view or router reached under another name, an extension handed the app)
+are outside the claim. The patterns the contract covers are the ones real applications use (the census
+in section 10), not every constructed shape.
+
+The decision lives in ONE function, `PythonBindings::certify(file, scope, key) -> Result<(), Clause>`
+(`src/framework_entries/routes/receivers/certificate.rs`), cached per (file, scope, key). The key is the
+NFKC-normalised name with class-private mangling (`writes::effective_name`). `Clause` is a closed enum
+whose variants map to existing labels, so no output format, `Reason` or schema changes:
+`ParseError` and `Count` to `multi_write`, `Redirect` to `global_write`, `Star` to `star_import`, `Kind`
+to `nested_single`. For a module scope the clauses are, first failing names the refusal (the order the
+code tests them):
+
+- (e) The module has a parse error (any ERROR or MISSING node in the file): every key of the module
+  fails. Measured: it withholds 0 rows over 1,945 files, so it is not narrowed to the binding's
+  statement.
+- (a, redirect) A nested scope declares `global K` and binds it: `global_write`.
+- (a, count) The module scope holds exactly ONE binding occurrence of K, counting occurrences at any
+  nesting of the module scope AND occurrences in a def or class that declares `global K`. The
+  module-system names (`__doc__ __annotations__ __annotate__ __package__ __name__ __file__ __spec__ __loader__
+  __builtins__ __cached__ __path__ __warningregistry__`) count as one more occurrence, so a def of one
+  fails. Zero or two-plus fails (`multi_write`).
+- (c) A `from m import *` counts as a binding of K exactly when `star_could_supply` says the star can
+  bind K, that is when `m` resolves to an in-repo module that can. A star from an external or
+  unresolved module is not seen (the contract sees what the repository declares): `star_import`. This
+  holds for a star NESTED in an in-repo star's source as well (`star_could_supply(.., external = false)`
+  on the capture side; the source side and the candidate search keep `external = true`). **Star clause:
+  a star contributes a name only when the exporting module's export set is DETERMINED** by what the
+  certificate reads exactly: a literal `__all__`, or the module's own top-level bindings (and the stars
+  it holds) with, for a package, no initializer import that can install children. A default star (no
+  `__all__`) of a package copies the child module `pkg.N` that running the initializer installs: the
+  initializer's module-level imports, and those of every in-repo module they reach (a visited set bounds
+  cycles, a depth cap of 12 the chain), are followed, and an import that names `pkg.N` or a module
+  below it (`from .N import x`, `from . import N`, `import pkg.N`, directly or through `bootstrap`)
+  leaves the set open, so the star may bind N and the proof that depends on N is withheld
+  (`star_import`). Past the depth cap an existing child module counts as installed. A literal `__all__`
+  determines the set and clears it. External and unresolved stars keep the treatment above.
+- (b) The single binding is an import (not star), def, async def, class, or `K = <expr>` / `K: T = <expr>`
+  with one bare-name target, and it is a DIRECT statement of the scope body (not under `if`, `try`,
+  `with`, `for`, `while` or `match`): else `nested_single`. A tuple, `for`, `with`, `except`, walrus,
+  match, `del`, augmented or `type` binding is never admitted.
+
+A function scope keeps the flow-sensitive lookup of its own locals (`reaching`, the S3 cutoff) and fails
+the certificate only against a redirect (a nested scope that declares `nonlocal K` and binds it:
+`global_write`) or, **Count clause for function scope**, when an IMPORT of K is followed by another
+binding occurrence of K in that scope: two aliases of one `from` statement
+(`from views import old as handler, new as handler`), two import statements, an import and a later def or
+assignment (`multi_write`). The rule counts only when an import is among the occurrences and the import is
+not the last: a def or assignment BEFORE the import is displaced by it (kept), and non-import locals such
+as a rebound `app = Flask()` keep the flow-sensitive treatment. No first, last or reaching import is
+selected among several: the proof is withheld, and the S1 selection in the import lookup is deleted. A
+bare annotation (`x: T`) is a lexical declaration (function ownership of the name), not a value write: it
+displaces nothing and counts nowhere; with a value it is an assignment. A `for` target is in force on
+entry to its body (its own body reads it); an `except .. as` target is its own `as_pattern` node and
+already binds on entry. An unqualified `__class__` read in a method is the compiler's class cell, not the
+module name, unless the method declares it `global`. A `global K` at MODULE level redirects nothing and is dropped at
+indexing, so the module still binds K. Reads of the key resolve through `LexicalWrites::read_binding_scope`
+(class scopes skipped, directives honoured). Nothing is traced through a rebinding and no position
+filter is used: a rebinding fails (a), wherever it sits and whenever it runs, so a module-scope router
+or view name bound twice is not proved at either read (the position-sensitive lifetime pins were
+re-labelled; function-local names keep the flow-sensitive lifetime walk below).
+
+*Binding forms.* The binding occurrences of a key are the closed syntactic list that
+`LexicalWrites::written_names` collects: import, import-as, from-import, from-import-as; def, async
+def, class; parameters (lambda included); assignment targets (plain, augmented, annotated with a
+value, tuple, list and starred leaves); walrus (binds the enclosing non-comprehension scope); `for` and
+comprehension targets; `with ... as`; `except ... as` and `except* ... as`; match captures; `del K`;
+`type K = ...`. `global K` and `nonlocal K` are directives that redirect a write in their scope to the
+module scope or the nearest enclosing function binding. PEP 695 type parameters bind an implicit
+annotation scope of their own, so by scope awareness they are another scope's binding of the same
+spelling and neither count nor refuse (fk-95 stays a known limit).
+
+*Scope awareness.* The SAME SPELLING in another scope that does not declare it `global` or `nonlocal`
+is a DIFFERENT binding and neither counts nor refuses: a parameter, a function local, a class-body
+name, a comprehension target, a loop target in a function (census S04, S05, S09, S14e, S14g).
+
+*Where the code differs from the contract file.* The package-child rule is not in `certify`: a package
+`__init__` that imports a child module spelled like the key stays the source-side `submodule_shadow`
+predicate (6) with its `same_child_import` exception (the formspree `from .create_app import create_app`
+shape: no proof existed before, none is lost). A star from an external module in a SOURCE module stays
+`star_import` of predicate 2. PEP 695 type parameters are not counted (above). Clause (e) is
+whole-file. Function scopes get the `nonlocal` redirect check only; a full local count passed every
+test but was not priced on the corpora, so the flow-sensitive `reaching` stays for function-local
+names (setup and factory functions). Round-1 review (F1) asked whether function and class scope must
+also refuse a binding that a loop back edge runs before the read. No proof reaches such a read: a
+registration whose read sits in a `for` or `while` body is a `runtime_generated_registration`
+diagnostic and never a rule (setup function, factory and module alike), a registration in a class body
+belongs to no active scope, and the mutation index reads every binding occurrence with no position
+filter, so the full count was not adopted (pinned by the `f1_*` rows). Two flow-sensitive rules close
+the neighbouring wrong proofs: a LATER binding of the key in the same non-module scope fails the Count
+clause for an import (above; it replaced the S1 reaching-import selection), and in the mutation index a definite write (an
+import, def, class or `K = <expr>` directly in the function body) before a store supersedes every
+occurrence before it, later occurrences and nested `nonlocal` writes staying (S3).
+
+*Replaced by the certificate (code deleted).* `competing_import_paths` and `has_competing_import`
+(candidate search shared by the escape gate and the candidate traversal); the rule that a census
+refusal of the written callee is authoritative, with its fallback in `refused_factory` (a refused
+callee has no eligible-factory fallback because `certify` fails first); the position-sensitive
+`reaching_sources` walk and `may_resolve` in the mutation values code, now the position-free
+`LexicalWrites::binding_sites`/`occurrences` and `import_candidates` (every binding occurrence of the
+name in its resolved binding scope, used when `certify` fails so the conservative router and view
+taint is kept); the `capture_sites` consumer in `prove_import` (`competing_global`) and the
+`has_global_write` early return in `named` (clause (a) covers both); the default-methods withholding
+of a class view for a direct write to `methods` or `required_methods` (a store on a view class is a
+holder change: outside the claim, a known limit; `view_metadata_writes` stays for the supported view
+metadata writes of the setup model).
+
+*Stays, and why.* The source-side predicates below that ask about OTHER modules' exports and package
+children, not whether the name is one binding: 1 `getattr_module`, 2 `star_import` (a wildcard of a
+checked source module that could supply the member), 6 `submodule_shadow` and 7
+`module_descriptor_name`. Predicates 3 to 5 (`global_write`, `multi_write`, `nested_single`) are now
+the certificate's clauses (a) and (b), applied to the capturing module and to each source module and
+hop package alike.
+`view_metadata_escape` and `no_effect_body`, `escaped_mount_child` and the router-store barrier
+(`router_mutated`, converters, config): holder barriers on objects the proof reads, which the
+certificate does not model. The local flow-sensitive `reaching` for function-local names in a setup
+function or factory (reason above). The price of the round-3 rule that preceded this paragraph is
+recorded in section 10; the census that bounds the contract is its own entry there.
+
 Require one unconditional eligible terminal binding. The capturing module must also contain
 exactly one binding of the captured import's local name, the import that creates it.
 Find the candidate import by lexical lookup of the written capture's root name, whether bare or
 qualified, including an earlier import hidden by a later write to the same name. The capture-side
-census reads these sites for the import's effective local key throughout the importing file, including
-conditional sites, nested scopes and sites after the read (fk-86–91).
+certificate counts these sites for the import's effective local key in the scope the read resolves to,
+including conditional sites and sites after the read, and the `global`/`nonlocal` redirects from nested
+scopes. The same spelling bound in another scope without such a directive is a different binding and does
+not count: fk-87 (a method-local import of the spelling) is `PROVEN` at its own local binding and fk-92
+(a comprehension target) is `PROVEN`; the former file-wide census withheld both.
 
 - Explicit `import` and `from ... import` names, including `as` aliases and the leading name of an
   unaliased dotted import.
@@ -335,10 +471,10 @@ conditional sites, nested scopes and sites after the read (fk-86–91).
 Read `global` and `nonlocal` as scope declarations and use annotation-only declarations for local
 lookup. These sites define the complete capture-side contract. The census counts assignment targets
 under their own names. It starts from the written root, so following `callback = handler` back to
-`handler` to census competing bindings is outside its scope, as are names introduced by a wildcard
-in the importing module. The source-side checks cover assignment-alias chains for terminal
-re-export detection and wildcard imports that could supply a source member. The capture-side census
-is lexical and requires no execution model. Use Python's NFKC-normalised identifiers as
+`handler` to count competing bindings is outside its scope; a star import in the importing module counts
+only when it can bind the name (clause c). The source-side checks cover assignment-alias chains for
+terminal re-export detection and wildcard imports that could supply a source member. The capture-side
+count is lexical and requires no execution model. Use Python's NFKC-normalised identifiers as
 binding and predicate keys. NFKC-normalise module-path and hop segments in the source text and
 match the resulting keys byte-for-byte against filesystem candidate names (fk-74–75).
 A capturing import is eligible at module or function scope, subject to the predicates below.
@@ -370,13 +506,14 @@ Then apply the root-chain spelling check and the import-scope check, in that ord
    `class Install` to `STORE_GLOBAL _Install__f` (fk-69–70). An ordinary class attribute binds
    in the class namespace. [Python's private-name mangling rules](https://docs.python.org/3.12/reference/expressions.html#private-name-mangling)
 4. `multi_write` applies to competing lexical binding or deletion sites for the same effective
-   module name, including later writes, writes through `global`, imports, `del`, `match` captures,
+   name in the same binding scope (module scope, counting `global` redirects), including later writes, writes through `global`, imports, `del`, `match` captures,
    `for` targets, `with ... as`,
    `except ... as`, `except* ... as`, walrus writes to the enclosing scope and Python 3.12
    `type` statement names (including generic aliases). Count an annotated assignment with a
    value as a write. An annotation without a value (`f: object`) writes no value and can still
-   affect function-local name resolution. Conservatively count comprehension iteration targets
-   for `multi_write` and `nested_single`. In the importing file, use the capture-side forms
+   affect function-local name resolution. A comprehension or generator target binds the
+   comprehension's own scope, so it is another binding of the spelling and counts for neither
+   `multi_write` nor `nested_single` (the certificate is scope-aware; census S14e). In the importing file, use the capture-side forms
    listed above. Same-value repeated bindings are an **accepted over-refusal**. This includes
    `import pkg` followed by `import pkg.routes` (fk-91), the same named import twice, a successful
    named import with an `except ImportError` fallback binding, and a duplicate guarded by
@@ -432,15 +569,21 @@ earlier import hidden by a competing write. Use the full written expression for 
 For a counted import refusal of a no-effect callee, emit once at each distinct whole-call span
 (fk-65). Emit the diagnostic even when Flask drops a site for lack of a receiver hint. An unsupported
 form with no counted reason, including an unestablished child hop or terminal re-export, keeps
-only its role-specific refusal. Use `mount_child_unproven` for a mount child and
-`imported_unproven` for an imported receiver or view retained by the adapter. For an unsupported
+only its role-specific refusal. Use `mount_child_unproven` for a mount child,
+`terminal_reexport` for a receiver whose import is a terminal re-export (the Rule is retained with that receiver refusal and the callback slot carries the same reason) and
+`imported_unproven` for any other imported receiver or view retained by the adapter. For an unsupported
 imported callee, the no-effect exemption is unavailable and dependent fields are withheld.
-`unestablished_hop` and `terminal_reexport` name census outcomes only.
+`unestablished_hop` names a census outcome only; `terminal_reexport` is also the wire receiver reason above and is not a counted import refusal.
 
 During escape indexing, keep possible targets when an import proof fails and withhold their
-view-derived metadata if the escape cannot be cleared. In fk-34, the helper captures and mutates
-one of two definitions of `f`. Keep the resolved written local callback and withhold inferred
-endpoint and effective methods. In fk-c44 this amendment deliberately recovers `setup.patch`:
+view-derived metadata if the escape cannot be cleared. When the certificate refuses the
+name, include every import or alias occurrence of it in the scope the read resolves to, wherever it sits
+or runs (no position filter), including guarded imports and writes redirected by `global` or `nonlocal`.
+Resolve a qualified argument's member path against each such module root. A proved no-effect
+callee still clears the escape. In fk-34, the helper captures and mutates
+one of two definitions of `f`. `f` is bound twice in `views.py`, so it is not one static binding: the
+written local callback is `callback_unproven` (it was resolved at the second definition under the
+position-sensitive walk), and inferred endpoint and effective methods are withheld. In fk-c44 this amendment deliberately recovers `setup.patch`:
 at `56a9a0d4`, `setup.unused = _mut` invalidated the entire module for the no-effect exemption.
 
 **Standing static-binding contract.** The following paragraph defines `Exact`. [CLAUDE.md](../../../../../CLAUDE.md)
@@ -852,34 +995,152 @@ The frozen populations, binding floors and ledger dispositions above govern each
   The no-effect predicate found zero duplicates among 168 candidates using direct defs and simple assignments
   for the write count. Its body filter also admits docstrings. Runtime module-attribute rebinding and indirect
   view-map writes are unmeasured.
-- **Capture-side limits (§5.3).** The matrix pins `PROVEN` for three
-  of these cases (fk-93 to fk-95); fk-92 is pinned `WITHHELD` (`multi_write`) because the
-  comprehension's own target is a second binding the census counts file-wide, and the scanner
-  disagrees with that pin today. The fixtures record the scanner status and native Flask
-  result beside each control. By the owner's decision of 2026-11-27 (a zero-incidence case after the
-  symmetric fold is pinned, not folded), fk-93, fk-94 and fk-95 are accepted as known limits.
-  Under native Flask fk-95 appears as an HTTP 500 unless `app.testing` is set. Job 101 measured zero registrations and zero mounts for each
-  form in both populations (3,503 framework/Superset sites and 340 application sites).
-  - **First iterable of a comprehension or generator (fk-92).** Python evaluates the first iterable
-    in the enclosing scope and Flask binds `views.f`. The oracle withholds (`multi_write`, the
-    target is a second binding); the scanner treats the site as inside the iteration target's scope
-    and reports `not_import_captured`, a scanner/oracle divergence with the safe outcome pinned.
-  - **Assignment alias after a nested global rebind (fk-93).** The census keys the assignment
-    by `callback` and stops at that written root. Chasing the right-hand side back to the
-    imported name is outside the capture-side contract. The scanner reports
-    `not_import_captured` with no defining member. Flask binds `views.g`.
-  - **Direct wildcard in the capturing module (fk-94).** Only explicitly named imports
-    supply keys to the capture-side census. A wildcard's literal `__all__` can still overwrite
-    the local name at runtime. The scanner selects `views.f` with no counted predicate flagged.
-    Flask binds `views.g`. Source-side wildcard and terminal alias-chain checks still apply
-    within source modules.
-  - **Python 3.12 generic type parameter (fk-95).** Generic parameter bindings are outside
-    the lexical census. The scanner selects `views.f` with no counted predicate flagged.
-    Flask installs a `TypeVar` and dispatch raises `TypeError`.
+- **Closed capture and escape rule: price (PR #928 round 3; superseded by the certificate).** The
+  round-3 rule that section 5.3 replaced was priced
+  with a shadow evaluator (`~/prism-evidence/routes/price-b928/`) over the five listing corpora before
+  it was implemented. Constructs withheld, of 107 receiver-proved / 48 handler-identity / 30 strict /
+  42 default-method rows: a `global` or `nonlocal` naming the captured name 0 / 0 / 0 / 0; a module-scope
+  competing binding of the name 0 / 0 / 0 / 0; the same checks along the import chain 0 / 0 / 0 / 0;
+  an assignment to `.methods` outside a class body in a module the proof reads 0 / 0 / 0 / 0. Combined: 0
+  withheld in every group. Two looser readings were rejected: counting a binding of the same
+  spelling in any scope (a function-local variable is another binding) and counting any call that
+  receives the name withhold 10 / 1 / 3 / 0 rows (CTFd `users` and `teams`, a local variable in
+  a view function); a hand-read of all of them found a local shadow, not a redirect, so those
+  withholdings were lost recall. Incidence of the four round-3 shapes over 4,840 modules
+  of the corpora and the framework and application populations: `global` redirect through an import
+  in the function body 0; direct factory call through a competing import and local definition 0;
+  `Name.methods = ...` 4 (Flask and FastAPI library internals: `view.methods = cls.methods`, `cls.methods = methods`, `route.methods = ...`; none on a proof the listing makes);
+  `global` declaration of a module-bound name 19 (none naming a listed receiver or handler).
+- **Capture-side limits (§5.3).** The fixtures record the scanner status and native Flask result
+  beside each control. With the certificate (PR #928 part 2) the pins moved: fk-92 (a comprehension
+  target) and fk-87 (a method-local import of the spelling) are `PROVEN`, because another scope's
+  binding is a different binding; fk-93 (an alias after a `global` rebind) is `WITHHELD`
+  (`global_write`, the aliased name has a second binding); fk-94 (an in-repo star that can bind the
+  name) is `WITHHELD` (`star_import`); fk-88 is `WITHHELD` by the private-name rule
+  (`class_private_name`), no longer `multi_write`. fk-95 stays a known limit. Under native Flask
+  fk-95 appears as an HTTP 500 unless `app.testing` is set. Job 101 measured zero registrations and
+  zero mounts for each form in both populations (3,503 framework/Superset sites and 340
+  application sites).
+  - **Python 3.12 generic type parameter (fk-95).** Generic parameter bindings are an implicit
+    annotation scope, so they are another scope's binding by scope awareness and not counted. The
+    scanner selects `views.f` with no counted predicate flagged. Flask installs a `TypeVar` and
+    dispatch raises `TypeError`.
+  - **Rebound native Flask imports.** Native constructor and class-base recognition uses
+    the framework checks. A lexical rebind of a native import can leave a source router or
+    class-view metadata proof attached to the original framework binding.
+  - **Parser recovery.** The lexical census counts binding nodes exposed by the parser. Clause (e)
+    of the certificate refuses every key of a module whose tree holds an error or missing node,
+    which closes the hidden competing write; it withheld 0 rows over 1,945 files. Tree-sitter and
+    Python's `ast` can still disagree on a file that parses cleanly under one of them.
+  - **Opaque Flask mounts with untraced children.** For an opaque parent, the escape index
+    widens a traced Blueprint child to competing allocations at that binding. When the child
+    is reachable only via an unproved read, such as a sole import inside a `with` block, the
+    mount can hide a child escape. Independently proved source registrations keep their
+    receiver proof. The opaque mount and paths through it earn zero installation or dispatch credit.
 
   **Reason-label note (IMMATERIAL).** When a later assignment hides the import in fk-89 and
   the source also declares `__getattr__`, the scanner reports `multi_write` where the
   specified precedence selects `getattr_module`. Both reasons withhold dispatch proof.
+- **Closing fold of PR #928 (round 2; the last, a disclosed extension past the review cap).** Two
+  classes fail closed at the certificate instead of choosing a winner: a function-scope import key bound
+  more than once (Count clause, 5.3) and a star whose package export set is not determined (Star
+  clause: transitive initializer imports followed to a depth of 12, 5.3). Closed items: a `for` target is
+  in force in its own body; a chained assignment is peeled to its last right side when the mutation index
+  enumerates sources (`app = spare = app` no longer drops the earlier allocation; as a router value it
+  stays unproved); the class cell `__class__`; a bare annotation is no value write; the mangled formal
+  of `record_once_owner` uses the class-mangled key. The `except .. as` target needed no change (its own
+  `as_pattern` node). Known limit, not folded: `unwritten_alias` compares the alias spelling with its
+  mangled key, so the holder barrier for an alias handed on misses a class-private alias (`__a = app`
+  then `held = [__a]` stays proved; pinned by `known_limit_mangled_alias_escape_is_not_seen_by_the_holder_barrier`).
+  A holder barrier is outside the contract.
+- **Census of real usage and what is out of scope (2026-11-27).** The certificate and its contract
+  (5.3) cover the patterns real code uses. Evidence: `~/prism-evidence/routes/census-used/CENSUS.md`
+  (sections 1, 2, 4, 5), run against the product at `cffd488d`. Public code only; the Express and Go
+  frameworks were not censused.
+  - **Population.** 17 repositories: the five listing corpora (CTFd, flask, microblog, redash,
+    superset), two FastAPI applications (fastapi-realworld, full-stack-fastapi) and 10 applications
+    chosen mechanically by `POPULATION-RULE.md` (written before any count): ihatemoney, simple-login,
+    RedInk, nyaa, DockFlare, trape, FractalCore, sqlite-web, formspree, kamiFaka. Flask itself is
+    framework source: shown, never counted as "used". Only one class-view-heavy application
+    (ihatemoney) qualified, a recorded shortfall. The 16 applications hold 5 with proved routes
+    (CTFd 77, FractalCore 33, kamiFaka 53, redash 4, simple-login 3).
+  - **Patterns.** 63 patterns (57 detector patterns, H18 the static-binding baseline, plus 6 idioms),
+    merged from 47 reviewer members and three enumeration passes. Counts: (i) occurrences anywhere
+    in application code, (ii) occurrences touching a name a route proof relies on, by resolved
+    identity. The detectors use Python `ast`, not the product parser, and over-count by design. Readers:
+    every (ii) hit read blind by an Opus-5.5 reader (261 items plus 99 S08 decorator groups), 66 re-read
+    by the author (59 of 66 agree; the 7 differences move no pattern between used and not observed);
+    (i) sampled (424 items, seed 20261127, Sonnet-5.5). Of the 56 non-baseline patterns, 20 are used and
+    36 are not observed. Used, pinned by `used::*` rows: S01+S07 a
+    name bound on two branches of an `if` (trape; no proof before or after the certificate, the router
+    has two bindings). Used and harmless (the proof is kept): S04/S14e/S14g loop and comprehension targets
+    (simple-login, sqlite-web), S05 the same spelling in another scope (41 hits, 9 applications), S06
+    star import, S08 non-router decorators (436 sites), S09 class-body names, S11 a package `__init__`
+    importing its own same-named child (formspree), S22/S23/H04/H19 list, loop and factory-driven
+    mounts, R01, R02, H10.
+  - **Out of scope: the 36 patterns not observed on any name a route proof relies on.** (ii) is zero
+    in applications for each except where noted; existing rows that pin them stay as documentation,
+    re-labelled known-limit where the code no longer withholds them. Columns: (i) all repositories /
+    applications, (ii) all / applications.
+
+  | id | meaning | (i) | (ii) |
+  |---|---|---|---|
+  | S02 | a function declares `global X` for a module name | 105 / 104 | 0 / 0 |
+  | S03 | a nested function declares `nonlocal X` | 9 / 9 | 0 / 0 |
+  | S10 | a module imports from itself | 44 / 41 | 0 / 0 |
+  | S12 | `import pkg` and `import pkg.sub` in one module | 31 / 31 | 0 / 0 |
+  | S13 | a `type X = ...` statement | 0 / 0 | 0 / 0 |
+  | S14a | a walrus target spelled like a relied name | 0 / 0 | 0 / 0 |
+  | S14b | `except E as X` spelled like another module-scope binding | 28 / 28 | 0 / 0 |
+  | S14c | `with .. as X` spelled like another module-scope binding | 8 / 8 | 0 / 0 |
+  | S14d | `del X` of a relied name | 0 / 0 | 0 / 0 |
+  | S14f | a match capture spelled like a relied name | 0 / 0 | 0 / 0 |
+  | S15 | an augmented or annotated assignment of a module-scope name | 551 / 545 | 0 / 0 |
+  | S16 | a tuple, list or starred unpacking target at module scope | 21 / 21 | 0 / 0 |
+  | S17 | a binding of a module-system name (`__doc__`, `__path__`, ...) | 0 / 0 | 0 / 0 |
+  | S18 | a non-ASCII (NFKC) identifier | 0 / 0 | 0 / 0 |
+  | S19 | a file that does not parse | 0 / 0 | 0 / 0 |
+  | S20 | a registration whose receiver is a call result | 344 / 344 | 0 / 0 |
+  | S21 | a registration inside a def body (idiom, not a hazard; see below) | 159 / 148 | 154 / 145 |
+  | R03 | `setattr` or `delattr` | 53 / 51 | 0 / 0 |
+  | R04 | an attribute store or delete on an imported module name | 256 / 249 | 0 / 0 |
+  | R05 | frame or globals access (`__globals__`, `_getframe`, ...) | 12 / 10 | 0 / 0 |
+  | R07 | a module-level `__getattr__` | 3 / 1 | 0 / 0 |
+  | R08 | a store to `__path__` or `__dict__` | 1 / 1 | 0 / 0 |
+  | R09 | a subscript store through `view_functions`, `url_map` or `blueprints` | 7 / 0 | 3 / 0 |
+  | H01 | a relied view passed to a call that is not a registration | 20 / 17 | 0 / 0 |
+  | H02 | an attribute or subscript store on a relied view | 0 / 0 | 0 / 0 |
+  | H05 | the result of a route or hook decorator call is kept | 1 / 0 | 0 / 0 |
+  | H06 | a hook registration method called with a bare callable | 19 / 17 | 0 / 0 |
+  | H07 | the result of `as_view(..)` is kept | 0 / 0 | 0 / 0 |
+  | H08 | a view class defines `__init__`, `methods`, `decorators`, `super()` and similar | 5 / 3 | 0 / 0 |
+  | H09 | a class defines a registration-like method | 15 / 5 | 0 / 0 |
+  | H11a | a class subclasses `Flask`, `Blueprint` or `APIRouter` | 5 / 4 | 0 / 0 |
+  | H11b | `__subclasses__`, `__bases__`, `__mro__`, `__class__` or `type(router)` | 40 / 36 | 0 / 0 |
+  | H12 | a registration call with a starred argument | 5 / 1 | 2 / 0 |
+  | H13 | `.record(..)`, `.record_once(..)` or `blueprint.register(..)` | 13 / 1 | 0 / 0 |
+  | H15 | an `except .. as e` handler reads `e.obj` | 0 / 0 | 0 / 0 |
+  | H17 | a bound name aliased by a plain `a = b` | 375 / 363 | 0 / 0 |
+
+  S21 is a setup-function idiom, not a hazard (its (ii) is the idiom's frequency, 154 / 145, and it
+  is listed here because no reader found a route change). R09 and H12 have (ii) hits in framework
+  source only (3 and 2), none in applications. Several of the 36 occur elsewhere in the files (105
+  `global` declarations, 256 stores on imported modules, 375 plain aliases, all repositories) but never on a relied
+  name; the round-3 and round-4 review shapes (a view passed to a call H01, a store on a view H02,
+  a later alias H17) are among them.
+  - **Used and route-bearing: limits, not diagnostics.** R06 run-time plugin loading (CTFd
+    `import_module` + `load(app)`, 1 site); H03b an extension handed the app or blueprint (flask_restx
+    `Api(bp)` in CTFd and ihatemoney, Flask-SocketIO `SocketIO(app)` in trape); wsgi and URL rewriting
+    (sqlite-web `PrefixMiddleware` on `app.wsgi_app`, redash `add_org_resource` rewriting URLs
+    under `/<org_slug>/`); S23 blueprints mounted in a loop behind a settings-driven factory (redash
+    authentication). Decision: no application-level diagnostic. The closed `Reason` enum has no value for
+    them and adding one is a format change; the mount listing already reports unproven mount
+    children. Each is a holder or run-time change outside the contract in 5.3.
+  - **Caveats.** Detectors over-count, so "not observed" is solid for the code read but only as good as
+    the relied-name resolution (a router reached through an attribute chain, a dict or a factory
+    return is not tracked); registration forms the detectors do not model (`@expose`, Django-style
+    tables) are outside the count; 17 repositories is a small population. The two FastAPI applications
+    count for patterns only: the product lists no FastAPI routes at this commit.
 - **Static import cost (§5.3).** DESIGN specifies the rule. Section 4 of
   `~/prism-evidence/routes/m/UNTRACED-FORMS-CENSUS.md` estimates its costs and supersedes the earlier
   file-wide counts. Twenty source checks trace the import and destination, ten per population.

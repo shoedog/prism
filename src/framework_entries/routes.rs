@@ -1,5 +1,10 @@
 //! Source registrations and their query-local projection.
+#[allow(dead_code)]
+mod handler;
 pub mod mounts;
+#[allow(dead_code)]
+mod python;
+#[allow(dead_code)]
 mod receivers;
 mod table;
 #[cfg(test)]
@@ -19,6 +24,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub enum Reason {
     ReceiverUnproven,
     ImportedUnproven,
+    TerminalReexport,
     MountChildUnproven,
     TableConsumerUnproven,
     NoKnownMount,
@@ -56,6 +62,15 @@ pub enum Reason {
     Superseded,
     DispatchConflict,
     EntryUnproven,
+    GetattrModule,
+    StarImport,
+    GlobalWrite,
+    MultiWrite,
+    NestedSingle,
+    SubmoduleShadow,
+    ModuleDescriptorName,
+    ClassPrivateName,
+    ClassBodyImport,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
@@ -563,14 +578,46 @@ pub struct Summary {
 
 /// Compute a listing from the current parsed sources and immutable repository facts.
 pub fn routes(
-    _files: &BTreeMap<String, ParsedFile>,
+    files: &BTreeMap<String, ParsedFile>,
     _call_graph: &CallGraph,
     _manifests: &ManifestSnapshot,
     entry: Option<RootSelector>,
 ) -> Result<RouteTable, EntryError> {
-    // Adapter availability is empty until a source extractor is wired in.
     if let Some(entry) = entry {
         entry.resolve(&[])?;
     }
-    Ok(RouteTable::new(vec![], vec![], vec![], vec![], []))
+
+    let bindings = receivers::index_python(files);
+    let context = receivers::SetupContext::default();
+    let registrations = bindings
+        .files
+        .keys()
+        .flat_map(|path| python::flask::flask_facts(&bindings, path, &context))
+        .filter_map(|event| match event {
+            python::flask::FlaskEvent::Rule(rule) => Some(rule.route),
+            _ => None,
+        })
+        .collect();
+
+    let diagnostics = bindings
+        .import_refusals()
+        .into_iter()
+        .map(|refusal| Diagnostic {
+            site: Site {
+                line: files[&refusal.file].line_for_byte(refusal.start_byte),
+                file: refusal.file,
+                start_byte: refusal.start_byte,
+                end_byte: refusal.end_byte,
+            },
+            reason: refusal.reason.into(),
+        })
+        .collect();
+
+    Ok(RouteTable::new(
+        registrations,
+        vec![],
+        diagnostics,
+        vec![],
+        [Framework::Flask],
+    ))
 }
