@@ -471,7 +471,8 @@ with open({str(self.log)!r}, encoding="utf-8") as prior:
         row_two = next(row for row in self.registration["diffs"] if row["ordinal"] == 2)
         # Control: ordinal 1 keeps the plain tree; ordinal 2 names a commit whose tree holds a gitlink.
         self.git("update-index", "--add", "--cacheinfo", f"160000,{self.commit},vendor/dep")
-        self.git("commit", "-q", "--amend", "--no-edit")
+        self.git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                 "-c", "commit.gpgsign=false", "commit", "-q", "--amend", "--no-edit")
         row_two["commit"] = self.git("rev-parse", "HEAD")
         row_two["tree"] = self.git("rev-parse", "HEAD^{tree}")
         self.write_population()
