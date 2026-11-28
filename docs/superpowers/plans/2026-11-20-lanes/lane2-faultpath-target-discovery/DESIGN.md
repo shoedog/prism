@@ -795,8 +795,13 @@ call supplies no contradiction. For helpers, inspect returns only in their own c
 be `None`. Use the sole, available function-local or visible same-file module initializer when
 it is literal `None`. For an otherwise admissible same-file helper at an eligible R4 or R5 binding,
 including matching await, the result is known to be `None` when every return in its own compiler
-scope is explicit `return None` or bare `return`. Implicit fallthrough also supplies `None`,
-including a body with no own returns. A path that raises or never completes supplies no result.
+scope is explicit `return None` or bare `return` and there is at least one such return. For
+implicit fallthrough, known `None` is claimed only when normal completion is proved by a suite
+of docstrings or other expression statements (including `...` and calls), assignments, `pass`,
+and plain `if` statements with a provably completing arm. This check uses boolean, `None` and
+integer literals to select or skip arms and permits either outcome of a bare-name condition when
+checking explicit arms. A suite that raises, never completes, or is undecidable under this
+accept-list keeps an otherwise eligible standard-library declaration at `nameonly`.
 Count `receiver_is_none` in §6.5 order. A nullable declaration alone still qualifies under K,
 including with an opaque initializer or helper result. An overridable parameter default cannot
 prove the reaching value. esc39–44 cover the refusals and opaque control. No inherited verdict changes.
@@ -1735,6 +1740,8 @@ declarations nor constructed-class precedence.
 
 ## 7. Gates
 
+**Gate amendment (owner 2026-11-27):** a file in a dot directory is loader scope (the S2a loader excludes dot directories by design, §5.2) and is outside the G-parity denominator for every corpus; the saleor `.claude/skills/...` key is therefore not counted. This does not waive the floor. The floor is recorded as NOT YET MET at S3 (httpie 24/26; saleor 47/52 as measured, 47/51 once the dot-directory key leaves the denominator) and applies at the end of the follow-up family (P-field, P-lambda); S3 reports it and does not claim it.
+
 | Gate | Statement | Oracle |
 |---|---|---|
 | G-overlay | on httpie at the pinned commit, the inventory emits a row for each of the overlay's HTTP sites (`client.py:114`, `update_warnings.py:44`) with the overlay row's file, line, bounds and kind, and the bare function name as symbol | the archived overlay; faultpath's site guard |
@@ -1876,6 +1883,36 @@ Their write-target accept-list is:
   `list_pattern`, `pattern_list` or a comma-bearing `tuple_pattern`. Coverage of grouped and starred
   leaves depends on the parser shape, as described below.
 
+The helper fallthrough accept-list in §6.4 does not model loops, imports, nested definitions,
+or other unsupported statements. These forms supply no implicit `None` evidence. The helper's
+own explicit `return None` and bare `return` rules still apply.
+
+For the tracked standard-library receiver classes and their Python-level bases, literal writes
+through `vars()` or `__dict__` do not count as writes to a read-only class namespace. Those
+routes also do not replace the actual `__class__` of `os.environ` or the modules behind
+`os.path`. `_Environ` lookup does not count writes to immutable `builtins.object`. Ordinary
+attribute stores on `typing.Mapping` and `typing.MutableMapping` forward to the origin.
+Wrapper dictionary writes, dunder stores, and attribute deletions supply neither a veto nor
+identity evidence for the origin.
+
+The starred vararg annotation recovery accept-list covers names, unformatted literals, displays
+and comprehensions, explicit groups, primary trailers (attribute, subscript, call),
+arithmetic/bitwise operators, and await in an eager annotation in an enclosing async function.
+Lambda, conditional, boolean and comparison operands need grouping. Grouped lambdas admit
+simple, distinct positional names.
+
+Recovery refuses f-strings, walrus expressions, yield expressions and lambda parameters with
+defaults. Validating those operands requires syntax or compiler-scope checks beyond the
+accept-list. A refused annotation emits no row for its call. A recognized call elsewhere in the
+affected function is counted as `parse_error_in_function`.
+
+Two known limits remain in the surrounding signature and scope. In CPython,
+`def inner(*a: *(yield None))` inside `def make() -> Path` makes `make` a generator. The
+helper-result proof misses that yield, so calling `p = make()` and then `p.read_text()` still
+emits a `nameonly` row. Recovery also skips duplicate-parameter validation on the enclosing
+signature. A duplicate name beside a starred annotation can leave an `exact` annotation-call
+row. The `known_limit_*` CLI tests pin both outcomes and the refused operands alongside controls.
+
 For a returned local, R4/R5 recognize evaluated identifier uses and permit same-scope member bases
 and supported literal member writes that leave the required slots intact. In a `match`, the subject
 and guards are walked as expressions, captures enter the binding census, and bare class-pattern
@@ -1906,6 +1943,15 @@ The recorded census across httpie, Saleor, Superset and Black prices the boundar
 | F-string `{name:=` | 1 | One occurrence of the lookalike spelling. |
 | `match` statements | 109 | None capturing a returned local. |
 | `__class__` or `__dict__` string keys | 12 | None a write key on a receiver. |
+
+#### Known limits pinned after S3 fold 2 (issue #975, owner rule 2026-11-27)
+
+| Limit | Contract that excludes it | Current consequence | Pinned by |
+|---|---|---|---|
+| A wrapper-local dunder store followed by an alias read from it (`from typing import Mapping as W`; `W.__target__ = collections.abc.Mapping`; `A = W.__target__`; `A.get = replacement`) | Wrapper dunder stores supply neither a veto nor identity evidence for the origin (above), and a one-hop alias must name a tracked object directly (§10.1). Reading a binding back out of an attribute store is runtime mutation, out of model under the `Exact` contract. | `os.environ.get` stays `exact` where CPython dispatches to the replacement. Recall is not affected. | `known_limit_wrapper_local_dunder_store_alias_chain` beside a control |
+| Correlated conditions in a helper's if/elif chain (`if flag: raise` / `elif flag: pass` / `else: raise`) | §6.4 treats each arm's condition as independent. A normal completion is proved only by the listed forms; value correlation between conditions is not modelled. | The unreachable `elif` arm counts as a completion, so the receiver is counted `receiver_is_none` where the `nameonly` row would have been emitted. A recall loss only. | `known_limit_correlated_flag_helper_completion` beside a control |
+
+Census on httpie, Saleor, Superset and Black (`limits-33/incidence.py`): dunder attribute stores whose base is a name imported from `typing`, `collections`, `collections.abc`, `os` or `pathlib` number 0, and if/elif chains that repeat an earlier test number 0. The four-corpus documents are unchanged.
 
 The four-corpus targets, warnings and G-accept results were identical before and after fold 1 and after the
 context-entry fix (only `producer.build_identity` differs). S2b closes the context-entry veto and leaves the five priced classes as accepted limits.

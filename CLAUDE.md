@@ -144,10 +144,12 @@ The review layer is the workspace crate `crates/prism-review` (package `prism-re
   expansion and its completed maps. `context_view.rs` selects them for taint after
   successful admission and union. Other algorithms use the original maps.
 - `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in
-  `inventory/` producer uses same-file Python ASTs to identify listed HTTP calls. Imported roots,
-  direct construction, sole named construction and matching context-bound construction can prove
-  `exact` under the static-binding contract. An eligible annotated assignment or same-file helper
-  with a construction witness can prove `nameonly`. Owning-field ties and other failed tied identities
+  `inventory/` producer uses same-file Python ASTs to identify listed HTTP, filesystem, parse and
+  config calls. Imported and builtin roots, direct construction, sole named construction and
+  matching context-bound construction can prove `exact` under the static-binding contract.
+  Eligible annotated assignments and same-file helpers can prove `nameonly` with a construction
+  witness. The standard-library families also accept eligible parameter, assignment and helper
+  declarations at `nameonly` under decision K. Owning-field ties and other failed tied identities
   contribute per-file counts by cause. Inventory runs on its own or merges with projected findings.
   Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses
   `docs/contracts/targets-1.1.schema.json` (1.1).
