@@ -1,6 +1,5 @@
 use super::*;
 use crate::framework_entries::routes::receivers::{
-    direct,
     imports::{import_items, imported_as, source_path},
     python_scope,
     writes::effective_name,
@@ -25,7 +24,7 @@ pub(super) fn mutation_candidates<'a>(
     keep_refused_routers: bool,
 ) -> Vec<PythonValue<'a>> {
     let context = SetupContext::default();
-    if !may_resolve(bindings, file, expression, 24, &context) {
+    if !may_denote(bindings, file, expression, 24) {
         return vec![];
     }
     let mut values = Vec::new();
@@ -41,8 +40,9 @@ pub(super) fn mutation_candidates<'a>(
         } else {
             bindings.value_at(&file.path, node, &context)
         };
+        // A name the certificate refuses keeps every binding occurrence as a candidate.
         let refused = matches!(exact, PythonValue::Unknown(Reason::ImportedUnproven))
-            || bindings.has_competing_import(file, node, &context);
+            || bindings.uncertified_root(file, node);
         values.push(exact);
         if refused {
             values.extend(bindings.possible_imported_values(
@@ -56,107 +56,73 @@ pub(super) fn mutation_candidates<'a>(
             continue;
         }
         let name = effective_name(file, python_scope(node), file.node_text(&node));
-        reaching_sources(bindings, file, node, |write| {
+        for write in occurrences(bindings, file, node) {
             if let Some(rhs) = alias_rhs(write) {
                 pending.push(ungroup(rhs));
             } else if binding_source(write.kind()) {
-                values.push(bindings.bound(
+                values.push(bindings.bound_occurrence(
                     PythonMember { file, node: write },
                     &name,
                     &context,
                     24,
                 ));
             }
-            false
-        });
+        }
     }
     values
 }
 
-// Skip lexical roots that cannot resolve to a relevant import, definition, or
-// allocation. Callers still check field names on unresolved owners.
-fn may_resolve<'a>(
+// Skip lexical roots that cannot denote a relevant import, definition, or allocation.
+// Callers still check field names on unresolved owners.
+fn may_denote<'a>(
     bindings: &PythonBindings<'a>,
     file: &'a ParsedFile,
     node: Node<'a>,
     depth: usize,
-    context: &SetupContext<'a>,
 ) -> bool {
     if depth == 0 {
         return true;
     }
     let node = ungroup(node);
     match node.kind() {
-        "identifier" if bindings.has_competing_import(file, node, context) => true,
-        "identifier" => reaching_sources(bindings, file, node, |write| match write.kind() {
-            "import_statement" | "import_from_statement" => relevant_import(
-                bindings,
-                file,
-                write,
-                &effective_name(file, python_scope(node), file.node_text(&node)),
-            ),
-            "function_definition" | "class_definition" => true,
-            _ => alias_rhs(write)
-                .is_some_and(|rhs| may_resolve(bindings, file, rhs, depth - 1, context)),
-        }),
+        "identifier" => {
+            occurrences(bindings, file, node)
+                .into_iter()
+                .any(|write| match write.kind() {
+                    "import_statement" | "import_from_statement" => relevant_import(
+                        bindings,
+                        file,
+                        write,
+                        &effective_name(file, python_scope(node), file.node_text(&node)),
+                    ),
+                    "function_definition" | "class_definition" => true,
+                    _ => alias_rhs(write)
+                        .is_some_and(|rhs| may_denote(bindings, file, rhs, depth - 1)),
+                })
+        }
         "attribute" => attribute(node).is_some_and(|(root, field)| {
             matches!(
                 normalized(file.node_text(&field)).as_ref(),
                 "url_map" | "converters" | "view_functions"
-            ) || may_resolve(bindings, file, root, depth - 1, context)
+            ) || may_denote(bindings, file, root, depth - 1)
         }),
         "call" => node
             .child_by_field_name("function")
-            .is_some_and(|root| may_resolve(bindings, file, root, depth - 1, context)),
+            .is_some_and(|root| may_denote(bindings, file, root, depth - 1)),
         _ => false,
     }
 }
 
-fn reaching_sources<'a>(
+// Every binding occurrence of the name read at `node`, in the scope it resolves to and with
+// no position filter (the position-free helper of the static-binding contract).
+fn occurrences<'a>(
     bindings: &PythonBindings<'a>,
     file: &'a ParsedFile,
     node: Node<'a>,
-    mut visitor: impl FnMut(Node<'a>) -> bool,
-) -> bool {
+) -> Vec<Node<'a>> {
     let local = python_scope(node);
     let name = effective_name(file, local, file.node_text(&node));
-    let writes = &bindings.writes[file.path.as_str()];
-    let mut scope = local;
-    loop {
-        let mut before = if scope == local {
-            node.start_byte()
-        } else {
-            scope.end_byte()
-        };
-        let directive = writes.directive(scope, &name);
-        let mut had_write = false;
-        while let Some(write) = writes.named_before(scope, &name, before) {
-            had_write = true;
-            if visitor(write) {
-                return true;
-            }
-            if scope == local && directive.is_none() && direct(write, scope) {
-                // A write can hide the explicit import whose capture needs a refusal.
-                return writes
-                    .import_before(scope, &name, write.start_byte())
-                    .is_some_and(visitor);
-            }
-            before = write.start_byte();
-        }
-        if directive.is_none()
-            && (if scope.kind() == "class_definition" {
-                had_write
-            } else {
-                writes.binds_local(scope, &name)
-            })
-        {
-            return false;
-        }
-        let Some(outer) = writes.outer_binding_scope(scope, &name) else {
-            return false;
-        };
-        scope = outer;
-    }
+    bindings.writes[file.path.as_str()].occurrences(local, &name, node.start_byte())
 }
 
 fn alias_rhs(write: Node<'_>) -> Option<Node<'_>> {

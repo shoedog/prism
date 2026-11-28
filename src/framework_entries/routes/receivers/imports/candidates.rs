@@ -1,4 +1,4 @@
-use super::*;
+use super::{super::certificate::Clause, *};
 use std::collections::{BTreeSet, VecDeque};
 
 impl<'a> PythonBindings<'a> {
@@ -36,9 +36,7 @@ impl<'a> PythonBindings<'a> {
         if let (true, Some(reason)) = (recognized, reason) {
             self.record_import_refusal(file, call, reason);
         }
-        // A census refusal is authoritative: an eligible factory found by
-        // ordinary lookup never replaces the refused written callee.
-        recognized || reason.is_some()
+        recognized
     }
 
     pub(in crate::framework_entries::routes::receivers) fn possible_imported_values(
@@ -53,7 +51,7 @@ impl<'a> PythonBindings<'a> {
             .into_iter()
             .flat_map(|path| self.possible_members(&path))
             .collect();
-        for path in self.competing_import_paths(file, expression, context) {
+        for path in self.import_candidates(file, expression, context) {
             pending.extend(self.possible_members(&path));
         }
         let mut seen = BTreeSet::new();
@@ -87,23 +85,57 @@ impl<'a> PythonBindings<'a> {
         values
     }
 
-    /// True when a write of the read's own lexical binding, anywhere in the
-    /// file, can supply another import target (the shared admission test).
-    pub(in crate::framework_entries::routes::receivers) fn has_competing_import(
+    /// The clause that refuses the root name of `expression`, if the certificate does.
+    pub(in crate::framework_entries::routes::receivers) fn root_clause(
         &self,
         file: &'a ParsedFile,
         expression: Node<'a>,
-        context: &SetupContext<'a>,
-    ) -> bool {
-        !self
-            .competing_import_paths(file, expression, context)
-            .is_empty()
+    ) -> Option<Clause> {
+        let (root, key) = self.read_root(file, expression)?;
+        let local = python_scope(root);
+        let scope =
+            self.writes[file.path.as_str()].read_binding_scope(local, &key, root.start_byte())?;
+        self.certify(file, scope, &key).err()
     }
 
-    // The proof counts same-spelling sites throughout the file. For an escape,
-    // only writes to the lexical binding actually read can contribute targets,
-    // wherever they sit or run.
-    fn competing_import_paths(
+    /// True when the root name of `expression` is not one static binding (the certificate
+    /// refuses it): its other binding occurrences can supply other targets.
+    pub(in crate::framework_entries::routes::receivers) fn uncertified_root(
+        &self,
+        file: &'a ParsedFile,
+        expression: Node<'a>,
+    ) -> bool {
+        self.root_clause(file, expression).is_some()
+    }
+
+    /// True when the root name has a competing binding occurrence (a second binding, a
+    /// redirect or a star that can bind it), so other candidates are known to exist.
+    pub(in crate::framework_entries::routes::receivers) fn competing_root(
+        &self,
+        file: &'a ParsedFile,
+        expression: Node<'a>,
+    ) -> bool {
+        matches!(
+            self.root_clause(file, expression),
+            Some(Clause::Count | Clause::Redirect | Clause::Star)
+        )
+    }
+
+    fn read_root(&self, file: &ParsedFile, expression: Node<'a>) -> Option<(Node<'a>, String)> {
+        let mut root = ungroup(expression);
+        while let Some((object, _)) = attribute(root) {
+            root = ungroup(object);
+        }
+        (root.kind() == "identifier").then(|| {
+            let key = effective_name(file, python_scope(root), file.node_text(&root));
+            (root, key.into_owned())
+        })
+    }
+
+    // Every import or alias occurrence of the name read, in the scope it resolves to,
+    // wherever it sits or runs: a loop back edge or a second call runs a later write before
+    // the read, so position is no filter. Used when the certificate refuses the name.
+    fn import_candidates(
         &self,
         file: &'a ParsedFile,
         expression: Node<'a>,
@@ -118,30 +150,14 @@ impl<'a> PythonBindings<'a> {
             });
             root = ungroup(object);
         }
-        if root.kind() != "identifier" {
-            return Vec::new();
-        }
-        let local = python_scope(root);
-        let name = effective_name(file, local, file.node_text(&root));
-        let writes = &self.writes[file.path.as_str()];
-        let Some(binding) = writes.read_binding_scope(local, &name, root.start_byte()) else {
+        let Some((root, name)) = self.read_root(file, root) else {
             return Vec::new();
         };
+        let writes = &self.writes[file.path.as_str()];
         let mut paths = Vec::new();
         let mut seen = BTreeSet::new();
-        for &write in writes.capture_sites(&name) {
+        for write in writes.occurrences(python_scope(root), &name, root.start_byte()) {
             if !seen.insert(write.id()) {
-                continue;
-            }
-            let scope = python_scope(write);
-            let owner = if writes.directive(scope, &name).is_some() {
-                writes.outer_binding_scope(scope, &name)
-            } else {
-                Some(scope)
-            };
-            // Position is not a filter: a loop back edge or a second call runs a
-            // later write before the read (closed rule, DESIGN 5.3).
-            if owner != Some(binding) {
                 continue;
             }
             let aliases = assignment_alias(write)

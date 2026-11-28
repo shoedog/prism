@@ -286,8 +286,10 @@ impl<'a> AttributeWrites<'a> {
         }
         // For an opaque parent, widen a traced child escape to its competing
         // allocations. A refused import alone (for example, inside a `with`)
-        // gives no established child read to start from.
+        // gives no established child read to start from; a name with a second
+        // binding occurrence (the certificate's count, redirect or star clause) does.
         if proved_child
+            || bindings.competing_root(file, child)
             || matches!(
                 bindings.value_at(&file.path, child, &context),
                 PythonValue::Router(router) if router.kind == PythonKind::Blueprint

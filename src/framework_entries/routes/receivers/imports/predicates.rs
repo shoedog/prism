@@ -21,16 +21,15 @@ impl<'a> PythonBindings<'a> {
             }) {
                 return Some(StarImport);
             }
-            if writes.global_write(name) {
-                return Some(GlobalWrite);
-            }
-            if sites.len() > 1 {
-                return Some(MultiWrite);
+            // The certificate counts the binding occurrences of the name in the source module.
+            // A name the module does not bind (a child module, a missing member) has no
+            // binding to certify, but a module with a parse error certifies nothing.
+            if !sites.is_empty() || root.has_error() {
+                if let Err(clause) = self.certify(owner, root, name) {
+                    return Some(clause.into());
+                }
             }
             if let [site] = sites {
-                if !direct(*site, root) {
-                    return Some(NestedSingle);
-                }
                 if child_exists
                     && !self.same_child_import(owner, *site, name, &format!("{module}.{name}"))
                 {
@@ -60,7 +59,7 @@ impl<'a> PythonBindings<'a> {
         result
     }
 
-    pub(super) fn star_source(
+    pub(in crate::framework_entries::routes::receivers) fn star_source(
         &self,
         origin: &ParsedFile,
         star: Node<'_>,

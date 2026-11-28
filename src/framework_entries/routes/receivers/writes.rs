@@ -44,7 +44,9 @@ pub(super) struct LexicalWrites<'a> {
     scopes: BTreeMap<usize, ScopeWrites<'a>>,
     module_sites: BTreeMap<String, Vec<Node<'a>>>,
     global_writes: BTreeMap<Cow<'a, str>, Vec<Node<'a>>>,
-    capture_sites: BTreeMap<Cow<'a, str>, Vec<Node<'a>>>,
+    /// Binding occurrences in a nested scope that declares `nonlocal K`, keyed by the
+    /// enclosing function scope they redirect to.
+    nonlocal_writes: BTreeMap<(usize, Cow<'a, str>), Vec<Node<'a>>>,
 }
 
 #[derive(Default)]
@@ -115,26 +117,21 @@ impl<'a> LexicalWrites<'a> {
                         .or_default()
                         .push(node);
                 }
-                if value_site {
-                    result
-                        .capture_sites
-                        .entry(name.clone())
-                        .or_default()
-                        .push(node);
-                }
                 if parameter {
                     writes.parameters.insert(name);
                     continue;
                 }
                 if value_site {
-                    let owner = enclosing_non_comprehension(scope);
-                    if owner.kind() == "module" {
+                    // A comprehension target binds the comprehension's own scope, so only
+                    // a module-level occurrence (a walrus is placed in the enclosing
+                    // scope above) is a module binding.
+                    if scope.kind() == "module" {
                         result
                             .module_sites
                             .entry(name.to_string())
                             .or_default()
                             .push(node);
-                    } else if owner == scope {
+                    } else if !comprehension(scope) {
                         nested_writes.push((scope, name.clone(), node));
                     }
                 }
@@ -147,13 +144,25 @@ impl<'a> LexicalWrites<'a> {
             }
         }
         for (scope, name, node) in nested_writes {
-            if result.directive(scope, &name) == Some(Directive::Global) {
-                result
-                    .module_sites
-                    .entry(name.to_string())
-                    .or_default()
-                    .push(node);
-                result.global_writes.entry(name).or_default().push(node);
+            match result.directive(scope, &name) {
+                Some(Directive::Global) => {
+                    result
+                        .module_sites
+                        .entry(name.to_string())
+                        .or_default()
+                        .push(node);
+                    result.global_writes.entry(name).or_default().push(node);
+                }
+                Some(Directive::Nonlocal) => {
+                    if let Some(target) = result.outer_binding_scope(scope, &name) {
+                        result
+                            .nonlocal_writes
+                            .entry((target.id(), name))
+                            .or_default()
+                            .push(node);
+                    }
+                }
+                None => {}
             }
         }
         for scope in result.scopes.values_mut() {
@@ -169,18 +178,15 @@ impl<'a> LexicalWrites<'a> {
         result
     }
 
+    /// True when a nested scope declares `global K` and binds it.
     pub(super) fn global_write(&self, name: &str) -> bool {
         self.global_writes.contains_key(name)
     }
 
-    pub(super) fn competing_global(&self, name: &str, candidate: Node<'a>) -> bool {
-        self.global_writes
-            .get(name)
-            .is_some_and(|sites| sites.as_slice() != [candidate])
-    }
-
-    pub(super) fn capture_sites(&self, name: &str) -> &[Node<'a>] {
-        self.capture_sites.get(name).map_or(&[], Vec::as_slice)
+    /// True when a nested scope declares `nonlocal K` (resolving to `scope`) and binds it.
+    pub(super) fn nonlocal_write(&self, scope: Node<'a>, name: &str) -> bool {
+        self.nonlocal_writes
+            .contains_key(&(scope.id(), Cow::Borrowed(name)))
     }
 
     pub(super) fn module_sites(&self, name: &str) -> &[Node<'a>] {
@@ -189,6 +195,50 @@ impl<'a> LexicalWrites<'a> {
 
     pub(super) fn directive(&self, scope: Node<'a>, name: &str) -> Option<Directive> {
         self.scopes.get(&scope.id())?.directives.get(name).copied()
+    }
+
+    /// The scope a binding occurrence binds in: the module for a `global K` redirect, the
+    /// enclosing function for a `nonlocal K` redirect, else the scope that holds it.
+    pub(super) fn binding_scope_of_write(&self, node: Node<'a>, name: &str) -> Option<Node<'a>> {
+        let scope = match node.kind() {
+            "named_expression" => enclosing_non_comprehension(python_scope(node)),
+            _ => python_scope(node),
+        };
+        match self.directive(scope, name) {
+            Some(Directive::Global) => {
+                let mut module = scope;
+                while let Some(parent) = module.parent() {
+                    module = parent;
+                }
+                Some(module)
+            }
+            Some(Directive::Nonlocal) => self.outer_binding_scope(scope, name),
+            None => Some(scope),
+        }
+    }
+
+    /// Every binding occurrence of `name` in `scope`, wherever it sits and runs (no
+    /// position filter), with `global`/`nonlocal` redirects from nested scopes included.
+    pub(super) fn binding_sites(&self, scope: Node<'a>, name: &str) -> Vec<Node<'a>> {
+        if scope.kind() == "module" {
+            return self.module_sites(name).to_vec();
+        }
+        let mut sites = self
+            .scopes
+            .get(&scope.id())
+            .and_then(|writes| writes.names.get(name))
+            .cloned()
+            .unwrap_or_default();
+        if let Some(redirected) = self.nonlocal_writes.get(&(scope.id(), Cow::Borrowed(name))) {
+            sites.extend(redirected.iter().copied());
+        }
+        sites
+    }
+
+    /// The binding occurrences of the scope a read of `name` at `scope` resolves to.
+    pub(super) fn occurrences(&self, scope: Node<'a>, name: &str, before: usize) -> Vec<Node<'a>> {
+        self.read_binding_scope(scope, name, before)
+            .map_or_else(Vec::new, |binding| self.binding_sites(binding, name))
     }
 
     pub(super) fn read_binding_scope(

@@ -80,7 +80,7 @@ fn setup_function<'a>(
         }
         let class_name = ungroup(object.child_by_field_name("function")?);
         if class_name.kind() != "identifier"
-            || bindings.has_global_write(file, file.node_text(&class_name))
+            || !bindings.certified_module_name(file, file.node_text(&class_name))
         {
             return None;
         }
@@ -112,7 +112,7 @@ fn setup_function<'a>(
         (module, callee, false)
     };
     if name.kind() != "identifier"
-        || (!method && bindings.has_global_write(file, file.node_text(&name)))
+        || (!method && !bindings.certified_module_name(file, file.node_text(&name)))
     {
         return None;
     }

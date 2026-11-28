@@ -27,7 +27,8 @@ struct ImportPath<'a> {
     span: Node<'a>,
     private: bool,
     alias: bool,
-    capture_key: Option<String>,
+    /// The effective name the statement binds, certified at its binding scope.
+    key: String,
 }
 
 enum Selection<'a> {
@@ -227,6 +228,11 @@ impl<'a> PythonBindings<'a> {
             };
             (module, steps, path, false)
         };
+        let key = effective_name(
+            file,
+            python_scope(statement),
+            imported_as(file, path, alias),
+        );
         Some(ImportPath {
             module,
             steps,
@@ -234,7 +240,7 @@ impl<'a> PythonBindings<'a> {
             span,
             private: private || module_spelling(&written) || private_name(&local),
             alias: false,
-            capture_key: None,
+            key: key.into_owned(),
         })
     }
 
@@ -338,13 +344,14 @@ impl<'a> PythonBindings<'a> {
             established &= hop.established;
             current = hop.target;
         }
-        if let Some(name) = &path.capture_key {
-            let writes = &self.writes[file.path.as_str()];
-            if writes.competing_global(name, path.statement) {
-                proof.apply(Some(ImportRefusalReason::GlobalWrite));
-            } else if writes.capture_sites(name) != [path.statement] {
-                proof.apply(Some(ImportRefusalReason::MultiWrite));
+        // The name this statement binds must be one static binding at its binding scope.
+        match self.writes[file.path.as_str()].binding_scope_of_write(path.statement, &path.key) {
+            Some(scope) => {
+                if let Err(clause) = self.certify(file, scope, &path.key) {
+                    proof.apply(Some(clause.into()));
+                }
             }
+            None => proof.apply(Some(ImportRefusalReason::GlobalWrite)),
         }
         if path.private {
             proof.apply(Some(ImportRefusalReason::ClassPrivateName));

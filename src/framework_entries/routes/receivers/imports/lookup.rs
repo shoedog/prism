@@ -104,15 +104,17 @@ impl<'a> PythonBindings<'a> {
         if matches!(binding.kind(), "import_statement" | "import_from_statement") {
             let mut path = self.import_path(file, binding, &name)?;
             path.private |= private_name(&normalized(spelling));
-            path.capture_key = capture_root.then(|| name.into_owned());
             return Some(path);
         }
         let scope = python_scope(binding);
         let value = assignment_alias(binding)?;
         if !direct(binding, scope)
             || (self.mutations.is_some()
-                && self.writes[file.path.as_str()].named_before(scope, &name, scope.end_byte())
-                    != Some(binding))
+                && (self.writes[file.path.as_str()].named_before(scope, &name, scope.end_byte())
+                    != Some(binding)
+                    || !self.writes[file.path.as_str()]
+                        .binding_scope_of_write(binding, &name)
+                        .is_some_and(|scope| self.certify(file, scope, &name).is_ok())))
         {
             return None;
         }

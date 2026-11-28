@@ -214,9 +214,11 @@ use super::python::{
 };
 use super::Framework;
 use crate::ast::ParsedFile;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
 
+mod certificate;
 mod imports;
 mod mutations;
 pub(crate) mod refusals;
@@ -267,6 +269,7 @@ pub(crate) struct PythonBindings<'a> {
     writes: BTreeMap<&'a str, LexicalWrites<'a>>,
     mutations: Option<AttributeWrites<'a>>,
     refusals: ImportRefusals,
+    certificates: RefCell<BTreeMap<(String, usize, String), Result<(), certificate::Clause>>>,
 }
 
 pub(crate) fn index_python(files: &BTreeMap<String, ParsedFile>) -> PythonBindings<'_> {
@@ -289,6 +292,7 @@ pub(crate) fn index_python(files: &BTreeMap<String, ParsedFile>) -> PythonBindin
         writes,
         mutations: None,
         refusals: ImportRefusals::default(),
+        certificates: RefCell::default(),
     };
     bindings.mutations = Some(AttributeWrites::index(&bindings));
     bindings
@@ -369,7 +373,7 @@ impl<'a> PythonBindings<'a> {
         let scope = python_scope(use_node);
         let name = writes::effective_name(file, scope, name);
         let name = name.as_ref();
-        if depth == 0 || scope.kind() == "lambda" || self.has_global_write(file, name) {
+        if depth == 0 || scope.kind() == "lambda" {
             return unknown;
         }
         if let Some(node) = self.reaching(file, scope, name, use_node.start_byte()) {
@@ -408,10 +412,6 @@ impl<'a> PythonBindings<'a> {
         })
     }
 
-    pub(super) fn has_global_write(&self, file: &ParsedFile, name: &str) -> bool {
-        self.writes[file.path.as_str()].global_write(&normalized(name))
-    }
-
     pub(super) fn module_before(&self, file: &ParsedFile, context: &SetupContext<'_>) -> usize {
         let root = file.tree.root_node();
         if let Some(Invocation::Call {
@@ -431,7 +431,28 @@ impl<'a> PythonBindings<'a> {
         root.end_byte()
     }
 
+    /// The value a binding occurrence supplies, when its name is one static binding
+    /// (the certificate); a name with a second binding supplies nothing.
     fn bound(
+        &self,
+        member: PythonMember<'a>,
+        name: &str,
+        context: &SetupContext<'a>,
+        depth: usize,
+    ) -> PythonValue<'a> {
+        let PythonMember { file, node } = member;
+        let certified = self.writes[file.path.as_str()]
+            .binding_scope_of_write(node, name)
+            .is_some_and(|scope| self.certify(file, scope, name).is_ok());
+        if !certified {
+            return PythonValue::Unknown(Reason::ReceiverUnproven);
+        }
+        self.bound_occurrence(member, name, context, depth)
+    }
+
+    /// The value one binding occurrence supplies, whatever else binds its name: the
+    /// conservative candidate walk of the mutation index uses it for every occurrence.
+    pub(super) fn bound_occurrence(
         &self,
         member: PythonMember<'a>,
         name: &str,
@@ -755,7 +776,7 @@ impl<'a> PythonBindings<'a> {
             }
             let root = file.tree.root_node();
             for name in self.writes[path].names(root) {
-                if self.has_global_write(file, name) {
+                if self.certify(file, root, name).is_err() {
                     continue;
                 }
                 let Some(node) = self.reaching(file, root, name, root.end_byte()) else {
