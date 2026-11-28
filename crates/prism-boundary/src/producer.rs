@@ -116,13 +116,16 @@ pub fn bind_producer(
         .identity()
         .ok_or(ProducerError::UnsupportedSnapshot)?;
     // The index must be the schema this document declares, indexed under the schema authority
-    // for the same region; an annotation binding to any other index would be unfounded.
+    // for the same region, and an explicit file receipt must agree with it on the digest and
+    // every other declared value the index carries; an annotation binding to any other index
+    // would be unfounded.
     let admitted = schema.source.as_ref().is_some_and(|source| {
         source.api == input.api
             && source.tree == tree
             && source.commit.as_deref() == commit
             && source.authority == "schema"
             && input.declares_schema_source(source)
+            && input.declared_receipt_agrees(schema)
             && input.scope.same_region(&schema.scope)
     });
 

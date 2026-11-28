@@ -20,15 +20,16 @@ use std::process::Command;
 
 /// (declarations with at least one Bound edge, declarations whose edges are all candidates).
 fn declaration_counts(doc: &prism_boundary::model::BindingsDocument) -> (usize, usize) {
-    let handlers: BTreeSet<_> = support::rows(doc)
-        .iter()
-        .filter_map(|r| {
-            r.handler
-                .as_ref()
-                .map(|h| (h.site.file.clone(), h.site.span))
-        })
-        .collect();
-    (handlers.len(), 0)
+    let mut declarations: BTreeMap<_, bool> = BTreeMap::new();
+    for row in support::rows(doc) {
+        if let Some(handler) = &row.handler {
+            *declarations
+                .entry((handler.site.file.clone(), handler.site.span))
+                .or_default() |= row.grade == Some(EdgeGrade::Bound);
+        }
+    }
+    let bound = declarations.values().filter(|bound| **bound).count();
+    (bound, declarations.len() - bound)
 }
 
 #[test]
@@ -213,7 +214,7 @@ fn public_pair_annotation_census() {
          - Go files examined: {} ({} expected, statuses {statuses:?})\n\
          - schema operations: {}; schema diagnostics: {}\n\
          - annotation records: {} by disposition {by_disposition:?}\n\
-         - annotated functions (distinct handler declarations): {}\n\
+         - annotated functions (distinct handler declarations with a Bound edge): {}; candidate-only declarations: {}\n\
          - operations annotation-bound (grade Bound only): {} of {}; candidate operations: {}; operations with any annotation evidence: {}\n\
          - schema operations with no annotation binding: {} {unannotated:?}\n\
          - annotation_without_operation: {} {without:?}\n\
@@ -225,6 +226,7 @@ fn public_pair_annotation_census() {
         schema.diagnostics.len(),
         records.len(),
         handlers_bound,
+        handlers_candidate_only,
         bound_ops.len(),
         schema_ops.len(),
         candidate_ops.len(),

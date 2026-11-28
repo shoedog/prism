@@ -73,6 +73,33 @@ impl DocumentInput {
     }
 }
 
+impl DocumentInput {
+    /// For an explicit schema file receipt, whether every value it declares that the index also
+    /// carries agrees with the index: the SHA-256 of the bytes, the source commit (when the
+    /// index has one), and the content hash and info version when declared (non-empty). The
+    /// named-tree fallback declares none of these and is judged by `declares_schema_source`.
+    pub(crate) fn declared_receipt_agrees(&self, schema: &crate::SchemaIndex) -> bool {
+        let Some(evidence) = &self.schema else {
+            return true;
+        };
+        let SchemaOrigin::File { rev, sha256, .. } = &evidence.source else {
+            return true;
+        };
+        fn declared(value: &Option<String>) -> Option<&str> {
+            value.as_deref().filter(|v| !v.is_empty())
+        }
+        let commit = schema
+            .source
+            .as_ref()
+            .and_then(|source| source.commit.as_deref());
+        *sha256 == schema.byte_sha256
+            && declared(rev).is_none_or(|rev| commit.is_none_or(|commit| commit == rev))
+            && declared(&evidence.content_hash).is_none_or(|hash| hash == schema.content_hash)
+            && declared(&evidence.info_version)
+                .is_none_or(|version| schema.info_version.as_deref() == Some(version))
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ToolIdentity {
     pub name: String,

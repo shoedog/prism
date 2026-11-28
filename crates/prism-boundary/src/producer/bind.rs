@@ -187,6 +187,7 @@ pub(super) fn bind(
     let mut records = Vec::new();
     let mut gaps = Vec::new();
     let mut edges: BTreeMap<(String, String, usize), Edge> = BTreeMap::new();
+    let mut deployments_noted = false;
     for (index, file) in files.iter().enumerate() {
         for found in &file.scan.found {
             let mut record = AnnotationRecord {
@@ -275,7 +276,11 @@ pub(super) fn bind(
                                 }
                                 record.disposition = D::Bound;
                                 record.operation_ids = ids;
-                                if schema.diagnostics.iter().any(|d| d.scope == "server") {
+                                // One document-wide region, at the first hit.
+                                if !deployments_noted
+                                    && schema.diagnostics.iter().any(|d| d.scope == "server")
+                                {
+                                    deployments_noted = true;
                                     gap(DEPLOYMENTS_UNPROJECTED, Vec::new());
                                 }
                             }
