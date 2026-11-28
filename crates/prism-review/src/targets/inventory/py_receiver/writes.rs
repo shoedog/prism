@@ -234,21 +234,8 @@ impl<'tree> Resolver<'_, 'tree> {
         scope: ScopeId,
         key: Option<String>,
     ) -> Vec<Slot> {
-        let mut slots = self
-            .objects(object, scope, true)
-            .slots(key, WriteAccess::Namespace);
-        if self.readonly_local_class(object, scope, true) {
-            for slot in &mut slots {
-                if let Slot::Member {
-                    readonly_class_namespace,
-                    ..
-                } = slot
-                {
-                    *readonly_class_namespace = true;
-                }
-            }
-        }
-        slots
+        self.objects(object, scope, true)
+            .slots(key, WriteAccess::Namespace)
     }
 
     fn attribute_key(&self, node: Node<'tree>, scope: ScopeId) -> Option<String> {
