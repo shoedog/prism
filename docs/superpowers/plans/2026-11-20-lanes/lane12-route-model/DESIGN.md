@@ -316,15 +316,20 @@ reaching value comes from an import from another module is also a re-export, for
 directly imported declaration. Recognized native Flask imports continue to supply `Flask`,
 `Blueprint`, `View` and `MethodView` under the existing framework checks.
 
-Require one unconditional eligible terminal binding. Use Python's NFKC-normalised identifiers as
+Require one unconditional eligible terminal binding. The capturing module must also contain
+exactly one binding of the captured import's local name, the import that creates it.
+Find the candidate import in the read's lexical lookup, including an earlier import hidden by a later
+write to the same binding. Census every explicit binding and deletion of that effective key in
+the importing file, including nested scopes and sites after the use. This is a lexical census
+and requires no execution model (fk-86–90). Use Python's NFKC-normalised identifiers as
 binding and predicate keys. NFKC-normalise module-path and hop segments in the source text and
 match the resulting keys byte-for-byte against filesystem candidate names (fk-74–75).
 A capturing import is eligible at module or function scope, subject to the predicates below.
 An import whose nearest enclosing scope is the class body triggers `class_body_import`,
 including inside an `if`, `try` or `with` in that body. Keep original UTF-8 byte spans and
-spellings in diagnostics. Apply the first seven predicates across the terminal and applicable
-attribute-path hops. Then apply the root-chain spelling check and the import-scope check, in
-that order.
+spellings in diagnostics. Apply the first seven predicates in order across the terminal and
+applicable attribute-path hops, with predicates 3 and 4 also covering the capturing name.
+Then apply the root-chain spelling check and the import-scope check, in that order.
 
 1. `getattr_module` applies to any explicit module-scope lexical binding of `__getattr__`,
    conditional or unconditional. Count named imports and aliases that bind that spelling,
@@ -336,7 +341,8 @@ that order.
    captured member itself.
 2. `star_import` applies when a wildcard import could supply the name, including an unknown source or export set.
 3. `global_write` applies when a class or function body writes a module binding through
-   `global`. Use the effective identifier after NFKC and Python's class-private mangling for
+   `global`, including a competing write to the captured local name in the importing module
+   (fk-86 and fk-90). Use the effective identifier after NFKC and Python's class-private mangling for
    both `global_write` and the write keys of `multi_write`. Within an enclosing class's lexical
    context, including its methods, a name with at least two leading underscores and fewer
    than two trailing underscores gets the class name as a prefix. Strip the class name's leading underscores
@@ -352,7 +358,9 @@ that order.
    `type` statement names (including generic aliases). Count an annotated assignment with a
    value as a write. An annotation without a value (`f: object`) writes no value and can still
    affect function-local name resolution. Conservatively count comprehension iteration targets
-   for `multi_write` and `nested_single`.
+   for `multi_write` and `nested_single`. The importing file's census includes a repeated
+   import, a nested local rebinding and a private declaration with the same effective key
+   (fk-87–89).
 5. `nested_single` applies when the sole counted write, including a `type` statement, is nested
    in conditional or control-flow syntax.
 6. `submodule_shadow` applies when the hop or terminal module binds `N` by a lexical write
@@ -399,8 +407,9 @@ Evaluate imported captures used by registration or mount proofs, by the no-effec
 during escape indexing (fk-34). On refusal preserve independently established literals, the written
 callback and the role-specific receiver, callback or mount behavior. A failed callee check withholds
 dependent inferred metadata. Emit only the first applicable counted reason per distinct refused
-capture span. Use the imported name before `as` for a bare from-import and the full written
-expression for a qualified capture. For a counted import refusal of a no-effect callee, emit once at each distinct whole-call span
+capture span. Use the candidate import's name before `as` for a bare from-import, including an
+earlier import hidden by a competing write. Use the full written expression for a qualified capture.
+For a counted import refusal of a no-effect callee, emit once at each distinct whole-call span
 (fk-65). Emit the diagnostic even when Flask drops a site for lack of a receiver hint. An unsupported
 form with no counted reason, including an unestablished child hop or terminal re-export, keeps
 only its role-specific refusal. Use `mount_child_unproven` for a mount child and
@@ -440,8 +449,8 @@ export set. Pins fk-68, fk-71–73 and fk-76–77 record these import boundaries
 `PROVEN` source-import control. The closed descriptor veto
 is a conservative belt based on source spelling. Supported view and router escape checks and
 explicit view metadata writes remain part of the setup model. The [Stage D pins](STAGE-D-ROWS.md#python-router-and-view-value-boundary)
-record emitted fields beside native observations across 144 cases, with 49 `WITHHELD`,
-29 `KNOWN_LIMIT` and 66 `PROVEN`. Each `KNOWN_LIMIT` pin makes no claim about
+record emitted fields beside native observations across 154 cases, with 54 `WITHHELD`,
+29 `KNOWN_LIMIT` and 71 `PROVEN`. Each `KNOWN_LIMIT` pin makes no claim about
 the native object and earns zero runtime credit for the affected fields.
 
 #### FastAPI
@@ -834,25 +843,28 @@ The frozen populations, binding floors and ledger dispositions above govern each
   The outcome columns use the first counted reason. The `class_body_import` column counts
   sites with at least one such capture. The `class_private_name` column counts sites with
   a mangle-eligible name anywhere in a scanner root chain, across all scanner sites.
-  Both columns include sites where an earlier reason takes precedence. The scan found zero
+  The capturing-module column counts sites with a competing write to a capture's effective
+  key under `global_write` or `multi_write`. These columns include sites where an earlier reason
+  takes precedence. Across 3,503 framework/Superset sites and 340 application sites, the symmetric
+  rule flagged 0 registrations and 0 mounts in each population. The scan found zero
   mangle-eligible root names across 3,503 framework/Superset sites and 340 application sites.
   The accepted module-scope over-refusal therefore costs zero measured registrations or mounts.
 
-  | Framework or corpus | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | `class_body_import` R / M | `class_private_name` R / M | Former rule flagged R / M |
-  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-  | Flask | `36e4a824` | 683 | 354 | 74 | 3 / 5 | 3 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 3 |
-  | FastAPI | `0cb4a8e2` | 2,142 | 1,358 | 152 | 1 / 5 | 1 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 2 |
-  | Apache Superset | `ad7fcac1` | 678 | 14 | 6 | 0 / 1 | 0 / 1 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 1 |
-  | Total |  | 3,503 | 1,726 | 232 | 4 / 11 | 4 / 11 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 6 |
+  | Framework or corpus | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | `class_body_import` R / M | `class_private_name` R / M | Capturing-module writes R / M | Former rule flagged R / M |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | Flask | `36e4a824` | 683 | 354 | 74 | 3 / 5 | 3 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 3 |
+  | FastAPI | `0cb4a8e2` | 2,142 | 1,358 | 152 | 1 / 5 | 1 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 2 |
+  | Apache Superset | `ad7fcac1` | 678 | 14 | 6 | 0 / 1 | 0 / 1 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 1 |
+  | Total |  | 3,503 | 1,726 | 232 | 4 / 11 | 4 / 11 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 6 |
 
-  | Application | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | `class_body_import` R / M | `class_private_name` R / M | Former rule flagged R / M |
-  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-  | full-stack-fastapi-template | `77e550a7` | 29 | 23 | 6 | 0 / 6 | 0 / 6 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
-  | fastapi-realworld-example-app | `029eb778` | 29 | 20 | 9 | 0 / 9 | 0 / 9 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
-  | microblog | `a975ef64` | 32 | 27 | 5 | 27 / 5 | 27 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 27 / 5 |
-  | redash | `f561a53d` | 66 | 60 | 6 | 21 / 1 | 4 / 1 | 17 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 21 / 1 |
-  | CTFd | `b88e0bf7` | 184 | 171 | 13 | 34 / 12 | 34 / 12 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 34 / 12 |
-  | Total |  | 340 | 301 | 39 | 82 / 33 | 65 / 33 | 17 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 82 / 18 |
+  | Application | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | `class_body_import` R / M | `class_private_name` R / M | Capturing-module writes R / M | Former rule flagged R / M |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | full-stack-fastapi-template | `77e550a7` | 29 | 23 | 6 | 0 / 6 | 0 / 6 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+  | fastapi-realworld-example-app | `029eb778` | 29 | 20 | 9 | 0 / 9 | 0 / 9 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+  | microblog | `a975ef64` | 32 | 27 | 5 | 27 / 5 | 27 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 27 / 5 |
+  | redash | `f561a53d` | 66 | 60 | 6 | 21 / 1 | 4 / 1 | 17 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 21 / 1 |
+  | CTFd | `b88e0bf7` | 184 | 171 | 13 | 34 / 12 | 34 / 12 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 34 / 12 |
+  | Total |  | 340 | 301 | 39 | 82 / 33 | 65 / 33 | 17 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 82 / 18 |
 
   Every first-reason count and pairwise overlap is zero for both populations and both site kinds
   (`getattr_module`, `star_import`, `global_write`, `multi_write`, `nested_single`, `submodule_shadow`,
@@ -875,8 +887,9 @@ The frozen populations, binding floors and ledger dispositions above govern each
   assignment aliases of imported values.
 
   The scanner estimates flags from Tree-sitter syntax. Its lexical inventory now normalises
-  NFKC identifiers, uses effective class-private keys for global writes, distinguishes annotation-only
-  declarations from value writes and counts Python 3.12 type statements. It preserves raw source text
+  NFKC identifiers, uses effective class-private keys for global writes and capture-side bindings,
+  distinguishes annotation-only declarations from value writes and counts Python 3.12 type
+  statements. It preserves raw source text
   and records lexical import-machinery writes as informational evidence. It can skip opaque ordinary
   verb calls, computed or subscripted roots, splatted arguments and module-valued assignments it cannot
   trace. It flags explicit terminal imports and simple assignment aliases rooted in a reaching import,

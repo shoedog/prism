@@ -97,7 +97,7 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | expansion_truncated | es2-34 |
 | func_field_value | gm14 |
 | getattr_module | fk-31, fk-32, fk-59, fk-79 |
-| global_write | fk-20, fk-35, fk-69 |
+| global_write | fk-20, fk-35, fk-69, fk-86, fk-90 |
 | handler_object | nh03, es5-16 |
 | hapi_handler_conflict | hp20 (failed root) |
 | hapi_handler_object | hp11 |
@@ -106,7 +106,7 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | hapi_registration_unproven | hp10/22, cx07, es1-32, d1-03/04/09, d2-04/12 |
 | hapi_route_not_literal | cx47, cx48 |
 | hapi_server_param_unproven | hp17, hp18, es1-33 |
-| imported_unproven | fk-23, fk-41, fk-42, fk-46, fk-52, fk-60–63, fk-69–70, fk-75, fk-80–85 |
+| imported_unproven | fk-23, fk-41, fk-42, fk-46, fk-52, fk-60–63, fk-69–70, fk-75, fk-80–90 |
 | inner_decorator | fl20, es2-29, es3-06 |
 | member_handler | hp11, cx27, cx50, cx58 |
 | module_descriptor_name | fk-52, fk-61 |
@@ -118,7 +118,7 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | method_value_receiver_unproven | et3-03, et4-01, es4-10, gm13, gm17, es1-40, es1-42, es1-43, es1-44, es1-46, es2-16, es2-18, es3-14, es3-15, d2-19 |
 | mount_child_unproven | fa13, cx01, es1-05, es1-06, es1-15, es1-16, es3-19, es6-05, fk-14, fk-24, fk-32, fk-49–51, fk-54, fk-55, fk-57–59, fk-67, fk-78, fk-79 |
 | mount_cycle | es1-02 |
-| multi_write | fk-19, fk-21–24, fk-34, fk-36, fk-46, fk-47, fk-49, fk-51, fk-60, fk-62, fk-63, fk-65 |
+| multi_write | fk-19, fk-21–24, fk-34, fk-36, fk-46, fk-47, fk-49, fk-51, fk-60, fk-62, fk-63, fk-65, fk-87–89 |
 | nested_single | fk-37 |
 | no_known_mount | ex29, gn05, hp22, fa14, cx01, cx07, es1-04, es1-05, es1-06, es1-15, es1-16, es1-17, es4-02, es6-04, es6-05, es6-09, d2-01/02/05/08/09 |
 | non_literal_path | ex12, nh07, fl14, fa07, cx34, es1-68, es2-18, es2-28 |
@@ -684,9 +684,10 @@ exposure or binding through the refused mount. Apply the regular checks to sourc
 supported metadata and view-map operations, including d2-14.
 
 The static import proof in DESIGN §5.3 governs the counted import and escape refusals. Each counted
-refusal has a distinct `PROVEN` control. There are 144 rows, with
-49 `WITHHELD`, 29 `KNOWN_LIMIT` and 66 `PROVEN`. Counted diagnostics follow DESIGN §5.3 precedence,
-with `class_private_name` before `class_body_import`. The main-row IDs fk-11, fk-12 and fk-18
+refusal has a distinct `PROVEN` control. There are 154 rows, with
+54 `WITHHELD`, 29 `KNOWN_LIMIT` and 71 `PROVEN`. Counted diagnostics follow DESIGN §5.3 precedence.
+`global_write` precedes `multi_write` in both source and importing modules.
+`class_private_name` precedes `class_body_import`. The main-row IDs fk-11, fk-12 and fk-18
 are unused gaps in the existing numbering. The diagnostic arrays are exact multisets. Each
 entry gives `[reason, file, enclosing source text, span text]`. Materialize the unique span
 inside the named occurrence as UTF-8 bytes. Match a bare name as one identifier token in the
@@ -698,6 +699,11 @@ Run each case with a fresh app and module cache.
 For the native probes with an explicit endpoint and methods, preserve those written fields if independently
 proved. A refused view still keeps its unresolved written callback and withholds dispatch binding. For a
 refused no-effect callee, apply the escape refusal to the separately proven view.
+
+For fk-86–90 and their controls, `views.py` defines `f` returning first and `g` returning second.
+Every registration uses `app.add_url_rule('/x', endpoint='x', view_func=NAME, methods=['GET'])`
+with the named value. Native Flask 3.1.3 on CPython 3.12.13 installed endpoint x with
+GET/HEAD/OPTIONS and returned HTTP 200 for every pair.
 
 | ID | Fixture shape | Expected record | `expect_diagnostics` | Control or comparison |
 |---|---|---|---|---|
@@ -783,6 +789,11 @@ refused no-effect callee, apply the escape refusal to the separately proven view
 | fk-83 | Use fk-82's `views.py`. In `C.install(self)`, define and call `inner()`. In `inner` run `from views import __f` then `app.add_url_rule('/x', endpoint='x', view_func=__f, methods=['GET'])`. Call `C().install()` at module scope. | WITHHELD (`class_private_name`). Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `__f` with `imported_unproven`. Withhold dispatch binding. Native binds endpoint x to `views._C__f` with GET/HEAD/OPTIONS and GET returns mangled. | `[["class_private_name", "app.py", "from views import __f", "__f"]]` | fk-c83 |
 | fk-84 | Use fk-82's `views.py`. Run `import views` at module scope and `app.add_url_rule('/x', endpoint='x', view_func=views.__f, methods=['GET'])` in the body of `class C`. | WITHHELD (`class_private_name`). Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `views.__f` with `imported_unproven`. Withhold dispatch binding. Native binds endpoint x to `views._C__f` with GET/HEAD/OPTIONS and GET returns mangled. | `[["class_private_name", "app.py", "app.add_url_rule('/x', endpoint='x', view_func=views.__f, methods=['GET'])", "views.__f"]]` | fk-c84 |
 | fk-85 | Run fk-84's import and registration both at module scope. | WITHHELD (`class_private_name`). Accepted over-refusal. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `views.__f` with `imported_unproven`. Withhold dispatch binding. Native binds endpoint x to `views.__f` with GET/HEAD/OPTIONS and GET returns raw. | `[["class_private_name", "app.py", "app.add_url_rule('/x', endpoint='x', view_func=views.__f, methods=['GET'])", "views.__f"]]` | fk-c85 |
+| fk-86 | At module scope use `from views import f as _C__handler`. In `C.install(self)` run `global __handler` and `from views import g as __handler`. Call `C().install()` and then register `_C__handler` at module scope. | WITHHELD (`global_write`). The method writes the effective module key `_C__handler`. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `_C__handler` with `imported_unproven`. Withhold dispatch binding. Native binds `views.g` and GET returns second. | `[["global_write", "app.py", "from views import f as _C__handler", "f"]]` | fk-c86 |
+| fk-87 | At module scope use `from views import f as handler`. In `C.install(self)` use `from views import g as handler` then register `handler`. Call `C().install()`. | WITHHELD (`multi_write`). Both imports bind the same key in the file. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `handler` with `imported_unproven`. Withhold dispatch binding. Native binds `views.g` and GET returns second. | `[["multi_write", "app.py", "from views import g as handler", "g"]]` | fk-c87 |
+| fk-88 | At module scope use `from views import f as _C__handler`. In `C.install(self)` use `from views import g as __handler` then register `_C__handler`. Call `C().install()`. | WITHHELD (`multi_write`). The private declaration shares the effective key of the candidate module import. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `_C__handler` with `imported_unproven`. Withhold dispatch binding. Native binds the method-local `views.g` and GET returns second. | `[["multi_write", "app.py", "from views import f as _C__handler", "f"]]` | fk-c88 |
+| fk-89 | At module scope use `from views import f as handler`, `from views import g`, then `handler = g` and register `handler`. | WITHHELD (`multi_write`). The assignment competes with the import. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `handler` with `imported_unproven`. Withhold dispatch binding. Native binds `views.g` and GET returns second. | `[["multi_write", "app.py", "from views import f as handler", "f"]]` | fk-c89 |
+| fk-90 | At module scope use `from views import f as handler`. In `install()` run `global handler` and `from views import g as handler`. Call `install()` and register `handler` at module scope. | WITHHELD (`global_write`). The function overwrites the module binding of `handler`. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `handler` with `imported_unproven`. Withhold dispatch binding. Native binds `views.g` and GET returns second. | `[["global_write", "app.py", "from views import f as handler", "f"]]` | fk-c90 |
 
 | Control ID | Fixture shape | Required proof |
 |---|---|---|
@@ -821,7 +832,7 @@ refused no-effect callee, apply the escape refusal to the separately proven view
 | fk-c52 | In fk-52 rename the declaration and imported name to `ordinary_view`. | PROVEN. Full `/x`, endpoint x, effective GET/HEAD/OPTIONS and dispatch binding to `views.ordinary_view`. Native GET /x returns view. |
 | fk-c53 | In fk-53 use the literal key `"unused"` in the same reflective store. | PROVEN. The no-effect source declaration passes the body check. Full `/x`, callback and binding to `views.f`, endpoint f and effective GET/HEAD/OPTIONS agree with native. |
 | fk-c54 | In fk-54 use `import pkg.routes` and keep the same capture expression. | PROVEN. The import establishes the child hop. Prove the mount, full `/routes` and dispatch binding on app. Native GET /routes returns routes. |
-| fk-c55 | In fk-55 add `import pkg.routes` before the capture in app's module scope. Leave the unrelated file present. | PROVEN. The import establishes the hop. Prove the mount, full `/routes` and binding. Native GET returns routes. |
+| fk-c55 | In fk-55 replace app's `import pkg` with `import pkg.routes` before the capture in module scope. Leave the unrelated file present. | PROVEN. The import establishes the hop. Prove the mount, full `/routes` and binding. Native GET returns routes. |
 | fk-c57 | In fk-57 change the assignment target to `alternate`. | PROVEN. The dotted import establishes the child. Prove the mount, full `/routes` and binding. Native GET returns routes. |
 | fk-c58 | In fk-58 change the assignment target to `alternate`, keeping the preload. | PROVEN. The cached child stays bound under routes. Prove the mount, full `/routes` and binding. Native GET returns routes. |
 | fk-c59 | In fk-59 bind the hook under `other` using `from ._hook import __getattr__ as other`. | PROVEN. The from-import selects the source child. Prove the mount, full `/routes` and binding. Native GET returns routes. |
@@ -848,3 +859,8 @@ refused no-effect callee, apply the escape refusal to the separately proven view
 | fk-c83 | In fk-83 import and register `f`, keeping the nested function and calls. | PROVEN. Full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and dispatch binding to `views.f`. Native GET returns first. |
 | fk-c84 | In fk-84 use `views.f` in the class body. | PROVEN. Full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and dispatch binding to `views.f`. Native GET returns first. |
 | fk-c85 | In fk-85 use `views.f` at module scope. | PROVEN. Full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and dispatch binding to `views.f`. Native GET returns first. |
+| fk-c86 | In fk-86 use `global alternate` and `from views import g as alternate` in the method. | PROVEN. The single import of `_C__handler` proves full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first. |
+| fk-c87 | In fk-87 use `from views import g as alternate` in the method and still register `handler`. | PROVEN. The single import of `handler` proves full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first. |
+| fk-c88 | In fk-88 use `from views import g as alternate` in the method and still register `_C__handler`. | PROVEN. The single import of `_C__handler` proves full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first. |
+| fk-c89 | In fk-89 assign `alternate = g` and still register `handler`. | PROVEN. The single import of `handler` proves full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first. |
+| fk-c90 | In fk-90 use `global alternate` and `from views import g as alternate` in the function. | PROVEN. The single import of `handler` proves full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first. |
