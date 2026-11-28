@@ -122,7 +122,7 @@ function records(bytes) {
   return utf8.decode(bytes).split('\n').filter(line => /[^ \t\r]/.test(line)).map(line => JSON.parse(line));
 }
 
-const namedBoundary = new Set(['member-path-not-judged', 'type-only-declaration', 'slot-unproved',
+const namedBoundary = new Set(['outside-judged-scope', 'type-only-declaration', 'slot-unproved',
   'ambiguous-dispatch', 'external-callable', 'target-id-unproved', 'endpoint-coordinate-off', 'endpoint-spelling-mismatch', 'delete-operand', 'out-of-model-module-mutation',
   'out-of-model-suppression', 'erased-computed-key', fallback]);
 

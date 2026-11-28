@@ -3,7 +3,7 @@
 const { isIdentifier } = require('../bytes.cjs');
 const { bodyFor, unwrap } = require('./callable.cjs');
 const { neighbour, role, roles } = require('./lexical_binding.cjs');
-const { memberEndpoint, memberPathReason } = require('./member_scope.cjs');
+const { judgedEndpoint, scopeReason } = require('./judged_scope.cjs');
 
 const property = 'implementation-slot';
 const result = (verdict, why = property) => ({ verdict, property, why });
@@ -13,8 +13,9 @@ function grade(row, context) {
   const { from, to } = row;
   const actual = node_at_bytes(program, from.file, from.start_byte, from.end_byte);
   const destination = node_at_bytes(program, to.file, to.start_byte, to.end_byte);
-  if (memberEndpoint(ts, checker, from, actual) || memberEndpoint(ts, checker, to, destination)) {
-    return result('UNDECIDED', memberPathReason);
+  if (!judgedEndpoint(ts, checker, from, actual, { literalActual: true })
+      || !judgedEndpoint(ts, checker, to, destination)) {
+    return result('UNDECIDED', scopeReason);
   }
   const call = enclosing_call(from.file, from.start_byte, from.end_byte);
   if (!call || !actual) return result('UNDECIDED', 'slot-unproved');

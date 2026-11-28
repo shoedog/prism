@@ -43,7 +43,7 @@ class GlobalScope(unittest.TestCase):
 class PropertyTokens(unittest.TestCase):
     def test_property_tokens_are_undecided_beside_exact_byte_controls(self):
         rows_ = rows("lexical-fold6")
-        off = [r for r in rows_ if r.get("why") == "member-path-not-judged"]
+        off = [r for r in rows_ if r.get("why") == "outside-judged-scope"]
         self.assertEqual(len(off), 7)
         self.assertTrue(all(r["verdict"] == "UNDECIDED" for r in off))
         self.assertEqual(len([r for r in rows_ if r["verdict"] == "CORRECT"]), 6)
@@ -63,7 +63,7 @@ class RuleText(unittest.TestCase):
                        "`globalThis.N = {..}`, `var N = {..}` replacing a script namespace",
                        "UNDECIDED `delete-operand`",
                        "different VALUE bindings",
-                       "private name (including a brand check)",
+                       "private names",
                        "also when the overload and its implementation share a line"):
             self.assertIn(phrase, text)
 

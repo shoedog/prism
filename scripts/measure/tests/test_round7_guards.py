@@ -10,7 +10,7 @@ README = REPO / "scripts/measure/README.md"
 FORMATS = REPO / "docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md"
 MUTATION = "out-of-model-module-mutation"
 SUPPRESSION = "out-of-model-suppression"
-MEMBER = "member-path-not-judged"
+MEMBER = "outside-judged-scope"
 
 
 def rows(case):
@@ -128,7 +128,7 @@ class RuleText(unittest.TestCase):
                        "UNDECIDED `out-of-model-suppression`",
                        "The suppression check applies to every callee.",
                        "`const alias = module; alias.exports = {..}`",
-                       "UNDECIDED `member-path-not-judged`",
+                       "UNDECIDED `outside-judged-scope`",
                        "Erased computed keys of accessor signatures",
                        "constructors, whose overloads are the containing class's"):
             self.assertIn(phrase, text)
@@ -142,8 +142,8 @@ class RuleText(unittest.TestCase):
         for path in (README, FORMATS):
             with self.subTest(path=path.name):
                 text = " ".join(path.read_text().split())
-                for phrase in ("0 decided member-path edges", "1,409", "6,651", "`structured-path`",
-                               "already UNDECIDED under other reasons", "A member name is a property token",
+                for phrase in ("same decided counts", "1,409", "6,651", "`structured-path`",
+                               "already UNDECIDED under other reasons", "Judged scope. The oracle judges a claimed endpoint only when",
                                "private name", "JSX attribute name", "`new.target`", "enum member",
                                "shorthand keys", "destructuring elements", "computed-key identifiers",
                                "positive receiver rule", "RULE-R.md",

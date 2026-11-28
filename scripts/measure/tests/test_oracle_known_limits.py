@@ -70,7 +70,7 @@ class OracleKnownLimitsTests(unittest.TestCase):
                         decided[i] += 1
                     else:
                         self.assertEqual((golden["relation"], golden["verdict"], golden["why"]),
-                                         ("lexical_binding", "UNDECIDED", "member-path-not-judged"))
+                                         ("lexical_binding", "UNDECIDED", "outside-judged-scope"))
                         moved_programs.add(golden["key"]["from"]["file"].split("/", 1)[0])
                         totals["moved"] += 1
                 if entry is None:
@@ -115,4 +115,4 @@ class OracleKnownLimitsTests(unittest.TestCase):
                                     for path in files - claimed_files))
         self.assertEqual(set(programs.values()), {1})
         self.assertEqual(members, {1: 59, 2: 13, 3: 14, "round-7-opus": 2})
-        self.assertEqual(totals, {"pinned": 310, "controls": 36, "moved": 52})
+        self.assertEqual(totals, {"pinned": 310, "controls": 35, "moved": 53})

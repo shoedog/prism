@@ -284,7 +284,7 @@ inside the 8 GiB memory guard with the §2 host environment allow-list.
 small `node` self-check bootstrap directly, the caller controls that
 initial Node process.
 
-The built-in self-check has 812 golden rows in 79 cases. Each
+The built-in self-check has 877 golden rows in 81 cases. Each
 `known-limit-*` case groups programs in separate `repo/<id>/`
 directories. The worker grades each program in its own checker graph.
 The case names persist for the 52 member-boundary rows that now sit
@@ -381,23 +381,31 @@ decisions. With the empty production qualification pin, every otherwise
 decidable call-target row is UNDECIDED `target-id-unproved`. Slot and lexical
 verdicts require no producer qualification.
 
-Both `lexical_binding` and `argument_binding` return UNDECIDED
-`member-path-not-judged` before role or slot checks when either endpoint has
-nonempty `path.fields` or lands on a member name at the claimed bytes. A member
-name is a property token in member access, the right side of a qualified name,
-an explicit object or pattern key, or a class or interface member name,
-including fields, methods, accessors and signatures. The rule also covers any
-private name (including a brand check), a JSX attribute name, the `target` in
-`new.target`, and an enum member's declaration name or a bare identifier that
-resolves to an enum member. Plain-name edges through shorthand keys,
-destructuring elements and computed-key identifiers keep their verdicts.
-Argument binding still grades a call actual's own identifier unless that
-identifier is a member name under this rule.
+Judged scope. The oracle judges a claimed endpoint only when it has no field
+path and the claimed bytes are a plain identifier that stands at a binding
+position or at a reference position, and its symbol, when it has one, is a value
+binding. Binding positions are the declared name of a variable, parameter,
+function, class, import, binding element or shorthand property. Reference
+positions are an evaluated operand, call argument, initializer, array element,
+conditional or binary operand, spread, return or throw value, `extends`
+expression, or a JSX tag naming a value (a lowercase or hyphenated tag is an
+intrinsic element and is not judged). On `argument_binding` the actual must be
+an identifier and the destination is judged under the same rule. Everything else
+is UNDECIDED `outside-judged-scope` before any role or slot check, so it receives
+no verdict, not even WRONG. That covers member names in every form (property
+tokens, keys, class and interface members, private names, enum members, JSX
+attribute names, `new.target`), a string-keyed element access, a type position
+such as `import("./mod").Foo`, a literal actual, a label and a bare read of an
+enum member. Plain-name edges through shorthand keys, destructuring elements and
+computed-key identifiers keep their verdicts. The rule lives in one classifier,
+`oracle/questions/judged_scope.cjs`, used by both questions.
 
-The receiver study found 0 decided member-path edges on the authored real-use
-set, Express, the Excalidraw slice and whole Excalidraw. The `structured-path`
-reason then covered 1,409 rows on Express and 6,651 on whole Excalidraw. The
-current reason also covers rows that were already UNDECIDED under other reasons.
+The scope shrank at no price on the measured inputs: Express (5,040 CORRECT, 0
+WRONG), the Excalidraw slice proxy (14,408 and 4) and whole Excalidraw (41,374 and
+15) have the same decided counts and the same decided rows before and after. The
+earlier `structured-path` reason covered 1,409 rows on Express and 6,651 on whole
+Excalidraw. `outside-judged-scope` also covers rows that were already UNDECIDED
+under other reasons.
 Rounds 7 and 8 kept finding new receiver and pattern-key cases. A later slice
 would need a positive receiver rule and its own enumeration. The starting
 point is `enum-r8/price-receiver/RULE-R.md`
@@ -651,7 +659,7 @@ declarations (`argument-fold7`). With no proved contradiction or serving
 neighbour, a formal span without an identifier gives `identifier-unproved`.
 Of the 36 historical Express WRONG
 verdicts sampled, four landed on property keys beside the value reads and now
-have reason `member-path-not-judged`. The other 32 involved alias twins or other
+have reason `outside-judged-scope`. The other 32 involved alias twins or other
 spelling mismatches. The `lexical-coordinate` self-check pins the shapes beside
 value controls.
 

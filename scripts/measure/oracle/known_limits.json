@@ -448,7 +448,7 @@
         {"id": "B20", "source_pass": 3, "files": ["repo/B20/B20_main.mts", "repo/B20/runtime.d.ts", "repo/B20/target.mjs"],
          "node": {"stdout": "target:7", "status": 0, "args": ["B20_main.mts"]},
          "reason": "Control: Type-only import is erased, normal imported value resolves",
-         "pinned": {}, "controls": {"lexical_binding": {"WRONG": [2], "CORRECT": [8]}, "argument_binding": {"CORRECT": [1]}, "call_target": {"CORRECT": [9]}}},
+         "pinned": {}, "controls": {"lexical_binding": {"CORRECT": [8]}, "argument_binding": {"CORRECT": [1]}, "call_target": {"CORRECT": [9]}}},
         {"id": "W2f", "source_pass": "round-7-opus", "files": ["repo/W2f/main.ts", "repo/W2f/runtime.d.ts"],
          "node": {"stdout": "1", "status": 0, "args": ["main.ts"]},
          "reason": "A declare field has no emitted slot or computed name evaluation.",

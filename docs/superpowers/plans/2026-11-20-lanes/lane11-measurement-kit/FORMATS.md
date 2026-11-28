@@ -284,23 +284,31 @@ decisions. With the empty production qualification pin, every otherwise
 decidable call-target row is UNDECIDED `target-id-unproved`. Slot and lexical
 verdicts require no producer qualification.
 
-Both `lexical_binding` and `argument_binding` return UNDECIDED
-`member-path-not-judged` before role or slot checks when either endpoint has
-nonempty `path.fields` or lands on a member name at the claimed bytes. A member
-name is a property token in member access, the right side of a qualified name,
-an explicit object or pattern key, or a class or interface member name,
-including fields, methods, accessors and signatures. The rule also covers any
-private name (including a brand check), a JSX attribute name, the `target` in
-`new.target`, and an enum member's declaration name or a bare identifier that
-resolves to an enum member. Plain-name edges through shorthand keys,
-destructuring elements and computed-key identifiers keep their verdicts.
-Argument binding still grades a call actual's own identifier unless that
-identifier is a member name under this rule.
+Judged scope. The oracle judges a claimed endpoint only when it has no field
+path and the claimed bytes are a plain identifier that stands at a binding
+position or at a reference position, and its symbol, when it has one, is a value
+binding. Binding positions are the declared name of a variable, parameter,
+function, class, import, binding element or shorthand property. Reference
+positions are an evaluated operand, call argument, initializer, array element,
+conditional or binary operand, spread, return or throw value, `extends`
+expression, or a JSX tag naming a value (a lowercase or hyphenated tag is an
+intrinsic element and is not judged). On `argument_binding` the actual must be
+an identifier and the destination is judged under the same rule. Everything else
+is UNDECIDED `outside-judged-scope` before any role or slot check, so it receives
+no verdict, not even WRONG. That covers member names in every form (property
+tokens, keys, class and interface members, private names, enum members, JSX
+attribute names, `new.target`), a string-keyed element access, a type position
+such as `import("./mod").Foo`, a literal actual, a label and a bare read of an
+enum member. Plain-name edges through shorthand keys, destructuring elements and
+computed-key identifiers keep their verdicts. The rule lives in one classifier,
+`oracle/questions/judged_scope.cjs`, used by both questions.
 
-The receiver study found 0 decided member-path edges on the authored real-use
-set, Express, the Excalidraw slice and whole Excalidraw. The `structured-path`
-reason then covered 1,409 rows on Express and 6,651 on whole Excalidraw. The
-current reason also covers rows that were already UNDECIDED under other reasons.
+The scope shrank at no price on the measured inputs: Express (5,040 CORRECT, 0
+WRONG), the Excalidraw slice proxy (14,408 and 4) and whole Excalidraw (41,374 and
+15) have the same decided counts and the same decided rows before and after. The
+earlier `structured-path` reason covered 1,409 rows on Express and 6,651 on whole
+Excalidraw. `outside-judged-scope` also covers rows that were already UNDECIDED
+under other reasons.
 Rounds 7 and 8 kept finding new receiver and pattern-key cases. A later slice
 would need a positive receiver rule and its own enumeration. The starting
 point is `enum-r8/price-receiver/RULE-R.md`
@@ -351,7 +359,7 @@ decided edges (1.2%, all 233 in Express), according to `summary.md` in
 
 **Universal coordinate admission.** Check source custody, readable in-root file, complete integer bounds in range, UTF-8 boundaries, and the physical one-based line at `startUTF16` for every wire endpoint and call site. One producer convention also admits a def whose entire half-open span equals a parameter's identifier-name token and whose wire line is the start line of that parameter's own callable in the producer. Use the first token of the producer's callable node, excluding decorators and retaining leading modifiers within that node. Establish it independently from authenticated syntax. In a decorated `static m(…)` it starts at `static`. A body use, a call-site span, a parameter's type/default, another callable's header or a partial identifier cannot use the exception. When the owner's producer start cannot be established, only the physical line admits the span. Require the line on wire endpoints and sites. Count only LF as a physical line terminator. CR and U+2028 do not start a producer line. Byte intervals are half-open. Decode strictly and retain BOM, CRLF and astral widths in the byte-to-UTF-16 map. A missing file, partial/reversed/out-of-range bound, interior UTF-8 offset or a line satisfying neither rule yields INADMISSIBLE before either grader sees the row. A target declaration's claimed start line is an identity field to grade. Valid zero-width, punctuation and member-expression spans and spans with nonempty path fields proceed to the selected question. A lane question may prove a zero-width receiver at its canonical anchor or a full member-expression projection.
 
-**Built-in questions.** Select by roles after any explicit question selection. A use→def edge proposes `argument_binding`, a def→use edge `lexical_binding`, and an exact call claim `call_target`. Other built-in roles yield UNDECIDED `relation-not-graded`. For admitted plain-name edges compare the decoded identifier with its endpoint's `path.base`. For a callable claim, first prove the body and the applicable slot or target identity. An admissible span with no required token or expression shape gives UNDECIDED. Each verdict names the following property. For a named built-in boundary, emit its exact §4 reason in `why` (`member-path-not-judged`, `type-only-declaration`, `slot-unproved`, `ambiguous-dispatch`, `external-callable`, `target-id-unproved`, `endpoint-coordinate-off`, `endpoint-spelling-mismatch`, `delete-operand`, `out-of-model-module-mutation`, `out-of-model-suppression`, `erased-computed-key` or `relation-not-graded`). Other explanations may use prose. The callable model excludes runtime module, namespace and global mutation and programs relying on diagnostic suppression or duplicate declarations. The file-wide checks use the scopes and spellings in the oracle README. Detected mutation produces `out-of-model-module-mutation` and detected suppression or duplicates produce `out-of-model-suppression`. The program-wide member-write rule covers ES module namespace access (`ns.f()`) and bare calls to TypeScript namespace members. A third-file property write alone does not withhold the bare named-import grade for an ES module export.
+**Built-in questions.** Select by roles after any explicit question selection. A use→def edge proposes `argument_binding`, a def→use edge `lexical_binding`, and an exact call claim `call_target`. Other built-in roles yield UNDECIDED `relation-not-graded`. For admitted plain-name edges compare the decoded identifier with its endpoint's `path.base`. For a callable claim, first prove the body and the applicable slot or target identity. An admissible span with no required token or expression shape gives UNDECIDED. Each verdict names the following property. For a named built-in boundary, emit its exact §4 reason in `why` (`outside-judged-scope`, `type-only-declaration`, `slot-unproved`, `ambiguous-dispatch`, `external-callable`, `target-id-unproved`, `endpoint-coordinate-off`, `endpoint-spelling-mismatch`, `delete-operand`, `out-of-model-module-mutation`, `out-of-model-suppression`, `erased-computed-key` or `relation-not-graded`). Other explanations may use prose. The callable model excludes runtime module, namespace and global mutation and programs relying on diagnostic suppression or duplicate declarations. The file-wide checks use the scopes and spellings in the oracle README. Detected mutation produces `out-of-model-module-mutation` and detected suppression or duplicates produce `out-of-model-suppression`. The program-wide member-write rule covers ES module namespace access (`ns.f()`) and bare calls to TypeScript namespace members. A third-file property write alone does not withhold the bare named-import grade for an ES module export.
 
 | Relation and property | CORRECT | WRONG | UNDECIDED |
 |---|---|---|---|

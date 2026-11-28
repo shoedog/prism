@@ -1,7 +1,7 @@
 'use strict';
 
 const { isIdentifier } = require('../bytes.cjs');
-const { memberEndpoint, memberPathReason } = require('./member_scope.cjs');
+const { judgedEndpoint, scopeReason } = require('./judged_scope.cjs');
 
 const property = 'declaration-and-read';
 const result = (verdict, why = property) => ({ verdict, property, why });
@@ -166,8 +166,8 @@ function grade(row, context) {
   const { from, to } = row;
   const left = node_at_bytes(program, from.file, from.start_byte, from.end_byte);
   const right = node_at_bytes(program, to.file, to.start_byte, to.end_byte);
-  if (memberEndpoint(ts, checker, from, left) || memberEndpoint(ts, checker, to, right)) {
-    return result('UNDECIDED', memberPathReason);
+  if (!judgedEndpoint(ts, checker, from, left) || !judgedEndpoint(ts, checker, to, right)) {
+    return result('UNDECIDED', scopeReason);
   }
   if (!isIdentifier(ts, left) || !isIdentifier(ts, right)) return result('UNDECIDED', 'identifier-unproved');
   if (insideDelete(ts, left) || insideDelete(ts, right)) return result('UNDECIDED', 'delete-operand');

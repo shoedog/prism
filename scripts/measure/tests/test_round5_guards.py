@@ -14,7 +14,7 @@ from . import test_oracle as fixtures
 README = REPO / "scripts/measure/README.md"
 FORMATS = REPO / "docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md"
 OFF = "endpoint-coordinate-off"
-MEMBER = "member-path-not-judged"
+MEMBER = "outside-judged-scope"
 
 
 def rows(case):
@@ -84,7 +84,7 @@ class CoordinateRule(unittest.TestCase):
         rows_ = rows("argument-coordinate")
         verdicts = [(r["verdict"], r.get("why")) for r in rows_]
         self.assertEqual(verdicts.count(("UNDECIDED", OFF)), 2)
-        self.assertIn(("UNDECIDED", "identifier-unproved"), verdicts)
+        self.assertIn(("UNDECIDED", MEMBER), verdicts)
         self.assertEqual(sum(v == "WRONG" for v, _ in verdicts), 3)
         self.assertEqual(sum(v == "CORRECT" for v, _ in verdicts), 3)
 
