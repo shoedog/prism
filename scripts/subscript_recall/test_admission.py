@@ -146,7 +146,7 @@ class World:
             path.write_text(json.dumps(receipt))
         return path
 
-    def report(self, witnesses="all", precision="good", approved="a-credit", all_survivors=None):
+    def report(self, witnesses="all", precision="good", approved="a-credit", all_survivors=None, excluded=None):
         """`approved`: the `--approved-population` value (None: the flag is absent); `all_survivors`: the
         all-survivors receipt path, or "good" for a passing one."""
         meta = json.loads((self.root / "adm" / "prepared.json").read_text())
@@ -167,6 +167,8 @@ class World:
             argv += ["--precision-all-survivors", all_survivors]
         if approved:
             argv += ["--approved-population", approved]
+        if excluded:
+            argv += ["--excluded-unreconciled", excluded]
         return run_cli(argv)
 
 
@@ -874,6 +876,89 @@ class AdmissionTests(unittest.TestCase):
             self.assertEqual(code, 4, out)
             self.assertIn("I2: BLOCKED (precision population not approved)\n  also blocked by unreconciled predictions",
                           out)
+
+    def unreconciled_world(self, count=130, n_unrec=2):
+        """A prepared population in which the first `n_unrec` owners are marked unreconciled (residual rows,
+        status and the meta count), as a real prepare leaves them; returns (world, [owner keys])."""
+        w = self.prepared_population(count)
+        adm = w.root / "adm"
+        owners = ad.jsonl(adm / "owners.jsonl")
+        marked = []
+        for o in owners[:n_unrec]:
+            o["status"], o["residual"] = "unreconciled", [dict(field="pair", side="independent_only", count=1)]
+            marked.append(dict(corpus=o["corpus"], file=o["file"], owner=o["owner"]))
+        (adm / "owners.jsonl").write_text(dump_lines(owners))
+        (adm / "residuals.jsonl").write_text(dump_lines([dict(m, residual=[dict(field="pair")]) for m in marked]))
+        meta = json.loads((adm / "prepared.json").read_text())
+        meta["residual_owners"] = n_unrec
+        (adm / "prepared.json").write_text(json.dumps(meta))
+        return w, marked
+
+    def exclusion(self, w, rows, name="excluded.json"):
+        path = w.root / name
+        path.write_text(json.dumps(rows))
+        return str(path)
+
+    def test_an_exclusion_file_that_covers_every_unreconciled_owner_admits_and_shows_both_denominators(self):
+        w, marked = self.unreconciled_world()
+        good = w.precision()
+        code, out, _ = w.report(precision=good, approved="a-credit")  # control: no file, still blocked
+        self.assertEqual(code, 4, out)
+        self.assertIn("I2: BLOCKED by unreconciled predictions", out)
+        rows = [dict(m, cls="try") for m in marked]
+        code, out, _ = w.report(precision=good, approved="a-credit", excluded=self.exclusion(w, rows))
+        self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
+        self.assertIn("denominators: frame 130; reconciled 128 (frame less 2 excluded unreconciled owners; try 2)", out)
+        self.assertIn("A=130 of 130 (", out)
+        self.assertIn("A=128 of 128 (", out)
+
+    def test_an_exclusion_file_that_misses_an_unreconciled_owner_or_names_a_reconciled_one_does_not_admit(self):
+        w, marked = self.unreconciled_world()
+        good = w.precision()
+        partial = self.exclusion(w, [dict(marked[0], cls="try")], "partial.json")
+        code, out, _ = w.report(precision=good, approved="a-credit", excluded=partial)
+        self.assertEqual(code, 4, out)
+        self.assertIn("I2: BLOCKED by unreconciled predictions (1 of 2 unreconciled owners not in the exclusion file)",
+                      out)
+        self.assertNotIn("I2: ADMITTED", out)
+        other = ad.jsonl(w.root / "adm" / "owners.jsonl")[5]
+        extra = [dict(m, cls="with") for m in marked] + [
+            dict(corpus=other["corpus"], file=other["file"], owner=other["owner"], cls="with")]
+        code, out, err = w.report(precision=good, approved="a-credit", excluded=self.exclusion(w, extra, "extra.json"))
+        self.assertEqual(code, 3, (out, err))
+        self.assertIn("is not an unreconciled owner", err)
+        self.assertNotIn("I2: ADMITTED", out)
+
+    def test_a_residual_owner_outside_the_exclusion_file_blocks_even_when_every_unreconciled_row_is_covered(self):
+        w, marked = self.unreconciled_world()
+        good = w.precision()
+        rows = [dict(m, cls="try") for m in marked]
+        path = self.exclusion(w, rows)
+        res = w.root / "adm" / "residuals.jsonl"
+        res.write_text(res.read_text() + dump_lines([dict(corpus="P1", file="ghost.py", owner="g@1",
+                                                         residual=[dict(field="pair")])]))
+        code, out, _ = w.report(precision=good, approved="a-credit", excluded=path)
+        self.assertEqual(code, 4, out)
+        self.assertIn("1 residual owners outside the exclusion file", out)
+        self.assertNotIn("I2: ADMITTED", out)
+
+    def test_an_exclusion_file_with_a_blank_class_or_a_duplicate_row_is_refused(self):
+        w, marked = self.unreconciled_world()
+        good = w.precision()
+        for name, rows in (("blank", [dict(m, cls="") for m in marked]),
+                           ("dup", [dict(m, cls="try") for m in marked] + [dict(marked[0], cls="try")])):
+            code, out, err = w.report(precision=good, approved="a-credit", excluded=self.exclusion(w, rows, name))
+            self.assertEqual(code, 3, (name, out, err))
+            self.assertNotIn("I2: ADMITTED", out)
+
+    def test_the_reduced_denominator_gate_reads_a_over_the_reconciled_owners_only(self):
+        w, marked = self.unreconciled_world()
+        good = w.precision()
+        rows = [dict(m, cls="try") for m in marked]
+        with mock.patch.object(ad, "GATE", 129):  # A=128 over the 128 reconciled owners: below 129
+            code, out, _ = w.report(precision=good, approved="a-credit", excluded=self.exclusion(w, rows))
+        self.assertNotEqual(code, 0, out)
+        self.assertNotIn("I2: ADMITTED", out)
 
     def test_a_receipt_for_the_other_population_or_a_stale_schema_or_a_lost_file_scores_nothing(self):
         w = self.prepared_population()
