@@ -106,7 +106,7 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | hapi_registration_unproven | hp10/22, cx07, es1-32, d1-03/04/09, d2-04/12 |
 | hapi_route_not_literal | cx47, cx48 |
 | hapi_server_param_unproven | hp17, hp18, es1-33 |
-| imported_unproven | fk-23, fk-41, fk-42, fk-46, fk-52, fk-60–63, fk-69–70, fk-75, fk-80–90 |
+| imported_unproven | fk-23, fk-41, fk-42, fk-46, fk-52, fk-60–63, fk-69–70, fk-75, fk-80–90, fk-92 |
 | inner_decorator | fl20, es2-29, es3-06 |
 | member_handler | hp11, cx27, cx50, cx58 |
 | module_descriptor_name | fk-52, fk-61 |
@@ -118,7 +118,7 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | method_value_receiver_unproven | et3-03, et4-01, es4-10, gm13, gm17, es1-40, es1-42, es1-43, es1-44, es1-46, es2-16, es2-18, es3-14, es3-15, d2-19 |
 | mount_child_unproven | fa13, cx01, es1-05, es1-06, es1-15, es1-16, es3-19, es6-05, fk-14, fk-24, fk-32, fk-49–51, fk-54, fk-55, fk-57–59, fk-67, fk-78, fk-79, fk-91 |
 | mount_cycle | es1-02 |
-| multi_write | fk-19, fk-21–24, fk-34, fk-36, fk-46, fk-47, fk-49, fk-51, fk-60, fk-62, fk-63, fk-65, fk-87–89, fk-91 |
+| multi_write | fk-19, fk-21–24, fk-34, fk-36, fk-46, fk-47, fk-49, fk-51, fk-60, fk-62, fk-63, fk-65, fk-87–89, fk-91, fk-92 |
 | nested_single | fk-37 |
 | no_known_mount | ex29, gn05, hp22, fa14, cx01, cx07, es1-04, es1-05, es1-06, es1-15, es1-16, es1-17, es4-02, es6-04, es6-05, es6-09, d2-01/02/05/08/09 |
 | non_literal_path | ex12, nh07, fl14, fa07, cx34, es1-68, es2-18, es2-28 |
@@ -685,7 +685,7 @@ supported metadata and view-map operations, including d2-14.
 
 The static import proof in DESIGN §5.3 governs the counted import and escape refusals. Each counted
 refusal has a distinct `PROVEN` control. There are 163 rows, with
-55 `WITHHELD`, 33 `KNOWN_LIMIT` and 75 `PROVEN`. Counted diagnostics follow DESIGN §5.3 precedence.
+56 `WITHHELD`, 32 `KNOWN_LIMIT` and 75 `PROVEN`. Counted diagnostics follow DESIGN §5.3 precedence.
 `global_write` precedes `multi_write` in both source and importing modules.
 `class_private_name` precedes `class_body_import`. The main-row IDs fk-11, fk-12 and fk-18
 are unused gaps in the existing numbering. The diagnostic arrays are exact multisets. Each
@@ -881,7 +881,7 @@ populations (3,503 framework/Superset sites and 340 application sites).
 
 | ID | Fixture shape | Expected record and native observation | `expect_diagnostics` | Control |
 |---|---|---|---|---|
-| fk-92 | Put the registration of `handler` in the first iterable, `[None for handler in (REGISTRATION,)]`. Also run the generator expression `(None for handler in (REGISTRATION,))` without consuming it. | KNOWN_LIMIT. Matrix `PROVEN` with `views.f`. The scanner scopes the read under the iteration target and reports `not_import_captured`. Flask evaluates the first iterable in the enclosing scope, binds `views.f` and returns HTTP 200 first. | `[]` | fk-c92 |
+| fk-92 | Put the registration of `handler` in the first iterable, `[None for handler in (REGISTRATION,)]`. Also run the generator expression `(None for handler in (REGISTRATION,))` without consuming it. | WITHHELD (`multi_write`). The comprehension's own `handler` target is a second binding of the captured name in the importing file, which the capture-side census counts file-wide, so the rule withholds. Native Flask evaluates the first iterable in the enclosing scope, binds `views.f` and returns HTTP 200 first, so the withholding is conservative. The scanner currently scopes the read under the iteration target and reports `not_import_captured`; the matrix is the oracle. | `[["multi_write", "app.py", "from views import f as handler", "f"]]` | fk-c92 |
 | fk-c92 | Rename the list and generator iteration targets to `other` and leave the read as `handler`. | PROVEN. The scanner selects `views.f` with no counted predicate flagged. Flask binds `views.f` and returns HTTP 200 first. | `[]` | — |
 | fk-93 | Define and call `replace()` containing `global handler` and `from views import g as handler`. Then assign `callback = handler` and register `callback`. | KNOWN_LIMIT. Matrix `PROVEN` with `views.f`. The scanner starts from the written `callback` and reports `not_import_captured` with no defining member. Chasing the right-hand side for competing bindings is outside the capture-side contract. Flask binds `views.g` and returns HTTP 200 second. | `[]` | fk-c93 |
 | fk-c93 | Rebind `alternate` in `replace()`. Keep `callback = handler` and register `callback`. | PROVEN. Matrix binding is `views.f`. The scanner reports `not_import_captured`. Flask binds `views.f` and returns HTTP 200 first. | `[]` | — |

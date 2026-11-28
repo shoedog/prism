@@ -469,8 +469,8 @@ export set. Pins fk-68, fk-71–73 and fk-76–77 record these import boundaries
 `PROVEN` source-import control. The closed descriptor veto
 is a conservative belt based on source spelling. Supported view and router escape checks and
 explicit view metadata writes remain part of the setup model. The [Stage D pins](STAGE-D-ROWS.md#python-router-and-view-value-boundary)
-record expected adapter fields beside native observations across 163 cases, with 55 `WITHHELD`,
-33 `KNOWN_LIMIT` and 75 `PROVEN`. Each `KNOWN_LIMIT` pin earns zero runtime credit for the
+record expected adapter fields beside native observations across 163 cases, with 56 `WITHHELD`,
+32 `KNOWN_LIMIT` and 75 `PROVEN`. Each `KNOWN_LIMIT` pin earns zero runtime credit for the
 affected fields.
 
 #### FastAPI
@@ -852,13 +852,18 @@ The frozen populations, binding floors and ledger dispositions above govern each
   The no-effect predicate found zero duplicates among 168 candidates using direct defs and simple assignments
   for the write count. Its body filter also admits docstrings. Runtime module-attribute rebinding and indirect
   view-map writes are unmeasured.
-- **Capture-side limits (§5.3).** The matrix pins `PROVEN` with the source binding
-  `views.f` for these four cases. The fixtures record the scanner status and native Flask
-  result beside each control. Job 101 measured zero registrations and zero mounts for each
+- **Capture-side limits (§5.3).** The matrix pins `PROVEN` for three
+  of these cases (fk-93 to fk-95); fk-92 is pinned `WITHHELD` (`multi_write`) because the
+  comprehension's own target is a second binding the census counts file-wide, and the scanner
+  disagrees with that pin today. The fixtures record the scanner status and native Flask
+  result beside each control. By the owner's decision of 2026-11-27 (a zero-incidence case after the
+  symmetric fold is pinned, not folded), fk-93, fk-94 and fk-95 are accepted as known limits.
+  Under native Flask fk-95 appears as an HTTP 500 unless `app.testing` is set. Job 101 measured zero registrations and zero mounts for each
   form in both populations (3,503 framework/Superset sites and 340 application sites).
   - **First iterable of a comprehension or generator (fk-92).** Python evaluates the first iterable
-    in the enclosing scope. The scanner treats the site as inside the iteration target's scope and
-    reports `not_import_captured`. Flask binds `views.f`.
+    in the enclosing scope and Flask binds `views.f`. The oracle withholds (`multi_write`, the
+    target is a second binding); the scanner treats the site as inside the iteration target's scope
+    and reports `not_import_captured`, a scanner/oracle divergence with the safe outcome pinned.
   - **Assignment alias after a nested global rebind (fk-93).** The census keys the assignment
     by `callback` and stops at that written root. Chasing the right-hand side back to the
     imported name is outside the capture-side contract. The scanner reports
