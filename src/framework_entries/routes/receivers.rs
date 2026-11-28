@@ -219,6 +219,7 @@ use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 mod certificate;
+pub(in crate::framework_entries::routes) use certificate::Clause;
 mod imports;
 mod mutations;
 pub(crate) mod refusals;

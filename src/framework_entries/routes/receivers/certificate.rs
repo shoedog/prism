@@ -28,7 +28,7 @@ use tree_sitter::Node;
 
 /// The clause that refused a name; each maps to an existing refusal label.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Clause {
+pub(in crate::framework_entries::routes) enum Clause {
     /// The module has a parse error (clause e).
     ParseError,
     /// Zero or two-plus binding occurrences (clause a, and clause d for module-system names).
@@ -91,9 +91,18 @@ impl<'a> PythonBindings<'a> {
         file: &'a ParsedFile,
         name: &str,
     ) -> bool {
-        let root = file.tree.root_node();
-        let key = super::writes::effective_name(file, root, name);
-        self.certify(file, root, &key).is_ok()
+        self.certify_in(file, file.tree.root_node(), name).is_ok()
+    }
+
+    /// Certify a name written as `name` in `scope`, mangling it as that scope would.
+    pub(in crate::framework_entries::routes) fn certify_in(
+        &self,
+        file: &'a ParsedFile,
+        scope: Node<'a>,
+        name: &str,
+    ) -> Result<(), Clause> {
+        let key = super::writes::effective_name(file, scope, name);
+        self.certify(file, scope, &key)
     }
 
     fn decide(&self, file: &ParsedFile, scope: Node<'a>, key: &str) -> Result<(), Clause> {
