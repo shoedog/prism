@@ -330,3 +330,37 @@ fn an_empty_expected_inventory_claims_nothing() {
     assert!(doc.expected_files.is_empty() && doc.file_status.is_empty());
     assert!(edges(&doc).is_empty());
 }
+
+#[test]
+fn the_extended_wire_contract_is_closed() {
+    // The producer fields are optional, but the values they take are closed.
+    let doc = run(&[("i.go", H)], &index(&[("GET", "/x")]));
+    let wire = serde_json::to_value(&doc).unwrap();
+    let decode = |wire: &serde_json::Value| {
+        prism_boundary::BindingsDocument::from_json(&serde_json::to_vec(wire).unwrap()).is_ok()
+    };
+    assert!(decode(&wire), "control: the produced document decodes");
+    let mutations: [(&str, serde_json::Value); 5] = [
+        ("/operations/0/grade", json!("maybe")),
+        ("/operations/0/evidence", json!(["a", "a"])),
+        ("/operations/0/handler/site/line", json!(0)),
+        ("/annotations/0/disposition", json!("guessed")),
+        ("/annotations/0/surprise", json!(true)),
+    ];
+    for (pointer, value) in mutations {
+        let mut bad = wire.clone();
+        let (parent, key) = pointer.rsplit_once('/').unwrap();
+        bad.pointer_mut(parent).unwrap()[key] = value;
+        assert!(!decode(&bad), "{pointer} must be refused");
+    }
+    let mut old = wire.clone();
+    old["operations"][0]
+        .as_object_mut()
+        .unwrap()
+        .retain(|k, _| !["grade", "handler", "evidence"].contains(&k.as_str()));
+    old.as_object_mut().unwrap().remove("annotations");
+    assert!(
+        decode(&old),
+        "a P1d document without the P2 fields still decodes"
+    );
+}
