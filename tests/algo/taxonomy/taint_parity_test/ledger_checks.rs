@@ -5,13 +5,15 @@ use std::process::Command;
 /// The navigation walks' ledger lines only: review mode prints no site, slot or grades, so the
 /// site-field assertions below read the lines that carry them.
 fn ledger(test: &str, id: &str, run: impl FnOnce(&Row, &Fixture)) -> Option<String> {
-    ledger_raw(test, id, run).map(|stderr| {
-        stderr
-            .lines()
-            .filter(|line| !line.starts_with("taint-") || line.contains(" site="))
-            .collect::<Vec<_>>()
-            .join("\n")
-    })
+    ledger_raw(test, id, run).map(|stderr| navigation_lines(&stderr))
+}
+
+fn navigation_lines(stderr: &str) -> String {
+    stderr
+        .lines()
+        .filter(|line| !line.starts_with("taint-") || line.contains(" site="))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn ledger_raw(test: &str, id: &str, run: impl FnOnce(&Row, &Fixture)) -> Option<String> {
@@ -107,12 +109,39 @@ fn assert_return_sites(
     reason: Option<&str>,
     expected: &[(&str, &str)],
 ) {
-    let Some(stderr) = ledger(test, id, |row, fixture| {
+    let Some(raw) = ledger_raw(test, id, |row, fixture| {
         assert_eq!(review(row, fixture, true), review_finding);
         assert_eq!(walk(row, fixture).reaches, nav_verdict);
     }) else {
         return;
     };
+    let stderr = navigation_lines(&raw);
+    if let Some(reason) = reason {
+        // Review mode keeps the refusal's reason on the same hop but prints no site fields.
+        let review_lines: Vec<_> = raw
+            .lines()
+            .filter(|line| {
+                line.starts_with("taint-refusal ")
+                    && line.contains(" relation=ReturnFlow ")
+                    && line.ends_with(&format!(" reason={reason}"))
+                    && !line.contains(" site=")
+            })
+            .collect();
+        for &(target, _) in expected {
+            assert!(
+                review_lines
+                    .iter()
+                    .any(|line| line.contains(&format!(":{target}:Def\" relation=ReturnFlow "))),
+                "{id}: no review record for {target} with reason={reason}\n{raw}"
+            );
+        }
+        assert!(
+            review_lines
+                .iter()
+                .all(|line| !line.contains(" slot=") && !line.contains(" grades=")),
+            "{id}: {review_lines:#?}"
+        );
+    }
     let mut walks = BTreeMap::<usize, BTreeSet<&str>>::new();
     for line in stderr.lines() {
         if !line.contains(" relation=ReturnFlow ")
@@ -143,9 +172,9 @@ fn assert_return_sites(
 }
 
 #[test]
-fn review_and_navigation_distinguish_equal_budget_return_sites() {
+fn navigation_distinguishes_equal_budget_return_sites() {
     assert_return_sites(
-        "review_and_navigation_distinguish_equal_budget_return_sites",
+        "navigation_distinguishes_equal_budget_return_sites",
         "a1-js-equal-budget-return-sites",
         Verdict::Reached,
         Finding::Unlabeled,
@@ -155,9 +184,9 @@ fn review_and_navigation_distinguish_equal_budget_return_sites() {
 }
 
 #[test]
-fn depth_cap_return_refusal_names_the_assignment_in_both_clients() {
+fn navigation_names_the_depth_cap_assignment_and_review_prints_no_site() {
     assert_return_sites(
-        "depth_cap_return_refusal_names_the_assignment_in_both_clients",
+        "navigation_names_the_depth_cap_assignment_and_review_prints_no_site",
         "s2-js-three-ascents",
         Verdict::BoundaryExited,
         Finding::None,
@@ -167,9 +196,9 @@ fn depth_cap_return_refusal_names_the_assignment_in_both_clients() {
 }
 
 #[test]
-fn self_return_refusal_names_the_recursive_assignment_in_both_clients() {
+fn navigation_names_the_self_return_assignment_and_review_prints_no_site() {
     assert_return_sites(
-        "self_return_refusal_names_the_recursive_assignment_in_both_clients",
+        "navigation_names_the_self_return_assignment_and_review_prints_no_site",
         "s1-js-self-return",
         Verdict::BoundaryExited,
         Finding::None,
@@ -639,11 +668,87 @@ fn review_ledger_drops_site_slot_and_grades_but_keeps_reasons() {
             .any(|line| line.starts_with("taint-refusal ") && line.contains(" reason=")),
         "{stderr}"
     );
+    // The alias hop's refusal keeps its reason in review mode.
+    assert!(
+        lines.iter().any(|line| {
+            line.starts_with("taint-refusal ")
+                && line.contains(":164..165#")
+                && line.ends_with(" reason=no_matching_site")
+        }),
+        "{stderr}"
+    );
+}
+
+fn assert_js12_review_has_no_site_fields(test: &str, return_flow: bool) {
+    let Some(stderr) = ledger_raw(test, "js12", |row, fixture| {
+        let _ = review(row, fixture, return_flow);
+    }) else {
+        return;
+    };
+    let lines: Vec<_> = stderr
+        .lines()
+        .filter(|line| line.starts_with("taint-"))
+        .collect();
+    assert!(
+        lines.iter().all(|line| {
+            !line.contains(" site=") && !line.contains(" slot=") && !line.contains(" grades=")
+        }),
+        "{stderr}"
+    );
+    assert!(
+        lines.iter().any(|line| {
+            // With return flow on, the NameOnly descent is refused; with it off, review admits it.
+            line.starts_with(if return_flow {
+                "taint-refusal "
+            } else {
+                "taint-crossing "
+            }) && line.contains(" relation=CallDescent ")
+                && line.contains(" edge_grade=Some(NameOnly(CallNameOnly))")
+        }),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn nameonly_refusal_prints_no_site_fields_in_review_with_return_flow() {
+    assert_js12_review_has_no_site_fields(
+        "nameonly_refusal_prints_no_site_fields_in_review_with_return_flow",
+        true,
+    );
+}
+
+#[test]
+fn nameonly_refusal_prints_no_site_fields_in_review_without_return_flow() {
+    assert_js12_review_has_no_site_fields(
+        "nameonly_refusal_prints_no_site_fields_in_review_without_return_flow",
+        false,
+    );
+}
+
+#[test]
+fn navigation_keeps_the_nameonly_site_and_grade_of_js12() {
+    let Some(stderr) = ledger(
+        "navigation_keeps_the_nameonly_site_and_grade_of_js12",
+        "js12",
+        |row, fixture| assert_eq!(walk(row, fixture).reaches, Verdict::BoundaryExited),
+    ) else {
+        return;
+    };
+    assert!(
+        stderr.lines().any(|line| {
+            line.starts_with("taint-refusal ")
+                && line.contains(" relation=CallDescent site=59..73 ")
+                && line.contains(" grades=[NameOnly] ")
+                && line.ends_with(" reason=not_exact")
+        }),
+        "{stderr}"
+    );
 }
 
 #[test]
 fn navigation_ledger_keeps_site_slot_and_grades() {
-    let Some(stderr) = ledger(
+    // The raw ledger, unfiltered: a navigation-only run prints the fields on every record.
+    let Some(stderr) = ledger_raw(
         "navigation_ledger_keeps_site_slot_and_grades",
         "s2-js-alias-same-line",
         |row, fixture| assert_eq!(walk(row, fixture).reaches, Verdict::BoundaryExited),
@@ -652,7 +757,7 @@ fn navigation_ledger_keeps_site_slot_and_grades() {
     };
     let lines: Vec<_> = stderr
         .lines()
-        .filter(|line| line.starts_with("taint-"))
+        .filter(|line| line.starts_with("taint-crossing ") || line.starts_with("taint-refusal "))
         .collect();
     assert!(!lines.is_empty(), "{stderr}");
     assert!(

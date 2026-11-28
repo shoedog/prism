@@ -23,6 +23,8 @@ mod census_pass;
 mod census_trace;
 mod d2c;
 mod d3;
+#[allow(dead_code, unused_imports)] // wired by the opt-in trace (lane 10)
+pub(super) mod element_recall;
 mod preflight;
 #[cfg(test)]
 pub(crate) use preflight::with_availability_limits;

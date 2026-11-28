@@ -174,13 +174,15 @@ def record_header(digest, kind, name, size):
     digest.update(size.to_bytes(8, "big"))
 
 
-def add_bytes(digest, stream, size):
+def add_bytes(digest, stream, size, member_digest=None):
     remaining = size
     while remaining:
         block = stream.read(min(CHUNK, remaining))
         if not block:
             raise OSError("input became shorter while hashing")
         digest.update(block)
+        if member_digest is not None:
+            member_digest.update(block)
         remaining -= len(block)
 
 
@@ -382,7 +384,7 @@ class TreeBinding:
     members: dict[tuple[bytes, ...], Member]
 
 
-def bind_tree(root):
+def bind_tree(root, *, file_digests=None):
     members = tree_members(root)
     states = link_states(root, members)
     content = hashlib.sha256()
@@ -405,7 +407,10 @@ def bind_tree(root):
                     if inode(info) != inode(member.info) or info.st_mode != member.info.st_mode:
                         raise OSError(f"input changed while hashing {os.fsdecode(name)!r}")
                     record_header(content, b"F", name, info.st_size)
-                    add_bytes(content, stream, info.st_size)
+                    member_digest = hashlib.sha256() if file_digests is not None else None
+                    add_bytes(content, stream, info.st_size, member_digest)
+                    if member_digest is not None:
+                        file_digests[b"/".join(parts).decode("utf-8")] = member_digest.hexdigest()
                     if stream.read(1):
                         raise OSError(f"input grew while hashing {os.fsdecode(name)!r}")
     return TreeBinding(content.hexdigest(), structure.hexdigest(), members)

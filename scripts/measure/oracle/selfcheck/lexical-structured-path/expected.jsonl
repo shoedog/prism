@@ -1,0 +1,1 @@
+{"key":{"from":{"base":"o","end_byte":5,"fields":["a"],"file":"cases.ts","line":1,"start_byte":4},"to":{"base":"o","end_byte":22,"fields":[],"file":"cases.ts","line":3,"start_byte":21}},"property":"declaration-and-read","relation":"lexical_binding","verdict":"UNDECIDED","why":"outside-judged-scope"}

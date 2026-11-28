@@ -538,3 +538,103 @@ fn component_route_timing_gates_the_result_binding_of_a_proved_local_hook() {
     }
     assert!(failures.is_empty(), "{failures:#?}");
 }
+
+#[test]
+fn component_route_jsx_direct_render_and_wrapper_refusals() {
+    let site = "function App(x) { return <D a={x}/>; }";
+    let cases = [
+        ("function D({a}) { return a; }", Route::Direct),
+        ("const View = ({a}) => a; const D = View;", Route::Direct),
+        ("import {memo} from 'react'; const D = memo(function View({a}) { return a; });", Route::JsxRenderOperand),
+        ("import {memo} from 'react'; const D = memo(({a}) => a);", Route::JsxRenderOperand),
+        ("import {forwardRef as wrap} from 'react'; const D = wrap(({a}, ref) => a);", Route::JsxRenderOperand),
+        ("import React from 'react'; const D = React.memo(function View({a}) { return a; });", Route::JsxRenderOperand),
+        ("import {observer} from 'mobx-react'; const D = observer(({a}) => a);", Route::UnknownWrapper),
+        ("import {styled} from 'styled-components'; const D = styled(({a}) => a);", Route::UnknownWrapper),
+        ("import {withRouter} from 'react-router'; const D = withRouter(({a}) => a);", Route::UnknownWrapper),
+        ("import {memo} from 'react'; import {observer} from 'mobx-react'; const D = memo(observer(function D({a}) { return a; }));", Route::UnknownWrapper),
+        ("import {lazy} from 'react'; const D = lazy(({a}) => a);", Route::UnknownWrapper),
+        ("import {memo} from 'react'; function wrap(memo) { const D = memo(({a}) => a); return D; }", Route::UnprovedIdentity),
+        ("function memo(f) { return f; } const D = memo(({a}) => a);", Route::UnknownWrapper),
+    ];
+    let failures: Vec<_> = cases
+        .into_iter()
+        .filter_map(|(declarations, expected)| {
+            let actual = classify(declarations, site, SiteKind::Jsx);
+            (actual != expected).then_some((declarations, expected, actual))
+        })
+        .collect();
+    assert!(failures.is_empty(), "{failures:#?}");
+}
+
+#[test]
+fn component_route_jsx_refuses_wrapped_default_export_at_selected_callable() {
+    let caller = ParsedFile::parse(
+        "app.tsx",
+        "import D from './ui'; function App(x) { return <D a={x}/>; }",
+        Language::Tsx,
+    )
+    .unwrap();
+    let site = visit(caller.tree.root_node(), &|node| {
+        node.kind() == "jsx_self_closing_element"
+    })
+    .unwrap();
+    for (source, export_proved, expected) in [
+        (
+            "import {observer} from 'mobx-react'; export default observer(function D({a}) { return a; });",
+            false,
+            Route::UnprovedIdentity,
+        ),
+        ("export default function D({a}) { return a; }", true, Route::Direct),
+    ] {
+        let target = ParsedFile::parse("ui.tsx", source, Language::Tsx).unwrap();
+        assert!(!target.tree.root_node().has_error());
+        let candidates = target.all_functions();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            js_ts_component_route(SiteKind::Jsx, &caller, site, &target, candidates[0], export_proved),
+            expected,
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn component_route_jsx_timing_gates_render_results_and_alias_initializers() {
+    let memo = "import {memo} from 'react';";
+    let component = "const D = memo(({a}) => a);";
+    let cases = [
+        (
+            format!("const view = <D a={{x}}/>; {component}"),
+            Route::PreInitializerUnproved,
+        ),
+        (
+            format!("function App(x) {{ return <D a={{x}}/>; }} {component}"),
+            Route::PreInitializerUnproved,
+        ),
+        (
+            format!("const App = x => <D a={{x}}/>; {component}"),
+            Route::JsxRenderOperand,
+        ),
+        (
+            format!("{component} function App(x) {{ return <D a={{x}}/>; }}"),
+            Route::JsxRenderOperand,
+        ),
+        (
+            format!("const Pick = D; {component} const App = x => <Pick a={{x}}/>;"),
+            Route::PreInitializerUnproved,
+        ),
+        (
+            format!("{component} const Pick = D; const App = x => <Pick a={{x}}/>;"),
+            Route::JsxRenderOperand,
+        ),
+    ];
+    let failures: Vec<_> = cases
+        .into_iter()
+        .filter_map(|(source, expected)| {
+            let actual = classify(memo, &source, SiteKind::Jsx);
+            (actual != expected).then_some((source, expected, actual))
+        })
+        .collect();
+    assert!(failures.is_empty(), "{failures:#?}");
+}

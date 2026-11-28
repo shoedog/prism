@@ -115,7 +115,7 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
   Under the Exact ceiling, `cpg/trace_descent.rs` refuses binding doubts such as `call_nameonly` before site lookup or a cached proof. It counts same-spelling sites in the executing caller before requiring the unique site's byte span to contain the occurrence. Until I-spelling, `s2-js-alias-same-line`, `s2-js-alias-multiline-overlap`, `s3-ts-optional-default-competitor` and `s3-js-nested-spread-alias-competitor` now report `BoundaryExited` in the walk and no trace-review finding. An empty occurrence must lie strictly inside the one accepted site (nomination keeps the inclusive base predicate), and a `call_nameonly` binding edge that lands in the function being walked is a self-function boundary instead of local flow.
 
-  The taint walk records a snake_case loss reason on each refused crossing and records local cuts. Set `PRISM_TAINT_CROSSING_TRACE=1` to write accepted crossings, return-value inputs and refusals to stderr. Review and navigation use the parsed files for ledger diagnostics. The empty form `site=- slot=- grades=[]` means “site not established.” Per-root sink verdicts use the reached frontier, the exact boundary target and the legacy same-function closure from that target. Each `BoundaryExited` source result carries the matched hop's `reason` in `per_sink[].sources[]`. Boundary warnings point to the refused hop's target and deduplicate for display. Option B owns the deferred distal verdicts and sink attribution after I-walk.
+  The taint walk records a snake_case loss reason on each refused crossing and records local cuts. Set `PRISM_TAINT_CROSSING_TRACE=1` to write accepted crossings, return-value inputs and refusals to stderr. Navigation and the sanitizer-bypass re-walks print `site=`, `slot=` and `grades=` (a resolver candidate of any grade; the empty form `site=- slot=- grades=[]` means “not established”); review mode (`--format review`, either return-flow setting, the legacy ledger) prints the reason and `edge_grade` but no site fields. Measurement knob, OFF by default: `PRISM_TAINT_WALK_PROOFS_FILE=<json>` names filed hops per candidate I-walk rule (a hop key is the ledger value with its Debug quotes and escapes removed and `#<digits>` dropped; a ReturnInput exclusion is a cut, not a crossing) and `PRISM_TAINT_WALK_PROOFS=<i,ii,iii,iv,v,return_flow,return_input|all>` switches rules on, so the primary and bypass walk refuses those hops (`cpg/trace_proofs.rs`; the legacy flat walk is unaffected); a misconfiguration panics naming the variable, and with every switch off the walk's output, ledger and stdout are byte-identical to main (a cache file embeds build provenance, git SHA and binary fingerprint, that differs for any commit and is outside this invariant). Per-root sink verdicts use the reached frontier, the exact boundary target and the legacy same-function closure from that target. Each `BoundaryExited` source result carries the matched hop's `reason` in `per_sink[].sources[]`. Boundary warnings point to the refused hop's target and deduplicate for display. Option B owns the deferred distal verdicts and sink attribution after I-walk.
 - `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.
   `ReviewContextRound` builds a graph from the captured review and the admitted files.
@@ -754,9 +754,38 @@ the definition edge's. A spread or computed key refuses every key written before
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
 non-data values, a preceding argument spread, NameOnly and multi-target calls, and
 identifier-rest formals supply no hop. Zero-width base Uses in mixed formals remain
-unsupported. S2b (#596, cache v194) adds literal edges to proved object-pattern
-Defs, including object rest, and checks the binding of the selected plain-formal
-Use. The `dfg_props` map records pending binding. JSX attribute flow remains pending.
+unsupported. S2b (#596, cache v195) adds literal edges to proved object-pattern
+Defs, including object rest, and checks the selected plain-formal Use.
+
+S3 (#596, cache v196) binds ordered JSX named data expressions from existing,
+connected same-owner Uses with proved binding and version. Targets require one
+Exact callable with proved direct, alias, value import/export or program-scope
+React `memo`/`forwardRef` operand-zero identity. Early reads require a listed
+function-literal delivery (identifier initializer, return or concise body, or
+named JSX attribute). Slot zero accepts object-pattern Defs with residual rest
+or selected bare and complete dot reads subject to write suppression. Spreads
+and unknown writers mask preceding keys, duplicates replace subtrees, emitted
+children replace the explicit prop, and top-level `key`/`ref` are skipped.
+`dfg_props` counts JSX sites, admission, writer, source and read refusals
+(including bracket and zero-width bare reads), and pending edges by destination
+class. Proved reads that capture the formal inside a callable nested in the callee
+can receive `cfg_incomplete` edges. A receiver inherited from a class field
+initializer or static block counts `refused_source_unconnected`. An overlapping
+destructuring store that can precede a left-side operand counts
+`refused_source_ambiguous`. A representative Use (a zero-width
+anchor or an earlier read, never the operand's own bytes) stands for the operand only
+when the root passes Rule R, a positive certificate judged by spelling over the whole
+JSX owner (`jsx_props/certificate.rs`, DESIGN 5.3.4): no parse error, `with`, `eval` or
+`arguments` spelling, undecodable escape, or line-terminator divergence (lone CR, U+2028/9, HTML-like comment marker), or a subscript, member, call or tagged template whose object is off the closed list (an arrow function or an `as` expression takes a following-line `[..]`/`(..)` in the grammars where the language starts a new statement; parenthesized forms stay certified; #983) (c); exactly one declaration of the spelling, an initialized `const`
+outside loops or a formal of the owner, never a plain rest (a2); every other spelled occurrence at a
+read-list position outside loop heads (b2). A failing representative counts once per leaf as
+`refused_source_ambiguous`, including a root with no declaration in the owner. Three shapes are
+admitted as known limits (#783): `super.p = v` through a formal receiver, a `const` read during
+enum construction, and a store through another formal holding the same object. The post-assembly
+guard still applies. An admitted representative outside
+the JSX opening leaves the graph edge present and stops trace descent at a boundary.
+
+Element-recall diagnostics (lane 10, #847, stage I0+I1; Python only): with `PRISM_ELEMENT_RECALL_TRACE=1` a cold build writes versioned `element-recall` records to stderr (`src/cpg/reaching/element_recall/`: syntax inventory of value-carrying indexed stores W and whole-operand reads R, physical joins against the final file-wide Def/Use buckets, route phases, binding/storage transfer, caps, `owner` and `prediction` records). It is opt-in and diagnostic: with the variable unset or not `1` no analysis runs, and the graph, stats and review output are byte-identical, there is no cache version or payload change and nothing is published (no edge, no counter); P14 stays RED until I2 publishes. Typed measurement reader: `cargo run --release -p prism --example element_recall_graph -- <repo>` (full typed nodes and edges, arm-neutral, for parent/head differentials). Lane-local scripts in `scripts/subscript_recall/`: `compare.py` (`run`/`zero` arm comparator), `loader_inventory.py` (independent inventory), `admission.py` (prepare/report against the frozen draw), `review_diff.py replay` (seeded review parity: parent vs head default vs trace-on over one-line diff seeds, every DataFlow reader plus `originaldiff`; corpus runs go through `measure`). Publication, review masks and cache persistence are I2.
 
 ### MCP Adapter
 

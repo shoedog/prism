@@ -53,6 +53,8 @@ mod js_param_defs_tests;
 #[cfg(test)]
 mod js_single_statement_tests;
 #[cfg(test)]
+mod jsx_props_replay;
+#[cfg(test)]
 mod loop_header_def_tests;
 #[cfg(test)]
 mod loop_plan_cache_tests;
@@ -102,6 +104,18 @@ mod props_s2_refusal_tests;
 mod props_s2_selected_tests;
 #[cfg(test)]
 mod props_s2_test_support;
+#[cfg(test)]
+mod props_s3_certificate_tests;
+#[cfg(test)]
+mod props_s3_coverage_tests;
+#[cfg(test)]
+mod props_s3_evidence_tests;
+#[cfg(test)]
+mod props_s3_generated_tests;
+#[cfg(test)]
+mod props_s3_replay_tests;
+#[cfg(test)]
+mod props_s3_selected_tests;
 pub mod query;
 mod reaching;
 #[cfg(test)]
@@ -133,6 +147,11 @@ mod trace_cuts;
 mod trace_descent;
 #[cfg(test)]
 mod trace_descent_tests;
+mod trace_proofs;
+#[cfg(test)]
+mod trace_proofs_tests;
+#[cfg(test)]
+mod trace_proofs_walk_tests;
 mod types;
 pub(crate) mod var_index;
 
@@ -147,6 +166,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use build::{CodePropertyGraph, DfgLabelStats, ReturnFlowStats};
 pub use context::{CpgContext, CpgScope};
 pub use flow_confidence::{FlowConfidence, FlowDoubt};
+pub(crate) use reaching::element_recall::{FileTrace as ElementTrace, Final as ElementFinal};
 pub use reaching::RdFileStats;
 pub(crate) use reaching::{ReceiverEdge, ReceiverKey};
 mod recall_telemetry;

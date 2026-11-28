@@ -263,7 +263,7 @@ The following 173 rows and the 24 decisions above exhaust the two input matrices
 | oracle-007 | Same-line other declaration → WRONG. |
 | oracle-008 | Inner read and local declaration agree → CORRECT. |
 | oracle-009 | Missing destination bounds → INADMISSIBLE. |
-| oracle-010 | Authenticated span covers other identifier → WRONG. |
+| oracle-010 | Authenticated span covers other identifier → UNDECIDED `endpoint-coordinate-off` when the destination line holds a read of the claimed base (S3 fold 4; was WRONG). |
 | oracle-011 | Assignment target → WRONG. |
 | oracle-012 | Use→use with no extension → UNDECIDED. |
 | oracle-013 | Different argument position → WRONG. |
@@ -367,7 +367,7 @@ The reviews of `a0856951d` supplied ten WRONG findings, four material SMELLs and
 | Opus S4 · SMELL IMMATERIAL | Keep the adopter amendment verbatim and the slice reading map. Detailed proofs and control inputs live in the companions. | cmp-060 |
 | Sol S2 · SMELL IMMATERIAL | Remove the dangling Section 10 reference. The reading map links the dispositions and the adopter amendment. | cmp-060 |
 
-Sol's table also qualifies `terra4-oracle-002`. With empty fields and the exact bare member token, a different unique property declaration disproves the local claim (WRONG). A structured member path gives UNDECIDED `structured-path` before token reduction. `oracle-052` and `astra-oracle-007` cover the structured case.
+Sol's table also qualified `terra4-oracle-002`. The S3 scope amendment in §4 supersedes its bare-member verdict. A syntactic property token or a member path with nonempty fields now gives UNDECIDED `member-path-not-judged`. `oracle-052` and `astra-oracle-007` cover the nonempty-field case.
 
 **Lane 10 amendment (superseded by the 2026-11-25 erratum; optional for an adopter of the inventory profile).** An adopter of the inventory profile needs its producer to supply the independent terminal counts and complete inventories on its own registered population. The [historical S0 producer and seven-pin rollout text](FORMATS.md#amendment-text-for-lane-10s-plan) is reference only, not an adopter requirement. Until its producer supplies the independent final counts, even a complete-looking S0 arm fails inventory admission with `inventory-terminal-missing`. Report edge/counter parity separately for S0 against baseline. S1/S0 and S2/S1 each need both terminals before claiming any inventory-dependent zero.
 
@@ -433,7 +433,7 @@ The comparison is against the Stage D truth at `a0856951d`, including the 24 ear
 
 **New discriminating inputs.** run-021 changes clean-looking admission to refusal. gate-026 isolates the same-configuration clauses above. oracle-065 invalidates the ambient-reader receipt. oracle-066 changes zero deltas to one reason substitution. cmp-061 changes a false spelling-leak zero to a validation failure. review-019 changes two successful arm exits into a failed ordinal when source custody breaks. review-017 and review-018 retain their outcomes and additionally check the two worktree hash fields. cmp-060 already fails without its terminal. oracle-030 remains a one-drop census. gate-005 retains retrospective exit 1. No frozen kit row changes its asserted outcome.
 
-**Round-three unchanged controls and input qualifications.** The misnamed formal is a mutation of `oracle-001`. Its supplied formal bytes and spelling agree. `terra4-oracle-002`'s bare-member verdict and `oracle-029`'s qualified WRONG hold. All decidable built-in target fixtures assume a source-labelled, build-matched supported form. The missing-qualification arm gives UNDECIDED `target-id-unproved` with the same deltas. `bf-009` has two line-only payloads and two eligible calls, so both remain ambiguous. `bf-011` retains one match for identical repeats. `run-014` starts from a matching archive pin and changes the link during analysis (4). `terra4-run-001` changes only external referent contents. Its registered link text stays equal. Round four refuses this external link before launch. `terra-cmp-003` asserts standalone bag counts. `cmp-056` and `cmp-060` already fail without a terminal and now assert the diagnostic.
+**Round-three unchanged controls and input qualifications.** The misnamed formal is a mutation of `oracle-001`. Its supplied formal bytes and spelling agree. `oracle-029`'s qualified WRONG holds. The S3 scope amendment supersedes `terra4-oracle-002`'s earlier bare-member verdict. All decidable built-in target fixtures assume a source-labelled, build-matched supported form. The missing-qualification arm gives UNDECIDED `target-id-unproved` with the same deltas. `bf-009` has two line-only payloads and two eligible calls, so both remain ambiguous. `bf-011` retains one match for identical repeats. `run-014` starts from a matching archive pin and changes the link during analysis (4). `terra4-run-001` changes only external referent contents. Its registered link text stays equal. Round four refuses this external link before launch. `terra-cmp-003` asserts standalone bag counts. `cmp-056` and `cmp-060` already fail without a terminal and now assert the diagnostic.
 
 ### Question input closure
 

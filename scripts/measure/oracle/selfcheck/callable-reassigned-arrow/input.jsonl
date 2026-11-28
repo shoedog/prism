@@ -1,0 +1,2 @@
+{"confidence":"exact","doubt":null,"from":{"access":"use","end_byte":128,"file":"cases.ts","line":4,"path":{"base":"a","fields":[]},"start_byte":127},"to":{"access":"def","end_byte":11,"file":"cases.ts","line":1,"path":{"base":"v","fields":[]},"start_byte":10}}
+{"confidence":"exact","doubt":null,"from":{"access":"use","end_byte":134,"file":"cases.ts","line":4,"path":{"base":"b","fields":[]},"start_byte":133},"to":{"access":"def","end_byte":63,"file":"cases.ts","line":3,"path":{"base":"x","fields":[]},"start_byte":62}}

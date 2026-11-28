@@ -5,12 +5,12 @@ fn compact_codec_rejects_bad_bounds_groups_and_order() {
 }
 #[test]
 fn production_cache_version_activates_compact_codec() {
-    assert_eq!(super::CACHE_VERSION, 196);
+    assert_eq!(super::CACHE_VERSION, 197);
 }
 
 #[test]
 fn production_cache_version_includes_module_owners() {
-    assert_eq!(super::CACHE_VERSION, 196);
+    assert_eq!(super::CACHE_VERSION, 197);
 }
 
 #[test]
@@ -26,8 +26,14 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
         .unwrap(),
     )]);
     let mut cpg = CodePropertyGraph::build(&files);
-    cpg.dfg_label_stats.dfg_props =
-        BTreeMap::from([("sites_literal".into(), 1), ("edges_to_def".into(), 2)]);
+    cpg.dfg_label_stats.dfg_props = BTreeMap::from([
+        ("sites_literal".into(), 1),
+        ("sites_jsx".into(), 4),
+        ("refused_jsx_caller_owner".into(), 1),
+        ("refused_jsx_site_syntax".into(), 1),
+        ("refused_source_ambiguous".into(), 1),
+        ("edges_to_def".into(), 2),
+    ]);
     let hashes = BTreeMap::from([("a.py".into(), "fixture".into())]);
     let dir = tempfile::tempdir().unwrap();
     assert_eq!(
@@ -48,10 +54,15 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
     };
     assert_eq!(restored.dfg_label_stats, cpg.dfg_label_stats);
     assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 1);
+    let pre_s3 = CpgCache {
+        version: 196,
+        ..owned
+    };
+    fs::write(&path, bincode::serialize(&pre_s3).unwrap()).unwrap();
     stream::PAYLOAD_DECODES.with(|count| count.set(0));
     assert_stale_version_miss(&hashes, dir.path());
     assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 0);
-    assert_eq!(super::CACHE_VERSION, 196);
+    assert_eq!(super::CACHE_VERSION, 197);
 }
 
 pub(crate) fn assert_stale_version_miss(

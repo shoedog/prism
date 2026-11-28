@@ -13,7 +13,7 @@ use petgraph::visit::EdgeRef;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-const ENABLED: &[&str] = &["control", "S1", "S2"];
+const ENABLED: &[&str] = &["control", "S1", "S2", "S3"];
 const ROWS: &str = include_str!("../../tests/fixtures/props_matrix/rows.jsonl");
 
 #[derive(Deserialize)]
@@ -718,7 +718,7 @@ impl Row {
                 let mut failed = 0;
                 for (index, check) in checks.iter().enumerate() {
                     let result = fixture.check(&check.assertion);
-                    if self.group == "S2" {
+                    if matches!(self.group.as_str(), "S2" | "S3") {
                         let status = if result.is_ok() { "PASS" } else { "FAIL" };
                         println!("PROPS_ASSERT {} {tag} {index} {status}", self.id);
                     }
@@ -727,7 +727,7 @@ impl Row {
                         failures.push(format!("{tag}: {:?}: {detail}", check.assertion));
                     }
                 }
-                if self.group == "S2" {
+                if matches!(self.group.as_str(), "S2" | "S3") {
                     println!("PROPS_CASE {} {tag} {} {failed}", self.id, checks.len());
                 }
             }
