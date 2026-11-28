@@ -125,13 +125,14 @@ fn known_limit_a_a_two_parameter_outer_call_cannot_compete_yet_the_alias_scope_c
     );
     assert!(reaches(&h, "i"), "plain i admits");
     assert!(reaches(&h, "ii"), "plain ii admits");
+    assert!(reaches(&h, "i,ii"), "plain i,ii admits");
     assert!(
         !reaches(&h, "ii+unknown"),
         "KL-A: the strict arm cuts a hop the outer call cannot compete for"
     );
     // The plain arms record no refusal; the strict arm records exactly the one cut hop, at depth
     // zero, with the descent reason `no_matching_site`.
-    for real in ["i", "ii"] {
+    for real in ["i", "ii", "i,ii"] {
         let trace = h.case.walk(Some(real), h.from);
         assert!(trace.boundary.is_empty(), "{real}: {:?}", trace.boundary);
     }
