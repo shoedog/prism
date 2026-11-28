@@ -165,8 +165,8 @@ fn pending_shapes(parsed: &ParsedFile, id: Node<'_>) -> Vec<&'static str> {
     if JS_FAMILY.contains(&parsed.language) && under_nullish_chain(parsed, id) {
         shapes.push("js_certified_under_possibly_nullish_chain");
     }
-    if under_constant_guard(parsed, id) {
-        shapes.push("constant_dead_code_certified");
+    if under_literal_test(parsed, id) {
+        shapes.push("literal_only_test_certified");
     }
     for node in successors(id.parent(), Node::parent) {
         match (parsed.language, node.kind()) {
@@ -223,7 +223,10 @@ fn peel<'t>(node: Node<'t>) -> Node<'t> {
 fn possibly_nullish_base(parsed: &ParsedFile, base: Node<'_>) -> bool {
     let base = peel(base);
     match base.kind() {
-        "identifier" => parsed.node_text(&base) == "undefined",
+        "identifier" => {
+            let text = parsed.node_text(&base);
+            text == "undefined" || text.contains('\\')
+        }
         "member_expression"
         | "subscript_expression"
         | "call_expression"
@@ -298,95 +301,151 @@ fn named_nocomment<'t>(node: Node<'t>) -> Vec<Node<'t>> {
         .collect()
 }
 
-// The truth value of a literal test after peeling; `None` when it is not a literal (or its
-// truth is not decidable here). Python `TYPE_CHECKING` is false at run time.
-fn literal_truth(parsed: &ParsedFile, node: Node<'_>) -> Option<bool> {
+// A test is literal-only when, after peeling comments, parentheses and the TS wrappers, it holds
+// no name-bearing node: every named leaf is a literal spelling (or `undefined`, Python
+// `TYPE_CHECKING`) and every interior node is an operator or literal container. No truthiness
+// is decided: a literal-only test lists every certified hit in any part of its construct.
+fn literal_only(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    const LEAVES: &[&str] = &[
+        "number",
+        "integer",
+        "float",
+        "true",
+        "false",
+        "null",
+        "none",
+        "nil",
+        "undefined",
+        "regex_pattern",
+        "regex_flags",
+        "string_fragment",
+        "escape_sequence",
+        "string_content",
+        "string_start",
+        "string_end",
+        "interpreted_string_literal_content",
+        "raw_string_literal_content",
+        "int_literal",
+        "float_literal",
+        "imaginary_literal",
+        "rune_literal",
+        "ellipsis",
+        "comment",
+        "predefined_type",
+        "type_identifier",
+        "escape_interpolation",
+        "empty_statement",
+    ];
+    const INTERIOR: &[&str] = &[
+        "parenthesized_expression",
+        "unary_expression",
+        "binary_expression",
+        "ternary_expression",
+        "conditional_expression",
+        "comparison_operator",
+        "boolean_operator",
+        "not_operator",
+        "unary_operator",
+        "binary_operator",
+        "as_expression",
+        "non_null_expression",
+        "satisfies_expression",
+        "type_assertion",
+        "sequence_expression",
+        "expression_statement",
+        "template_string",
+        "string",
+        "regex",
+        "concatenated_string",
+        "interpreted_string_literal",
+        "raw_string_literal",
+        "interpolation",
+        "expression_list",
+        "type_arguments",
+    ];
     let node = peel(node);
-    let text = parsed.node_text(&node);
+    let mut cursor = node.walk();
+    if node.named_child_count() == 0 {
+        return LEAVES.contains(&node.kind())
+            || (node.kind() == "identifier"
+                && matches!(parsed.node_text(&node), "undefined" | "TYPE_CHECKING"));
+    }
+    INTERIOR.contains(&node.kind())
+        && node
+            .named_children(&mut cursor)
+            .all(|child| literal_only(parsed, child))
+}
+
+fn inside(outer: Node<'_>, node: Node<'_>) -> bool {
+    outer.start_byte() <= node.start_byte() && node.end_byte() <= outer.end_byte()
+}
+
+// The conditions of a construct whose test is evaluated before any of its other parts.
+fn literal_tests<'t>(parsed: &ParsedFile, node: Node<'t>) -> Vec<Node<'t>> {
+    let mut tests = Vec::new();
     match node.kind() {
-        "true" => Some(true),
-        "false" | "null" | "undefined" | "none" | "nil" => Some(false),
-        "identifier" => match text {
-            "undefined" | "TYPE_CHECKING" => Some(false),
-            _ => None,
-        },
-        "number" | "integer" | "float" | "int_literal" | "float_literal" => {
-            Some(!text.chars().all(|c| matches!(c, '0' | '.' | '_')))
-        }
-        "string" | "interpreted_string_literal" | "raw_string_literal" => Some(text.len() > 2),
-        "regex" => Some(true),
-        _ => None,
-    }
-}
-
-// Whether a literal `left` of `&&`/`and`, `||`/`or` or `??` makes the right operand
-// unreachable (`null ?? x` is live: only what the literal makes unreachable counts).
-fn right_is_dead(parsed: &ParsedFile, operator: &str, left: Node<'_>) -> bool {
-    let truth = literal_truth(parsed, left);
-    let nullish = matches!(peel(left).kind(), "null" | "undefined" | "none" | "nil")
-        || parsed.node_text(&peel(left)) == "undefined";
-    match operator {
-        "&&" | "and" => truth == Some(false),
-        "||" | "or" => truth == Some(true),
-        "??" => peel(left).kind() != "identifier" && truth.is_some() && !nullish,
-        _ => false,
-    }
-}
-
-// A certified hit lexically inside code that a constant-FALSE (or constant-decided) test makes
-// unreachable: the consequence of `if (false)`, the alternative of `if (true)`, the body of
-// `while (false)`, the dead arm of a ternary, the right operand of `false && ..`, `true || ..`
-// or `1 ?? ..`. A constant-true test (`while (true)`, `if true`) is live code and is not counted.
-fn under_constant_guard(parsed: &ParsedFile, id: Node<'_>) -> bool {
-    let mut previous = id;
-    for node in successors(id.parent(), Node::parent) {
-        let dead = match node.kind() {
-            "if_statement" | "elif_clause" | "ternary_expression" | "while_statement" => node
-                .child_by_field_name("condition")
-                .filter(|&guard| guard != previous)
-                .and_then(|guard| literal_truth(parsed, guard))
-                .is_some_and(|truth| {
-                    let branch = node.child_by_field_name(if node.kind() == "while_statement" {
-                        "body"
-                    } else {
-                        "consequence"
-                    });
-                    let in_consequence = branch == Some(previous);
-                    let in_alternative = !in_consequence
-                        && matches!(
-                            node.kind(),
-                            "if_statement" | "elif_clause" | "ternary_expression"
-                        );
-                    (in_consequence && !truth) || (in_alternative && truth)
-                }),
-            "conditional_expression" => {
-                let parts = named_nocomment(node);
-                parts.get(1).copied().is_some_and(|guard| {
-                    guard != previous
-                        && literal_truth(parsed, guard).is_some_and(|truth| {
-                            let live = if truth { parts.first() } else { parts.get(2) };
-                            live.copied() != Some(previous)
-                        })
-                })
+        "if_statement" | "elif_clause" | "ternary_expression" | "while_statement" => {
+            tests.extend(node.child_by_field_name("condition"));
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "elif_clause" {
+                    tests.extend(child.child_by_field_name("condition"));
+                }
             }
+        }
+        "for_statement" => {
+            tests.extend(node.child_by_field_name("condition"));
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                // Go: `for cond {}` holds the condition as a child, `for ;cond; {}` inside a
+                // `for_clause`.
+                match child.kind() {
+                    "for_clause" => tests.extend(child.child_by_field_name("condition")),
+                    "block" | "range_clause" | "comment" => {}
+                    _ if node.child_by_field_name("body") != Some(child)
+                        && parsed.language == Language::Go =>
+                    {
+                        tests.push(child)
+                    }
+                    _ => {}
+                }
+            }
+        }
+        "conditional_expression" => tests.extend(named_nocomment(node).get(1).copied()),
+        _ => {}
+    }
+    tests
+}
+
+// A certified hit in ANY part of a construct whose test (or left operand) is literal-only,
+// outside the test itself: every branch, later `elif`/`else` siblings, a Go `if` initializer
+// and loop bodies, the right operand of `&&`, `||`, `??`, `and`, `or`. The rows are listed and
+// classified by hand as live or unreachable.
+fn under_literal_test(parsed: &ParsedFile, id: Node<'_>) -> bool {
+    for node in successors(id.parent(), Node::parent) {
+        let tested = match node.kind() {
             "binary_expression" | "boolean_operator" => {
                 let operator = node
                     .child_by_field_name("operator")
                     .map(|op| parsed.node_text(&op).to_owned());
-                match (operator, node.child_by_field_name("left")) {
-                    (Some(operator), Some(left)) => {
-                        node.child_by_field_name("right") == Some(previous)
-                            && right_is_dead(parsed, &operator, left)
-                    }
-                    _ => false,
-                }
+                matches!(operator.as_deref(), Some("&&" | "||" | "??" | "and" | "or"))
+                    && node
+                        .child_by_field_name("right")
+                        .is_some_and(|right| inside(right, id))
+                    && node
+                        .child_by_field_name("left")
+                        .is_some_and(|left| literal_only(parsed, left))
             }
-            _ => false,
+            _ => {
+                // A hit is name-bearing, so it is never inside a literal-only test itself.
+                literal_tests(parsed, node)
+                    .iter()
+                    .any(|&test| literal_only(parsed, test))
+            }
         };
-        if dead {
+        if tested {
             return true;
         }
-        previous = node;
     }
     false
 }
@@ -394,7 +453,7 @@ fn under_constant_guard(parsed: &ParsedFile, id: Node<'_>) -> bool {
 const SHAPES_JS: [&str; 3] = [
     "js_possibly_nullish_chain_any",
     "js_certified_under_possibly_nullish_chain",
-    "constant_dead_code_certified",
+    "literal_only_test_certified",
 ];
 
 // Rows written even when zero, so an absent row never stands for "not counted".
@@ -405,12 +464,12 @@ fn expected_shapes(scope: &str) -> Vec<&'static str> {
         "Python" => vec![
             "python_assert",
             "python_invalid_outer_arguments",
-            "constant_dead_code_certified",
+            "literal_only_test_certified",
         ],
         // `len` and `cap` of an array operand are builtins, not flat sinks: zero by construction.
         "Go" => vec![
             "go_blank_read_or_selector",
-            "constant_dead_code_certified",
+            "literal_only_test_certified",
             "go_len_cap_unevaluated_operand",
         ],
         _ => Vec::new(),
@@ -986,14 +1045,18 @@ mod census_tests {
             "  if (true) { eval(x); } else { eval(x); }",
             "  0 ? eval(x) : 1;",
             "  0 ? 1 : eval(x);",
+            "  if (0x0) eval(x);",
+            "  for (;false;) { eval(x); }",
+            "  if (a) { eval(x); }",
+            "  undefin\\u0065d?.m(eval(x));",
             "}",
             "",
         ]
         .join("\n");
         let report = census(&[("a.js", &src)]);
-        // Four possibly nullish bases; the live bases are not counted.
+        // Five possibly nullish bases (the escaped `undefined` included); live bases are not counted.
         assert!(
-            line(&report, "JavaScript\tjs_possibly_nullish_chain_any").ends_with("\t4"),
+            line(&report, "JavaScript\tjs_possibly_nullish_chain_any").ends_with("\t5"),
             "{report}"
         );
         assert!(
@@ -1001,14 +1064,14 @@ mod census_tests {
                 &report,
                 "JavaScript\tjs_certified_under_possibly_nullish_chain"
             )
-            .ends_with("\t4"),
+            .ends_with("\t5"),
             "{report}"
         );
-        // Dead: `if (false)`, `false && ..`, `true || ..`, `1 ?? ..`, `while (false)`, the else of
-        // `if (true)`, `0 ? <eval> : ..`. Live: `true && ..`, `a ?? ..`, `null ?? ..`,
-        // `while (true)`, the then of `if (true)`, `0 ? .. : <eval>`.
+        // Listed (no truthiness is decided): every hit in any part of a construct whose test or
+        // left operand is literal-only, `while (true)` and `true && ..` included; not `a ?? ..`
+        // or `if (a)`.
         assert!(
-            line(&report, "JavaScript\tconstant_dead_code_certified").ends_with("\t7"),
+            line(&report, "JavaScript\tliteral_only_test_certified").ends_with("\t14"),
             "{report}"
         );
         // TS: the non-null continuation stays in the skipped chain; wrappers are peeled.
@@ -1028,14 +1091,14 @@ mod census_tests {
         // one-element tuple `(*a,)` is valid; `if TYPE_CHECKING` and `x if 1 else y` are guards.
         let report = census(&[(
             "a.py",
-            "def g(x, a):\n    outer(eval(x), ((*a)))\n    outer(eval(x), (  # c\n        *a))\n    outer(eval(x), (*a,))\n    if TYPE_CHECKING:\n        eval(x)\n    while True:\n        eval(x)\n",
+            "def g(x, a):\n    outer(eval(x), ((*a)))\n    outer(eval(x), (  # c\n        *a))\n    outer(eval(x), (*a,))\n    if TYPE_CHECKING:\n        eval(x)\n    while True:\n        eval(x)\n    if flag:\n        pass\n    elif True:\n        pass\n    else:\n        eval(x)\n    if flag:\n        eval(x)\n",
         )]);
         assert!(
             line(&report, "Python\tpython_invalid_outer_arguments").ends_with("\t2"),
             "{report}"
         );
         assert!(
-            line(&report, "Python\tconstant_dead_code_certified").ends_with("\t1"),
+            line(&report, "Python\tliteral_only_test_certified").ends_with("\t3"),
             "{report}"
         );
         // Zero rows are written for Go's builtins scope and every expected shape.
@@ -1045,7 +1108,16 @@ mod census_tests {
             "{report}"
         );
         assert!(
-            line(&report, "Go\tconstant_dead_code_certified").ends_with("\t0"),
+            line(&report, "Go\tliteral_only_test_certified").ends_with("\t0"),
+            "{report}"
+        );
+        // Go: the initializer of `if init; true` is listed; a live test is not.
+        let report = census(&[(
+            "a.go",
+            "package p\nfunc g(x int) {\n\tif err := exec.Command(x); true {\n\t}\n\tif x > 0 {\n\t\texec.Command(x)\n\t}\n}\n",
+        )]);
+        assert!(
+            line(&report, "Go\tliteral_only_test_certified").ends_with("\t1"),
             "{report}"
         );
     }
