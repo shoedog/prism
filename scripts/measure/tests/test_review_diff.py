@@ -464,6 +464,25 @@ with open({str(self.log)!r}, encoding="utf-8") as prior:
         self.assert_counts(totals)
         self.assertEqual([row["ordinal"] for row in self.read_rows("sample.jsonl")], [1])
 
+    def test_gitlink_in_pinned_tree_refuses_the_ordinal_before_any_arm(self):
+        """Known limit (PROVISIONAL, S1 rule open-n2-6): a submodule entry anywhere in the pinned tree
+        refuses the ordinal. The shipped population has 20 such ordinals (apache/superset)."""
+        self.make_population(ordinals=(1, 2))
+        row_two = next(row for row in self.registration["diffs"] if row["ordinal"] == 2)
+        # Control: ordinal 1 keeps the plain tree; ordinal 2 names a commit whose tree holds a gitlink.
+        self.git("update-index", "--add", "--cacheinfo", f"160000,{self.commit},vendor/dep")
+        self.git("commit", "-q", "--amend", "--no-edit")
+        row_two["commit"] = self.git("rev-parse", "HEAD")
+        row_two["tree"] = self.git("rev-parse", "HEAD^{tree}")
+        self.write_population()
+        self.review(expected=1)
+        rows = {row["ordinal"]: row for row in self.read_rows()}
+        self.assertEqual((rows[1]["status"], rows[2]["status"]), ("ok", "refused"))
+        self.assertIn("gitlink", rows[2]["reason"])
+        self.assert_null_metrics(rows[2])
+        self.assertEqual({a["root"] is not None for a in self.attempts()}, {True})
+        self.assertEqual(len(self.attempts()), 2)  # both arms of ordinal 1 only
+
     def test_sample_is_deterministic_for_a_seed(self):
         self.make_population(ordinals=(5, 3, 1, 4, 2))
         for run, seed in enumerate((11, 11, None)):

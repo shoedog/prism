@@ -821,3 +821,5 @@ residuals. Census emits no deltas. Call differential emits all site deltas,
 while defaults grade gained exact head claims. Aggregate-only retains
 tuples, denominators and receipt. Edge changes count the selected arm's
 residual occurrences as `selected`, independently of the arm's full size.
+
+Known limit (PROVISIONAL, known-s4-1, issue #992): `review-diff` refuses an ordinal whose pinned tree holds a gitlink, so the 20 apache/superset ordinals of `602-m2-120.json` are REFUSED and the command exits 1 on the full population (100 of 120 measured).
