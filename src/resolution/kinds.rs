@@ -80,6 +80,9 @@ pub enum ResolutionKind {
     /// FunctionId in the inbound caller's lexical context before minting the
     /// synthetic call site.
     ParameterCallback,
+    /// E2: a JS-family call through a parameter, credited with the callables its admitted
+    /// Exact Source callers supplied at the holder's stable slot. Always NameOnly.
+    ArgumentFollow,
     /// Disabled staged contextual source owner; never persisted.
     ContextualOwner,
 }
@@ -114,6 +117,7 @@ impl ResolutionKind {
             ResolutionKind::ReturnTyped => "return_typed",
             ResolutionKind::FieldTyped => "field_typed",
             ResolutionKind::ParameterCallback => "parameter_callback",
+            ResolutionKind::ArgumentFollow => "argument_follow",
             ResolutionKind::ContextualOwner => "contextual_owner",
         }
     }
@@ -152,6 +156,8 @@ pub enum DropReason {
     JsxIntrinsic,
     /// S1b: a JS/TS unqualified call whose lexical binding holds no single proven callable.
     LocalBindingUnproven,
+    /// E2: the argument-follow target set of a parameter call exceeds the cap of eight.
+    ArgFanout,
 }
 
 #[cfg(test)]

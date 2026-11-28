@@ -137,3 +137,38 @@ fn pattern_parameter_cache_keeps_empty_and_alias_skipped_slots() {
         );
     }
 }
+
+#[test]
+fn anonymous_fixed_slots_open_only_for_argument_follow() {
+    use crate::resolution::ResolutionKind::{ArgumentFollow, FreeSingle, ParameterCallback};
+    let anonymous = FunctionId {
+        file: "m.js".into(),
+        name: crate::anon_owner::anonymous_owner_name(5, 7),
+        start_line: 5,
+        end_line: 5,
+    };
+    let named = FunctionId {
+        name: "handler".into(),
+        ..anonymous.clone()
+    };
+    let slots = [Some(1u8), Some(2)];
+    let bare = |slot: &u8| *slot == 9;
+    // A route other than argument_follow keeps the earlier reach: nothing for a fixed slot.
+    for kind in [FreeSingle, ParameterCallback] {
+        assert!(admit_anonymous_slots(&anonymous, kind, &slots, bare).is_empty());
+    }
+    assert_eq!(
+        admit_anonymous_slots(&anonymous, ArgumentFollow, &slots, bare),
+        slots
+    );
+    // A bare first slot (slice C) and every named callee keep their slots on any route.
+    let bare_slots = [Some(9u8)];
+    assert_eq!(
+        admit_anonymous_slots(&anonymous, FreeSingle, &bare_slots, bare),
+        bare_slots
+    );
+    assert_eq!(
+        admit_anonymous_slots(&named, FreeSingle, &slots, bare),
+        slots
+    );
+}

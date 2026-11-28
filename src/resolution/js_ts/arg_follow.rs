@@ -1,5 +1,5 @@
-//! JS-family argument evidence for source parameter calls. The resolver never
-//! reads this index in E1. Each slot is computed from an empty stack and admits
+//! JS-family argument evidence for source parameter calls. The E2 route in
+//! `route.rs` reads this index. Each slot is computed from an empty stack and admits
 //! at most two holder-caller lookups per path.
 //!
 //! The baseline fanout veto precedes filtering. The accept-list orders the
@@ -23,6 +23,7 @@ mod arg_follow_tests;
 mod baseline;
 pub(crate) mod diagnostic;
 mod identity;
+mod route;
 mod stability;
 mod value;
 
@@ -92,7 +93,6 @@ pub(crate) struct Stats {
 }
 
 impl ArgIndex {
-    #[allow(dead_code)] // Read by the E2 route.
     pub(crate) fn lookup(&self, site: &CallSite) -> Option<&ArgOutcome> {
         self.sites
             .get(&SiteKey::from(site))

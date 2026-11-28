@@ -371,7 +371,7 @@ fn supplied_i0_refuses_mapped_slot_even_through_alias() {
 }
 
 #[test]
-fn facts_leave_resolution_and_call_edges_unchanged() {
+fn the_route_changes_only_the_sites_the_index_credits() {
     use crate::cpg::CodePropertyGraph;
     use petgraph::graph::NodeIndex;
 
@@ -388,18 +388,25 @@ fn facts_leave_resolution_and_call_edges_unchanged() {
     assert_eq!(empty.js_anonymous.arg_follow.stats.eligible_sites, 0);
     assert_eq!(populated.calls, empty.calls);
     assert_eq!(populated.callers, empty.callers);
+    let mut credited = 0;
     for site in populated.calls.values().flatten() {
-        assert_eq!(
+        let changed = matches!(
+            populated.js_anonymous.arg_follow.lookup(site),
+            Some(ArgOutcome::Targets(_) | ArgOutcome::Fanout(_))
+        );
+        let (with, without) = (
             populated.resolve_call_site_full(site),
             empty.resolve_call_site_full(site),
-            "{site:?}"
         );
-        assert_eq!(
-            populated.resolve_call_site(site),
-            empty.resolve_call_site(site),
-            "{site:?}"
-        );
+        if changed {
+            credited += 1;
+            assert_ne!(with, without, "{site:?}");
+            assert!(without.resolved.is_empty(), "{site:?}");
+        } else {
+            assert_eq!(with, without, "{site:?}");
+        }
     }
+    assert!(credited > 0, "the control credits at least one site");
 
     // Give every possible endpoint an index so a leaked parameter edge
     // cannot disappear because the edge collector cannot represent its target.
@@ -419,10 +426,10 @@ fn facts_leave_resolution_and_call_edges_unchanged() {
         .collect();
     let without = CodePropertyGraph::collect_step5_edges(&empty, &indices);
     assert!(!without.is_empty(), "ordinary Call and Return edge control");
-    assert_eq!(
-        CodePropertyGraph::collect_step5_edges(&populated, &indices),
-        without
-    );
+    // The ordinary Call and Return edges survive; the route only adds to them.
+    let with = CodePropertyGraph::collect_step5_edges(&populated, &indices);
+    assert!(without.iter().all(|edge| with.contains(edge)));
+    assert!(with.len() > without.len(), "credited calls add edges");
 }
 
 #[test]

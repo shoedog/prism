@@ -98,7 +98,11 @@ pub(super) fn admitted(
                     && (resolved.kind != ResolutionKind::ImportQualified
                         || graph.js_ts_namespace_export_matches(site, resolved.target))
             }
-            ResolutionConfidence::NameOnly => site.caller.file != resolved.target.file,
+            // An argument-follow target is proved by its callers, so a same-file one binds too.
+            ResolutionConfidence::NameOnly => {
+                site.caller.file != resolved.target.file
+                    || resolved.kind == ResolutionKind::ArgumentFollow
+            }
         }
 }
 

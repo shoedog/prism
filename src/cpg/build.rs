@@ -1742,11 +1742,15 @@ impl CodePropertyGraph {
                 let cell = param_cache.entry(callee_id.clone()).or_insert_with(|| {
                     shared_params.get(callee_id, callee_parsed, var_index, graph)
                 });
-                let param_nodes = cell
-                    .get()
-                    .expect("initialized parameter facts")
-                    .as_deref()
-                    .unwrap_or_default();
+                let param_nodes = callee_params::admit_anonymous_slots(
+                    callee_id,
+                    resolved.kind,
+                    cell.get()
+                        .expect("initialized parameter facts")
+                        .as_deref()
+                        .unwrap_or_default(),
+                    |target| target.bare.is_some(),
+                );
                 let inputs = object_literal_args::SiteInputs {
                     #[cfg(test)]
                     call_bytes: (site.start_byte, site.end_byte),

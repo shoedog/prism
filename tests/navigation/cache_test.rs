@@ -617,6 +617,8 @@ fn call_edge_sidecar_round_trip_preserves_disabled_level3_absence() {
             })
             .collect();
         safe_files.sort_unstable();
-        assert!(safe_files.is_empty());
+        // Level-3 stays disabled: the only callbacks are NameOnly `argument_follow` (lane 9 E2).
+        assert_eq!(safe_files, ["b.js", "c.js"]);
+        assert!(!format!("{:?}", warm_edges.items).contains("parameter_callback"));
     });
 }

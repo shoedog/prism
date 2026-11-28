@@ -126,7 +126,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 // v82: Rust `#[path]` modules resolve where rustc loads them; let-binding and std-macro scoping (#765, CPG v163).
 // v83: Rust binary roots resolve their package's in-repo dependencies (#749, CPG v165).
 // v84: Paired with CPG v197's cached JS-family argument-follow facts.
-const NAV_CALL_EDGE_CACHE_VERSION: u32 = 84;
+// v85: Paired with CPG v198: argument_follow resolutions of JS-family parameter calls.
+const NAV_CALL_EDGE_CACHE_VERSION: u32 = 85;
 const CACHE_BIN: &str = "resolved-call-edge-index.bin";
 const CACHE_META: &str = "resolved-call-edge-index-meta.json";
 pub const LOAD_DIRTY_OVERRIDE: &str = "PRISM_NAV_EDGE_CACHE_LOAD_DIRTY";
@@ -764,7 +765,7 @@ mod tests {
 
     #[test]
     fn sidecar_version_is_pinned_for_receiver_authority() {
-        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 84);
+        assert_eq!(NAV_CALL_EDGE_CACHE_VERSION, 85);
     }
 
     #[test]

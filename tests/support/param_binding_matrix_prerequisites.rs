@@ -257,7 +257,7 @@ fn s5_5_foreign_name_only_rest() {
 #[test]
 fn reviewed_companions() {
     let mut rows = read_rows(r#"{"id":"x3-8-receiver-off-line-start","group":"D","langs":["js","ts","tsx"],"class":"review-companion","truth":"correct","files":{"m.js":"function visit(item) {\n  use(item);\n}\nfunction main() {\n  const items = [1];\n  const direct = 2;\n  items.forEach(visit); visit(direct);\n}\nexport {};\n"},"expect":[{"kind":"edge","from":"m.js:main:items@7:3","to":"m.js:visit:item@1:16","label":"nameonly/builtin_callback","loss":"missing_receiver_use: the receiver is not at line start and its only Use is a zero-width line-start anchor."},{"kind":"no_edge_into","to":"m.js:visit:item@1:16","label":"nameonly/builtin_callback"},{"kind":"edge","from":"m.js:main:direct@7:31","to":"m.js:visit:item@1:16","label":"exact","multiplicity":1},{"kind":"reaches","from":"m.js:main:direct@6:9","to":"m.js:visit:item@2:7"}]}
-{"id":"s2-15-admitted","group":"E","langs":["js","ts","tsx"],"class":"review-companion","truth":"correct","files":{"m.js":"class Thenable {\n  then(ok, fail) {\n    const reason = read();\n    fail(reason);\n  }\n}\nfunction fulfilled(value) {\n  use(value);\n}\nfunction rejected(reason) {\n  use(reason);\n}\nfunction main() {\n  const thenable = new Thenable();\n  thenable.then(fulfilled, rejected);\n}\n"},"expect":[{"kind":"resolves","call":{"site":"m.js@15:3","callee":"then","owner":"main"},"targets":["m.js:then@2"],"confidence":"exact","route":"constructor_local"},{"kind":"resolves","call":{"site":"m.js@4:5","callee":"fail","owner":"then"},"targets":["m.js:rejected@10"],"confidence":"nameonly","route":"argument_follow"},{"kind":"edge","from":"m.js:then:reason@4:10","to":"m.js:rejected:reason@10:19","label":"nameonly/call_nameonly","multiplicity":1},{"kind":"no_edge","from":"m.js:then:reason@4:10","to":"m.js:rejected:reason@10:19","label":"exact"}]}"#).unwrap();
+{"id":"s2-15-admitted","group":"E","langs":["js","ts","tsx"],"class":"review-companion","truth":"correct","files":{"m.js":"class Thenable {\n  then(ok, fail) {\n    const reason = read();\n    fail(reason);\n  }\n}\nfunction fulfilled(value) {\n  use(value);\n}\nfunction rejected(reason) {\n  use(reason);\n}\nfunction main() {\n  const thenable = new Thenable();\n  thenable.then(fulfilled, rejected);\n}\n"},"expect":[{"kind":"resolves","call":{"site":"m.js@15:3","callee":"then","owner":"main"},"targets":["m.js:then@2"],"confidence":"exact","route":"constructor_local"},{"kind":"resolves","call":{"site":"m.js@4:5","callee":"fail","owner":"then"},"targets":["m.js:rejected@10"],"confidence":"nameonly","route":"argument_follow","loss":"Accept-list v2 withholds a receiver-form ground (first refusal `source`): `thenable.then(fulfilled, rejected)` is a member call, and an Exact `this.m` ignores an in-repo override, so the callback is not credited. #972 adds a dispatch witness."},{"kind":"edge","from":"m.js:then:reason@4:10","to":"m.js:rejected:reason@10:19","label":"nameonly/call_nameonly","multiplicity":1,"loss":"Accept-list v2 withholds a receiver-form ground (first refusal `source`): `thenable.then(fulfilled, rejected)` is a member call, and an Exact `this.m` ignores an in-repo override, so the callback is not credited. #972 adds a dispatch witness."},{"kind":"no_edge","from":"m.js:then:reason@4:10","to":"m.js:rejected:reason@10:19","label":"exact"}]}"#).unwrap();
     rows.extend(descriptor_companions());
     let mut failures = Vec::new();
     for row in &rows {
@@ -320,18 +320,19 @@ fn descriptor_companions() -> Vec<Row> {
             "function run({{ cb = fallback }}, input) {{\n  cb(input);\n}}\n\
              function fallback(item) {{\n  use(item);\n}}\n\
              function main(input) {{\n  run({{ {fields} }}, input);\n}}\n\
-             function handler(item) {{ use(item); }}\n"
+             function handler(item) {{ use(item); }}\nexport {{}};\n"
         );
         let call = json!({"site":"m.js@2:3","callee":"cb","owner":"run"});
         let mut checks = Vec::new();
         if let Some((name, line, col)) = target {
+            let loss = "Accept-list v2 withholds this site (first refusal `undefined_lookup`): an accessor or a replaced descriptor in the source object literal is not a property read the accept-list proves. The assertion states the runtime truth.";
             checks.push(json!({
                 "kind":"resolves", "call":call, "targets":[format!("m.js:{name}@{line}")],
-                "confidence":"nameonly", "route":"argument_follow"
+                "confidence":"nameonly", "route":"argument_follow", "loss":loss
             }));
             checks.push(json!({
                 "kind":"edge", "from":"m.js:run:input@2:6", "to":format!("m.js:{name}:item@{line}:{col}"),
-                "label":"nameonly/call_nameonly","multiplicity":1
+                "label":"nameonly/call_nameonly","multiplicity":1, "loss":loss
             }));
         } else {
             checks.push(json!({"kind":"drop","call":call,"reason":"LocalBindingUnproven"}));

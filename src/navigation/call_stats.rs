@@ -232,6 +232,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
     let mut wrapped_non_jsx = 0usize;
     let mut jsx_intrinsic = 0usize;
     let mut local_binding_unproven = 0usize;
+    let mut arg_fanout = 0usize;
     // S1b-3b (SPEC §5): bindings kept at base behavior, by reason, observable regardless of
     // the resolution outcome a site lands on (a `MayCall`/`Position` site can still drop for
     // an unrelated reason downstream, for example `UnknownName`).
@@ -296,6 +297,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
                 Some(DropReason::WrappedExportNonJsx) => wrapped_non_jsx += 1,
                 Some(DropReason::JsxIntrinsic) => jsx_intrinsic += 1,
                 Some(DropReason::LocalBindingUnproven) => local_binding_unproven += 1,
+                Some(DropReason::ArgFanout) => arg_fanout += 1,
                 Some(
                     DropReason::ConcreteReceiverPromotedDeferred
                     | DropReason::ConcreteReceiverNoSelector,
@@ -561,6 +563,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         // S1b: intrinsic JSX tags and unproven JS/TS lexical bindings.
         "dropped_jsx_intrinsic": jsx_intrinsic,
         "dropped_local_binding_unproven": local_binding_unproven,
+        "dropped_arg_fanout": arg_fanout,
         "local_binding_unchecked_position": local_binding_unchecked_position,
         "local_binding_may_call": local_binding_may_call,
         "js_alias_follow": js_alias_follow,
