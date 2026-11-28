@@ -209,6 +209,7 @@ impl CodePropertyGraph {
         policy: Option<&TaintCrossingPolicy<'_>>,
         site_view: Option<&dyn SameLineOrderView>,
     ) -> Trace {
+        super::trace_proofs::check_walk_proofs();
         let has_cfg = self.has_cfg_edges();
         let ledger = CrossingLedger::start("primary", site_view, false);
         let mut trace = Trace::default();
@@ -353,6 +354,7 @@ impl CodePropertyGraph {
         return_flow_mode: ReturnFlowMode,
         walk: &'static str,
     ) -> Trace {
+        super::trace_proofs::check_walk_proofs();
         let has_cfg = self.has_cfg_edges();
         let ledger = CrossingLedger::start(walk, order, true);
         let mut trace = Trace::default();
@@ -517,6 +519,11 @@ impl CodePropertyGraph {
                         descent_gate_cache,
                         policy,
                     );
+                    // Measurement knob, OFF by default; never enters the gate cache.
+                    let gate = gate.and_then(|()| {
+                        self.walk_proof_refusal(relation, node, next, root)
+                            .map_or(Ok(()), Err)
+                    });
                     let site = site_for(node, next, relation);
                     let location = site.as_ref().map(|site| site.location);
                     if let Err(reason) = gate {
@@ -565,6 +572,13 @@ impl CodePropertyGraph {
                     && !self.cfg_valid(src_file, src_line, cfg_scope, has_cfg, next)
                 {
                     record_cut(trace, LossReason::CfgPruned);
+                    continue;
+                } else if let Some(reason) = (rel == Relation::ReturnInput)
+                    .then(|| self.walk_proof_refusal(rel, node, next, root))
+                    .flatten()
+                {
+                    // Only a ReturnInput edge that survived the CFG cut above can be refused.
+                    record_cut(trace, reason);
                     continue;
                 }
 

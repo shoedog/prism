@@ -13,7 +13,13 @@ use std::collections::BTreeSet;
 pub(super) fn needs_capture(id: &str) -> bool {
     matches!(
         id,
-        "d2-literal-selected-read" | "d2-guard-bare-arrow-literal" | "d2-guard-rest-literal"
+        "d2-literal-selected-read"
+            | "d2-jsx-selected-read"
+            | "d2-forward-jsx"
+            | "d2-guard-bare-arrow-literal"
+            | "d2-guard-rest-literal"
+            | "d2-guard-bare-arrow-jsx"
+            | "d2-guard-rest-jsx"
     )
 }
 
@@ -156,7 +162,7 @@ fn guard_seed(
     let app_def = variable(&before.graph, "App", "x", VarAccess::Def, None)?;
     let app_use = variable(&before.graph, "App", "x", VarAccess::Use, None)?;
     if !has_flow(&before.graph, app_def, app_use) {
-        return Err("App formal fails to reach the literal source before the guard".into());
+        return Err("App formal fails to reach the props source before the guard".into());
     }
     Ok(target)
 }
@@ -192,7 +198,13 @@ pub(super) fn guard_counterfactual(
     graph: &CodePropertyGraph,
     observed: Option<&Assembly>,
 ) -> Option<Result<(), String>> {
-    if !matches!(id, "d2-guard-bare-arrow-literal" | "d2-guard-rest-literal") {
+    if !matches!(
+        id,
+        "d2-guard-bare-arrow-literal"
+            | "d2-guard-rest-literal"
+            | "d2-guard-bare-arrow-jsx"
+            | "d2-guard-rest-jsx"
+    ) {
         return None;
     }
     Some((|| {
@@ -207,8 +219,22 @@ pub(super) fn guard_counterfactual(
             .map(|edge| edge.id())
             .collect();
         let [hop] = hops.as_slice() else {
-            return Err(format!("expected one pending literal hop, found {hops:?}"));
+            return Err(format!("expected one pending props hop, found {hops:?}"));
         };
+        let capture = observed.unwrap();
+        let pending: Vec<_> = capture
+            .pending
+            .iter()
+            .filter(|((from, to, edge), _, _)| {
+                *from == app_use && *to == dest && edge.is_data_flow()
+            })
+            .collect();
+        let [((_, _, edge), false, false)] = pending.as_slice() else {
+            return Err(format!("unexpected pending props hop flags: {pending:?}"));
+        };
+        if edge != &before.graph[*hop] {
+            return Err("pending hop and pre-guard graph disagree".into());
+        }
         let foreign = case == "foreign";
         if reaches_seed(&before.graph, app_def, &before.seeds, None) != foreign
             || reaches_seed(&before.graph, app_def, &before.seeds, Some(*hop))
@@ -253,10 +279,24 @@ pub(super) fn check(
             &format!("other.{ext}"),
             Some(ResolutionKind::FreeSingle),
         ),
-        "d2-literal-selected-read" => selected_shadow(case, observed.unwrap()),
-        "d2-guard-bare-arrow-literal" | "d2-guard-rest-literal" => {
-            guard_seed(graph, ext, case, observed.unwrap())
+        "d2-literal-selected-read" | "d2-jsx-selected-read" => {
+            selected_shadow(case, observed.unwrap())
         }
+        "d2-forward-jsx" => (|| {
+            let pre = &observed.unwrap().pre_binding.as_ref().unwrap().graph;
+            let from = variable(pre, "Page", "x", VarAccess::Def, None)?;
+            let source = variable(pre, "Page", "x", VarAccess::Use, None)?;
+            variable(pre, "Header", "a", VarAccess::Def, None)?;
+            variable(pre, "Header", "a", VarAccess::Use, None)?;
+            if !has_flow(pre, from, source) {
+                return Err("Page formal does not reach the JSX source".into());
+            }
+            resolved(graph, "Page", "Header", &format!("m.{ext}"), None)
+        })(),
+        "d2-guard-bare-arrow-literal"
+        | "d2-guard-rest-literal"
+        | "d2-guard-bare-arrow-jsx"
+        | "d2-guard-rest-jsx" => guard_seed(graph, ext, case, observed.unwrap()),
         _ => return None,
     };
     Some(result)

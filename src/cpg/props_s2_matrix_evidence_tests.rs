@@ -151,8 +151,9 @@ fn guard_seed_evidence_rejects_wrong_flags_and_a_broken_literal_source() {
     for edge in edges {
         input.graph.remove_edge(edge);
     }
-    assert!(
-        err(check(GUARD, "foreign", "js", &g, Some(&asm))).contains("fails to reach the literal")
+    assert_eq!(
+        err(check(GUARD, "foreign", "js", &g, Some(&asm))),
+        "App formal fails to reach the props source before the guard"
     );
 }
 
@@ -181,7 +182,7 @@ fn guard_counterfactual_rejects_missing_hops_wrong_seed_paths_and_changed_counts
             input.graph.remove_edge(edge);
         }
     });
-    assert!(no_hop.contains("pending literal hop"), "{no_hop}");
+    assert_eq!(no_hop, "expected one pending props hop, found []");
     // Without the seeds the formal cannot reach one, which a foreign case must.
     let no_seed = fails(&|asm, _| asm.guard_input.as_mut().unwrap().seeds.clear());
     assert!(no_seed.contains("single-hop counterfactual"), "{no_seed}");

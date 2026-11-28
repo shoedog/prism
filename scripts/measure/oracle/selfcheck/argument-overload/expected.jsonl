@@ -1,0 +1,2 @@
+{"key":{"from":{"base":"arg","end_byte":126,"fields":[],"file":"cases.ts","line":3,"start_byte":123},"to":{"base":"a","end_byte":24,"fields":[],"file":"cases.ts","line":2,"start_byte":23}},"property":"implementation-slot","relation":"argument_binding","verdict":"WRONG"}
+{"key":{"from":{"base":"arg","end_byte":126,"fields":[],"file":"cases.ts","line":3,"start_byte":123},"to":{"base":"a","end_byte":54,"fields":[],"file":"cases.ts","line":2,"start_byte":53}},"property":"implementation-slot","relation":"argument_binding","verdict":"CORRECT"}

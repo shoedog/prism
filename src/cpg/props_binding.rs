@@ -1,9 +1,13 @@
 #[cfg(test)]
 use super::super::props_s2_test_support::{LiteralAttempt, LiteralWitness, Observer};
 use super::{
-    object_literal_args::{is_transparent_wrapper, SiteInputs},
+    jsx_props::{
+        jsx_plain_read, FormalReadContext, PlainRead, ReachedRead, ReadRefusal, SourceRefusal,
+    },
+    object_literal_args::is_transparent_wrapper,
     *,
 };
+use crate::ast::js_ts::component_route::SiteKind;
 use tree_sitter::Node;
 
 #[derive(Default)]
@@ -364,17 +368,19 @@ fn only_member_writes_on_line(
 pub(super) struct SiteReadRefusals {
     zero_width: bool,
     unproved: BTreeSet<NodeIndex>,
+    bracket: BTreeSet<NodeIndex>,
 }
 
 impl SiteReadRefusals {
     pub(super) fn record(self, counters: &mut Counters) {
         counters.add("refused_zero_width_read", usize::from(self.zero_width));
         counters.add("refused_unproved_read", self.unproved.len());
+        counters.add("refused_bracket_read", self.bracket.len());
     }
 }
 
 /// The expression a transparent wrapper wraps, one level.
-fn first_expression(wrapper: Node<'_>) -> Option<Node<'_>> {
+pub(super) fn first_expression(wrapper: Node<'_>) -> Option<Node<'_>> {
     let mut cursor = wrapper.walk();
     let mut inner = wrapper
         .named_children(&mut cursor)
@@ -405,7 +411,7 @@ struct Read {
 struct FormalInfo {
     reads: Vec<Read>,
     base: String,
-    /// Present exactly when the reads are base `p` Uses (a mixed formal).
+    /// JSX always checks writes. The literal lane checks them for mixed formals.
     facts: Option<crate::ast::FormalMemberFacts>,
 }
 
@@ -434,6 +440,7 @@ fn formal_info(
     callee_parsed: &ParsedFile,
     def: NodeIndex,
     refusals: &mut SiteReadRefusals,
+    kind: SiteKind,
 ) -> Option<FormalInfo> {
     let CpgNode::Variable {
         path: formal,
@@ -474,22 +481,50 @@ fn formal_info(
             continue;
         }
         mixed |= path.fields.is_empty();
-        if path.fields.is_empty() && start_byte == end_byte {
-            refusals.zero_width |=
-                !only_member_writes_on_line(callee_parsed, owner, &formal.base, *line);
-            continue;
-        }
-        let Some(bare) = selected_read(callee_parsed, owner, path, *start_byte, *end_byte) else {
-            refusals.unproved.insert(edge.target());
-            continue;
-        };
-        let chain = if path.fields.is_empty() {
-            match read_chain(callee_parsed, *start_byte, *end_byte) {
-                Some(chain) => chain,
-                None => continue,
+        let (bare, chain, label) = if kind == SiteKind::Jsx {
+            let endpoint = ReachedRead {
+                node: edge.target(),
+                path,
+                line: *line,
+                range: *start_byte..*end_byte,
+                label,
+            };
+            match jsx_plain_read(callee_parsed, &endpoint, FormalReadContext { owner }) {
+                Ok(PlainRead::Whole) => (true, Vec::new(), endpoint.label),
+                Ok(PlainRead::Dot(chain)) => (false, chain, endpoint.label),
+                Err(reason) => {
+                    match reason {
+                        ReadRefusal::ZeroWidth => refusals.zero_width = true,
+                        ReadRefusal::Unproved => {
+                            refusals.unproved.insert(endpoint.node);
+                        }
+                        ReadRefusal::Bracket => {
+                            refusals.bracket.insert(endpoint.node);
+                        }
+                    }
+                    continue;
+                }
             }
         } else {
-            path.fields.clone()
+            if path.fields.is_empty() && start_byte == end_byte {
+                refusals.zero_width |=
+                    !only_member_writes_on_line(callee_parsed, owner, &formal.base, *line);
+                continue;
+            }
+            let Some(bare) = selected_read(callee_parsed, owner, path, *start_byte, *end_byte)
+            else {
+                refusals.unproved.insert(edge.target());
+                continue;
+            };
+            let chain = if path.fields.is_empty() {
+                match read_chain(callee_parsed, *start_byte, *end_byte) {
+                    Some(chain) => chain,
+                    None => continue,
+                }
+            } else {
+                path.fields.clone()
+            };
+            (bare, chain, label)
         };
         reads
             .entry(edge.target())
@@ -509,7 +544,7 @@ fn formal_info(
     if all_facts.has_computed_write() {
         return None;
     }
-    let facts = mixed.then_some(all_facts);
+    let facts = (mixed || kind == SiteKind::Jsx).then_some(all_facts);
     Some(FormalInfo {
         reads: reads.into_values().collect(),
         base: formal.base.clone(),
@@ -522,45 +557,68 @@ pub(super) enum PropsTarget<'a, T> {
     Pattern(&'a callee_params::PatternPosition<T>),
 }
 
+pub(super) struct BindingSite<'a> {
+    pub(super) kind: SiteKind,
+    #[cfg(test)]
+    pub(super) bytes: (usize, usize),
+    pub(super) graph: &'a DiGraph<CpgNode, CpgEdge>,
+    pub(super) callee: &'a ParsedFile,
+    pub(super) cross_file_free_single_exact: bool,
+}
+
 pub(super) fn bind<T>(
     output: &mut Step5bOutput,
     refusals: &mut SiteReadRefusals,
-    site: &SiteInputs<'_>,
+    site: &BindingSite<'_>,
     target: PropsTarget<'_, T>,
     leaves: &[Leaf],
     rich: &[Leaf],
-    source: impl Fn(&Leaf) -> Vec<NodeIndex>,
+    mut source: impl FnMut(&Leaf) -> Result<Vec<NodeIndex>, SourceRefusal>,
     resolve: impl Fn(&T) -> Option<NodeIndex>,
 ) {
     match target {
         PropsTarget::Plain { def, bare_literal } => {
-            let info = formal_info(site.graph, site.callee_parsed, def, refusals);
+            let info = formal_info(site.graph, site.callee, def, refusals, site.kind);
             let mut matched = BTreeSet::new();
             for leaf in leaves {
-                if let Some(info) = info.as_ref().filter(|info| !info.leaf_overwritten(leaf)) {
-                    let sources = source(leaf);
-                    for read in &info.reads {
-                        if !comparable(&leaf.keys, &read.chain) || info.read_suppressed(read) {
-                            continue;
-                        }
-                        matched.insert((&leaf.keys, leaf.span.start, leaf.span.end));
-                        let class = if read.bare {
-                            "edges_to_bare_use"
-                        } else {
-                            "edges_to_use"
-                        };
-                        for &from in &sources {
-                            emit(
-                                output,
-                                site,
-                                leaf,
-                                (from, read.node),
-                                class,
-                                false,
-                                FlowConfidence::Exact.worst(read.label),
-                                bare_literal,
-                            );
-                        }
+                let Some(info) = info.as_ref().filter(|info| !info.leaf_overwritten(leaf)) else {
+                    continue;
+                };
+                let mut reads = info
+                    .reads
+                    .iter()
+                    .filter(|read| {
+                        comparable(&leaf.keys, &read.chain) && !info.read_suppressed(read)
+                    })
+                    .peekable();
+                if reads.peek().is_none() {
+                    continue;
+                }
+                matched.insert((&leaf.keys, leaf.span.start, leaf.span.end));
+                let sources = match source(leaf) {
+                    Ok(sources) => sources,
+                    Err(reason) => {
+                        output.props.add(reason.counter(), 1);
+                        continue;
+                    }
+                };
+                for read in reads {
+                    let class = if read.bare {
+                        "edges_to_bare_use"
+                    } else {
+                        "edges_to_use"
+                    };
+                    for &from in &sources {
+                        emit(
+                            output,
+                            site,
+                            leaf,
+                            (from, read.node),
+                            class,
+                            false,
+                            FlowConfidence::Exact.worst(read.label),
+                            bare_literal,
+                        );
                     }
                 }
             }
@@ -578,10 +636,10 @@ pub(super) fn bind<T>(
 
 fn bind_pattern<T>(
     output: &mut Step5bOutput,
-    site: &SiteInputs<'_>,
+    site: &BindingSite<'_>,
     position: &callee_params::PatternPosition<T>,
     leaves: &[Leaf],
-    source: impl Fn(&Leaf) -> Vec<NodeIndex>,
+    mut source: impl FnMut(&Leaf) -> Result<Vec<NodeIndex>, SourceRefusal>,
     resolve: impl Fn(&T) -> Option<NodeIndex>,
 ) {
     let syntax = &position.syntax;
@@ -606,17 +664,28 @@ fn bind_pattern<T>(
         .collect();
     output.props.add("refused_key_unknown", unknown);
     for leaf in leaves {
-        let sources = source(leaf);
-        let mut matched = false;
-        for &(path, rest, to) in &destinations {
-            let matches = rest.map_or_else(
-                || comparable(&leaf.keys, path),
-                |level| level.accepts_rest_leaf(&leaf.keys),
-            );
-            if !matches {
+        let mut matching = destinations
+            .iter()
+            .copied()
+            .filter(|&(path, rest, _)| {
+                rest.map_or_else(
+                    || comparable(&leaf.keys, path),
+                    |level| level.accepts_rest_leaf(&leaf.keys),
+                )
+            })
+            .peekable();
+        if matching.peek().is_none() {
+            output.props.add("refused_key_not_read", 1);
+            continue;
+        }
+        let sources = match source(leaf) {
+            Ok(sources) => sources,
+            Err(reason) => {
+                output.props.add(reason.counter(), 1);
                 continue;
             }
-            matched = true;
+        };
+        for (path, rest, to) in matching {
             let class = if rest.is_some() {
                 "edges_to_rest"
             } else {
@@ -636,15 +705,12 @@ fn bind_pattern<T>(
                 );
             }
         }
-        output
-            .props
-            .add("refused_key_not_read", usize::from(!matched));
     }
 }
 
 fn emit(
     output: &mut Step5bOutput,
-    site: &SiteInputs<'_>,
+    site: &BindingSite<'_>,
     _leaf: &Leaf,
     pair: (NodeIndex, NodeIndex),
     class: &'static str,
@@ -654,7 +720,8 @@ fn emit(
 ) {
     #[cfg(test)]
     output.props.witnesses.push(LiteralWitness {
-        site: site.call_bytes,
+        kind: site.kind,
+        site: site.bytes,
         operand: _leaf.span.clone(),
         keys: _leaf.keys.clone(),
         endpoints: pair,

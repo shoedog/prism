@@ -15,6 +15,7 @@ type Graph = DiGraph<CpgNode, CpgEdge>;
 pub(super) struct PreBinding {
     pub graph: Graph,
     pub lookup: BTreeMap<LegacyVarKey, NodeIndex>,
+    pub live_lookup: VarIndex,
     pub exact: ExactVarIndex,
 }
 
@@ -36,6 +37,7 @@ pub(super) struct LiteralAttempt {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(super) struct LiteralWitness {
+    pub kind: crate::ast::js_ts::component_route::SiteKind,
     pub site: (usize, usize),
     pub operand: std::ops::Range<usize>,
     pub keys: Vec<String>,
@@ -98,6 +100,7 @@ impl Observer {
         capture.pre_binding = Some(PreBinding {
             graph: graph.clone(),
             lookup: lookup.to_map(graph),
+            live_lookup: lookup.clone(),
             exact: exact.clone(),
         });
     }
@@ -145,6 +148,8 @@ const PROP_COUNTER_KEYS: &[&str] = &[
     "refused_member_qualifier",
     "refused_member_not_export",
     "refused_target_identity",
+    "refused_jsx_caller_owner",
+    "refused_jsx_site_syntax",
     "refused_unknown_wrapper",
     "refused_pre_initializer_unproved",
     "refused_bare_formal_skipped",
