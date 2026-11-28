@@ -5,19 +5,23 @@ use tree_sitter::Node;
 /// A syntactic string key can model a write even when its value can't be
 /// decoded. Computed keys are outside the write index.
 pub(super) fn write_key(parsed: &ParsedFile, node: Node<'_>) -> Option<Option<String>> {
+    is_literal_string(parsed, node).then(|| literal(parsed, node))
+}
+
+pub(in crate::targets::inventory::py_receiver) fn is_literal_string(
+    parsed: &ParsedFile,
+    node: Node<'_>,
+) -> bool {
     let node = ungroup(node);
-    fn plain_text(parsed: &ParsedFile, node: Node<'_>) -> bool {
-        match node.kind() {
-            "concatenated_string" => children(node).all(|part| plain_text(parsed, part)),
-            "string" => children(node).next().is_some_and(|start| {
-                let delimiter = parsed.node_text(&start);
-                let prefix = delimiter.trim_end_matches(['\'', '"']);
-                matches!(prefix.to_ascii_lowercase().as_str(), "" | "r" | "u")
-            }),
-            _ => false,
-        }
+    match node.kind() {
+        "concatenated_string" => children(node).all(|part| is_literal_string(parsed, part)),
+        "string" => children(node).next().is_some_and(|start| {
+            let delimiter = parsed.node_text(&start);
+            let prefix = delimiter.trim_end_matches(['\'', '"']);
+            matches!(prefix.to_ascii_lowercase().as_str(), "" | "r" | "u")
+        }),
+        _ => false,
     }
-    plain_text(parsed, node).then(|| literal(parsed, node))
 }
 
 pub(in crate::targets::inventory::py_receiver) fn literal(

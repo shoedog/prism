@@ -320,3 +320,114 @@ fn stdlib_construction_and_starred_annotation_sidecar_spans_match_source() {
         }
     }
 }
+
+#[test]
+fn field_sidecar_has_occurrence_spans_only_when_enabled() {
+    const CHILD: &str = "PRISM_FIELD_SIDECAR_TEST_CHILD";
+    let field_rows = std::env::var("PRISM_INVENTORY_FIELD_ROWS");
+    if std::env::var_os(CHILD).is_none() {
+        let test_name = module_path!().split_once("::").unwrap().1;
+        let results: Vec<_> = [None, Some("1")]
+            .into_iter()
+            .map(|gate| {
+                let mut child = std::process::Command::new(std::env::current_exe().unwrap());
+                child
+                    .args([
+                        "--exact",
+                        &format!(
+                            "{test_name}::field_sidecar_has_occurrence_spans_only_when_enabled"
+                        ),
+                    ])
+                    .env(CHILD, "1");
+                if let Some(gate) = gate {
+                    child.env("PRISM_INVENTORY_FIELD_ROWS", gate);
+                } else {
+                    child.env_remove("PRISM_INVENTORY_FIELD_ROWS");
+                }
+                let result = child.output().unwrap();
+                (gate, result)
+            })
+            .collect();
+        for (gate, result) in results {
+            let stdout = String::from_utf8_lossy(&result.stdout);
+            assert!(
+                result.status.success() && stdout.contains("1 passed"),
+                "{gate:?}: {stdout}{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+        }
+        return;
+    }
+
+    let repo = tempdir().unwrap();
+    let key = "app/main.py";
+    let source = fixture_in("stdlib/pfield", "pf01");
+    let parsed =
+        prism::ast::ParsedFile::parse(key, &source, prism::languages::Language::Python).unwrap();
+    let out = super::collect(
+        &std::collections::BTreeMap::from([(key.into(), parsed)]),
+        repo.path(),
+        &super::InventoryOptions::default(),
+    );
+    let doc = inventory_document(&TargetsMeta::default(), &out);
+    let traces = serde_json::to_value(evidence::sidecar(&doc.targets, &out.occurrences)).unwrap();
+    let traces = traces.as_array().unwrap();
+    let enabled = field_rows.as_deref() == Ok("1");
+    assert_eq!(traces.len(), if enabled { 3 } else { 1 }, "{traces:#?}");
+    assert_eq!(
+        traces
+            .iter()
+            .filter(|t| t["proof"]["route"] == "r2")
+            .count(),
+        1
+    );
+    if !enabled {
+        assert!(traces[0]["proof"].get("field").is_none());
+        return;
+    }
+    let expected = [
+        ("self.path.exists()", [8, 15, 8, 24]),
+        ("self.path.write_text(text)", [11, 15, 11, 24]),
+    ];
+    for (text, receiver_range) in expected {
+        let trace = traces
+            .iter()
+            .find(|t| t["proof"]["call"]["text"] == text)
+            .unwrap();
+        let proof = &trace["proof"];
+        assert_eq!(proof["route"], "r3");
+        assert!(proof.get("receiver").is_none());
+        assert!(proof.get("declaration").is_none());
+        assert_eq!(proof["field"]["class"], "pathlib.Path");
+        let source_lines: Vec<_> = source.split_inclusive('\n').collect();
+        for (key, range) in [
+            ("owner", [2, 0, 11, 41]),
+            ("initializer", [3, 4, 5, 24]),
+            ("parameter", [3, 23, 3, 33]),
+            ("annotation", [3, 29, 3, 33]),
+            ("store", [5, 8, 5, 24]),
+            ("receiver_use", receiver_range),
+        ] {
+            let span = &proof["field"][key];
+            assert_eq!(span["range"], json!(range), "{key}");
+            let [start_line, start_col, end_line, end_col] = range;
+            let start = source_lines[..start_line - 1]
+                .iter()
+                .map(|s| s.len())
+                .sum::<usize>()
+                + start_col;
+            let end = source_lines[..end_line - 1]
+                .iter()
+                .map(|s| s.len())
+                .sum::<usize>()
+                + end_col;
+            assert_eq!(span["text"], &source[start..end], "{key}");
+        }
+        let target = doc
+            .targets
+            .iter()
+            .find(|row| trace["id"] == row.id)
+            .unwrap();
+        assert!(serde_json::to_value(target).unwrap().get("proof").is_none());
+    }
+}

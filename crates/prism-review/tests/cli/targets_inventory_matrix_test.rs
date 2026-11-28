@@ -9,6 +9,7 @@ const ROWS: &str = include_str!(concat!(
     "/../../tests/targets_inventory/rows.jsonl"
 ));
 const GROUPS: &[&str] = &["http.root", "http.receiver", "stdlib"];
+const FIELD_FIXTURES: &str = "stdlib/pfield/";
 const ENABLED_GROUPS: &[&str] = &["http.root", "http.receiver", "stdlib"];
 const FAMILIES: &[&str] = &["http", "filesystem", "parse", "config"];
 const REASONS: &[&str] = &[
@@ -229,6 +230,7 @@ fn matrix_rows_match() {
     }
     let output = crate::prism_bin()
         .unwrap()
+        .env_remove("PRISM_INVENTORY_FIELD_ROWS")
         .args([
             "targets",
             "--repo",
@@ -254,11 +256,16 @@ fn matrix_rows_match() {
     let mut used = vec![false; targets.len()];
     let enabled: Vec<_> = rows
         .iter()
-        .filter(|row| ENABLED_GROUPS.contains(&row.group.as_str()))
+        .filter(|row| {
+            ENABLED_GROUPS.contains(&row.group.as_str()) && !row.fixture.starts_with(FIELD_FIXTURES)
+        })
         .collect();
     assert_eq!(enabled.len(), 784);
     assert_eq!(
-        identity_warning_lines(warnings),
+        identity_warning_lines(warnings)
+            .into_iter()
+            .filter(|line| !line.starts_with(&format!("{IDENTITY_WARNING}{FIELD_FIXTURES}")))
+            .collect::<Vec<_>>(),
         expected_identity_warnings(&enabled),
         "matrix warning totals and causes"
     );
@@ -506,4 +513,40 @@ fn matrix_rejects_incorrect_warning_counts() {
     }
     let duplicated = [control[0].clone(), control[0].clone()];
     assert_ne!(identity_warning_lines(&duplicated), expected);
+}
+
+pub(super) fn check_field_matrix(prefix: &str) {
+    let rows = read_rows();
+    let files: std::collections::BTreeSet<_> = rows
+        .iter()
+        .filter(|row| row.fixture.starts_with(FIELD_FIXTURES) && row.id.starts_with(prefix))
+        .map(|row| row.fixture.as_str())
+        .collect();
+    assert!(!files.is_empty(), "{prefix}");
+    let selected: Vec<_> = rows
+        .iter()
+        .filter(|row| files.contains(row.fixture.as_str()))
+        .collect();
+    let files = files.into_iter().collect::<Vec<_>>().join(",");
+    let doc = super::targets_inventory_field_rows_test::scan(Some("1"), &files, &[]);
+    let targets = doc["targets"].as_array().unwrap();
+    let mut used = vec![false; targets.len()];
+    assert_eq!(
+        identity_warning_lines(doc["warnings"].as_array().unwrap()),
+        expected_identity_warnings(&selected),
+        "{prefix}: per-file warning totals"
+    );
+    for row in &selected {
+        check_row(row, targets, &doc["warnings"], &mut used);
+    }
+    let expected_targets = selected
+        .iter()
+        .filter(|row| !matches!(row.expectation(), Want::None(_)))
+        .count();
+    assert_eq!(targets.len(), expected_targets, "{prefix}: {targets:#?}");
+    for target in targets {
+        if target["confidence"] == "nameonly" {
+            assert_eq!(target["tier"], "candidate", "{prefix}: {target:#}");
+        }
+    }
 }

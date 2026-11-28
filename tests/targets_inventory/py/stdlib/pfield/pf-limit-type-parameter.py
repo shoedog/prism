@@ -1,0 +1,10 @@
+from pathlib import Path
+class C(dict):
+    def __init__(self, path: Path):
+        super().__init__()
+        self.path = path
+        type(path).other = 1
+        path.exists()
+
+    def is_new(self):
+        return self.path.exists()
