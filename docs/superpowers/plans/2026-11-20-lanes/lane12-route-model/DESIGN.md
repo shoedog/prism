@@ -325,6 +325,22 @@ is the class operand of `as_view`. A refused factory receiver or mount child lea
 registration fields available. A refused class operand leaves the written callback and explicit
 methods available and withholds view-derived metadata.
 
+**Closed admission rule (PR #928 round 3).** A proof that reads a captured name is kept only
+when no competing binding of that name can redirect it, wherever the binding sits and whenever
+it runs. The accept-list is: (1) the capture census (every site above, file-wide, any position)
+finds exactly one binding of the importing name, and the source-side predicates pass; (2) a
+census refusal of the written callee is authoritative for receiver, mount-child and class-view
+proof, so an eligible factory found by ordinary lookup never replaces a refused callee (it only
+decides whether the source fact and the refusal diagnostic are retained); (3) the escape
+search for a read considers every write of the read's own lexical binding in the file, by
+`global`, `nonlocal`, guard or loop, with no textual-order filter, and an unrelated first
+import never ends the search; (4) a direct write to `methods` or `required_methods` of a
+traced view class withholds the class-view default. Everything else (runtime mutation,
+write order, calls that rebind through machinery) is outside the model. Admission lives in
+`competing_import_paths` (candidate search, shared by the escape gate and the candidate
+traversal through `has_competing_import`) and `refused_factory` (capture refusal). The price of
+the rule on the five listing corpora is zero rows (section 10).
+
 Require one unconditional eligible terminal binding. The capturing module must also contain
 exactly one binding of the captured import's local name, the import that creates it.
 Find the candidate import by lexical lookup of the written capture's root name, whether bare or
@@ -865,6 +881,21 @@ The frozen populations, binding floors and ledger dispositions above govern each
   The no-effect predicate found zero duplicates among 168 candidates using direct defs and simple assignments
   for the write count. Its body filter also admits docstrings. Runtime module-attribute rebinding and indirect
   view-map writes are unmeasured.
+- **Closed capture and escape rule: price (PR #928 round 3).** The rule of section 5.3 was priced
+  with a shadow evaluator (`~/prism-evidence/routes/price-b928/`) over the five listing corpora before
+  it was implemented. Constructs withheld, of 107 receiver-proved / 48 handler-identity / 30 strict /
+  42 default-method rows: a `global` or `nonlocal` naming the captured name 0 / 0 / 0 / 0; a module-scope
+  competing binding of the name 0 / 0 / 0 / 0; the same checks along the import chain 0 / 0 / 0 / 0;
+  an assignment to `.methods` outside a class body in a module the proof reads 0 / 0 / 0 / 0. Combined: 0
+  withheld in every group. Two looser readings were rejected: counting a binding of the same
+  spelling in any scope (a function-local variable is another binding) and counting any call that
+  receives the name withhold 10 / 1 / 3 / 0 rows (CTFd `users` and `teams`, a local variable in
+  a view function); a hand-read of all of them found a local shadow, not a redirect, so those
+  withholdings were lost recall. Incidence of the four round-3 shapes over 4,840 modules
+  of the corpora and the framework and application populations: `global` redirect through an import
+  in the function body 0; direct factory call through a competing import and local definition 0;
+  `Name.methods = ...` 4 (Flask and FastAPI library internals: `view.methods = cls.methods`, `cls.methods = methods`, `route.methods = ...`; none on a proof the listing makes);
+  `global` declaration of a module-bound name 19 (none naming a listed receiver or handler).
 - **Capture-side limits (§5.3).** The matrix pins `PROVEN` for three
   of these cases (fk-93 to fk-95); fk-92 is pinned `WITHHELD` (`multi_write`) because the
   comprehension's own target is a second binding the census counts file-wide, and the scanner

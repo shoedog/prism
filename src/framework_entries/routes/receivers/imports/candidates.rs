@@ -36,7 +36,9 @@ impl<'a> PythonBindings<'a> {
         if let (true, Some(reason)) = (recognized, reason) {
             self.record_import_refusal(file, call, reason);
         }
-        recognized
+        // A census refusal is authoritative: an eligible factory found by
+        // ordinary lookup never replaces the refused written callee.
+        recognized || reason.is_some()
     }
 
     pub(in crate::framework_entries::routes::receivers) fn possible_imported_values(
@@ -85,8 +87,22 @@ impl<'a> PythonBindings<'a> {
         values
     }
 
+    /// True when a write of the read's own lexical binding, anywhere in the
+    /// file, can supply another import target (the shared admission test).
+    pub(in crate::framework_entries::routes::receivers) fn has_competing_import(
+        &self,
+        file: &'a ParsedFile,
+        expression: Node<'a>,
+        context: &SetupContext<'a>,
+    ) -> bool {
+        !self
+            .competing_import_paths(file, expression, context)
+            .is_empty()
+    }
+
     // The proof counts same-spelling sites throughout the file. For an escape,
-    // only writes to the lexical binding actually read can contribute targets.
+    // only writes to the lexical binding actually read can contribute targets,
+    // wherever they sit or run.
     fn competing_import_paths(
         &self,
         file: &'a ParsedFile,
@@ -111,13 +127,6 @@ impl<'a> PythonBindings<'a> {
         let Some(binding) = writes.read_binding_scope(local, &name, root.start_byte()) else {
             return Vec::new();
         };
-        let before = if local == binding {
-            root.start_byte()
-        } else if binding.kind() == "module" {
-            self.module_before(file, context)
-        } else {
-            binding.end_byte()
-        };
         let mut paths = Vec::new();
         let mut seen = BTreeSet::new();
         for &write in writes.capture_sites(&name) {
@@ -130,10 +139,9 @@ impl<'a> PythonBindings<'a> {
             } else {
                 Some(scope)
             };
-            if owner != Some(binding)
-                || (scope == binding && write.end_byte() > before)
-                || (scope == local && write.end_byte() > root.start_byte())
-            {
+            // Position is not a filter: a loop back edge or a second call runs a
+            // later write before the read (closed rule, DESIGN 5.3).
+            if owner != Some(binding) {
                 continue;
             }
             let aliases = assignment_alias(write)

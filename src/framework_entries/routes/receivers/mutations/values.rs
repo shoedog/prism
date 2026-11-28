@@ -24,14 +24,14 @@ pub(super) fn mutation_candidates<'a>(
     expression: Node<'a>,
     keep_refused_routers: bool,
 ) -> Vec<PythonValue<'a>> {
-    if !may_resolve(bindings, file, expression, 24) {
+    let context = SetupContext::default();
+    if !may_resolve(bindings, file, expression, 24, &context) {
         return vec![];
     }
     let mut values = Vec::new();
     let root = ungroup(expression);
     let mut pending = vec![root];
     let mut seen = BTreeSet::new();
-    let context = SetupContext::default();
     while let Some(node) = pending.pop() {
         if !seen.insert(node.id()) {
             continue;
@@ -41,7 +41,8 @@ pub(super) fn mutation_candidates<'a>(
         } else {
             bindings.value_at(&file.path, node, &context)
         };
-        let refused = matches!(exact, PythonValue::Unknown(Reason::ImportedUnproven));
+        let refused = matches!(exact, PythonValue::Unknown(Reason::ImportedUnproven))
+            || bindings.has_competing_import(file, node, &context);
         values.push(exact);
         if refused {
             values.extend(bindings.possible_imported_values(
@@ -79,12 +80,14 @@ fn may_resolve<'a>(
     file: &'a ParsedFile,
     node: Node<'a>,
     depth: usize,
+    context: &SetupContext<'a>,
 ) -> bool {
     if depth == 0 {
         return true;
     }
     let node = ungroup(node);
     match node.kind() {
+        "identifier" if bindings.has_competing_import(file, node, context) => true,
         "identifier" => reaching_sources(bindings, file, node, |write| match write.kind() {
             "import_statement" | "import_from_statement" => relevant_import(
                 bindings,
@@ -93,17 +96,18 @@ fn may_resolve<'a>(
                 &effective_name(file, python_scope(node), file.node_text(&node)),
             ),
             "function_definition" | "class_definition" => true,
-            _ => alias_rhs(write).is_some_and(|rhs| may_resolve(bindings, file, rhs, depth - 1)),
+            _ => alias_rhs(write)
+                .is_some_and(|rhs| may_resolve(bindings, file, rhs, depth - 1, context)),
         }),
         "attribute" => attribute(node).is_some_and(|(root, field)| {
             matches!(
                 normalized(file.node_text(&field)).as_ref(),
                 "url_map" | "converters" | "view_functions"
-            ) || may_resolve(bindings, file, root, depth - 1)
+            ) || may_resolve(bindings, file, root, depth - 1, context)
         }),
         "call" => node
             .child_by_field_name("function")
-            .is_some_and(|root| may_resolve(bindings, file, root, depth - 1)),
+            .is_some_and(|root| may_resolve(bindings, file, root, depth - 1, context)),
         _ => false,
     }
 }

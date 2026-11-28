@@ -150,6 +150,18 @@ fn native_view<'a>(
     else {
         return None;
     };
+    // A direct write to the class's view metadata (`Handler.methods = ..`)
+    // can change the registered methods whatever its position: withhold.
+    if bindings
+        .view_metadata_writes(class, file, call, context)
+        .iter()
+        .any(|write| matches!(write.field, "methods" | "required_methods"))
+    {
+        let text = file.node_text(&call);
+        metadata.methods = Some(MethodSet::unknown(text));
+        metadata.required = Some(MethodSet::unknown(text));
+        return literal_string(file, arguments(call).get(file, "name", 0).written()?);
+    }
     let body = children(class.node.child_by_field_name("body")?);
     let mut handlers = Vec::new();
     for node in body {
