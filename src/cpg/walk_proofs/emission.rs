@@ -26,6 +26,7 @@ pub(super) fn prove_emission(
         return Verdict::Unknown("alias_scope_unknown");
     };
     let mut competes = false;
+    let mut unknown = None;
     for outer in ancestors(call.parent()).take_while(|outer| Some(*outer) != function) {
         if !is_call(outer) {
             continue;
@@ -33,7 +34,10 @@ pub(super) fn prove_emission(
         match spelling_checked(parsed, outer, function) {
             Ok(spelled) if spelled == label => {}
             Ok(_) => continue,
-            Err(family) => return Verdict::Unknown(family),
+            Err(family) => {
+                unknown = Some(family);
+                continue;
+            }
         }
         let arguments = args(outer);
         competes |= arguments.iter().any(|arg| covers(*arg, cert.actual))
@@ -42,7 +46,11 @@ pub(super) fn prove_emission(
                 .is_some_and(|arg| covers(*arg, cert.actual));
     }
     if competes {
+        // A proven competitor stands even when another outer call's alias scope is unknown.
         return Verdict::Refused(LossReason::AmbiguousSite, "nested_same_spelling");
+    }
+    if let Some(family) = unknown {
+        return Verdict::Unknown(family);
     }
     let peers = !same_line_peers(parsed, call, function).is_empty();
     Verdict::Proved(SiteCert {

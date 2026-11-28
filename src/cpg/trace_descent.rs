@@ -7,7 +7,8 @@ use crate::resolution::ResolutionConfidence;
 use petgraph::graph::NodeIndex;
 
 use super::trace::Relation;
-use super::{CodePropertyGraph, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
+use super::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
+use petgraph::visit::EdgeRef;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -184,15 +185,55 @@ impl CodePropertyGraph {
         else {
             return false;
         };
-        (file, function, function_start_line) == (to_file, to_function, to_start)
-            && self.call_graph.callers.get(function).is_some_and(|sites| {
-                sites.iter().any(|site| {
-                    site.caller.file == *file
-                        && site.caller.name == *function
-                        && site.caller.start_line == *function_start_line
-                        && site.start_byte <= *start_byte
-                        && *end_byte <= site.end_byte
-                })
+        if (file, function, function_start_line) != (to_file, to_function, to_start) {
+            return false;
+        }
+        // The call-graph route: a site of the owner's own name holds the actual. A renamed
+        // call (`const again = f; again({a: x})`) is filed under another name, so the graph's
+        // own pairing is read as well.
+        self.call_graph.callers.get(function).is_some_and(|sites| {
+            sites.iter().any(|site| {
+                site.caller.file == *file
+                    && site.caller.name == *function
+                    && site.caller.start_line == *function_start_line
+                    && site.start_byte <= *start_byte
+                    && *end_byte <= site.end_byte
+            })
+        }) || self.reads_own_formal(to)
+    }
+
+    /// Is `use_node` a read of a formal of its own owner: a DataFlow edge from a Def of the
+    /// same path base on the owner's first line (where the producer puts every formal's Def)?
+    /// A Use-to-Use edge into such a read is the producer's actual-to-formal binding of a call
+    /// to the owner itself, whatever the site is spelled as. An ordinary local Def to Use edge
+    /// never reaches here (the source of the hop is a Use).
+    fn reads_own_formal(&self, use_node: NodeIndex) -> bool {
+        let CpgNode::Variable {
+            path,
+            file,
+            function,
+            function_start_line,
+            ..
+        } = &self.graph[use_node]
+        else {
+            return false;
+        };
+        self.graph
+            .edges_directed(use_node, petgraph::Direction::Incoming)
+            .filter(|edge| matches!(edge.weight(), CpgEdge::DataFlow(_)))
+            .any(|edge| {
+                matches!(&self.graph[edge.source()], CpgNode::Variable {
+                    access: VarAccess::Def,
+                    path: def_path,
+                    file: def_file,
+                    function: def_function,
+                    function_start_line: def_start,
+                    line,
+                    ..
+                } if def_path.base == path.base
+                    && (def_file, def_function, def_start)
+                        == (file, function, function_start_line)
+                    && line == function_start_line)
             })
     }
 

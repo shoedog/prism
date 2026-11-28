@@ -249,7 +249,17 @@ fn a_graph_only_recursive_use_binding_is_a_self_param_exit_with_a_real_rule() {
         for real in ["i", "ii", "i,ii+unknown"] {
             let on = case.walk(Some(real), x);
             assert!(!on.frontier_by_root[&x].contains(&sink), "{real}");
-            assert!(self_param(&on, x, sink), "{real}: {:?}", on.boundary);
+            if sink_line > leaf_line {
+                assert!(self_param(&on, x, sink), "{real}: {:?}", on.boundary);
+            } else {
+                // b04b (fold 2, W1): the CFG-impossible earlier read is NotReached with no
+                // sink boundary; main's CfgPruned cut stands (see the fold-2 tests).
+                assert!(
+                    on.boundary.iter().all(|hop| hop.to != sink),
+                    "{real}: {:?}",
+                    on.boundary
+                );
+            }
         }
     }
 }

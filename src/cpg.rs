@@ -163,6 +163,8 @@ mod walk_proofs_fold1_cfg_tests;
 #[cfg(test)]
 mod walk_proofs_fold1_tests;
 #[cfg(test)]
+mod walk_proofs_fold2_tests;
+#[cfg(test)]
 mod walk_proofs_golden_tests;
 #[cfg(test)]
 mod walk_proofs_tests;

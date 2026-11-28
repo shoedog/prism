@@ -512,8 +512,12 @@ impl CodePropertyGraph {
                 let mut relation = rel;
                 let mut next_depth = depth;
                 let kind = self.crossing_kind(node, next, rel, label).or_else(|| {
-                    // OFF (no real rule): None, so the walk is main's.
-                    self.walk_proof_self_binding(node, next, rel)
+                    // OFF (no real rule): None, so the walk is main's. At depth zero only a hop
+                    // that survives the CFG test is fenced: a CFG-impossible one keeps main's
+                    // `CfgPruned` cut, so no sink boundary lands on an earlier read.
+                    self.walk_proof_self_binding(node, next, rel).filter(|_| {
+                        depth > 0 || self.cfg_valid(src_file, src_line, cfg_scope, has_cfg, next)
+                    })
                 });
                 if let Some(kind) = kind {
                     if rel != Relation::ReturnFlow {

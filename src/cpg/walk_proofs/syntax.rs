@@ -566,6 +566,14 @@ pub(in crate::cpg) fn write_visible_at(statement: Node<'_>, site: Node<'_>) -> O
     Some(covers(scope, span(site)))
 }
 
+/// Is the write statement a declaration (rather than a plain assignment)?
+fn is_declaration(statement: Node<'_>) -> bool {
+    matches!(
+        statement.kind(),
+        "variable_declarator" | "short_var_declaration" | "var_spec" | "const_spec"
+    )
+}
+
 /// What a call is spelled as: member calls by selector and receiver; a bare callee by its text,
 /// or by the identifier a single unconditional alias write visible at the call binds it to.
 /// `Err` when the visibility of a candidate alias cannot be established.
@@ -581,12 +589,18 @@ pub(in crate::cpg) fn spelling_checked<'a>(
     };
     if let Some(function) = function {
         let mut assignments = Vec::new();
+        let mut out_of_scope = false;
         for write in writes(parsed, function, parsed.node_text(&node), node.start_byte()) {
             match write_visible_at(write.2, call) {
                 Some(true) => assignments.push(write),
-                Some(false) => {}
+                Some(false) => out_of_scope = true,
                 None => return Err("alias_scope_unknown"),
             }
+        }
+        // A plain assignment may write the declaration that was just found out of scope
+        // (`{ let h; h = g; } h(..)`); which declaration it writes is not resolved here.
+        if out_of_scope && assignments.iter().any(|write| !is_declaration(write.2)) {
+            return Err("alias_scope_unknown");
         }
         if let [(_, value, statement)] = assignments.as_slice() {
             let value = value.map(|value| match children(value).as_slice() {
