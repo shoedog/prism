@@ -462,44 +462,60 @@ literal nullish base (`(void 0)?.eval(x)`, `null?.m(eval(x))`, `null?.[eval(x)]`
 are pinned as `known_limit` rows (r10-limit-js-*) beside controls (r10-control-js-*). The narrowed
 cell stays as an extra refusal and is named as such: an optional call or member chain directly on a
 literal `null` or `undefined` base is withheld (`op_special_form`), although the contract would not
-require it. **Census, a superset (price.rs, five-language run `price-5l-fold14`, 2026-11-28).**
-The census does not chase shapes and decides no truthiness. (1) Optional chains: it counts every
-chain whose base, after peeling comments, parentheses of any depth and the TS wrappers (`as`,
-`satisfies`, non-null `!`, `<T>` assertions), is not certainly live. A base is live only when it
-is an identifier other than `undefined` (and without an escaped spelling: an identifier whose
-source text holds a backslash counts as possibly nullish), a member, subscript, call or `new`
-expression, `this`, `super`, or `await`/`yield` of those; literals of any kind, `void` of anything,
-`undefined` (shadowed or not: a shadowed one only enlarges the count), templates, regexes, sequence
-and conditional expressions and unknown kinds count as possibly nullish. Counted: such chains in
-the corpora at all (`js_possibly_nullish_chain_any`) and certified hits inside one, in callee,
-argument or computed-key position (`js_certified_under_possibly_nullish_chain`, the skipped
-region being the whole chain through `!`, not the evaluated base). (2) Literal-only tests
-(`literal_only_test_certified`): a test is literal-only when, after the same peeling, it holds no
-name-bearing node (every named leaf is a literal spelling of any base, `undefined` or Python
-`TYPE_CHECKING`; every interior node is an operator or literal container; no identifier, call,
-member access, await). For every `if`/`elif` chain, ternary, `while`, `for` condition (Go
-`for cond {}` and `for ;cond; {}` included), Go `if init; cond` and `&&`, `||`, `??`, `and`, `or`
-whose test or left operand is literal-only, EVERY certified hit in ANY part of that construct is
-listed (every branch, later `elif`/`else` siblings, the Go initializer, loop bodies, the right
-operand); rows are then read by hand as live or unreachable. Results are written as explicit rows,
-zero included.
+require it. **Census (price.rs, five-language run `price-5l-fold14`, 2026-11-28): a node-kind filter, not a
+proof.** The census counts what two detectors select and claims nothing beyond them. It decides no
+truthiness. (1) Optional chains: it counts every chain whose base, after peeling comments,
+parentheses of any depth and the TS wrappers (`as`, `satisfies`, non-null `!`, `<T>` assertions),
+is not TREATED AS LIVE. A base is treated as live when it is an identifier other than `undefined`
+(and without an escaped spelling: an identifier whose source text holds a backslash counts as
+possibly nullish), a member, subscript, call or `new` expression, `this`, `super`, or
+`await`/`yield` of those; literals of any kind, `void` of anything, `undefined` (shadowed or not),
+templates, regexes, sequence and conditional expressions and unknown kinds count as possibly
+nullish. Counted: such chains in the corpora (`js_possibly_nullish_chain_any`) and certified hits
+inside one, in callee, argument or computed-key position (`js_certified_under_possibly_nullish_chain`,
+the whole chain through `!`, not the evaluated base). (2) Literal-only tests
+(`literal_only_test_certified`): a test is literal-only when, after the same peeling, every named
+leaf is a literal spelling (number, string, regex, template, boolean, null/none/nil), `undefined` or
+Python `TYPE_CHECKING`, and every interior node is an operator, wrapper, string, template, regex or
+interpolation node. For every `if`/`elif` chain, ternary, `while`, `for` condition (Go `for cond {}`
+and `for ;cond; {}` included), Go `if init; cond` and `&&`, `||`, `??`, `and`, `or` whose whole test
+or whole left operand is literal-only, every certified hit in any part of that construct is listed,
+and the rows are read by hand as live or unreachable. Results are written as explicit rows, zero
+included.
 
-**Census result (certified of all flat hits: Go 22,575 of 22,591, JavaScript 2,116 of 2,172,
-TypeScript 708 of 735, TSX 21 of 36, Python 2,899 of 3,039; shares unchanged).** Possibly
-nullish chains in the corpora: 5 (TypeScript source 4, excalidraw 1), all live bases: two
-conditionals with an `undefined` arm, one assignment expression, two `||` expressions; none
-statically nullish. Certified hits under a nullish-base chain: **0**. Literal-only tests: **21
-listed** (Go 3, Python 15, TypeScript 3, JavaScript 0, TSX 0; listing `price/shapes-list.log`),
-**1 unreachable**: 20 sit in constant-true loops (`while (true)`, `while True`, `for ..; true; ..`),
-which are live, and the one unreachable row is a Go test file (cockroach
-`pkg/server/debug/goroutineui/dump_test.go:58`, `if false { _ = os.WriteFile("test.html", ..) }`,
-a debugging toggle). What the contract means for that row: the certificate states that the
-occurrence is the callee of a call, which is true there; it never claimed that the call
-executes, so a reader who needs reachability must not read it from the certificate. The row is
-recorded as a **counted instance outside the contract, not as zero**. Other statically dead
-forms that carry no literal test (a named constant guard such as Go `const debug = false`, code
-after `return`/`throw`/`panic`, `typing.TYPE_CHECKING` through an alias) are not counted and are
-equally outside the contract.
+**Exclusions of the census, by name.** (1) A test that is a container literal (Python list, tuple,
+dict or set display; JS or TS array or object literal), empty or not, is not literal-only and is not
+counted. (2) An optional chain whose base is itself an optional chain with a possibly nullish base
+is judged by the outer link's own base kind, so a statically skipped outer call such as
+`(null?.m)?.(f(x))` is not counted; bases such as `[][0]`, `globalThis.undefined` or an IIFE
+result are treated as live. (3) The whole-construct listing follows `elif` chains in Python only; a
+JS, TS or Go `else if` is a nested `if`, so an earlier branch is not enrolled by a later literal
+test (immaterial: a later test cannot make an earlier branch unreachable). (4) A literal that is
+only part of the test (`if (false && x)`, `false && a && hit`, `if true || x {} else {..}`), an
+escaped spelling of `undefined` as a test, `do .. while (0)`, comprehension `if` clauses, `switch`
+and `match` on literals, named-constant guards (Go `const debug = false`), code after
+`return`/`throw`/`panic` and `typing.TYPE_CHECKING` (or an alias of it) are not selected. The
+exclusions (1) to (3) are pinned by the census regression
+`known_exclusions_of_the_census_are_not_counted` (expected: not counted, each beside a control that
+is counted), so a later widening flips them deliberately. The shapes are constructed inputs: this
+census did not observe any of them in the corpora, and the incidence of the excluded shapes on the
+corpora is not measured. The certificate's contract (the syntactic role of an occurrence, not
+execution) does not depend on these counts.
+
+**Census result, limited to that filter** (certified of all flat hits: Go 22,575 of 22,591,
+JavaScript 2,116 of 2,172, TypeScript 708 of 735, TSX 21 of 36, Python 2,899 of 3,039; shares
+unchanged). Possibly nullish chains in the corpora: 5 (TypeScript source 4, excalidraw 1), all live
+bases: two conditionals with an `undefined` arm, one assignment expression, two `||` expressions;
+none statically nullish. **0 certified hits under a possibly-nullish base as the filter defines
+it. 21 literal-test rows listed** (Go 3, Python 15, TypeScript 3, JavaScript 0, TSX 0; listing
+`price/shapes-list.log`), **1 unreachable**: 20 sit in constant-true loops (`while (true)`,
+`while True`, `for ..; true; ..`), which are live, and the one unreachable row is a Go test file
+(cockroach `pkg/server/debug/goroutineui/dump_test.go:58`,
+`if false { _ = os.WriteFile("test.html", ..) }`, a debugging toggle). What the contract means for
+that row: the certificate states that the occurrence is the callee of a call, which is true there;
+it never claimed that the call executes, so a reader who needs reachability must not read it from
+the certificate. The row is recorded as a **counted instance outside the contract, not as zero**.
+This is not a count of the whole dead-code class.
 Go `len`/`cap` of an array or pointer-to-array operand without calls or receives (the compiler
 folds the operand; `len(p.a)` is the pinned row) is the same class, pinned as an adapter-obligation
 `known_limit` beside a slice control. They are builtins, not flat sinks, so their incidence among

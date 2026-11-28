@@ -1121,4 +1121,107 @@ mod census_tests {
             "{report}"
         );
     }
+
+    // Known exclusions of the census detector (a node-kind filter): constructed inputs, each
+    // expected NOT to be counted, beside a control that is. A later widening of the detector
+    // flips the exclusion on purpose and must update both the expectation and the DESIGN text.
+    #[test]
+    fn known_exclusions_of_the_census_are_not_counted() {
+        let listed = |name: &str, src: &str, scope: &str, shape: &str| -> usize {
+            let report = census(&[(name, src)]);
+            line(&report, &format!("{scope}\t{shape}"))
+                .rsplit('\t')
+                .next()
+                .unwrap()
+                .parse()
+                .unwrap()
+        };
+        let tests = "literal_only_test_certified";
+        let chain = "js_certified_under_possibly_nullish_chain";
+        // (1) A container literal as the test is not literal-only (empty or not).
+        assert_eq!(
+            listed(
+                "a.py",
+                "def g(x):\n    if []:\n        eval(x)\n",
+                "Python",
+                tests
+            ),
+            0
+        );
+        assert_eq!(
+            listed(
+                "a.py",
+                "def g(x):\n    if 0:\n        eval(x)\n",
+                "Python",
+                tests
+            ),
+            1
+        );
+        assert_eq!(
+            listed(
+                "a.js",
+                "function g(x) {\n  if ([]) {} else eval(x);\n}\n",
+                "JavaScript",
+                tests
+            ),
+            0
+        );
+        assert_eq!(
+            listed(
+                "a.js",
+                "function g(x) {\n  if (0) {} else eval(x);\n}\n",
+                "JavaScript",
+                tests
+            ),
+            1
+        );
+        // (2) A chain over a nullish chain is judged by the outer link's own base kind.
+        assert_eq!(
+            listed(
+                "a.js",
+                "function g(x) {\n  (null?.m)?.(eval(x));\n}\n",
+                "JavaScript",
+                chain
+            ),
+            0
+        );
+        assert_eq!(
+            listed(
+                "a.js",
+                "function g(x) {\n  null?.m(eval(x));\n}\n",
+                "JavaScript",
+                chain
+            ),
+            1
+        );
+        // (3) `else if` is a nested `if` outside Python: a later literal test does not enroll an
+        // earlier branch, while Python `elif` does.
+        assert_eq!(
+            listed(
+                "a.js",
+                "function g(x, f) {\n  if (f) { eval(x); } else if (false) {}\n}\n",
+                "JavaScript",
+                tests
+            ),
+            0
+        );
+        assert_eq!(
+            listed(
+                "a.js",
+                "function g(x, f) {\n  if (false) { eval(x); } else if (f) {}\n}\n",
+                "JavaScript",
+                tests
+            ),
+            1
+        );
+        assert_eq!(
+            listed(
+                "a.py",
+                "def g(x, f):\n    if f:\n        eval(x)\n    elif False:\n        pass\n",
+                "Python",
+                tests
+            ),
+            1
+        );
+    }
 }
