@@ -10,6 +10,7 @@ use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+use super::trace_cuts::{CrossingLedger, LegacyCrossingLedger};
 use super::var_index::VarKeyRef;
 use super::{CodePropertyGraph, CpgEdge, CpgNode, FlowConfidence, TaintCrossingPolicy, VarAccess};
 
@@ -704,10 +705,11 @@ impl CodePropertyGraph {
         (reachable, labels)
     }
 
-    pub(crate) fn dfg_forward_reachable_with_evidence_policy(
+    pub(super) fn dfg_forward_reachable_with_ledger(
         &self,
         from: &VarLocation,
         policy: Option<&TaintCrossingPolicy<'_>>,
+        ledger: Option<CrossingLedger<'_>>,
     ) -> (
         BTreeSet<VarLocation>,
         BTreeMap<NodeIndex, FlowConfidence>,
@@ -733,6 +735,7 @@ impl CodePropertyGraph {
         let mut visited = BTreeSet::new();
         let mut labels = BTreeMap::new();
         let mut parents = BTreeMap::new();
+        let mut ledger = ledger.map(|ledger| LegacyCrossingLedger::new(ledger, start));
         let mut queue = VecDeque::new();
         queue.push_back((start, FlowConfidence::Exact, None));
 
@@ -743,6 +746,9 @@ impl CodePropertyGraph {
             labels.insert(node, path_confidence);
             if let Some(parent) = parent {
                 parents.insert(node, parent);
+                if let Some(ledger) = &mut ledger {
+                    ledger.reached(self, node, parent);
+                }
             }
 
             // Follow DataFlow edges
@@ -756,9 +762,14 @@ impl CodePropertyGraph {
                 .collect();
             data_flow_targets.sort_by_key(|(target, _)| target.index());
             for (target, confidence) in data_flow_targets {
-                if !visited.contains(&target)
-                    && self.crossing_admitted(policy, node, target, confidence)
-                {
+                if visited.contains(&target) {
+                    continue;
+                }
+                let admitted = self.crossing_admitted(policy, node, target, confidence);
+                if let Some(ledger) = &ledger {
+                    ledger.attempt(self, node, target, confidence, admitted);
+                }
+                if admitted {
                     queue.push_back((
                         target,
                         path_confidence.worst(confidence),
@@ -1014,10 +1025,11 @@ impl CodePropertyGraph {
         self.taint_forward_labeled(taint_sources).0
     }
 
-    pub(crate) fn taint_forward_labeled_policy(
+    pub(super) fn taint_forward_labeled_with_ledger(
         &self,
         taint_sources: &[(String, usize)],
         policy: Option<&TaintCrossingPolicy<'_>>,
+        ledger: Option<CrossingLedger<'_>>,
     ) -> (
         Vec<crate::data_flow::FlowPath>,
         BTreeMap<(VarLocation, VarLocation), EvidencePath>,
@@ -1036,7 +1048,7 @@ impl CodePropertyGraph {
                     None => continue,
                 };
                 let (reachable, _, evidence_by_node) =
-                    self.dfg_forward_reachable_with_evidence_policy(&src_loc, policy);
+                    self.dfg_forward_reachable_with_ledger(&src_loc, policy, ledger);
                 if !reachable.is_empty() {
                     for target in &reachable {
                         let path = self

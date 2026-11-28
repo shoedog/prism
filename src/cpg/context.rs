@@ -3,7 +3,10 @@
 
 use crate::ast::ParsedFile;
 use crate::call_graph::{CallGraph, FunctionId, ScopeGraphBuildInputs};
+use crate::data_flow::{FlowPath, VarLocation};
 use crate::diff::DiffInput;
+use crate::finding_confidence::EvidencePath;
+use crate::reasoning::order::AstOrderView;
 use crate::type_db::TypeDatabase;
 use crate::type_provider::TypeRegistry;
 use crate::type_providers::cpp::CppTypeProvider;
@@ -15,7 +18,8 @@ use crate::type_providers::typescript::TypeScriptTypeProvider;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::CodePropertyGraph;
+use super::trace_cuts::CrossingLedger;
+use super::{CodePropertyGraph, TaintCrossingPolicy};
 
 /// Metadata about a diff-scoped CPG.
 ///
@@ -55,6 +59,34 @@ pub struct CpgContext<'a> {
 }
 
 impl<'a> CpgContext<'a> {
+    pub fn taint_forward_cfg_labeled(
+        &self,
+        sources: &[(String, usize)],
+        policy: Option<&TaintCrossingPolicy<'_>>,
+    ) -> (
+        Vec<FlowPath>,
+        BTreeMap<(VarLocation, VarLocation), EvidencePath>,
+    ) {
+        let site_view = AstOrderView::new(&self.cpg, self.files);
+        let ledger = CrossingLedger::start("primary", Some(&site_view), false);
+        self.cpg
+            .taint_forward_cfg_labeled_with_ledger(sources, policy, ledger)
+    }
+
+    /// Review's line-seeded return walk uses the parsed files for ledger diagnostics only.
+    pub fn taint_forward_cfg_with_return_flow_labeled(
+        &self,
+        sources: &[(String, usize)],
+        policy: Option<&TaintCrossingPolicy<'_>>,
+    ) -> (
+        Vec<FlowPath>,
+        BTreeMap<(VarLocation, VarLocation), EvidencePath>,
+    ) {
+        let site_view = AstOrderView::new(&self.cpg, self.files);
+        self.cpg
+            .taint_forward_cfg_with_return_flow_labeled_with_view(sources, policy, Some(&site_view))
+    }
+
     /// Build a CpgContext from parsed files and optional type enrichment.
     pub fn build(
         files: &'a BTreeMap<String, ParsedFile>,

@@ -548,6 +548,11 @@ git show abc123 --format="" > changes.patch
 | | membrane | No additional flags |
 | | echo | No additional flags |
 
+Set `PRISM_TAINT_CROSSING_TRACE=1` to write the crossing ledger to stderr.
+Review and `prism nav taint-reaches` use parsed files for the diagnostic.
+`grades` describes the call site's resolution, and `edge_grade` describes the edge label.
+The empty form `site=- slot=- grades=[]` means “site not established.”
+
 With `--algorithm taint --taint-context imports`, Prism starts from the original review files.
 When a tainted argument reaches a call with an eligible import hint, Prism tries to load the
 indicated repository file, rebuilds the graph and follows the flow in bounded rounds.

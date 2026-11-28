@@ -748,6 +748,7 @@ mod tests {
                         sources: vec![SinkSourceResult {
                             source: sym("source_a"),
                             reachability: Reachability::Reached,
+                            reason: None,
                             graph_node: Some(1),
                             sanitizers_present_in_source_fn: vec!["html".into()],
                             sanitized_by: vec![SanitizerSite {
@@ -766,6 +767,7 @@ mod tests {
                         sources: vec![SinkSourceResult {
                             source: sym("source_b"),
                             reachability: Reachability::Reached,
+                            reason: None,
                             graph_node: Some(3),
                             sanitizers_present_in_source_fn: vec![],
                             sanitized_by: vec![],
@@ -817,6 +819,7 @@ mod tests {
                         sources: vec![SinkSourceResult {
                             source: sym(&format!("source_{i}")),
                             reachability: Reachability::Reached,
+                            reason: None,
                             graph_node: Some(i * 2 + 1),
                             sanitizers_present_in_source_fn: vec![format!("sanitizer_{i}")],
                             sanitized_by: vec![],
@@ -868,6 +871,7 @@ mod tests {
                         .map(|i| SinkSourceResult {
                             source: sym(&format!("source_{i}")),
                             reachability: Reachability::Reached,
+                            reason: None,
                             graph_node: Some(sources),
                             sanitizers_present_in_source_fn: vec![format!(
                                 "sanitizer_{i}_with_extra_context"
@@ -1231,6 +1235,7 @@ mod tests {
                     sources: vec![SinkSourceResult {
                         source: sym("source"),
                         reachability: Reachability::Sanitized,
+                        reason: None,
                         graph_node: Some(1),
                         sanitizers_present_in_source_fn: vec!["xss".into()],
                         sanitized_by: vec![SanitizerSite {
@@ -1347,6 +1352,7 @@ mod tests {
                     sources: vec![SinkSourceResult {
                         source: sym("source"),
                         reachability: Reachability::Reached,
+                        reason: None,
                         graph_node: Some(2),
                         sanitizers_present_in_source_fn: vec![],
                         sanitized_by: vec![],

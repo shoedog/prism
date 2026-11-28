@@ -7,6 +7,7 @@ use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::trace_cuts::CrossingLedger;
 use super::{CodePropertyGraph, CpgEdge, CpgNode, TaintCrossingPolicy};
 
 /// Policy for [`CodePropertyGraph::cfg_reachable_including_continuation`]'s look-back over the
@@ -220,8 +221,20 @@ impl CodePropertyGraph {
         Vec<crate::data_flow::FlowPath>,
         BTreeMap<(VarLocation, VarLocation), EvidencePath>,
     ) {
+        self.taint_forward_cfg_labeled_with_ledger(taint_sources, policy, None)
+    }
+
+    pub(super) fn taint_forward_cfg_labeled_with_ledger(
+        &self,
+        taint_sources: &[(String, usize)],
+        policy: Option<&TaintCrossingPolicy<'_>>,
+        ledger: Option<CrossingLedger<'_>>,
+    ) -> (
+        Vec<crate::data_flow::FlowPath>,
+        BTreeMap<(VarLocation, VarLocation), EvidencePath>,
+    ) {
         if !self.has_cfg_edges() {
-            return self.taint_forward_labeled_policy(taint_sources, policy);
+            return self.taint_forward_labeled_with_ledger(taint_sources, policy, ledger);
         }
 
         // Build per-source CFG reachability sets
@@ -253,7 +266,7 @@ impl CodePropertyGraph {
                     None => continue,
                 };
                 let (reachable, _, evidence_by_node) =
-                    self.dfg_forward_reachable_with_evidence_policy(&src_loc, policy);
+                    self.dfg_forward_reachable_with_ledger(&src_loc, policy, ledger);
 
                 // Filter: keep only DFG-reachable targets that are also CFG-reachable.
                 // Interprocedural targets (different file or function) bypass the CFG
