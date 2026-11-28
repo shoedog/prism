@@ -34,7 +34,7 @@ fn line_terminator_divergence(text: &str) -> bool {
 /// a statement the language would have ended. The grammars attach a `[..]` or `(..)` that starts a
 /// new line to an arrow function or an `as`/`satisfies` expression, where the language ends the
 /// statement and the bracket starts a destructuring write or a call statement; every kind here is a
-/// primary or member expression the language also continues across a line break. A parenthesized
+/// left-hand-side expression the language also continues across a line break. A parenthesized
 /// form is closed by its own parentheses, so it is listed and its content is judged on its own.
 const CONTINUING_OBJECTS: &[&str] = &[
     "identifier",
