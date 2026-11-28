@@ -312,16 +312,33 @@ is the explicit same-child binding in predicate 6. An empty initializer and `imp
 alias and shadow checks. Refuse a router or callable terminal re-export such as `from pkg import bp`
 when the initializer obtains `bp` via `from .base import bp`. A terminal assignment alias whose
 reaching value comes from an import from another module is also a re-export, for example
-`from .base import bp as _bp; bp = _bp` (fk-80). An alias in the capturing scope can still name a
-directly imported declaration. Recognized native Flask imports continue to supply `Flask`,
+`from .base import bp as _bp; bp = _bp` (fk-80). A simple assignment alias in the capturing scope
+can still name a directly imported declaration under the value rules above. Recognized native Flask imports continue to supply `Flask`,
 `Blueprint`, `View` and `MethodView` under the existing framework checks.
 
 Require one unconditional eligible terminal binding. The capturing module must also contain
 exactly one binding of the captured import's local name, the import that creates it.
-Find the candidate import in the read's lexical lookup, including an earlier import hidden by a later
-write to the same binding. Census every explicit binding and deletion of that effective key in
-the importing file, including nested scopes and sites after the use. This is a lexical census
-and requires no execution model (fk-86–90). Use Python's NFKC-normalised identifiers as
+Find the candidate import by lexical lookup of the written capture's root name, whether bare or
+qualified, including an earlier import hidden by a later write to the same name. The capture-side
+census reads these sites for the import's effective local key throughout the importing file, including
+conditional sites, nested scopes and sites after the read (fk-86–91).
+
+- Explicit `import` and `from ... import` names, including `as` aliases and the leading name of an
+  unaliased dotted import.
+- Function and class declaration names, function and lambda parameters, and Python 3.12+
+  `type` alias declaration names, including the alias name in a generic declaration.
+- Bare-name targets of ordinary and augmented assignments, annotated assignments with a value,
+  walrus expressions, `for` statements and comprehension or generator iteration. Include explicit
+  name targets in destructuring and the `as` names of `with`, `except` and `except*` clauses.
+- Structural match capture names and explicit name deletions.
+
+Read `global` and `nonlocal` as scope declarations and use annotation-only declarations for local
+lookup. These sites define the complete capture-side contract. The census counts assignment targets
+under their own names. It starts from the written root, so following `callback = handler` back to
+`handler` to census competing bindings is outside its scope, as are names introduced by a wildcard
+in the importing module. The source-side checks cover assignment-alias chains for terminal
+re-export detection and wildcard imports that could supply a source member. The capture-side census
+is lexical and requires no execution model. Use Python's NFKC-normalised identifiers as
 binding and predicate keys. NFKC-normalise module-path and hop segments in the source text and
 match the resulting keys byte-for-byte against filesystem candidate names (fk-74–75).
 A capturing import is eligible at module or function scope, subject to the predicates below.
@@ -339,7 +356,8 @@ Then apply the root-chain spelling check and the import-scope check, in that ord
    unwritten `global` declaration does not trigger the veto. A wildcard-supplied hook is a
    `KNOWN_LIMIT` (fk-72 and fk-c72). Predicate 2 still checks whether the star could supply the
    captured member itself.
-2. `star_import` applies when a wildcard import could supply the name, including an unknown source or export set.
+2. `star_import` applies when a wildcard import in a checked source module could supply the name,
+   including an unknown source or export set.
 3. `global_write` applies when a class or function body writes a module binding through
    `global`, including a competing write to the captured local name in the importing module
    (fk-86 and fk-90). Use the effective identifier after NFKC and Python's class-private mangling for
@@ -358,9 +376,11 @@ Then apply the root-chain spelling check and the import-scope check, in that ord
    `type` statement names (including generic aliases). Count an annotated assignment with a
    value as a write. An annotation without a value (`f: object`) writes no value and can still
    affect function-local name resolution. Conservatively count comprehension iteration targets
-   for `multi_write` and `nested_single`. The importing file's census includes a repeated
-   import, a nested local rebinding and a private declaration with the same effective key
-   (fk-87–89).
+   for `multi_write` and `nested_single`. In the importing file, use the capture-side forms
+   listed above. Same-value repeated bindings are an **accepted over-refusal**. This includes
+   `import pkg` followed by `import pkg.routes` (fk-91), the same named import twice, a successful
+   named import with an `except ImportError` fallback binding, and a duplicate guarded by
+   `TYPE_CHECKING`. The reshaped fk-c55 uses only `import pkg.routes` and remains `PROVEN`.
 5. `nested_single` applies when the sole counted write, including a `type` statement, is nested
    in conditional or control-flow syntax.
 6. `submodule_shadow` applies when the hop or terminal module binds `N` by a lexical write
@@ -449,9 +469,9 @@ export set. Pins fk-68, fk-71–73 and fk-76–77 record these import boundaries
 `PROVEN` source-import control. The closed descriptor veto
 is a conservative belt based on source spelling. Supported view and router escape checks and
 explicit view metadata writes remain part of the setup model. The [Stage D pins](STAGE-D-ROWS.md#python-router-and-view-value-boundary)
-record emitted fields beside native observations across 154 cases, with 54 `WITHHELD`,
-29 `KNOWN_LIMIT` and 71 `PROVEN`. Each `KNOWN_LIMIT` pin makes no claim about
-the native object and earns zero runtime credit for the affected fields.
+record expected adapter fields beside native observations across 163 cases, with 55 `WITHHELD`,
+33 `KNOWN_LIMIT` and 75 `PROVEN`. Each `KNOWN_LIMIT` pin earns zero runtime credit for the
+affected fields.
 
 #### FastAPI
 
@@ -832,6 +852,29 @@ The frozen populations, binding floors and ledger dispositions above govern each
   The no-effect predicate found zero duplicates among 168 candidates using direct defs and simple assignments
   for the write count. Its body filter also admits docstrings. Runtime module-attribute rebinding and indirect
   view-map writes are unmeasured.
+- **Capture-side limits (§5.3).** The matrix pins `PROVEN` with the source binding
+  `views.f` for these four cases. The fixtures record the scanner status and native Flask
+  result beside each control. Job 101 measured zero registrations and zero mounts for each
+  form in both populations (3,503 framework/Superset sites and 340 application sites).
+  - **First iterable of a comprehension or generator (fk-92).** Python evaluates the first iterable
+    in the enclosing scope. The scanner treats the site as inside the iteration target's scope and
+    reports `not_import_captured`. Flask binds `views.f`.
+  - **Assignment alias after a nested global rebind (fk-93).** The census keys the assignment
+    by `callback` and stops at that written root. Chasing the right-hand side back to the
+    imported name is outside the capture-side contract. The scanner reports
+    `not_import_captured` with no defining member. Flask binds `views.g`.
+  - **Direct wildcard in the capturing module (fk-94).** Only explicitly named imports
+    supply keys to the capture-side census. A wildcard's literal `__all__` can still overwrite
+    the local name at runtime. The scanner selects `views.f` with no counted predicate flagged.
+    Flask binds `views.g`. Source-side wildcard and terminal alias-chain checks still apply
+    within source modules.
+  - **Python 3.12 generic type parameter (fk-95).** Generic parameter bindings are outside
+    the lexical census. The scanner selects `views.f` with no counted predicate flagged.
+    Flask installs a `TypeVar` and dispatch raises `TypeError`.
+
+  **Reason-label note (IMMATERIAL).** When a later assignment hides the import in fk-89 and
+  the source also declares `__getattr__`, the scanner reports `multi_write` where the
+  specified precedence selects `getattr_module`. Both reasons withhold dispatch proof.
 - **Static import cost (§5.3).** DESIGN specifies the rule. Section 4 of
   `~/prism-evidence/routes/m/UNTRACED-FORMS-CENSUS.md` estimates its costs and supersedes the earlier
   file-wide counts. Twenty source checks trace the import and destination, ten per population.

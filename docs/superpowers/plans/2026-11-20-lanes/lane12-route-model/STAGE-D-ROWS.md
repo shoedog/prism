@@ -116,9 +116,9 @@ fa12, es3-08 and et1-12 keep their exact unsupported_registration diagnostics fo
 | method_value_method_unproven | et4-02, d2-19 |
 | method_value_receiver_shadowed | gm11, gm12, es5-07, es7-03 |
 | method_value_receiver_unproven | et3-03, et4-01, es4-10, gm13, gm17, es1-40, es1-42, es1-43, es1-44, es1-46, es2-16, es2-18, es3-14, es3-15, d2-19 |
-| mount_child_unproven | fa13, cx01, es1-05, es1-06, es1-15, es1-16, es3-19, es6-05, fk-14, fk-24, fk-32, fk-49–51, fk-54, fk-55, fk-57–59, fk-67, fk-78, fk-79 |
+| mount_child_unproven | fa13, cx01, es1-05, es1-06, es1-15, es1-16, es3-19, es6-05, fk-14, fk-24, fk-32, fk-49–51, fk-54, fk-55, fk-57–59, fk-67, fk-78, fk-79, fk-91 |
 | mount_cycle | es1-02 |
-| multi_write | fk-19, fk-21–24, fk-34, fk-36, fk-46, fk-47, fk-49, fk-51, fk-60, fk-62, fk-63, fk-65, fk-87–89 |
+| multi_write | fk-19, fk-21–24, fk-34, fk-36, fk-46, fk-47, fk-49, fk-51, fk-60, fk-62, fk-63, fk-65, fk-87–89, fk-91 |
 | nested_single | fk-37 |
 | no_known_mount | ex29, gn05, hp22, fa14, cx01, cx07, es1-04, es1-05, es1-06, es1-15, es1-16, es1-17, es4-02, es6-04, es6-05, es6-09, d2-01/02/05/08/09 |
 | non_literal_path | ex12, nh07, fl14, fa07, cx34, es1-68, es2-18, es2-28 |
@@ -684,8 +684,8 @@ exposure or binding through the refused mount. Apply the regular checks to sourc
 supported metadata and view-map operations, including d2-14.
 
 The static import proof in DESIGN §5.3 governs the counted import and escape refusals. Each counted
-refusal has a distinct `PROVEN` control. There are 154 rows, with
-54 `WITHHELD`, 29 `KNOWN_LIMIT` and 71 `PROVEN`. Counted diagnostics follow DESIGN §5.3 precedence.
+refusal has a distinct `PROVEN` control. There are 163 rows, with
+55 `WITHHELD`, 33 `KNOWN_LIMIT` and 75 `PROVEN`. Counted diagnostics follow DESIGN §5.3 precedence.
 `global_write` precedes `multi_write` in both source and importing modules.
 `class_private_name` precedes `class_body_import`. The main-row IDs fk-11, fk-12 and fk-18
 are unused gaps in the existing numbering. The diagnostic arrays are exact multisets. Each
@@ -790,10 +790,17 @@ GET/HEAD/OPTIONS and returned HTTP 200 for every pair.
 | fk-84 | Use fk-82's `views.py`. Run `import views` at module scope and `app.add_url_rule('/x', endpoint='x', view_func=views.__f, methods=['GET'])` in the body of `class C`. | WITHHELD (`class_private_name`). Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `views.__f` with `imported_unproven`. Withhold dispatch binding. Native binds endpoint x to `views._C__f` with GET/HEAD/OPTIONS and GET returns mangled. | `[["class_private_name", "app.py", "app.add_url_rule('/x', endpoint='x', view_func=views.__f, methods=['GET'])", "views.__f"]]` | fk-c84 |
 | fk-85 | Run fk-84's import and registration both at module scope. | WITHHELD (`class_private_name`). Accepted over-refusal. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `views.__f` with `imported_unproven`. Withhold dispatch binding. Native binds endpoint x to `views.__f` with GET/HEAD/OPTIONS and GET returns raw. | `[["class_private_name", "app.py", "app.add_url_rule('/x', endpoint='x', view_func=views.__f, methods=['GET'])", "views.__f"]]` | fk-c85 |
 | fk-86 | At module scope use `from views import f as _C__handler`. In `C.install(self)` run `global __handler` and `from views import g as __handler`. Call `C().install()` and then register `_C__handler` at module scope. | WITHHELD (`global_write`). The method writes the effective module key `_C__handler`. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `_C__handler` with `imported_unproven`. Withhold dispatch binding. Native binds `views.g` and GET returns second. | `[["global_write", "app.py", "from views import f as _C__handler", "f"]]` | fk-c86 |
-| fk-87 | At module scope use `from views import f as handler`. In `C.install(self)` use `from views import g as handler` then register `handler`. Call `C().install()`. | WITHHELD (`multi_write`). Both imports bind the same key in the file. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `handler` with `imported_unproven`. Withhold dispatch binding. Native binds `views.g` and GET returns second. | `[["multi_write", "app.py", "from views import g as handler", "g"]]` | fk-c87 |
-| fk-88 | At module scope use `from views import f as _C__handler`. In `C.install(self)` use `from views import g as __handler` then register `_C__handler`. Call `C().install()`. | WITHHELD (`multi_write`). The private declaration shares the effective key of the candidate module import. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `_C__handler` with `imported_unproven`. Withhold dispatch binding. Native binds the method-local `views.g` and GET returns second. | `[["multi_write", "app.py", "from views import f as _C__handler", "f"]]` | fk-c88 |
+| fk-87 | At module scope use `from views import f as handler`. In `C.install(self)` use `from views import g as handler` then register `handler`. Call `C().install()`. | WITHHELD (`multi_write`). The method import is the candidate. The module import of the same key competes. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `handler` with `imported_unproven`. Withhold dispatch binding. Native binds the method-local `views.g` and GET returns second. | `[["multi_write", "app.py", "from views import g as handler", "g"]]` | fk-c87 |
+| fk-88 | At module scope use `from views import f as _C__handler`. In `C.install(self)` use `from views import g as __handler` then register `_C__handler`. Call `C().install()`. | WITHHELD (`multi_write`). The method import is the candidate. The module import of the same effective key competes. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `_C__handler` with `imported_unproven`. Withhold dispatch binding. Native binds the method-local `views.g` and GET returns second. | `[["multi_write", "app.py", "from views import g as __handler", "g"]]` | fk-c88 |
 | fk-89 | At module scope use `from views import f as handler`, `from views import g`, then `handler = g` and register `handler`. | WITHHELD (`multi_write`). The assignment competes with the import. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `handler` with `imported_unproven`. Withhold dispatch binding. Native binds `views.g` and GET returns second. | `[["multi_write", "app.py", "from views import f as handler", "f"]]` | fk-c89 |
 | fk-90 | At module scope use `from views import f as handler`. In `install()` run `global handler` and `from views import g as handler`. Call `install()` and register `handler` at module scope. | WITHHELD (`global_write`). The function overwrites the module binding of `handler`. Keep grounded app, literal `/x`, endpoint x, written GET and unresolved `handler` with `imported_unproven`. Withhold dispatch binding. Native binds `views.g` and GET returns second. | `[["global_write", "app.py", "from views import f as handler", "f"]]` | fk-c90 |
+| fk-91 | Use the old fk-c55 shape. Keep fk-55's unrelated file and use `import pkg` followed by `import pkg.routes` in app before `app.register_blueprint(pkg.routes.bp)`. | WITHHELD (`multi_write`). Accepted over-refusal. Both imports bind `pkg`. Keep the grounded parent and independent child declarations, report `mount_child_unproven`, and withhold exposure and binding through this mount. Native binds `pkg.routes.serve` at `b.serve` with GET/HEAD/OPTIONS and GET `/routes` returns routes. | `[["multi_write", "app.py", "app.register_blueprint(pkg.routes.bp)", "pkg.routes.bp"]]` | fk-c55 |
+
+**Reason-label note (IMMATERIAL).** Add `def __getattr__(name): raise AttributeError(name)` to
+fk-89's `views.py`. The assignment hides the import from source checking and the scanner reports
+`multi_write` where DESIGN §5.3 precedence selects `getattr_module`. Dispatch proof is withheld
+under either reason. Flask still binds `views.g` and GET returns second. With fk-c89's disjoint
+assignment and the same hook, the scanner reports `getattr_module` and Flask binds `views.f`.
 
 | Control ID | Fixture shape | Required proof |
 |---|---|---|
@@ -864,3 +871,21 @@ GET/HEAD/OPTIONS and returned HTTP 200 for every pair.
 | fk-c88 | In fk-88 use `from views import g as alternate` in the method and still register `_C__handler`. | PROVEN. The single import of `_C__handler` proves full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first. |
 | fk-c89 | In fk-89 assign `alternate = g` and still register `handler`. | PROVEN. The single import of `handler` proves full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first. |
 | fk-c90 | In fk-90 use `global alternate` and `from views import g as alternate` in the function. | PROVEN. The single import of `handler` proves full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS and binding to `views.f`. Native GET returns first. |
+
+For fk-92–95 and their paired controls, start with the same `views.py` and explicit registration
+fields as fk-86–90, and `from views import f as handler` at module scope. The matrix's `PROVEN`
+expectation carries full `/x`, endpoint x, written GET, effective GET/HEAD/OPTIONS, the written
+callback and binding to `views.f`. Raw observations come from the static census and Flask 3.1.3 on
+CPython 3.12.13. Job 101 measured zero registrations and zero mounts for each form in both
+populations (3,503 framework/Superset sites and 340 application sites).
+
+| ID | Fixture shape | Expected record and native observation | `expect_diagnostics` | Control |
+|---|---|---|---|---|
+| fk-92 | Put the registration of `handler` in the first iterable, `[None for handler in (REGISTRATION,)]`. Also run the generator expression `(None for handler in (REGISTRATION,))` without consuming it. | KNOWN_LIMIT. Matrix `PROVEN` with `views.f`. The scanner scopes the read under the iteration target and reports `not_import_captured`. Flask evaluates the first iterable in the enclosing scope, binds `views.f` and returns HTTP 200 first. | `[]` | fk-c92 |
+| fk-c92 | Rename the list and generator iteration targets to `other` and leave the read as `handler`. | PROVEN. The scanner selects `views.f` with no counted predicate flagged. Flask binds `views.f` and returns HTTP 200 first. | `[]` | — |
+| fk-93 | Define and call `replace()` containing `global handler` and `from views import g as handler`. Then assign `callback = handler` and register `callback`. | KNOWN_LIMIT. Matrix `PROVEN` with `views.f`. The scanner starts from the written `callback` and reports `not_import_captured` with no defining member. Chasing the right-hand side for competing bindings is outside the capture-side contract. Flask binds `views.g` and returns HTTP 200 second. | `[]` | fk-c93 |
+| fk-c93 | Rebind `alternate` in `replace()`. Keep `callback = handler` and register `callback`. | PROVEN. Matrix binding is `views.f`. The scanner reports `not_import_captured`. Flask binds `views.f` and returns HTTP 200 first. | `[]` | — |
+| fk-94 | In `support.py` use `from views import g as handler` and `__all__ = ['handler']`. In app add `from support import *` after the explicit import and register `handler`. | KNOWN_LIMIT. Matrix `PROVEN` with `views.f`. The scanner selects `views.f` and reports `no_counted_predicate_flagged`. The capture-side census reads explicitly named bindings. Flask binds `views.g` and returns HTTP 200 second. | `[]` | fk-c94 |
+| fk-c94 | Import `g as alternate` in `support.py` and set `__all__ = ['alternate']`. Keep the wildcard and register `handler`. | PROVEN. The scanner selects `views.f` with no counted predicate flagged. Flask binds `views.f` and returns HTTP 200 first. | `[]` | — |
+| fk-95 | On Python 3.12+, define `def install[handler]():` with the registration of `handler` in its body. Call `install()`. | KNOWN_LIMIT. Matrix `PROVEN` with `views.f`. The scanner selects `views.f` and reports `no_counted_predicate_flagged`. Flask installs the rule with endpoint x and GET/HEAD/OPTIONS, binds the generic parameter `TypeVar` and raises `TypeError` on GET. | `[]` | fk-c95 |
+| fk-c95 | Rename the generic parameter to `other`. Keep the registration of `handler`. | PROVEN. The scanner selects `views.f` with no counted predicate flagged. Flask binds `views.f` and returns HTTP 200 first. | `[]` | — |
