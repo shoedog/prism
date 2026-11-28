@@ -167,6 +167,8 @@ mod walk_proofs_fold2_tests;
 #[cfg(test)]
 mod walk_proofs_golden_tests;
 #[cfg(test)]
+mod walk_proofs_limits_tests;
+#[cfg(test)]
 mod walk_proofs_tests;
 
 // Items the test module reaches via `use super::*;`. On the original
