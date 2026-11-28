@@ -1,9 +1,4 @@
-use super::{
-    census::Binding,
-    lookup::direct,
-    slots::{Instance, MemberRead},
-    Resolver,
-};
+use super::{census::Binding, lookup::direct, slots::Instance, Resolver};
 use crate::targets::inventory::python::{
     source::{children, ungroup},
     walk::ScopeId,
@@ -29,13 +24,7 @@ impl Protocol {
     }
 
     pub(super) fn accepts(self, class: &str) -> bool {
-        matches!(
-            (self, class),
-            (
-                Self::Sync,
-                "requests.Session" | "httpx.Client" | "urllib3.PoolManager"
-            ) | (Self::Async, "httpx.AsyncClient" | "aiohttp.ClientSession")
-        )
+        super::py_tables::context_class(class, matches!(self, Self::Async))
     }
 
     fn slots(self) -> (&'static str, &'static str) {
@@ -87,7 +76,7 @@ impl<'tree> Resolver<'_, 'tree> {
         .then(|| entry.manager.child_by_field_name("body"))
         .flatten();
         let rebound = |slot| {
-            self.reads_member_at(class, slot, capture, MemberRead::Receiver, |write| {
+            self.reads_instance_member_at(class, slot, capture, |write| {
                 // This suite runs after both callables were captured. A
                 // function-local class write can reach a prior activation.
                 direct_module_body.is_none_or(|body| !write.follows_in_suite(capture, body))

@@ -131,7 +131,21 @@ pub fn render(ev: &Evidence, format: &str) -> String {
                 }
             }
             for w in &ev.warnings {
-                s.push_str(&format!("  ! {:?}: {}\n", w.kind, w.message));
+                if let crate::navigation::types::WarningKind::Reasoning(
+                    crate::reasoning::types::ReasoningWarning::InterproceduralBoundary {
+                        sink,
+                        reason,
+                    },
+                ) = &w.kind
+                {
+                    let suffix = reason.map_or_else(String::new, |reason| format!(" ({reason})"));
+                    s.push_str(&format!(
+                        "  ! Reasoning(InterproceduralBoundary {{ sink: {sink:?} }}): {}{suffix}\n",
+                        w.message
+                    ));
+                } else {
+                    s.push_str(&format!("  ! {:?}: {}\n", w.kind, w.message));
+                }
             }
             if let Some(graph) = &ev.graph {
                 for (i, n) in graph.nodes.iter().enumerate() {

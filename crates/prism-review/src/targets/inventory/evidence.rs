@@ -39,6 +39,8 @@ pub struct Proof {
     pub callee: Span,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub receiver: Option<ReceiverProof>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declaration: Option<ClassSource>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

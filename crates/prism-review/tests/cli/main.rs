@@ -39,6 +39,11 @@ mod targets_inventory_known_limits_test;
 mod targets_inventory_receiver_guards_test;
 mod targets_inventory_receiver_projection_test;
 mod targets_inventory_s2b_fold_test;
+mod targets_inventory_stdlib_amendment_test;
+mod targets_inventory_stdlib_declarations_test;
+mod targets_inventory_stdlib_fold_test;
+mod targets_inventory_stdlib_receivers_test;
+mod targets_inventory_stdlib_roots_test;
 mod targets_inventory_test;
 mod targets_test;
 
