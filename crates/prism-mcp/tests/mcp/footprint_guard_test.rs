@@ -10,9 +10,23 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 const MIB: u64 = 1024 * 1024;
-// Repository-checkout measurements: loaded 1.7–2.0 GiB; unloaded 23 MiB with
-// MallocSpaceEfficient=1 versus 532 MiB when opted out. Leave runner headroom,
-// but require both a real index and a control that demonstrates retained memory.
+// The guard indexes a PINNED corpus (issue #966), never the live checkout, so its
+// three numbers mean the same thing on every PR whatever the PR adds to the
+// repository. The corpus is this repository at PINNED_SHA, exported by
+// `git archive` without `eval/secbench`. Changing PINNED_SHA changes every number:
+// re-pin the baseline below in the same PR and say why.
+//
+// Adjudication rule: the guard prints `footprint_guard <arm>: loaded=.. unloaded=..`
+// for prime, guarded and control. A PR that moves the guarded (product claim)
+// number beyond run-to-run spread, or flips the control, says so in its body and
+// either re-pins the baseline (better behaviour, with the reason) or fixes the
+// regression. The three thresholds alone discriminate; the baseline documents.
+//
+// Baseline (macOS arm64 host, three runs of main at the pinning change, MiB,
+// LOADED / UNLOADED): prime 3074-3130 / 29-31; guarded 2835-2919 / 17-18;
+// control 2909-2941 / 1986-2020. Six product trees (main and four PR heads)
+// measured 1997-2020 for the control on this corpus.
+const PINNED_SHA: &str = "e37d644dcdc323a99cc67028655b045dde3175cc";
 const MIN_LOADED: u64 = 512 * MIB;
 const GUARDED_CAP: u64 = 128 * MIB; // I0 unloaded-footprint cap.
 const MIN_CONTROL: u64 = 256 * MIB;
@@ -76,14 +90,14 @@ fn request(child: &mut Child, stdout: &Lines, message: Value, deadline: Instant)
     response
 }
 
-fn wait_for_event(stderr: &Lines, event: &str, deadline: Instant) {
+fn wait_for_event(stderr: &Lines, event: &str, deadline: Instant, seen: &mut Vec<String>) {
     let token = format!("event={event}");
     loop {
         let line = line_before(stderr, deadline, &format!("waiting for {token}"));
-        if String::from_utf8_lossy(&line)
-            .split_whitespace()
-            .any(|field| field == token)
-        {
+        let text = String::from_utf8_lossy(&line).into_owned();
+        let found = text.split_whitespace().any(|field| field == token);
+        seen.push(text);
+        if found {
             return;
         }
         assert!(Instant::now() < deadline, "timed out waiting for {token}");
@@ -96,11 +110,16 @@ struct Measurement {
     unloaded: u64,
 }
 
-fn measure(arm: &'static str, opt_out: bool, cache: &std::path::Path) -> Measurement {
+fn measure(
+    arm: &'static str,
+    opt_out: bool,
+    cache: &std::path::Path,
+    corpus: &std::path::Path,
+) -> Measurement {
     let mut command = Command::new(env!("CARGO_BIN_EXE_prism-mcp"));
     command
         .arg("--repo")
-        .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+        .arg(corpus)
         .arg("--cache-dir")
         .arg(cache)
         .args(["--index-idle-secs", "3"])
@@ -165,8 +184,17 @@ fn measure(arm: &'static str, opt_out: bool, cache: &std::path::Path) -> Measure
     let loaded = phys_footprint(pid).expect("proc_pid_rusage LOADED child footprint");
     let build_wait = started.elapsed();
     let deadline = Instant::now() + DISPOSAL_TIMEOUT;
-    wait_for_event(&stderr, "unload", deadline);
-    wait_for_event(&stderr, "disposal_end", deadline);
+    let mut seen = Vec::new();
+    wait_for_event(&stderr, "unload", deadline, &mut seen);
+    wait_for_event(&stderr, "disposal_end", deadline, &mut seen);
+    // Diagnostic: the server's own events, so a number is read together with how
+    // the index came to be (a cache load takes seconds, a build about a minute).
+    let events: Vec<&str> = seen
+        .iter()
+        .flat_map(|l| l.split_whitespace())
+        .filter_map(|f| f.strip_prefix("event="))
+        .collect();
+    eprintln!("footprint_guard {arm}: server events: {}", events.join(","));
     std::thread::sleep(Duration::from_secs(10));
     let unloaded = phys_footprint(pid).expect("proc_pid_rusage UNLOADED child footprint");
     let summary = format!(
@@ -191,6 +219,63 @@ fn measure(arm: &'static str, opt_out: bool, cache: &std::path::Path) -> Measure
     }
 }
 
+/// Export the pinned corpus into a fresh directory. The commit comes from the
+/// checkout's object store when present, else it is fetched (`--depth 1`) from
+/// `origin`; no workflow edit is needed because CI checks the repository out.
+fn pinned_corpus() -> tempfile::TempDir {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let git = |args: &[&str]| {
+        Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(args)
+            .output()
+            .expect("run git")
+    };
+    let spec = format!("{PINNED_SHA}^{{commit}}");
+    if !git(&["cat-file", "-e", &spec]).status.success() {
+        let fetched = git(&["fetch", "--depth", "1", "origin", PINNED_SHA]);
+        assert!(
+            fetched.status.success(),
+            "cannot fetch pinned corpus {PINNED_SHA}: {}",
+            String::from_utf8_lossy(&fetched.stderr)
+        );
+    }
+    let dir = tempfile::tempdir().expect("pinned corpus directory");
+    let archive = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args([
+            "archive",
+            "--format=tar",
+            PINNED_SHA,
+            "--",
+            ".",
+            ":(exclude)eval/secbench",
+        ])
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("spawn git archive");
+    let mut archive = archive;
+    let untar = Command::new("tar")
+        .arg("-x")
+        .arg("-C")
+        .arg(dir.path())
+        .stdin(archive.stdout.take().unwrap())
+        .status()
+        .expect("run tar");
+    assert!(
+        untar.success(),
+        "tar extraction of the pinned corpus failed"
+    );
+    assert!(archive.wait().expect("wait git archive").success());
+    assert!(
+        dir.path().join("Cargo.toml").is_file(),
+        "pinned corpus is empty"
+    );
+    dir
+}
+
 #[test]
 #[ignore = "macOS footprint guard; run by the macos-footprint CI job"]
 fn footprint_guard() {
@@ -198,10 +283,11 @@ fn footprint_guard() {
     // hit a cache the prime run builds; a cache hit also retains more memory
     // without the allocator setting than a cold build does (532 vs ~220 MiB).
     let cache = tempfile::tempdir().expect("fresh isolated cache directory");
+    let corpus = pinned_corpus();
     // measure returns only after its child is killed and reaped: never overlap arms.
-    let prime = measure("prime", false, cache.path());
-    let guarded = measure("guarded", false, cache.path());
-    let control = measure("control", true, cache.path());
+    let prime = measure("prime", false, cache.path(), corpus.path());
+    let guarded = measure("guarded", false, cache.path(), corpus.path());
+    let control = measure("control", true, cache.path(), corpus.path());
     for measured in [&prime, &guarded, &control] {
         assert!(
             measured.loaded >= MIN_LOADED,
