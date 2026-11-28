@@ -279,6 +279,10 @@ Implement DESIGN 5.1–5.5 and 7 in new `routes/express.rs` (separate builder/mo
 - [ ] `rebound_router_routes_stay_unmounted` (ex29), `default_export_mount_composes`, `replaced_module_exports_detaches_old_alias`, `handler_resolves_in_argument_scope` (ex06/ex27), `every_callback_position_is_recorded` (ordered flattened arrays, proved spread plus terminal, error middleware), `wrapper_call_delegate_needs_a_proven_forwarder` (local async-handler delegates absent; add a synthetic exact-package positive and a rebound-name negative).
 - [ ] `builder_legs_and_pinned_methods_extract_and_settings_read_does_not`, `bound_bracket_and_chained_verbs_keep_the_receiver`, `literal_concatenation_and_route_arrays_expand`, `use_arrays_expand_each_router_and_prefix`, `live_mount_sees_later_registration`, `sixty_five_alternatives_keep_all_mounts`, `handler_matches_the_entry_record_on_overlap`. Verify site ordinals and duplicate-looking anonymous functions.
 
+### Candidate slice after S3 (not scheduled): admit one explicit static re-export hop (issue #940)
+
+The S2 static-binding rule refuses a terminal re-export. On five public applications that costs 17 of 82 import-reached registrations (one application, a Blueprint re-exported by a package `__init__`). Before any slice, its own census: how common the idiom is across more applications and how many hops deep. The rule is not widened by the S2 amendment.
+
 ### Wave 1 gate — independent evidence task (3 days)
 
 On final S3b head reconcile eligibility (including all 236 receiver flags and 695 middleware sites), then label all applicable fields in one blind stratified read per sampled site. Use DESIGN 7 for per-corpus precision/recall, sample uncertainty, exhaustive ledger joins and independent mount-only/zero-scorable-descendant checks. Preserve the duplicate-edge and missing-edge controls. Any observed false certainty must be fixed or withdrawn and rescored. Report Directus full precision and recall, all 136 schema operations and terminal/delegate yield including the 295 local-forwarder observations. Report actual interaction losses, time/RSS and no-regression.

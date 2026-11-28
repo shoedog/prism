@@ -11,13 +11,19 @@ The harness reads `rows.jsonl` (T-1), `rows-t2a.jsonl`, `rows-t2b.jsonl`, and
 `PARITY_ROWS=rows.jsonl,rows-t2b.jsonl` replaces the file list at run time, in
 the order given. Use comma-separated filenames relative to this directory.
 `PARITY_ENABLED=control,binding` replaces the enabled groups at run time.
-By default `control` and `guard` are enabled. For a row with `current`, the
+By default `control`, `guard` and `reasons` are enabled. For a row with `current`, the
 engine tests select that cell while its group is disabled or any slice in
 `current.until` is absent from `SHIPPED_SLICES`. Otherwise they select the
 target `expect` of an enabled row. The runtime group override does not alter
 the shipped slice list. Pending producer checks apply to their listed levels
 after cell selection. An engine test reports an all-pending group and fails
 an enabled group with no cells and no pending reason at that level.
+
+The ten `option_b` rows retain `truth: flows` and their distal `BoundaryExited`
+targets. Their active `current.until: ["option_b"]` cells assert the parent's
+`NotReached` at the marked operand and on the line. On these rows,
+`current.reasons.walk` lists live refusals to verify on the marked root's hop
+ledger. Option B after I-walk supplies distal sink attribution.
 
 ## Row schema
 
@@ -73,7 +79,7 @@ are listed, using the reached decisions on the marked sink line.
 ## Vocabularies
 
 - Groups are `control`, `binding`, `same_line`, `spelling`, `knobs`, `catalog`,
-  `walk`, `guard`, `reasons`, and `tbd`. `ENABLED` can contain any listed group
+  `walk`, `guard`, `reasons`, `option_b`, and `tbd`. `ENABLED` can contain any listed group
   except `tbd`. Stage D sets the remaining requirements for `tbd` rows.
 - Classes are `research`, `seed`, `design_review`, and `second_review`.
   Use `research` for Sol and Astra enumeration rows. Proposal classes describe
@@ -98,13 +104,14 @@ are listed, using the reached decisions on the marked sink line.
 - Boundary reasons are `target_not_binding`, `no_matching_site`,
   `ambiguous_site`, `not_exact`, `unproven_slot`, `depth_cap`,
   `policy_ceiling`, `self_param`, and `self_return`.
-- Other reasons are `return_not_entered_site`, `no_graph_edge`,
+- Other reasons are `return_not_entered_site`, `unproven_return_input`, `no_graph_edge`,
   `shortcut_suppressed`, `cfg_pruned`, `sanitizer_model`,
   `operand_granularity`, and `unmodelled`.
 - Review-side reasons are `review_no_return_flow`, `review_no_recovered_def_use`,
-  `review_cfg_filter`, and `review_context_policy`.
+  `review_cfg_filter`, `review_context_policy`, `uncertified_flow`, and `matcher_admission`.
 
-The harness validates catalog, knobs, and reasons as data. Their runtime assertions
-arrive with I-8, I-5, and I-1, respectively. Both review modes use the default
+The harness requires the marked pair in `per_sink[].sources[]` on deferred
+`option_b` rows, asserts active boundary reasons on marked pairs, and pins comparison
+reasons with paired fixtures. Catalog and knob runtime assertions arrive with I-8 and I-5. Both review modes use the default
 crossing policy even on rows with explicit walk knobs. Update the matching
 expectations when an enabled group's required behavior changes.

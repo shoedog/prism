@@ -106,6 +106,18 @@ impl CodePropertyGraph {
         self.dfg_forward_reachable_with_evidence_policy(from, None)
     }
 
+    pub(crate) fn dfg_forward_reachable_with_evidence_policy(
+        &self,
+        from: &VarLocation,
+        policy: Option<&TaintCrossingPolicy<'_>>,
+    ) -> (
+        BTreeSet<VarLocation>,
+        BTreeMap<NodeIndex, FlowConfidence>,
+        BTreeMap<NodeIndex, EvidencePath>,
+    ) {
+        self.dfg_forward_reachable_with_ledger(from, policy, None)
+    }
+
     /// The legacy line-seeded forward walk: the policy-aware loop with no policy.
     pub(crate) fn taint_forward_labeled(
         &self,
@@ -114,7 +126,7 @@ impl CodePropertyGraph {
         Vec<FlowPath>,
         BTreeMap<(VarLocation, VarLocation), EvidencePath>,
     ) {
-        self.taint_forward_labeled_policy(taint_sources, None)
+        self.taint_forward_labeled_with_ledger(taint_sources, None, None)
     }
 
     /// Forward reachability from `from`, refusing the context-entry edges `policy` does not admit.

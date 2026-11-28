@@ -114,6 +114,8 @@ cargo test --test integration coverage_test::      # Coverage matrix
   Both types have private fields and borrowed read accessors. Named rows make references via `rule_ref()`. `prism::slice::RuleRef` and `prism_review::output::rule_registry` re-export the core API.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
   Under the Exact ceiling, `cpg/trace_descent.rs` refuses binding doubts such as `call_nameonly` before site lookup or a cached proof. It counts same-spelling sites in the executing caller before requiring the unique site's byte span to contain the occurrence. Until I-spelling, `s2-js-alias-same-line`, `s2-js-alias-multiline-overlap`, `s3-ts-optional-default-competitor` and `s3-js-nested-spread-alias-competitor` now report `BoundaryExited` in the walk and no trace-review finding. An empty occurrence must lie strictly inside the one accepted site (nomination keeps the inclusive base predicate), and a `call_nameonly` binding edge that lands in the function being walked is a self-function boundary instead of local flow.
+
+  The taint walk records a snake_case loss reason on each refused crossing and records local cuts. Set `PRISM_TAINT_CROSSING_TRACE=1` to write accepted crossings, return-value inputs and refusals to stderr. Review and navigation use the parsed files for ledger diagnostics. The empty form `site=- slot=- grades=[]` means “site not established.” Per-root sink verdicts use the reached frontier, the exact boundary target and the legacy same-function closure from that target. Each `BoundaryExited` source result carries the matched hop's `reason` in `per_sink[].sources[]`. Boundary warnings point to the refused hop's target and deduplicate for display. Option B owns the deferred distal verdicts and sink attribution after I-walk.
 - `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.
   `ReviewContextRound` builds a graph from the captured review and the admitted files.
@@ -144,10 +146,12 @@ The review layer is the workspace crate `crates/prism-review` (package `prism-re
   expansion and its completed maps. `context_view.rs` selects them for taint after
   successful admission and union. Other algorithms use the original maps.
 - `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in
-  `inventory/` producer uses same-file Python ASTs to identify listed HTTP calls. Imported roots,
-  direct construction, sole named construction and matching context-bound construction can prove
-  `exact` under the static-binding contract. An eligible annotated assignment or same-file helper
-  with a construction witness can prove `nameonly`. Owning-field ties and other failed tied identities
+  `inventory/` producer uses same-file Python ASTs to identify listed HTTP, filesystem, parse and
+  config calls. Imported and builtin roots, direct construction, sole named construction and
+  matching context-bound construction can prove `exact` under the static-binding contract.
+  Eligible annotated assignments and same-file helpers can prove `nameonly` with a construction
+  witness. The standard-library families also accept eligible parameter, assignment and helper
+  declarations at `nameonly` under decision K. Owning-field ties and other failed tied identities
   contribute per-file counts by cause. Inventory runs on its own or merges with projected findings.
   Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses
   `docs/contracts/targets-1.1.schema.json` (1.1).

@@ -9,7 +9,7 @@ const ROWS: &str = include_str!(concat!(
     "/../../tests/targets_inventory/rows.jsonl"
 ));
 const GROUPS: &[&str] = &["http.root", "http.receiver", "stdlib"];
-const ENABLED_GROUPS: &[&str] = &["http.root", "http.receiver"];
+const ENABLED_GROUPS: &[&str] = &["http.root", "http.receiver", "stdlib"];
 const FAMILIES: &[&str] = &["http", "filesystem", "parse", "config"];
 const REASONS: &[&str] = &[
     "parse_error_in_function",
@@ -256,7 +256,7 @@ fn matrix_rows_match() {
         .iter()
         .filter(|row| ENABLED_GROUPS.contains(&row.group.as_str()))
         .collect();
-    assert_eq!(enabled.len(), 594);
+    assert_eq!(enabled.len(), 784);
     assert_eq!(
         identity_warning_lines(warnings),
         expected_identity_warnings(&enabled),
@@ -360,7 +360,7 @@ fn helper_returned_local_pins() {
     ]);
 }
 
-fn check_receiver_pins(ids: &[&str]) {
+pub(super) fn check_receiver_pins(ids: &[&str]) {
     let rows: Vec<_> = read_rows()
         .into_iter()
         .filter(|row| ids.contains(&row.id.as_str()))

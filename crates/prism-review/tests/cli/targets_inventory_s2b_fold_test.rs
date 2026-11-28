@@ -1,4 +1,4 @@
-use super::targets_inventory_constructors_test::{identity_warnings, source_document};
+use super::targets_inventory_constructors_test::{identity_warnings, source_document_with};
 
 type Outcome<'a> = (&'a [(&'a str, &'a str)], &'a [&'a str]);
 
@@ -18,7 +18,7 @@ struct Cases(Vec<String>);
 
 impl Cases {
     fn check(&mut self, label: &str, source: &str, (rows, warnings): Outcome<'_>) {
-        let doc = source_document(source);
+        let doc = source_document_with(source, &["--inventory-kinds", "http"]);
         let mut actual: Vec<_> = doc["targets"]
             .as_array()
             .unwrap()

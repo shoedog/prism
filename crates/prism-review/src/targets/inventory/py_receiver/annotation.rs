@@ -1,10 +1,10 @@
-use super::{writes::string_literal, PathUse, Resolver};
+use super::{writes::string_literal, PathMatch, PathUse, Resolver};
 use crate::targets::inventory::{
     python::{
         source::{chain, children, has_comma, name, scalar_subscript, ungroup},
         walk::ScopeId,
     },
-    UnprovenCause,
+    Family, UnprovenCause,
 };
 use prism::{ast::ParsedFile, languages::Language};
 use tree_sitter::Node;
@@ -29,11 +29,32 @@ impl<'tree> Resolver<'_, 'tree> {
         node: Node<'tree>,
         scope: ScopeId,
         local: bool,
-        method: Option<&str>,
     ) -> Option<Result<Declaration<'tree>, UnprovenCause>> {
+        self.declaration_match(node, scope, local, None)
+            .map(|(_, declaration)| declaration)
+    }
+
+    pub(super) fn method_declaration(
+        &self,
+        node: Node<'tree>,
+        scope: ScopeId,
+        local: bool,
+        method: &str,
+    ) -> Option<(Family, Result<Declaration<'tree>, UnprovenCause>)> {
+        let (family, declaration) = self.declaration_match(node, scope, local, Some(method))?;
+        Some((family?, declaration))
+    }
+
+    fn declaration_match(
+        &self,
+        node: Node<'tree>,
+        scope: ScopeId,
+        local: bool,
+        method: Option<&str>,
+    ) -> Option<(Option<Family>, Result<Declaration<'tree>, UnprovenCause>)> {
         let annotation = annotation(self.parsed, node, self.walk.class(scope), true, false)?;
         let static_site = local || self.walk.postponed;
-        let (_, class) = self.resolve_parts(
+        let (kind, class) = self.resolve_parts(
             &annotation.class,
             node,
             scope,
@@ -42,6 +63,9 @@ impl<'tree> Resolver<'_, 'tree> {
                 static_only: static_site || annotation.quoted,
             },
         )?;
+        let PathMatch::Class(family) = kind else {
+            return None;
+        };
         let class = class.map(|class| Declaration {
             class,
             node,
@@ -57,10 +81,13 @@ impl<'tree> Resolver<'_, 'tree> {
                 },
             )?;
             if let Err(cause) = wrapper {
-                return Some(Err(class.err().map_or(cause, |class| class.min(cause))));
+                return Some((
+                    family,
+                    Err(class.err().map_or(cause, |class| class.min(cause))),
+                ));
             }
         }
-        Some(class)
+        Some((family, class))
     }
 }
 

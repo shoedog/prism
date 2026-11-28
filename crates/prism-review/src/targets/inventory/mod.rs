@@ -48,7 +48,7 @@ impl Family {
     }
 
     pub fn supported() -> &'static [Self] {
-        &[Self::Http]
+        &[Self::Http, Self::Filesystem, Self::Parse, Self::Config]
     }
 }
 

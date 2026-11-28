@@ -262,8 +262,18 @@ change it. If restart fails, one stderr warning is attempted and startup continu
 Serving startup events report `malloc_space_efficient=1`, `0`, `unset` or `other` from the current
 process environment.
 
-The `macos-footprint` CI job guards the idle-unloaded footprint on macOS using this
-checkout and an allocator opt-out control, and runs the macOS allocator tests. Run the
+The `macos-footprint` CI job guards the idle-unloaded footprint on macOS and runs the macOS
+allocator tests. It indexes a **pinned corpus** (this repository at `PINNED_SHA` in
+`crates/prism-mcp/tests/mcp/footprint_guard_test.rs`, exported with `git archive` without `eval/secbench`, fetched from
+`origin` when the commit is not in the checkout), never the live checkout: with the live
+checkout the control arm's retained memory depended on unrelated repository content (the same
+server build gave 2,002 MiB on one tree and 63 MiB on another), so the guard failed on PRs that
+changed no product code (#951, #958). The guard prints prime, guarded and control (allocator opt-out) LOADED/UNLOADED; the
+thresholds are loaded >= 512 MiB, guarded UNLOADED <= 128 MiB (the product claim) and control
+UNLOADED >= 256 MiB. The test file's header records the baseline numbers. A PR that moves the
+guarded number beyond run-to-run spread or flips the control says so in its description and
+either re-pins the baseline (better behaviour, with the reason) or fixes the regression; a control that stops retaining on the pinned corpus needs a new measured pin or control with owner sign-off, never a lower threshold; changing
+`PINNED_SHA` re-pins every number in the same PR. Run the
 footprint guard locally with `cargo test --release -p prism-mcp --test mcp footprint_guard -- --ignored --nocapture --test-threads=1`;
 ordinary test runs ignore this measurement.
 
