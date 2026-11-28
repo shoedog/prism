@@ -462,45 +462,32 @@ literal nullish base (`(void 0)?.eval(x)`, `null?.m(eval(x))`, `null?.[eval(x)]`
 are pinned as `known_limit` rows (r10-limit-js-*) beside controls (r10-control-js-*). The narrowed
 cell stays as an extra refusal and is named as such: an optional call or member chain directly on a
 literal `null` or `undefined` base is withheld (`op_special_form`), although the contract would not
-require it. **Census (price.rs, five-language run `price-5l-fold14`, 2026-11-28): a node-kind filter, not a
-proof.** The census counts what two detectors select and claims nothing beyond them. It decides no
-truthiness. (1) Optional chains: it counts every chain whose base, after peeling comments,
-parentheses of any depth and the TS wrappers (`as`, `satisfies`, non-null `!`, `<T>` assertions),
-is not TREATED AS LIVE. A base is treated as live when it is an identifier other than `undefined`
-(and without an escaped spelling: an identifier whose source text holds a backslash counts as
-possibly nullish), a member, subscript, call or `new` expression, `this`, `super`, or
-`await`/`yield` of those; literals of any kind, `void` of anything, `undefined` (shadowed or not),
-templates, regexes, sequence and conditional expressions and unknown kinds count as possibly
-nullish. Counted: such chains in the corpora (`js_possibly_nullish_chain_any`) and certified hits
-inside one, in callee, argument or computed-key position (`js_certified_under_possibly_nullish_chain`,
-the whole chain through `!`, not the evaluated base). (2) Literal-only tests
-(`literal_only_test_certified`): a test is literal-only when, after the same peeling, every named
-leaf is a literal spelling (number, string, regex, template, boolean, null/none/nil), `undefined` or
-Python `TYPE_CHECKING`, and every interior node is an operator, wrapper, string, template, regex or
-interpolation node. For every `if`/`elif` chain, ternary, `while`, `for` condition (Go `for cond {}`
-and `for ;cond; {}` included), Go `if init; cond` and `&&`, `||`, `??`, `and`, `or` whose whole test
-or whole left operand is literal-only, every certified hit in any part of that construct is listed,
-and the rows are read by hand as live or unreachable. Results are written as explicit rows, zero
-included.
+require it. **Census (price.rs, five-language run `price-5l-fold14`, 2026-11-28).** The census is a
+node-kind filter, not a proof, and decides no truthiness. Its selection rule is DEFINED by the code,
+not by this document: the nullish-base chains by `possibly_nullish_base`, `nullish_chain_base` and
+`under_nullish_chain`; the literal-only tests by `literal_only`, `literal_tests` and
+`under_literal_test` (all in `crates/prism-review/src/algorithms/taint/sink_rules/price.rs`, with
+`peel` for the wrappers it looks through). The selection rule is pinned by the census regression
+tests `superset_counts_every_possibly_nullish_base_and_constant_guard` (inputs it selects) and
+`known_exclusions_of_the_census_are_not_counted` (inputs it does not select, each beside a counted
+control). Where this paragraph and those functions differ, the functions and the tests are right.
+Rows are written for every counted shape, zero included. The rows the literal-only filter lists
+are read by hand as live or unreachable.
 
-**Exclusions of the census, by name.** (1) A test that is a container literal (Python list, tuple,
-dict or set display; JS or TS array or object literal), empty or not, is not literal-only and is not
-counted. (2) An optional chain whose base is itself an optional chain with a possibly nullish base
-is judged by the outer link's own base kind, so a statically skipped outer call such as
-`(null?.m)?.(f(x))` is not counted; bases such as `[][0]`, `globalThis.undefined` or an IIFE
-result are treated as live. (3) The whole-construct listing follows `elif` chains in Python only; a
-JS, TS or Go `else if` is a nested `if`, so an earlier branch is not enrolled by a later literal
-test (immaterial: a later test cannot make an earlier branch unreachable). (4) A literal that is
-only part of the test (`if (false && x)`, `false && a && hit`, `if true || x {} else {..}`), an
-escaped spelling of `undefined` as a test, `do .. while (0)`, comprehension `if` clauses, `switch`
-and `match` on literals, named-constant guards (Go `const debug = false`), code after
-`return`/`throw`/`panic` and `typing.TYPE_CHECKING` (or an alias of it) are not selected. The
-exclusions (1) to (3) are pinned by the census regression
-`known_exclusions_of_the_census_are_not_counted` (expected: not counted, each beside a control that
-is counted), so a later widening flips them deliberately. The shapes are constructed inputs: this
-census did not observe any of them in the corpora, and the incidence of the excluded shapes on the
-corpora is not measured. The certificate's contract (the syntactic role of an occurrence, not
-execution) does not depend on these counts.
+**Named exclusions** (shapes the filter does not select; the list is not exhaustive):
+container-literal tests (list, tuple, dict, set, array, object), empty or not; empty strings and
+templates as tests; an optional chain over an optional chain with a possibly nullish base is
+judged by the outer link's own base kind (`(null?.m)?.(f(x))` is not counted); the whole-construct
+listing follows `elif` chains in Python only (a JS, TS or Go `else if` is a nested `if`, so an
+earlier branch is not enrolled by a later literal test; immaterial, a later test cannot make an
+earlier branch unreachable); a literal that is only part of a test (`if (false && x)`); an escaped
+spelling of `undefined` as a test; `do .. while (0)`, comprehension `if` clauses, `switch` and
+`match` on literals; named-constant guards (Go `const debug = false`); `typing.TYPE_CHECKING` and
+its aliases. The spelling `TYPE_CHECKING` itself is accepted as a literal-only test in any
+language, not only Python. `return`, `throw` and `panic` are not selection criteria: code after
+them is selected only when a literal-only test also encloses it. The excluded shapes are
+constructed inputs; their incidence on the corpora is not measured. The certificate's contract
+(the syntactic role of an occurrence, not execution) does not depend on these counts.
 
 **Census result, limited to that filter** (certified of all flat hits: Go 22,575 of 22,591,
 JavaScript 2,116 of 2,172, TypeScript 708 of 735, TSX 21 of 36, Python 2,899 of 3,039; shares
