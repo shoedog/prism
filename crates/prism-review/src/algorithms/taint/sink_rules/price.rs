@@ -442,6 +442,17 @@ fn visit_file(
     loop {
         let id = cursor.node();
         if JS_FAMILY.contains(&language) && nullish_chain_base(&parsed, id).is_some() {
+            if env::var_os("PRICE_SHAPES").is_some() {
+                eprintln!(
+                    "price-shape\tjs_possibly_nullish_chain_any\t{file}:{}\t{}",
+                    id.start_position().row + 1,
+                    source
+                        .lines()
+                        .nth(id.start_position().row)
+                        .unwrap_or("")
+                        .trim()
+                );
+            }
             *totals
                 .shapes
                 .entry("js_possibly_nullish_chain_any")
@@ -476,6 +487,17 @@ fn visit_file(
             corpus.record(hit);
             if matches!(hit, Hit::Certified) {
                 for shape in pending_shapes(&parsed, id) {
+                    if env::var_os("PRICE_SHAPES").is_some() {
+                        eprintln!(
+                            "price-shape\t{shape}\t{file}:{}\t{}",
+                            id.start_position().row + 1,
+                            source
+                                .lines()
+                                .nth(id.start_position().row)
+                                .unwrap_or("")
+                                .trim()
+                        );
+                    }
                     *totals.shapes.entry(shape).or_default() += 1;
                     *corpus.shapes.entry(shape).or_default() += 1;
                 }
