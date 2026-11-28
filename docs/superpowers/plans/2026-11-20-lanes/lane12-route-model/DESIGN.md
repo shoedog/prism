@@ -129,7 +129,7 @@ Unproven receivers suppress callback identity but retain the callback slots and 
 Go selector values see 5.6.
 
 **Reason** is one closed snake_case enum shared by records, exposure cuts, diagnostics and matrix validation. Its variants are
-`receiver_unproven imported_unproven mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
+`receiver_unproven imported_unproven terminal_reexport mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
 non_literal_path regex_path mount_cycle expansion_truncated`,
 `getattr_module star_import global_write multi_write nested_single submodule_shadow module_descriptor_name
 class_private_name class_body_import` (Python import diagnostics),
@@ -254,7 +254,7 @@ children of `register_blueprint`, `include_router` and `mount`, and the view sup
 
 A subscript (including tuple, list or dict lookup), conditional, arbitrary call result, lambda, `self`/`cls`
 member or value returned through an unproved helper never supplies a value proof. An unproved receiver is
-`receiver_unproven` or `imported_unproven` when the site is retained (Flask drops sites without a receiver hint).
+`receiver_unproven`, `imported_unproven` or `terminal_reexport` (a terminal re-export) when the site is retained (Flask drops sites without a receiver hint).
 An unproved mount child is `mount_child_unproven`. A view argument stays unresolved with its existing reason,
 including `callback_unproven`, `wrapper_call`, `anonymous_unindexed`, `member_handler`, `imported_unproven`,
 `inner_decorator` or `spread_callback` as applicable.
@@ -432,10 +432,11 @@ earlier import hidden by a competing write. Use the full written expression for 
 For a counted import refusal of a no-effect callee, emit once at each distinct whole-call span
 (fk-65). Emit the diagnostic even when Flask drops a site for lack of a receiver hint. An unsupported
 form with no counted reason, including an unestablished child hop or terminal re-export, keeps
-only its role-specific refusal. Use `mount_child_unproven` for a mount child and
-`imported_unproven` for an imported receiver or view retained by the adapter. For an unsupported
+only its role-specific refusal. Use `mount_child_unproven` for a mount child,
+`terminal_reexport` for a receiver whose import is a terminal re-export (the Rule is retained with that receiver refusal and the callback slot carries the same reason) and
+`imported_unproven` for any other imported receiver or view retained by the adapter. For an unsupported
 imported callee, the no-effect exemption is unavailable and dependent fields are withheld.
-`unestablished_hop` and `terminal_reexport` name census outcomes only.
+`unestablished_hop` names a census outcome only; `terminal_reexport` is also the wire receiver reason above and is not a counted import refusal.
 
 During escape indexing, keep possible targets when an import proof fails and withhold their
 view-derived metadata if the escape cannot be cleared. In fk-34, the helper captures and mutates
