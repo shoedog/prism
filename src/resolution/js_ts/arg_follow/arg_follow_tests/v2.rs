@@ -488,11 +488,10 @@ fn colliding_holder_spans_cannot_share_an_exact_ground() {
         Language::JavaScript,
     );
     for site in ["cb('left')", "cb('right')"] {
-        match fixture.outcome(site) {
-            None => {}
-            Some(ArgOutcome::Empty(reason)) => assert_eq!(reason, "holder_identity", "{site}"),
-            other => panic!("{site}: {other:?}"),
-        }
+        // Unreachable branch evidence: the colliding holder's own body
+        // never yields a call site, so `unique_owner` is not consulted.
+        assert!(fixture.site(site).is_none(), "{site} has a graph site");
+        assert!(fixture.outcome(site).is_none(), "{site}");
     }
     assert_eq!(fixture.index.stats().target_sites, 1, "only the control");
 }
