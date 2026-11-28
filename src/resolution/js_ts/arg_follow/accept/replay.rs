@@ -53,7 +53,10 @@ impl<'a> Proof<'a, '_> {
             // tracked formal's default; keep that provenance so timing is
             // judged before the spread is reported.
             if spread > p.position
-                && self.undefined((recipe.file, args[p.position]))
+                && self.undefined(
+                    normalize(Some((recipe.file, args[p.position])))
+                        .unwrap_or((recipe.file, args[p.position])),
+                )
                 && formal_list(p.owner)
                     .is_ok_and(|formals| formals.get(p.position).is_some_and(|f| f.1.is_some()))
             {

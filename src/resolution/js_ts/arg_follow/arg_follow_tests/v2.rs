@@ -645,3 +645,13 @@ fn catch_scoped_eval_known_limit_credits_the_outer_callable() {
         assert!(outcome.contains("Targets"), "{outcome}");
     }
 }
+
+#[test]
+fn parenthesized_undefined_before_a_spread_keeps_the_default_timing_reason() {
+    let holder = "function holder(cb = () => 1) { if (true) return cb(); }";
+    let wrapped = undefined_case("", holder, "holder((undefined), ...[]);");
+    wrapped.refuses("cb()", "read_timing");
+    // Control: a supplied callback before the spread is an `unknown_spread` site.
+    let supplied = undefined_case("", holder, "holder(() => 2, ...[]);");
+    supplied.refuses("cb()", "unknown_spread");
+}
