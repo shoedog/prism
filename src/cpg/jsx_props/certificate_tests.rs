@@ -402,3 +402,88 @@ fn await_and_wrapped_type_queries() {
         );
     }
 }
+
+// Clause c, the structural rule (DESIGN 5.3.4): the grammar attaches a `[..]` or `(..)` that starts a
+// new line to an arrow function or an `as`/`satisfies` expression, where the language ends the
+// statement and the bracket starts a destructuring write. One rule at the choke point: every
+// subscript, call, member and tagged template of the owner needs an object on a closed list.
+const ARROW_THEN_WRITE: &str = "const g = () => {}\n[x] = [0]; see(x); g();";
+const AS_THEN_WRITE: &str = "const v = [] as const\n[x] = [0]; see(x); v;";
+
+#[test]
+fn an_object_the_grammar_attaches_across_a_line_fails_clause_c() {
+    for ext in ["jsx", "tsx"] {
+        assert_eq!(
+            app(ext, "x", ARROW_THEN_WRITE).failed.first(),
+            Some(&"c"),
+            "arrow {ext}"
+        );
+    }
+    // (`satisfies T` followed by a line starting `[` is a parse error in the grammar, which clause c
+    // already refuses: a type can take `[..]`, so that shape never reaches the structural rule.)
+    for body in [AS_THEN_WRITE] {
+        assert_eq!(app("tsx", "x", body).failed.first(), Some(&"c"), "{body:?}");
+    }
+    // The call form of the same attachment.
+    assert_eq!(
+        app("jsx", "x", "const g = () => {}\n(x); see(x);")
+            .failed
+            .first(),
+        Some(&"c")
+    );
+    // A member and a tagged template on an arrow are the same kind of object.
+    assert_eq!(
+        app("jsx", "x", "const g = () => {}\n.p; see(x);")
+            .failed
+            .first(),
+        Some(&"c")
+    );
+}
+
+#[test]
+fn a_parenthesized_object_is_the_language_reading_and_stays_certified() {
+    assert!(app("jsx", "x", "const g = (() => {})\n[x]; see(x); g;").keeps());
+    assert!(app("tsx", "x", "const v = ([] as const)\n[x]; see(x); v;").keeps());
+    assert!(app(
+        "tsx",
+        "x",
+        "const v = ([] satisfies object)\n[x]; see(x); v;"
+    )
+    .keeps());
+    assert!(app("jsx", "x", "see(x); (() => {})[x]; (() => {})(x);").keeps());
+}
+
+#[test]
+fn every_listed_object_kind_stays_certified() {
+    // One row per kind on the closed list; each is a genuine subscript, call, member or template.
+    for (kind, body) in [
+        ("identifier", "see(x); a[x]; a(x); a.b;"),
+        ("member_expression", "see(x); a.b[x]; a.b(x);"),
+        ("subscript_expression", "see(x); a[0][x]; a[0](x); a[0].b;"),
+        ("call_expression", "see(x); f()[x]; f()(x); f().b;"),
+        ("parenthesized_expression", "see(x); (a)[x]; (a)(x); (a).b;"),
+        ("this", "see(x); this[x]; this(x); this.b;"),
+        ("string", "see(x); 's'[x]; 's'.length;"),
+        ("template_string", "see(x); `t`[x]; `t`.length;"),
+        ("number", "see(x); 1[x]; (1).b;"),
+        ("array", "see(x); [1][x]; [1].length;"),
+        ("object", "see(x); const o = {a: 1}[x]; const p = {a: 1}.a;"),
+        ("regex", "see(x); /a/[x]; /a/.test(x);"),
+        ("new_expression", "see(x); new A()[x]; new A().b;"),
+        ("tagged template", "see(x); tag`t${x}`; a.tag`t`;"),
+        ("meta_property", "see(x); new.target[x]; new.target.b;"),
+    ] {
+        assert!(app("jsx", "x", body).keeps(), "{kind}: {body:?}");
+    }
+    assert!(
+        app("tsx", "x", "see(x); a![x]; a!(x); a!.b;").keeps(),
+        "non_null_expression"
+    );
+    let module = "function App(x) { import.meta[x]; import.meta.env; import(x).then(); return <D a={x} />; }";
+    assert!(
+        fixture("jsx", module, false, true).keeps(),
+        "import, import.meta"
+    );
+    let method = "class A extends B { m(x) { super.m(x); super[x]; return <D a={x} />; } }";
+    assert!(fixture("jsx", method, false, true).keeps(), "super");
+}

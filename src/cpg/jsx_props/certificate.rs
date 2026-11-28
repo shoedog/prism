@@ -30,11 +30,49 @@ fn line_terminator_divergence(text: &str) -> bool {
             .any(|(at, _)| text.as_bytes().get(at + 1) != Some(&b'\n'))
 }
 
-/// Clause c: no parse error, no `with`, no name spelled `eval` or `arguments`.
+/// Object kinds (callee kinds for a call, tag kinds for a tagged template) that cannot be the tail of
+/// a statement the language would have ended. The grammars attach a `[..]` or `(..)` that starts a
+/// new line to an arrow function or an `as`/`satisfies` expression, where the language ends the
+/// statement and the bracket starts a destructuring write or a call statement; every kind here is a
+/// primary or member expression the language also continues across a line break. A parenthesized
+/// form is closed by its own parentheses, so it is listed and its content is judged on its own.
+const CONTINUING_OBJECTS: &[&str] = &[
+    "identifier",
+    "this",
+    "super",
+    "member_expression",
+    "subscript_expression",
+    "call_expression",
+    "parenthesized_expression",
+    "string",
+    "template_string",
+    "number",
+    "array",
+    "object",
+    "regex",
+    "new_expression",
+    "import",
+    "meta_property",
+    "non_null_expression",
+];
+
+/// The object of a subscript, member or call (tagged template included), when `node` is one.
+fn attached_object(node: Node<'_>) -> Option<Node<'_>> {
+    match node.kind() {
+        "subscript_expression" | "member_expression" => node.child_by_field_name("object"),
+        "call_expression" => node.child_by_field_name("function"),
+        _ => None,
+    }
+}
+
+/// Clause c: no parse error, no `with`, no name spelled `eval` or `arguments`, and no
+/// subscript, member, call or tagged template on an object off the closed list.
 fn clause_c(parsed: &ParsedFile, owner: Node<'_>) -> bool {
     let mut clean = !owner.has_error() && !line_terminator_divergence(parsed.node_text(&owner));
     syntax::walk(vec![owner], |node| {
         clean &= node.kind() != "with_statement";
+        clean &=
+            attached_object(node).is_none_or(|object| CONTINUING_OBJECTS.contains(&object.kind()));
         if name_token(node) {
             let text = parsed.node_text(&node);
             // A token spelled with an escape the decoder cannot read (`\u{00000078}`) may spell

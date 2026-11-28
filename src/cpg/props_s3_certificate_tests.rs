@@ -173,3 +173,35 @@ fn the_round_5_design_check_shapes_are_refused_with_controls() {
         "function App(x: number) { function change() { type T = typeof Math.min; } see(x); change(); return <D a={x} />; }",
     );
 }
+
+#[test]
+fn an_object_the_grammar_attaches_across_a_line_is_refused_with_controls() {
+    // The grammar reads the second line as a subscript of the arrow (or of the `as` expression);
+    // the language ends the statement there and runs a destructuring write of `x`. The operand sits
+    // on a line of its own with `see(x)`, so the read of `x` stands for it (Rule R decides).
+    for ext in ["jsx", "tsx"] {
+        refused(
+            ext,
+            "function App(x) { const g = () => {}\n[x] = [0]; g;\nsee(x); return <D a={x} />; }",
+        );
+        // Controls: parentheses close the arrow, so the language reads the same subscript.
+        bound(
+            ext,
+            "function App(x) { const g = (() => {})\n[x]; g;\nsee(x); return <D a={x} />; }",
+        );
+    }
+    // (`satisfies T` then a line starting `[` is a parse error in the grammar, so it never reaches
+    // the rule; only its parenthesized control is a valid source.)
+    refused(
+        "tsx",
+        "function App(x) { const v = [] as const\n[x] = [0]; v;\nsee(x); return <D a={x} />; }",
+    );
+    for wrapper in ["as const", "satisfies object"] {
+        bound(
+            "tsx",
+            &format!(
+                "function App(x) {{ const v = ([] {wrapper})\n[x]; v;\nsee(x); return <D a={{x}} />; }}"
+            ),
+        );
+    }
+}
