@@ -9,9 +9,9 @@ use super::*;
 use crate::framework_entries::routes::python::flask::FlaskRule;
 use crate::framework_entries::routes::receivers::Clause;
 
-const APP: &str = "from flask import Flask\napp = Flask(__name__)\n";
+pub(super) const APP: &str = "from flask import Flask\napp = Flask(__name__)\n";
 
-fn clean(files: &BTreeMap<String, ParsedFile>) {
+pub(super) fn clean(files: &BTreeMap<String, ParsedFile>) {
     for (path, file) in files {
         assert!(
             !file.tree.root_node().has_error(),
@@ -21,7 +21,7 @@ fn clean(files: &BTreeMap<String, ParsedFile>) {
 }
 
 /// Per rule event of `app.py`: whether its receiver is proved, and the callback statuses.
-fn rules_of(sources: &[(&str, &str)]) -> Vec<(bool, Vec<CallbackStatus>)> {
+pub(super) fn rules_of(sources: &[(&str, &str)]) -> Vec<(bool, Vec<CallbackStatus>)> {
     let files = parsed(sources);
     clean(&files);
     let bindings = index_python(&files);
@@ -42,7 +42,7 @@ fn rules_of(sources: &[(&str, &str)]) -> Vec<(bool, Vec<CallbackStatus>)> {
 }
 
 /// The (file, name) of every resolved callback of every rule.
-fn resolved(sources: &[(&str, &str)]) -> Vec<(String, String)> {
+pub(super) fn resolved(sources: &[(&str, &str)]) -> Vec<(String, String)> {
     rules_of(sources)
         .into_iter()
         .flat_map(|(_, callbacks)| callbacks)
@@ -53,11 +53,11 @@ fn resolved(sources: &[(&str, &str)]) -> Vec<(String, String)> {
         .collect()
 }
 
-fn pair(file: &str, name: &str) -> (String, String) {
+pub(super) fn pair(file: &str, name: &str) -> (String, String) {
     (file.to_owned(), name.to_owned())
 }
 
-fn proved_rules(sources: &[(&str, &str)]) -> usize {
+pub(super) fn proved_rules(sources: &[(&str, &str)]) -> usize {
     rules_of(sources)
         .iter()
         .filter(|(proved, callbacks)| {
@@ -102,7 +102,7 @@ fn star_child(init: &str, capture: &str) -> Vec<(String, String)> {
     resolved(&[
         ("app.py", &app),
         ("pkg/__init__.py", init),
-        ("pkg/child.py", "def handle(): pass\n"),
+        ("pkg/child.py", "def handle(): pass\nmarker = 1\n"),
         ("old.py", "def handle(): pass\n"),
     ])
 }
@@ -133,7 +133,7 @@ fn s2_control_no_initializer_import_of_the_child() {
 }
 
 // S3: a store on a LATER local binding is not a store on the earlier Flask allocation.
-fn roots(source: &str) -> usize {
+pub(super) fn roots(source: &str) -> usize {
     let files = parsed(&[("app.py", source)]);
     clean(&files);
     index_python(&files)
@@ -208,7 +208,7 @@ fn s5_control_ordinary_formal_and_unmangled_module_function() {
 }
 
 // S6 / F3: a module-level `global K` is no redirect; the module scope still binds K.
-fn config_methods(global: &str) -> MethodSet {
+pub(super) fn config_methods(global: &str) -> MethodSet {
     let source = format!(
         "from flask import Flask\n{global}app = Flask(__name__)\napp.config = {{'PROVIDE_AUTOMATIC_OPTIONS': False}}\n@app.route('/x')\ndef f(): pass\n"
     );
@@ -240,7 +240,7 @@ fn loop_rows(body: &str) -> Vec<(String, String)> {
     let app = format!("{APP}def install():\n{body}install()\n");
     resolved(&[("app.py", &app), ("views.py", "def old(): pass\n")])
 }
-fn diagnostics_of(body: &str) -> (usize, usize) {
+pub(super) fn diagnostics_of(body: &str) -> (usize, usize) {
     let app = format!("{APP}def install():\n{body}install()\n");
     let files = parsed(&[("app.py", &app), ("views.py", "def old(): pass\n")]);
     clean(&files);
@@ -336,7 +336,7 @@ fn f5_chained_assignment_router_is_conservatively_unproven() {
 
 // One direct `Result<(), Clause>` assertion per clause, so a missed binding occurrence cannot
 // pass as "no event".
-fn module_verdict(sources: &[(&str, &str)], key: &str) -> Result<(), Clause> {
+pub(super) fn module_verdict(sources: &[(&str, &str)], key: &str) -> Result<(), Clause> {
     let files = parsed(sources);
     let bindings = index_python(&files);
     let file = &files["app.py"];

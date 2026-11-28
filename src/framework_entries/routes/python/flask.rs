@@ -464,7 +464,7 @@ fn saved_decorator<'a>(
     })
 }
 
-fn record_once_owner<'a>(
+pub(in crate::framework_entries::routes) fn record_once_owner<'a>(
     bindings: &PythonBindings<'a>,
     file: &ParsedFile,
     scope: Node<'a>,

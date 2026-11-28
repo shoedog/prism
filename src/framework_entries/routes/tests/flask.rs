@@ -19,6 +19,7 @@ mod import_regressions;
 mod measure;
 mod review;
 mod round_one;
+mod round_two;
 mod source_fact_gaps;
 mod static_import;
 
