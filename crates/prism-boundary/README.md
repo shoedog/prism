@@ -413,14 +413,9 @@ The schema tests use Python with `jsonschema`. Set
 This crate is PROVISIONAL. The admission claim is certified only for the request
 shape that the real-pair replay exercises, and for nothing else.
 
-**Certified shape.** A historical review (`historical_as_of`) whose subject head
-is the service after input at the cutoff, with two inputs that each carry one
-blob receipt, and two receipt-backed schema claims. No consumer side, no
-computed tree, no merge, no held alias, no selection pin, no media, config or
-reference receipts, and no frozen consumer records. On the 37 usable revision
-pairs of the public pair this shape admitted 74 of 74 claims, with no refusal of
-any kind. A read-only code census of the settlement paths leaves, in this shape,
-9 minor cases and no serious one (about, plus or minus 3).
+**Certified shape.** Admission is certified for a historical review (`historical_as_of`) with report time at or after the cutoff, whose subject head is the service after input at the cutoff; two inputs of one API and repository, each a commit snapshot with one named-tree blob receipt that has no dependencies, whose bytes the caller has verified against the Git blob id (admission checks each receipt's SHA-256 over the supplied bytes, not that the blob id names those bytes); two receipt-backed schema claims; no consumer side, no computed tree, no merge, no held alias, no selection pin, no media, config or reference receipts, and no frozen consumer records. On the 37 usable revision pairs of the public pair this shape admitted 74 of 74 claims, with no refusal of any kind. A read-only code census of the settlement paths (code reading, not executed, about plus or minus 3) leaves in this shape 9 minor cases, none material and one uncertain.
+
+`ImpactDocument::validate()` is accepted but not certified in every shape, this one included: the 37 replay documents all passed, which shows nothing about refusals, and known limits 14 and 15 show frozen checks that pass while an input is unchecked. The library builds no document inputs, so every document's inputs are caller-built.
 
 **Accepted but not certified.** Every other review mode and request shape
 (live, version comparison, other historical shapes, joint reports, computed
@@ -436,10 +431,10 @@ side), so the replay shows nothing about incidence there. For the 12 cases that
 depend on schema contents rather than on the request, incidence on the public
 pair is not measured.
 
-**Where the status is carried.** `BindingsDocument` and `ImpactDocument` have no
-document-level admission status: `warnings` holds unchecked claims (status
-`unchecked`, tied to a claim) and `coverage` holds limits keyed to a comparison,
-an input and a claim kind. Adding a document-level status is a format change, so
+**Where the status is carried.** Neither document has a document-level admission
+status. `ImpactDocument` has `warnings`, which hold unchecked claims (status
+`unchecked`, tied to a claim), and `coverage`, which holds limits keyed to a
+comparison, an input and a claim kind; `BindingsDocument` has neither. Adding a document-level status is a format change, so
 it is not made here and documents produced outside the certified shape do not
 carry the status themselves. The status is carried by this README and by the
 report slice, which shows the standing limits both as one note beside each
@@ -465,7 +460,8 @@ records its selection time and a pin or first-parent date-rule receipt for
 each selected input in `change.selection.receipts`. Branch-based receipts must
 match the frozen input branch. The singular `change.selection.input_id` and
 `receipt` fields can record one input's proof.
-A claim is admitted only when every required dependency in its closure is admitted,
+The design is that a claim is admitted only when every required dependency in its closure is admitted
+(certified only in the shape above; known limits 12 to 15 show where the code does not yet enforce it),
 including the separately declared topic head for a historical computed after-tree.
 The dependency edges are derived: a claim depends on the settled selection claim of every
 input it reads. In a historical review that includes the subject (topic) head, because the
@@ -477,7 +473,7 @@ takes subject After candidates only from slots of the matching role and depends 
 holding the selected merge receipt. `ClaimStatus` is built only at the gate in
 `revision/admission/gate.rs`.
 
-`ImpactDocument::validate()` certifies these internal checks on frozen records.
+`ImpactDocument::validate()` attempts these internal checks on frozen records. It is certified for none of them outside the shape above, and known limits 14 and 15 show where it does not yet enforce them.
 
 1. Input, dependency, slot, reference and selection IDs resolve within the
    document. Recorded snapshot, role, cutoff and receipt facts agree where
@@ -493,7 +489,7 @@ holding the selected merge receipt. `ClaimStatus` is built only at the gate in
    `from_json` entry point to check the original JSON, including duplicate
    members and unknown keys, before validating the typed impact document.
 
-The checks apply equally to hand-edited or foreign documents. Authenticating
+The checks apply equally to hand-edited or foreign documents, with the same exclusion. Authenticating
 source bytes, re-deriving changes and comparisons, and recomputing saved scans
 require the original inputs. Use `saved_binding_status` with the
 saved and selected inventories derived from their admitted dependencies for

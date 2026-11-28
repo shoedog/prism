@@ -199,7 +199,7 @@
       "before_input_admitted": false,
       "report_cutoff_admitted": true
     },
-    "outside_accept_list": "A frozen document whose Before input is unchecked is outside the certified shape (historical, two commit inputs). Expected until the settlement redesign (issue #1002): the redesign slice before P4 closes this row and the row is then deleted.",
+    "outside_accept_list": "A frozen document whose Before input is unchecked (hand-edited or caller-built) is not certified: the cutoff check waives proof from the raw Before role, repo and snapshot, on a computed After-tree or on the replay shape alike. Expected until the settlement redesign (issue #1002): the redesign slice before P4 closes this row and the row is then deleted.",
     "control": {
       "fixture": "operations-only.json",
       "input": "The Before input has no missing dependency.",
