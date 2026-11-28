@@ -285,3 +285,5 @@ mod fold3;
 
 #[path = "support/fold4.rs"]
 mod fold4;
+#[path = "support/fold5.rs"]
+mod fold5;

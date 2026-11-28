@@ -217,10 +217,19 @@ pub(super) fn slot_cutoff(
         ),
     ];
     let subject_id = selection.and_then(|selection| selection.subject_head_input_id.as_deref());
+    // Only an input of the slot's own role can be a subject After: a wrong-role
+    // input in a slot is refused by `slots:*` and never selects the head.
     let subject_after_ids: Vec<_> = roles
         .iter()
-        .filter(|(_, subject)| *subject)
-        .filter_map(|(slots, _)| slots.as_ref()?.after_input_id.as_deref())
+        .zip([Role::Producer, Role::Consumer])
+        .filter(|((_, subject), _)| *subject)
+        .filter_map(|((slots, _), role)| {
+            let id = slots.as_ref()?.after_input_id.as_deref()?;
+            inputs
+                .get(id)
+                .is_some_and(|input| input.role == role)
+                .then_some(id)
+        })
         .collect();
     let mut computed_after = None;
     let subject = match subject_id {
@@ -295,10 +304,23 @@ pub(super) fn slot_cutoff(
         return missing();
     }
     let anchor = subject.map(|head| (head.role, head.repo.as_str()));
+    // The cutoff reads the subject head, the computed result and every input that
+    // holds the selected merge receipt.
+    let merge_holders = selection
+        .and_then(|selection| selection.merge_receipt.as_ref())
+        .into_iter()
+        .flat_map(|receipt| {
+            inputs.values().filter_map(move |input| {
+                matches!(&input.snapshot,
+                    SnapshotInput::ComputedTree { merge_receipt, .. } if merge_receipt == receipt)
+                .then_some(input.input_id.as_str())
+            })
+        });
     let mut basis: Vec<_> = subject
         .map(|head| head.input_id.as_str())
         .into_iter()
         .chain(computed_after)
+        .chain(merge_holders)
         .map(|id| format!("input:{id}"))
         .collect();
     let mut required = BTreeSet::new();

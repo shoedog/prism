@@ -105,6 +105,19 @@ impl<'a> Ledger<'a> {
         self.input_facts(id).map(|facts| facts.input)
     }
 
+    /// The settled selection claim of an input: admitted exactly when the input
+    /// resolves and its own selection holds. Every claim that reads an input
+    /// depends on this decision, so no read can bypass it.
+    fn selection_claim(&self, id: &str) -> ClaimDecision {
+        let reasons = self
+            .input_facts(id)
+            .and_then(|facts| facts.selection.clone())
+            .err()
+            .into_iter()
+            .collect();
+        ClaimDecision::from_reasons(Some(id), reasons, [])
+    }
+
     fn input_facts(&self, id: &str) -> Result<&InputFacts<'a>, Refusal> {
         self.inputs
             .get(id)
@@ -461,10 +474,34 @@ impl<'a> Ledger<'a> {
                 Err(reason) => reasons.push(reason),
             }
         }
-        let dependencies = records
+        // Inputs this claim reads: its own and, in a historical review, the
+        // subject (topic) head, which defines the cutoff and the merge head
+        // every claim is judged against. Live and version reviews take their
+        // cutoff from the request, so they do not read the subject head.
+        let reads: BTreeSet<&str> = std::iter::once(claim.input_id.as_str())
+            .chain(
+                self.subject
+                    .filter(|_| self.request.mode == ReviewMode::HistoricalAsOf)
+                    .map(|subject| subject.binding.input_id.as_str()),
+            )
+            .collect();
+        let selections: Vec<_> = reads
+            .into_iter()
+            .map(|id| (id, self.selection_claim(id)))
+            .collect();
+        let dependencies = selections
             .iter()
-            .filter(|record| purpose == ClaimPurpose::Schema && record.kind == ReceiptKind::Media)
-            .map(|record| RequiredDependency::new(&record.id, media.get(record.id.as_str())));
+            .map(|(id, decision)| RequiredDependency::new(id, Some(decision)))
+            .chain(
+                records
+                    .iter()
+                    .filter(|record| {
+                        purpose == ClaimPurpose::Schema && record.kind == ReceiptKind::Media
+                    })
+                    .map(|record| {
+                        RequiredDependency::new(&record.id, media.get(record.id.as_str()))
+                    }),
+            );
         let mut decision =
             ClaimDecision::from_reasons(Some(&claim.input_id), reasons, dependencies);
         decision.evidence = records

@@ -116,7 +116,7 @@ pub fn saved_binding_status(
         if admission
             .claims
             .get(&claim.id)
-            .is_some_and(|decision| decision.status == "admitted")
+            .is_some_and(|decision| decision.is_admitted())
             && ledger
                 .input(&claim.input_id)
                 .is_ok_and(|input| input.binding.role == Role::Consumer)

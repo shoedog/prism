@@ -64,7 +64,7 @@ pub fn admit_schema_input<'a>(
     let projection = projections.remove(claim_id);
     let failure = match report.claims.get(claim_id) {
         None => Some(Refusal::new("missing_receipt", claim_id)),
-        Some(decision) if decision.status == "admitted" && projection.is_none() => {
+        Some(decision) if decision.is_admitted() && projection.is_none() => {
             Some(Refusal::new("slot_mismatch", claim_id).dimension("purpose"))
         }
         _ => None,
