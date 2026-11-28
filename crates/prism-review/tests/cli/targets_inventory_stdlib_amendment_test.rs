@@ -452,3 +452,46 @@ fn known_limit_duplicate_parameter_beside_starred_annotation() {
         );
     }
 }
+
+#[test]
+fn known_limit_wrapper_local_dunder_store_alias_chain() {
+    // KNOWN-LIMIT (sol fold-2 finding 1, DESIGN 10.2): a dunder store on a wrapper
+    // supplies neither a veto nor identity evidence, so an alias read back out of it
+    // is not followed. CPython dispatches `os.environ.get` to the replacement here.
+    let setup = "from typing import Mapping as W\nfrom collections.abc import Mapping\nW.__target__ = Mapping\nA = W.__target__\n";
+    check_environ_write(setup, "A.get = replacement", false);
+    // Control: the alias bound directly to the origin class is a counted write.
+    check_environ_write(
+        "import typing\nfrom collections.abc import Mapping\nA = Mapping\n",
+        "A.get = replacement",
+        true,
+    );
+}
+
+#[test]
+fn known_limit_correlated_flag_helper_completion() {
+    // KNOWN-LIMIT (sol fold-2 finding 2, DESIGN 6.4/10.2): conditions are not
+    // correlated, so the `elif flag` arm counts as a possible normal completion
+    // although a Boolean flag always raises. CPython: the helper never returns.
+    check(
+        &scan(
+            &helper_source(
+                "    if flag:\n        raise Error\n    elif flag:\n        pass\n    else:\n        raise Error",
+            ),
+            &[],
+        ),
+        &[],
+        Some(NONE),
+    );
+    // Control: every arm raising has no completion and keeps the nameonly row.
+    check(
+        &scan(
+            &helper_source(
+                "    if flag:\n        raise Error\n    elif other:\n        raise Error\n    else:\n        raise Error",
+            ),
+            &[],
+        ),
+        &path_read(11),
+        None,
+    );
+}
