@@ -8,7 +8,7 @@ use super::{
     census::{parameter_name, Binding, Kind},
     named::assignment_value,
     slots::{Instance, Slot},
-    FieldRows, Resolution, Resolver,
+    Resolution, Resolver,
 };
 use crate::targets::inventory::{
     python::{

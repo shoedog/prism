@@ -7,7 +7,7 @@ pub(super) fn scan(files: &str, options: &[&str]) -> Value {
 }
 
 /// Runs the scan with the removed slice-1 switch set, to prove it no longer
-/// changes anything (DESIGN 6.12 item 13).
+/// changes anything (DESIGN 6.12 item 16).
 fn scan_with_env(retired_switch: Option<&str>, files: &str, options: &[&str]) -> Value {
     let mut command = crate::prism_std();
     if let Some(value) = retired_switch {

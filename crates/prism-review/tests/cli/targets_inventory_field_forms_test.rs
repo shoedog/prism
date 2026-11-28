@@ -12,7 +12,6 @@ fn field_doc(source: &str) -> Value {
     fs::write(repo.path().join("probe.py"), source).unwrap();
     document(
         &crate::prism_std()
-            .env("PRISM_INVENTORY_FIELD_ROWS", "1")
             .args(["targets", "--repo"])
             .arg(repo.path())
             .args(["--inventory", "python-deps", "--files", "probe.py"])

@@ -193,6 +193,7 @@ impl<'a, 'tree> Resolver<'a, 'tree> {
             roots,
             census: Census::new(parsed, walk),
             writes: Vec::new(),
+            field_rows,
             #[cfg(any(test, feature = "inventory-evidence"))]
             source,
         };

@@ -230,7 +230,6 @@ fn matrix_rows_match() {
     }
     let output = crate::prism_bin()
         .unwrap()
-        .env_remove("PRISM_INVENTORY_FIELD_ROWS")
         .args([
             "targets",
             "--repo",
