@@ -93,8 +93,10 @@ fn g1_controls_an_exact_receipt_and_undeclared_optional_fields_still_bind() {
             receipt(&sha, json!(REV), json!(hash), "1"),
         ),
         (
+            // The revision is not optional for a commit snapshot (the impact validator refuses a
+            // null one; fold 3), so only the content hash and info version are left undeclared.
             "optional fields undeclared",
-            receipt(&sha, json!(null), json!(null), ""),
+            receipt(&sha, json!(REV), json!(null), ""),
         ),
     ];
     for (label, patch) in controls {

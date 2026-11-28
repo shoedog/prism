@@ -11,10 +11,12 @@ mod bindings;
 mod decode;
 mod impact;
 mod producer;
+mod receipt;
 pub use crate::revision::{BindingStatus, SnapshotInput};
 pub use bindings::*;
 pub use impact::*;
 pub use producer::*;
+pub(crate) use receipt::schema_receipt_agrees;
 
 use crate::revision::{ConfigSource, ReceiptOrigin, Role, Scope};
 use serde::{Deserialize, Serialize};
@@ -74,29 +76,14 @@ impl DocumentInput {
 }
 
 impl DocumentInput {
-    /// For an explicit schema file receipt, whether every value it declares that the index also
-    /// carries agrees with the index: the SHA-256 of the bytes, the source commit (when the
-    /// index has one), and the content hash and info version when declared (non-empty). The
-    /// named-tree fallback declares none of these and is judged by `declares_schema_source`.
+    /// Whether the schema receipt this document declares agrees with its own snapshot and with
+    /// the index it is bound to, on every identity field (`schema_receipt_agrees` owns the list;
+    /// the validator calls it without an index). A document with no schema evidence declares
+    /// nothing here; its named-tree fallback is judged by `declares_schema_source`.
     pub(crate) fn declared_receipt_agrees(&self, schema: &crate::SchemaIndex) -> bool {
-        let Some(evidence) = &self.schema else {
-            return true;
-        };
-        let SchemaOrigin::File { rev, sha256, .. } = &evidence.source else {
-            return true;
-        };
-        fn declared(value: &Option<String>) -> Option<&str> {
-            value.as_deref().filter(|v| !v.is_empty())
-        }
-        let commit = schema
-            .source
+        self.schema
             .as_ref()
-            .and_then(|source| source.commit.as_deref());
-        *sha256 == schema.byte_sha256
-            && declared(rev).is_none_or(|rev| commit.is_none_or(|commit| commit == rev))
-            && declared(&evidence.content_hash).is_none_or(|hash| hash == schema.content_hash)
-            && declared(&evidence.info_version)
-                .is_none_or(|version| schema.info_version.as_deref() == Some(version))
+            .is_none_or(|evidence| schema_receipt_agrees(evidence, &self.snapshot, Some(schema)))
     }
 }
 
