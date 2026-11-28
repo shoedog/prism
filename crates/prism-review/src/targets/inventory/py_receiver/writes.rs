@@ -28,16 +28,6 @@ impl Write {
         self.occurrence == node.id()
     }
 
-    pub(super) fn field_visible(&self) -> bool {
-        !matches!(
-            self.slot,
-            Slot::Member {
-                readonly_class_namespace: true,
-                ..
-            }
-        )
-    }
-
     pub(super) fn reaches(&self, read: Read) -> bool {
         let write = self.read_point;
         // Module initialization is ordered. A deferred activation can see
@@ -68,7 +58,7 @@ impl<'tree> Resolver<'_, 'tree> {
             .copied()
             .filter(|(node, context)| {
                 context.evaluated
-                    && matches!(
+                    && (matches!(
                         node.kind(),
                         "assignment"
                             | "augmented_assignment"
@@ -77,7 +67,7 @@ impl<'tree> Resolver<'_, 'tree> {
                             | "as_pattern"
                             | "delete_statement"
                             | "call"
-                    )
+                    ) || (self.field_rows && node.kind() == "type_alias_statement"))
             })
             .collect();
         nodes.sort_by_key(|(node, _)| node.end_byte());
@@ -130,6 +120,14 @@ impl<'tree> Resolver<'_, 'tree> {
                     WriteAccess::DeleteAttribute
                 };
                 (self.objects(object, scope, true).slots(key, access), value)
+            } else if node.kind() == "type_alias_statement" {
+                if names_only {
+                    continue;
+                }
+                (
+                    self.recovered_field_slot(node, scope).into_iter().collect(),
+                    None,
+                )
             } else {
                 let roots = write_targets(node);
                 let value = match roots.as_slice() {
@@ -189,9 +187,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 let Some(object) = target.child_by_field_name("object") else {
                     return Vec::new();
                 };
-                let key = target
-                    .child_by_field_name("attribute")
-                    .map(|attr| name(self.parsed.node_text(&attr), self.walk.class(scope)));
+                let key = self.attribute_key(target, scope);
                 self.objects(object, scope, true).slots(key, access)
             }
             "subscript" => self
@@ -227,18 +223,14 @@ impl<'tree> Resolver<'_, 'tree> {
         if let Some(object) = self.vars_target(value, target, scope) {
             return Some(self.namespace_slots(object, scope, key));
         }
-        if value.kind() == "attribute" {
-            let attribute = value.child_by_field_name("attribute")?;
-            if name(self.parsed.node_text(&attribute), self.walk.class(scope)) == "__dict__" {
-                let object = value.child_by_field_name("object")?;
-                return Some(self.namespace_slots(object, scope, key));
-            }
+        if self.attribute_key(value, scope).as_deref() == Some("__dict__") {
+            let object = value.child_by_field_name("object")?;
+            return Some(self.namespace_slots(object, scope, key));
         }
         self.implicit_builtins(value, scope).then(|| {
             vec![Slot::Member {
                 object: Some("builtins".to_owned()),
                 definite: key.is_some(),
-                readonly_class_namespace: false,
                 key,
             }]
         })
@@ -250,56 +242,31 @@ impl<'tree> Resolver<'_, 'tree> {
         scope: ScopeId,
         key: Option<String>,
     ) -> Vec<Slot> {
-        let mut slots = self
-            .objects(object, scope, true)
-            .slots(key, WriteAccess::Namespace);
-        if self.field_rows && self.readonly_local_class(object, scope, true) {
-            for slot in &mut slots {
-                if let Slot::Member {
-                    readonly_class_namespace,
-                    ..
-                } = slot
-                {
-                    *readonly_class_namespace = true;
-                }
-            }
-        }
-        slots
+        self.objects(object, scope, true)
+            .slots(key, WriteAccess::Namespace)
     }
 
-    // A proven, ordinary class has a mappingproxy even if the usual write
-    // index tracks the object as unknown. Only the field route uses this fact.
-    fn readonly_local_class(&self, object: Node<'tree>, scope: ScopeId, alias: bool) -> bool {
-        let object = ungroup(object);
-        if object.kind() != "identifier" {
-            return false;
-        }
-        let key = name(self.parsed.node_text(&object), self.walk.class(scope));
-        let alternatives = self.lookup(scope, &key, object);
-        let [alt] = alternatives.as_slice() else {
-            return false;
-        };
-        let [binding] = alt.bindings.as_slice() else {
-            return false;
-        };
-        if !self.available(binding, object, scope)
-            || self.name_rebound(alt.owner, &key, object, scope)
-        {
-            return false;
-        }
-        if alias {
-            if let super::census::Kind::Assigned(Some(rhs)) = binding.kind {
-                return self.readonly_local_class(rhs, binding.scope, false);
+    fn attribute_key(&self, node: Node<'tree>, scope: ScopeId) -> Option<String> {
+        node.child_by_field_name("attribute")
+            .map(|attr| name(self.parsed.node_text(&attr), self.walk.class(scope)))
+    }
+
+    fn recovered_field_slot(&self, node: Node<'tree>, scope: ScopeId) -> Option<Slot> {
+        // The grammar consumes `type` as an alias keyword in `type(c).path = v`.
+        // The remaining tree supplies a key for the field veto but loses the receiver call.
+        let target = ungroup(children(node.child_by_field_name("left")?).next()?);
+        let key = match target.kind() {
+            "attribute" => Some(self.attribute_key(target, scope)?),
+            "subscript" => {
+                let value = ungroup(target.child_by_field_name("value")?);
+                match self.attribute_key(value, scope) {
+                    Some(key) if key != "__dict__" => Some(key),
+                    _ => strings::write_key(self.parsed, scalar_subscript(target)?)?,
+                }
             }
-        }
-        binding.node.kind() == "class_definition"
-            && self
-                .walk
-                .scopes
-                .iter()
-                .enumerate()
-                .find(|(_, class)| class.node == binding.node)
-                .is_some_and(|(scope, _)| self.field_owner_shape(scope))
+            _ => return None,
+        };
+        Some(Slot::RecoveredFieldMember { key })
     }
 
     pub(super) fn literal_receiver_write(&self, receiver: Node<'tree>, scope: ScopeId) -> bool {

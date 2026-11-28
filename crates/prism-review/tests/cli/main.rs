@@ -33,6 +33,7 @@ mod taint_context_output_test;
 mod taint_reaches_test;
 mod taint_sink_strength_view_test;
 mod targets_inventory_constructors_test;
+mod targets_inventory_field_forms_test;
 mod targets_inventory_field_rows_test;
 mod targets_inventory_fields_test;
 mod targets_inventory_helpers_test;

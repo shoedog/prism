@@ -51,12 +51,13 @@ impl<'tree> Resolver<'_, 'tree> {
         let lookup = protocol.chain(methods).chain([site.method.as_str()]);
         let mut field_write = false;
         for write in &self.writes {
-            if !write.reaches(read) || write.at(seed) || !write.field_visible() {
+            if !write.reaches(read) || write.at(seed) {
                 continue;
             }
             let key = match &write.slot {
                 Slot::Member { key, .. }
                 | Slot::ParameterMember { key }
+                | Slot::RecoveredFieldMember { key }
                 | Slot::Instance { key, .. } => key,
                 Slot::Name { .. } => continue,
             };
@@ -106,6 +107,12 @@ impl<'tree> Resolver<'_, 'tree> {
                         .flat_map(children)
                         .map(ungroup)
                         .any(|base| {
+                            if base.kind() == "attribute" {
+                                return base.child_by_field_name("attribute").is_some_and(|attr| {
+                                    let key = name(self.parsed.node_text(&attr), None);
+                                    self.walk.class(owner) == Some(key.as_str())
+                                });
+                            }
                             if base.kind() != "identifier" {
                                 return false;
                             }

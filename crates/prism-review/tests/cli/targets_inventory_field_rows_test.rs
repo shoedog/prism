@@ -37,6 +37,16 @@ macro_rules! matrix {
 matrix!(pf01, pf02, pf03, pf04, pf05, pf06, pf07, pf08, pf09, pf10, pf11, pf12, pf13,);
 
 #[test]
+fn conditional_class_suite_initializer_limit() {
+    check_field_matrix("pf-ifTrue-init");
+}
+
+#[test]
+fn field_row_known_limits() {
+    check_field_matrix("pf-limit-");
+}
+
+#[test]
 fn gate_off_keeps_the_base_constructor_diagnostics() {
     let files = "stdlib/pfield/pf01.py,stdlib/pfield/pf04c.py,stdlib/pfield/pf12a.py,stdlib/pfield/pf12b.py,stdlib/pfield/pf12c.py";
     let off = scan(None, files, &[]);

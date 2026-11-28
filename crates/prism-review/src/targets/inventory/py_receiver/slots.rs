@@ -24,9 +24,11 @@ pub(super) enum Slot {
         object: Option<String>,
         key: Option<String>,
         definite: bool,
-        readonly_class_namespace: bool,
     },
     ParameterMember {
+        key: Option<String>,
+    },
+    RecoveredFieldMember {
         key: Option<String>,
     },
     Instance {
