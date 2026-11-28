@@ -29,7 +29,7 @@ struct Counts {
     no_operation: usize,
     parse_error_files: usize,
     // Certified hits whose shape is a known limit of the input contract, plus whole-file
-    // counts of statically nullish optional chains (`js_nullish_optional_chain_any`).
+    // counts of statically nullish optional chains (`js_possibly_nullish_chain_any`).
     shapes: BTreeMap<&'static str, usize>,
 }
 
@@ -145,13 +145,7 @@ fn python_invalid_argument_list(parsed: &ParsedFile, list: Node<'_>) -> bool {
             "dictionary_splat" => double_star = true,
             "list_splat" if double_star => return true,
             "comment" | "list_splat" => {}
-            "parenthesized_expression"
-                if arg
-                    .named_child(0)
-                    .is_some_and(|inner| inner.kind() == "list_splat") =>
-            {
-                return true
-            }
+            "parenthesized_expression" if peel(arg).kind() == "list_splat" => return true,
             _ if keyword || double_star => return true,
             _ => {}
         }
@@ -168,12 +162,11 @@ fn pending_shapes(parsed: &ParsedFile, id: Node<'_>) -> Vec<&'static str> {
             shapes.push("go_blank_read_or_selector");
         }
     }
-    if matches!(
-        parsed.language,
-        Language::JavaScript | Language::TypeScript | Language::Tsx
-    ) && under_nullish_chain(parsed, id)
-    {
-        shapes.push("js_certified_under_nullish_optional_chain");
+    if JS_FAMILY.contains(&parsed.language) && under_nullish_chain(parsed, id) {
+        shapes.push("js_certified_under_possibly_nullish_chain");
+    }
+    if under_constant_guard(parsed, id) {
+        shapes.push("constant_guard_certified");
     }
     for node in successors(id.parent(), Node::parent) {
         match (parsed.language, node.kind()) {
@@ -196,45 +189,78 @@ fn pending_shapes(parsed: &ParsedFile, id: Node<'_>) -> Vec<&'static str> {
     shapes
 }
 
-// A value that is statically `null` or `undefined`: the literals, `void <literal>`, and
-// parenthesized, non-null or `as` wrappers of them.
-fn nullish_value(parsed: &ParsedFile, node: Node<'_>) -> bool {
-    match node.kind() {
-        "null" | "undefined" => true,
-        "identifier" => parsed.node_text(&node) == "undefined",
-        "parenthesized_expression" | "non_null_expression" | "as_expression" => node
-            .named_child(0)
-            .is_some_and(|inner| nullish_value(parsed, inner)),
-        "unary_expression" => {
-            parsed.node_text(&node).trim_start().starts_with("void")
-                && node.child_by_field_name("argument").is_some_and(|arg| {
-                    matches!(
-                        arg.kind(),
-                        "number" | "string" | "true" | "false" | "null" | "undefined"
-                    )
-                })
+const JS_FAMILY: [Language; 3] = [Language::JavaScript, Language::TypeScript, Language::Tsx];
+
+// The expression a wrapper hands on: comments, parentheses (any depth) and the TS wrappers
+// `as`, `satisfies`, non-null `!` and `<T>` assertions are peeled.
+fn peel<'t>(node: Node<'t>) -> Node<'t> {
+    let mut node = node;
+    loop {
+        let mut cursor = node.walk();
+        let mut named = node
+            .named_children(&mut cursor)
+            .filter(|c| c.kind() != "comment");
+        let next = match node.kind() {
+            "parenthesized_expression"
+            | "as_expression"
+            | "satisfies_expression"
+            | "non_null_expression" => named.next(),
+            "type_assertion" => named.last(),
+            _ => None,
+        };
+        match next {
+            Some(inner) => node = inner,
+            None => return node,
         }
-        _ => false,
     }
 }
 
-// An optional chain link (`?.`) whose base is statically nullish; returns the base.
-fn nullish_chain_base<'t>(parsed: &ParsedFile, node: Node<'t>) -> Option<Node<'t>> {
-    let field = match node.kind() {
-        "member_expression" | "subscript_expression" => "object",
-        "call_expression" => "function",
-        _ => return None,
-    };
-    let base = node.child_by_field_name(field)?;
-    let optional = node.child_by_field_name("optional_chain").is_some()
-        || node.children(&mut node.walk()).any(|c| c.kind() == "?.");
-    (optional && nullish_value(parsed, base)).then_some(base)
+// Superset test: a base is SAFE only when it is certainly a live value (an identifier other
+// than `undefined`, a member, subscript, call, `new`, `this`, `super`, or `await`/`yield` of
+// those). Everything else (literals of any kind, `void`, `undefined`, templates, regexes,
+// sequences, conditionals, unknown kinds) is counted as possibly nullish. A shadowed
+// `undefined` counts too, which only enlarges the count.
+fn possibly_nullish_base(parsed: &ParsedFile, base: Node<'_>) -> bool {
+    let base = peel(base);
+    match base.kind() {
+        "identifier" => parsed.node_text(&base) == "undefined",
+        "member_expression"
+        | "subscript_expression"
+        | "call_expression"
+        | "new_expression"
+        | "this"
+        | "super" => false,
+        "await_expression" | "yield_expression" => {
+            let mut cursor = base.walk();
+            let inner = base
+                .named_children(&mut cursor)
+                .find(|c| c.kind() != "comment");
+            inner.is_none_or(|inner| possibly_nullish_base(parsed, inner))
+        }
+        _ => true,
+    }
 }
 
-// A certified hit inside a chain that a nullish optional link short-circuits (the callee,
-// arguments and computed keys the chain skips), but not inside the link's evaluated base.
-// The skipped region is the whole chain: the link and every call, member and subscript that
-// continues it; a parenthesis ends the chain.
+fn chain_field(node: Node<'_>) -> Option<&'static str> {
+    match node.kind() {
+        "member_expression" | "subscript_expression" => Some("object"),
+        "call_expression" => Some("function"),
+        _ => None,
+    }
+}
+
+// An optional chain link (`?.`) whose base is possibly nullish; returns the base.
+fn nullish_chain_base<'t>(parsed: &ParsedFile, node: Node<'t>) -> Option<Node<'t>> {
+    let base = node.child_by_field_name(chain_field(node)?)?;
+    let optional = node.child_by_field_name("optional_chain").is_some()
+        || node.children(&mut node.walk()).any(|c| c.kind() == "?.");
+    (optional && possibly_nullish_base(parsed, base)).then_some(base)
+}
+
+// A certified hit inside a chain that a possibly nullish optional link short-circuits (the
+// callee, arguments and computed keys the chain skips), but not inside the link's evaluated
+// base. The skipped region is the whole chain: the link and every call, member and subscript
+// that continues it, through non-null `!`; a parenthesis ends the chain.
 fn under_nullish_chain(parsed: &ParsedFile, id: Node<'_>) -> bool {
     let inside = |outer: Node<'_>| {
         outer.start_byte() <= id.start_byte() && id.end_byte() <= outer.end_byte()
@@ -245,18 +271,114 @@ fn under_nullish_chain(parsed: &ParsedFile, id: Node<'_>) -> bool {
             if nullish_chain_base(parsed, node).is_some_and(|base| !inside(base)) {
                 return true;
             }
-            let field = match node.kind() {
-                "member_expression" | "subscript_expression" => "object",
-                "call_expression" => "function",
-                _ => break,
+            let next = match chain_field(node) {
+                Some(field) => node.child_by_field_name(field),
+                None if node.kind() == "non_null_expression" => {
+                    let mut cursor = node.walk();
+                    let first = node
+                        .named_children(&mut cursor)
+                        .find(|c| c.kind() != "comment");
+                    first
+                }
+                None => None,
             };
-            match node.child_by_field_name(field) {
+            match next {
                 Some(next) => node = next,
                 None => break,
             }
         }
     }
     false
+}
+
+// A test or left operand that is a literal after peeling (any language of the census).
+fn constant_value(parsed: &ParsedFile, node: Node<'_>) -> bool {
+    let node = peel(node);
+    match node.kind() {
+        "true"
+        | "false"
+        | "null"
+        | "undefined"
+        | "number"
+        | "string"
+        | "regex"
+        | "template_string"
+        | "none"
+        | "integer"
+        | "float"
+        | "concatenated_string"
+        | "nil"
+        | "int_literal"
+        | "float_literal"
+        | "interpreted_string_literal"
+        | "raw_string_literal"
+        | "rune_literal"
+        | "imaginary_literal" => true,
+        "identifier" => matches!(parsed.node_text(&node), "undefined" | "TYPE_CHECKING"),
+        _ => false,
+    }
+}
+
+fn named_nocomment<'t>(node: Node<'t>) -> Vec<Node<'t>> {
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .filter(|c| c.kind() != "comment")
+        .collect()
+}
+
+// A certified hit lexically inside the guarded part of an `if`, `while`, ternary, `&&`, `||`
+// or `??` whose test (or left operand) is a literal after the same peeling.
+fn under_constant_guard(parsed: &ParsedFile, id: Node<'_>) -> bool {
+    let mut previous = id;
+    for node in successors(id.parent(), Node::parent) {
+        let guard = match node.kind() {
+            "if_statement" | "while_statement" | "elif_clause" => {
+                node.child_by_field_name("condition")
+            }
+            "ternary_expression" => node.child_by_field_name("condition"),
+            "conditional_expression" => named_nocomment(node).get(1).copied(),
+            "binary_expression" | "boolean_operator" => {
+                let operator = node
+                    .child_by_field_name("operator")
+                    .map(|op| parsed.node_text(&op).to_owned());
+                matches!(operator.as_deref(), Some("&&" | "||" | "??" | "and" | "or"))
+                    .then(|| node.child_by_field_name("left"))
+                    .flatten()
+            }
+            _ => None,
+        };
+        if guard.is_some_and(|guard| guard != previous && constant_value(parsed, guard)) {
+            return true;
+        }
+        previous = node;
+    }
+    false
+}
+
+const SHAPES_JS: [&str; 3] = [
+    "js_possibly_nullish_chain_any",
+    "js_certified_under_possibly_nullish_chain",
+    "constant_guard_certified",
+];
+
+// Rows written even when zero, so an absent row never stands for "not counted".
+fn expected_shapes(scope: &str) -> Vec<&'static str> {
+    match scope {
+        "JavaScript" => SHAPES_JS.to_vec(),
+        "TypeScript" | "Tsx" => [&SHAPES_JS[..], &["ts_const_enum"]].concat(),
+        "Python" => vec![
+            "python_assert",
+            "python_invalid_outer_arguments",
+            "constant_guard_certified",
+        ],
+        // `len` and `cap` of an array operand are builtins, not flat sinks: zero by construction.
+        "Go" => vec![
+            "go_blank_read_or_selector",
+            "constant_guard_certified",
+            "go_len_cap_unevaluated_operand",
+        ],
+        _ => Vec::new(),
+    }
 }
 
 fn certify_hit(parsed: &ParsedFile, id: Node<'_>) -> Hit {
@@ -319,18 +441,14 @@ fn visit_file(
     let mut cursor = root.walk();
     loop {
         let id = cursor.node();
-        if matches!(
-            language,
-            Language::JavaScript | Language::TypeScript | Language::Tsx
-        ) && nullish_chain_base(&parsed, id).is_some()
-        {
+        if JS_FAMILY.contains(&language) && nullish_chain_base(&parsed, id).is_some() {
             *totals
                 .shapes
-                .entry("js_nullish_optional_chain_any")
+                .entry("js_possibly_nullish_chain_any")
                 .or_default() += 1;
             *corpus
                 .shapes
-                .entry("js_nullish_optional_chain_any")
+                .entry("js_possibly_nullish_chain_any")
                 .or_default() += 1;
         }
         if language.is_identifier_node(id.kind())
@@ -486,7 +604,11 @@ fn run_census(mut roots: Vec<std::path::PathBuf>, output: &Path) -> io::Result<(
     }
     writeln!(out, "\nscope\tpending_shape\tcertified_hits")?;
     for (scope, counts) in &shape_scopes {
-        for (shape, count) in &counts.shapes {
+        let mut shapes = counts.shapes.clone();
+        for shape in expected_shapes(scope) {
+            shapes.entry(shape).or_insert(0);
+        }
+        for (shape, count) in &shapes {
             writeln!(out, "{scope}\t{shape}\t{count}")?;
         }
     }
@@ -652,7 +774,10 @@ mod census_tests {
         );
         // The declaring blank is no pending shape; the call is certified.
         assert!(line(&report, "Go\t").starts_with("Go\t1\t1\t"), "{report}");
-        assert!(!report.contains("go_blank_read_or_selector"), "{report}");
+        assert!(
+            line(&report, "Go\tgo_blank_read_or_selector").ends_with("\t0"),
+            "{report}"
+        );
     }
 
     #[test]
@@ -666,7 +791,7 @@ mod census_tests {
             "{report}"
         );
         assert!(
-            !report.contains("python_invalid_outer_arguments"),
+            line(&report, "Python\tpython_invalid_outer_arguments").ends_with("\t0"),
             "{report}"
         );
         // Control: the same calls with a positional argument after a keyword are pending.
@@ -745,14 +870,14 @@ mod census_tests {
             "function g(x, a) {\n  (void 0)?.eval(x);\n  a?.m(eval(x));\n  null?.[eval(x)];\n  undefined?.m(eval(x));\n  (null?.m)(eval(x));\n}\n",
         )]);
         assert!(
-            line(&report, "JavaScript\tjs_nullish_optional_chain_any").ends_with("\t4"),
+            line(&report, "JavaScript\tjs_possibly_nullish_chain_any").ends_with("\t4"),
             "{report}"
         );
         // The argument of `(null?.m)(..)` is evaluated, `a?.m(..)` has no nullish base.
         assert!(
             line(
                 &report,
-                "JavaScript\tjs_certified_under_nullish_optional_chain"
+                "JavaScript\tjs_certified_under_possibly_nullish_chain"
             )
             .ends_with("\t3"),
             "{report}"
@@ -774,6 +899,85 @@ mod census_tests {
         )]);
         assert!(
             line(&report, "Go\tgo_blank_read_or_selector").ends_with("\t1"),
+            "{report}"
+        );
+    }
+
+    #[test]
+    fn superset_counts_every_possibly_nullish_base_and_constant_guard() {
+        // Each shape sol found that a narrow detector missed, plus live controls.
+        let src = [
+            "function g(x, a) {",
+            "  (/* note */ null)?.m(eval(x));",
+            "  void /re/?.m(eval(x));",
+            "  `t`?.m(eval(x));",
+            "  (0, null)?.m(eval(x));",
+            "  a?.m(eval(x));",
+            "  a.b?.m(eval(x));",
+            "  this?.m(eval(x));",
+            "  (await a)?.m(eval(x));",
+            "  if (false) { eval(x); }",
+            "  true && eval(x);",
+            "  a ?? eval(x);",
+            "  eval(1 ? x : x);",
+            "}",
+            "",
+        ]
+        .join("\n");
+        let report = census(&[("a.js", &src)]);
+        // Four possibly nullish bases; the live bases are not counted.
+        assert!(
+            line(&report, "JavaScript\tjs_possibly_nullish_chain_any").ends_with("\t4"),
+            "{report}"
+        );
+        assert!(
+            line(
+                &report,
+                "JavaScript\tjs_certified_under_possibly_nullish_chain"
+            )
+            .ends_with("\t4"),
+            "{report}"
+        );
+        // `if (false)` and `true && ..`; `a ?? ..` has a live left operand.
+        assert!(
+            line(&report, "JavaScript\tconstant_guard_certified").ends_with("\t2"),
+            "{report}"
+        );
+        // TS: the non-null continuation stays in the skipped chain; wrappers are peeled.
+        let report = census(&[(
+            "a.ts",
+            "function g(x: any) {\n  (null as any)?.m!(eval(x));\n  (<any>null)?.m(eval(x));\n  (null satisfies null)?.m(eval(x));\n}\n",
+        )]);
+        assert!(
+            line(
+                &report,
+                "TypeScript\tjs_certified_under_possibly_nullish_chain"
+            )
+            .ends_with("\t3"),
+            "{report}"
+        );
+        // Python: nested parenthesized unpacking and a comment before `*a` are invalid; the
+        // one-element tuple `(*a,)` is valid; `if TYPE_CHECKING` and `x if 1 else y` are guards.
+        let report = census(&[(
+            "a.py",
+            "def g(x, a):\n    outer(eval(x), ((*a)))\n    outer(eval(x), (  # c\n        *a))\n    outer(eval(x), (*a,))\n    if TYPE_CHECKING:\n        eval(x)\n",
+        )]);
+        assert!(
+            line(&report, "Python\tpython_invalid_outer_arguments").ends_with("\t2"),
+            "{report}"
+        );
+        assert!(
+            line(&report, "Python\tconstant_guard_certified").ends_with("\t1"),
+            "{report}"
+        );
+        // Zero rows are written for Go's builtins scope and every expected shape.
+        let report = census(&[("a.go", "package p\nfunc g(x int) {\n\texec.Command(x)\n}\n")]);
+        assert!(
+            line(&report, "Go\tgo_len_cap_unevaluated_operand").ends_with("\t0"),
+            "{report}"
+        );
+        assert!(
+            line(&report, "Go\tconstant_guard_certified").ends_with("\t0"),
             "{report}"
         );
     }

@@ -462,12 +462,24 @@ literal nullish base (`(void 0)?.eval(x)`, `null?.m(eval(x))`, `null?.[eval(x)]`
 are pinned as `known_limit` rows (r10-limit-js-*) beside controls (r10-control-js-*). The narrowed
 cell stays as an extra refusal and is named as such: an optional call or member chain directly on a
 literal `null` or `undefined` base is withheld (`op_special_form`), although the contract would not
-require it. Census (price.rs, five-language run `price-5l-fold11`, 2026-11-27): statically
-nullish optional chains (`null`, `undefined`, `void <literal>`, parenthesized, non-null or `as`
-wrappers of them) in the JS, TS and TSX corpora number **0**, and certified hits under one (callee,
-argument or computed-key position) number **0**, against 2,116 certified JavaScript, 708 TypeScript
-and 21 TSX hits. Go `len(p.a)`/`cap(p.a)` on an array field (the compiler folds the operand) is the
-same class, pinned as an adapter-obligation `known_limit` beside a slice control. A comment-only JSX
+require it. **Census, a superset (price.rs, five-language run `price-5l-fold12`, 2026-11-27).**
+The census does not chase shapes. It counts every optional chain whose base, after peeling
+comments, parentheses of any depth and the TS wrappers (`as`, `satisfies`, non-null `!`, `<T>`
+assertions), is not certainly live. A base is live only when it is an identifier other than
+`undefined`, a member, subscript, call or `new` expression, `this`, `super`, or `await`/`yield` of
+those; literals of any kind, `void` of anything, `undefined` (shadowed or not: a shadowed one only
+enlarges the count), templates, regexes, sequence and conditional expressions and unknown kinds
+count as possibly nullish. Counted: such chains in the corpora at all
+(`js_possibly_nullish_chain_any`) and certified hits inside one, in callee, argument or
+computed-key position (`js_certified_under_possibly_nullish_chain`, the skipped region being the
+whole chain through `!` and not the evaluated base). Constant guards (`constant_guard_certified`):
+certified hits lexically inside an `if`, `while`, ternary, `&&`, `||`, `??`, `and` or `or` whose
+test or left operand is a literal (or `undefined`, or Python `TYPE_CHECKING`) after the same
+peeling, JS, TS, TSX, Python and Go. Results are written as explicit rows, zero included. RESULT_PLACEHOLDER
+Go `len`/`cap` of an array or pointer-to-array operand without calls or receives (the compiler
+folds the operand; `len(p.a)` is the pinned row) is the same class, pinned as an adapter-obligation
+`known_limit` beside a slice control. They are builtins, not flat sinks, so their incidence among
+certified hits is zero by construction (row `go_len_cap_unevaluated_operand`, always 0). A comment-only JSX
 body that overwrites nothing is refused as `attribute_overwritten`: an accepted over-refusal
 (conservative, no code change; rows `r2-*-jsx-children-empty-expr`). The census tool counts each
 limit once per hit; known limits of the census tool itself are that its Go blank classification
@@ -659,7 +671,9 @@ as the operation. Withhold a candidate followed by a same-name `jsx_attribute` o
 `jsx_expression > spread_element` attribute. Earlier spreads cannot overwrite a later explicit
 attribute. Also withhold `children` on a paired JSX tag with non-whitespace text, a character
 reference, an expression with a value or an element in the body. Empty bodies, indentation-only
-text, comment-only expression containers and self-closing tags supply no body child in this check.
+text and self-closing tags supply no body child in this check. A comment-only expression container
+(`{/* c */}`) overwrites nothing at run time but is withheld like any body child (`attribute_overwritten`):
+an accepted over-refusal, pinned by rows `r2-*-jsx-children-empty-expr`.
 JSX attribute names and `pair.key` are labels, never value operands.
 
 | Table | Counted reasons |
