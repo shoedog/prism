@@ -8,6 +8,7 @@ mod diff;
 pub mod element;
 mod inventory;
 pub mod model;
+pub mod producer;
 pub mod revision;
 
 pub use diff::*;

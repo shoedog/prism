@@ -10,9 +10,11 @@
 mod bindings;
 mod decode;
 mod impact;
+mod producer;
 pub use crate::revision::{BindingStatus, SnapshotInput};
 pub use bindings::*;
 pub use impact::*;
+pub use producer::*;
 
 use crate::revision::{ConfigSource, ReceiptOrigin, Role, Scope};
 use serde::{Deserialize, Serialize};
