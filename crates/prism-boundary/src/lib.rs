@@ -2,7 +2,7 @@
 //!
 //! PROVISIONAL: admission is certified only for the request shape defined in the crate
 //! README, section "P1d admission claim". Every other mode and shape is accepted but
-//! not certified, and so is `ImpactDocument::validate()` in every shape.
+//! not certified, and `ImpactDocument::validate()` is not certified in any shape.
 
 mod diff;
 pub mod element;

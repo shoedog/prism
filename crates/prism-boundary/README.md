@@ -413,9 +413,9 @@ The schema tests use Python with `jsonschema`. Set
 This crate is PROVISIONAL. The admission claim is certified only for the request
 shape that the real-pair replay exercises, and for nothing else.
 
-**Certified shape.** Admission is certified for a historical review (`historical_as_of`) with report time at or after the cutoff, whose subject head is the service after input at the cutoff; two inputs of one API and repository, each a commit snapshot with one named-tree blob receipt that has no dependencies, whose bytes the caller has verified against the Git blob id (admission checks each receipt's SHA-256 over the supplied bytes, not that the blob id names those bytes); two receipt-backed schema claims; no consumer side, no computed tree, no merge, no held alias, no selection pin, no media, config or reference receipts, and no frozen consumer records. On the 37 usable revision pairs of the public pair this shape admitted 74 of 74 claims, with no refusal of any kind. A read-only code census of the settlement paths (code reading, not executed, about plus or minus 3) leaves in this shape 9 minor cases, none material and one uncertain.
+**Certified shape.** Admission is certified for a historical review (`historical_as_of`) with report time at or after the cutoff, whose subject head is the service after input at the cutoff; two inputs of one API and repository, each a commit snapshot with one named-tree blob receipt that has no dependencies, whose commit, tree, path, blob id and bytes the caller has checked against one another in Git (admission checks each receipt's declared repository, tree, nonempty path and blob, and SHA-256 over the supplied bytes, not that the commit's tree holds that blob at that path or that the blob id names those bytes); two receipt-backed schema claims; no consumer side, no computed tree, no merge, no held alias, no selection pin, no media, config or reference receipts, and no frozen consumer records. On the 37 usable revision pairs of the public pair this shape admitted 74 of 74 claims, with no refusal of any kind. A read-only code census of the settlement paths (code reading, not executed, about plus or minus 3) leaves in this shape nine census rows, none classified material and one uncertain.
 
-`ImpactDocument::validate()` is accepted but not certified in every shape, this one included: the 37 replay documents all passed, which shows nothing about refusals, and known limits 14 and 15 show frozen checks that pass while an input is unchecked. The library builds no document inputs, so every document's inputs are caller-built.
+`ImpactDocument::validate()` is accepted but not certified in any shape, this one included: the 37 replay documents all passed, which shows nothing about refusals, and known limits 14 and 15 show frozen checks that pass while an input is unchecked. The library builds no document inputs, so every document's inputs are caller-built.
 
 **Accepted but not certified.** Every other review mode and request shape
 (live, version comparison, other historical shapes, joint reports, computed
@@ -473,7 +473,7 @@ takes subject After candidates only from slots of the matching role and depends 
 holding the selected merge receipt. `ClaimStatus` is built only at the gate in
 `revision/admission/gate.rs`.
 
-`ImpactDocument::validate()` attempts these internal checks on frozen records. It is certified for none of them outside the shape above, and known limits 14 and 15 show where it does not yet enforce them.
+`ImpactDocument::validate()` attempts these internal checks on frozen records. It is not certified for any of them in any shape, and known limits 14 and 15 show where it does not yet enforce them.
 
 1. Input, dependency, slot, reference and selection IDs resolve within the
    document. Recorded snapshot, role, cutoff and receipt facts agree where

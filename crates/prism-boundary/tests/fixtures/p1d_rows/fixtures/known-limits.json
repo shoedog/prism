@@ -179,7 +179,7 @@
       "duplicate_input_admitted": false,
       "report_cutoff_admitted": true
     },
-    "outside_accept_list": "A frozen document with duplicate input ids is a hand-edited or foreign document; the validator is certified only for documents the admitted projection produced. Expected until the settlement redesign (issue #1002): the redesign slice before P4 closes this row and the row is then deleted.",
+    "outside_accept_list": "A frozen document with duplicate input ids is a hand-edited or foreign document; the validator is not certified in any shape. Expected until the settlement redesign (issue #1002): the redesign slice before P4 closes this row and the row is then deleted.",
     "control": {
       "fixture": "operations-only.json",
       "input": "The same two records in the other order.",
