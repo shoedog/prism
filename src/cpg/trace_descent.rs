@@ -1,6 +1,4 @@
 //! Descent and ascent gates of the taint trace walker: which cross-function hops are crossed.
-//!
-//! Moved verbatim out of `trace.rs` (lane 8 slice I-1, commit 1, move only).
 
 use std::collections::BTreeMap;
 
@@ -10,6 +8,65 @@ use petgraph::graph::NodeIndex;
 
 use super::trace::Relation;
 use super::{CodePropertyGraph, CpgNode, FlowConfidence, FlowDoubt, VarAccess};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum LossReason {
+    SelfParam,
+    SelfReturn,
+    ReturnNotEnteredSite,
+    DepthCap,
+    TargetNotBinding,
+    NoMatchingSite,
+    AmbiguousSite,
+    NotExact,
+    UnprovenSlot,
+    PolicyCeiling,
+    UnprovenReturnInput,
+    ShortcutSuppressed,
+    CfgPruned,
+    Unmodelled,
+    NoGraphEdge,
+    ReviewNoReturnFlow,
+    ReviewNoRecoveredDefUse,
+    ReviewCfgFilter,
+    ReviewContextPolicy,
+    SanitizerModel,
+    OperandGranularity,
+    UncertifiedFlow,
+    MatcherAdmission,
+}
+
+impl std::fmt::Display for LossReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::SelfParam => "self_param",
+            Self::SelfReturn => "self_return",
+            Self::ReturnNotEnteredSite => "return_not_entered_site",
+            Self::DepthCap => "depth_cap",
+            Self::TargetNotBinding => "target_not_binding",
+            Self::NoMatchingSite => "no_matching_site",
+            Self::AmbiguousSite => "ambiguous_site",
+            Self::NotExact => "not_exact",
+            Self::UnprovenSlot => "unproven_slot",
+            Self::PolicyCeiling => "policy_ceiling",
+            Self::UnprovenReturnInput => "unproven_return_input",
+            Self::ShortcutSuppressed => "shortcut_suppressed",
+            Self::CfgPruned => "cfg_pruned",
+            Self::Unmodelled => "unmodelled",
+            Self::NoGraphEdge => "no_graph_edge",
+            Self::ReviewNoReturnFlow => "review_no_return_flow",
+            Self::ReviewNoRecoveredDefUse => "review_no_recovered_def_use",
+            Self::ReviewCfgFilter => "review_cfg_filter",
+            Self::ReviewContextPolicy => "review_context_policy",
+            Self::SanitizerModel => "sanitizer_model",
+            Self::OperandGranularity => "operand_granularity",
+            Self::UncertifiedFlow => "uncertified_flow",
+            Self::MatcherAdmission => "matcher_admission",
+        })
+    }
+}
 
 pub(super) type DescentGateKey = (
     String,    // caller file
@@ -23,6 +80,20 @@ pub(super) type DescentGateKey = (
     usize,     // target function start line
     NodeIndex, // target binding
 );
+
+pub(super) fn edge_own_not_exact(label: Option<FlowConfidence>) -> bool {
+    match label {
+        Some(FlowConfidence::Exact)
+        | Some(FlowConfidence::NameOnly(
+            FlowDoubt::Killed { .. }
+            | FlowDoubt::SameLine
+            | FlowDoubt::CfgIncomplete
+            | FlowDoubt::AliasUnstable,
+        )) => false,
+        Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly | FlowDoubt::BuiltinCallback))
+        | None => true,
+    }
+}
 
 impl CodePropertyGraph {
     /// Is `to` a parameter binding reached by an arg→param call edge from `from`?
@@ -92,33 +163,41 @@ impl CodePropertyGraph {
         from: NodeIndex,
         to: NodeIndex,
         binding_label: Option<FlowConfidence>,
-        descent_gate_cache: &mut BTreeMap<DescentGateKey, bool>,
-    ) -> bool {
-        match binding_label {
-            Some(FlowConfidence::Exact)
-            | Some(FlowConfidence::NameOnly(
-                FlowDoubt::Killed { .. }
-                | FlowDoubt::SameLine
-                | FlowDoubt::CfgIncomplete
-                | FlowDoubt::AliasUnstable,
-            )) => {}
-            // `not_exact`: the call-binding doubt, and (lane 9) `builtin_callback`, are refused here.
-            // Naming the variant keeps a new doubt kind a compile-time decision.
-            Some(FlowConfidence::NameOnly(
-                FlowDoubt::CallNameOnly | FlowDoubt::BuiltinCallback,
-            ))
-            | None => return false,
+        descent_gate_cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
+    ) -> Result<(), LossReason> {
+        if edge_own_not_exact(binding_label) {
+            return Err(LossReason::NotExact);
         }
+        if !self.is_binding_target(to) {
+            return Err(LossReason::TargetNotBinding);
+        }
+        self.descend_site(from, to, descent_gate_cache)
+    }
 
+    fn is_binding_target(&self, to: NodeIndex) -> bool {
+        matches!(
+            self.graph[to],
+            CpgNode::Variable {
+                access: VarAccess::Def,
+                ..
+            }
+        )
+    }
+
+    fn descend_site(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        descent_gate_cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
+    ) -> Result<(), LossReason> {
         let CpgNode::Variable {
             file: target_file,
             function: target_fn,
             function_start_line: target_fn_start_line,
-            access: VarAccess::Def,
             ..
         } = &self.graph[to]
         else {
-            return false;
+            return Err(LossReason::TargetNotBinding);
         };
 
         let CpgNode::Variable {
@@ -131,7 +210,7 @@ impl CodePropertyGraph {
             ..
         } = &self.graph[from]
         else {
-            return false;
+            return Err(LossReason::TargetNotBinding);
         };
 
         let cache_key = (
@@ -150,47 +229,71 @@ impl CodePropertyGraph {
             return *can_descend;
         }
 
-        let can_descend = self
+        let result = self.binding_site(from, to).and_then(|site| {
+            if !site_contains_occurrence(site, *source_start_byte, *source_end_byte) {
+                return Err(LossReason::NoMatchingSite);
+            }
+            self.call_graph
+                .resolve_call_site(site)
+                .into_iter()
+                .any(|resolved| {
+                    resolved.confidence == ResolutionConfidence::Exact
+                        && resolved.target.file == *target_file
+                        && resolved.target.name == *target_fn
+                        && resolved.target.start_line == *target_fn_start_line
+                })
+                .then_some(())
+                .ok_or(LossReason::NotExact)
+        });
+        descent_gate_cache.insert(cache_key, result);
+        result
+    }
+
+    pub(super) fn binding_site(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+    ) -> Result<&CallSite, LossReason> {
+        let CpgNode::Variable {
+            function: target, ..
+        } = &self.graph[to]
+        else {
+            return Err(LossReason::TargetNotBinding);
+        };
+        let CpgNode::Variable {
+            file,
+            function,
+            function_start_line,
+            line,
+            start_byte,
+            end_byte,
+            ..
+        } = &self.graph[from]
+        else {
+            return Err(LossReason::NoMatchingSite);
+        };
+        let mut sites = self
             .call_graph
             .callers
-            .get(target_fn)
-            .and_then(|sites| {
-                let matching_sites: Vec<_> = sites
-                    .iter()
-                    .filter(|site| {
-                        Self::call_site_is_candidate(
-                            site,
-                            caller_file,
-                            caller_fn,
-                            *caller_fn_start_line,
-                            *source_line,
-                            *source_start_byte,
-                            *source_end_byte,
-                        )
-                    })
-                    .collect();
-
-                match matching_sites.len() {
-                    1 => Some(matching_sites[0]),
-                    _ => None,
-                }
-            })
-            .is_some_and(|site| {
-                site_contains_occurrence(site, *source_start_byte, *source_end_byte)
-                    && self
-                        .call_graph
-                        .resolve_call_site(site)
-                        .into_iter()
-                        .any(|resolved| {
-                            resolved.confidence == ResolutionConfidence::Exact
-                                && resolved.target.file == *target_file
-                                && resolved.target.name == *target_fn
-                                && resolved.target.start_line == *target_fn_start_line
-                        })
+            .get(target)
+            .into_iter()
+            .flatten()
+            .filter(|site| {
+                Self::call_site_is_candidate(
+                    site,
+                    file,
+                    function,
+                    *function_start_line,
+                    *line,
+                    *start_byte,
+                    *end_byte,
+                )
             });
-
-        descent_gate_cache.insert(cache_key, can_descend);
-        can_descend
+        let site = sites.next().ok_or(LossReason::NoMatchingSite)?;
+        if sites.next().is_some() {
+            return Err(LossReason::AmbiguousSite);
+        }
+        Ok(site)
     }
 
     /// Nominate sites from the executing caller by the legacy line or byte
@@ -211,42 +314,96 @@ impl CodePropertyGraph {
                 || (site.start_byte <= source_start_byte && source_end_byte <= site.end_byte))
     }
 
-    pub(super) fn return_flow_ascent_allowed(&self, from: NodeIndex, to: NodeIndex) -> bool {
-        let Some((callee_file, callee_name, callee_start)) = self.node_file_fn(from) else {
-            return false;
-        };
-        let CpgNode::Variable {
-            file: caller_file,
-            function: caller_name,
-            function_start_line: caller_start,
-            ..
-        } = &self.graph[to]
-        else {
-            return false;
-        };
-        let caller = crate::call_graph::FunctionId {
-            file: caller_file.clone(),
-            name: caller_name.clone(),
-            start_line: *caller_start,
-            end_line: usize::MAX,
-        };
+    fn return_flow_ascent(&self, from: NodeIndex, to: NodeIndex) -> Result<(), LossReason> {
+        let owner = self.node_file_fn(from).ok_or(LossReason::NoMatchingSite)?;
+        let mut candidate = false;
+        for site in self.return_sites(to) {
+            let resolved = self.call_graph.resolve_call_site_full(site);
+            let matches_owner = |target: &crate::call_graph::FunctionId| {
+                (&target.file, &target.name, target.start_line) == (&owner.0, &owner.1, owner.2)
+            };
+            if super::build::singleton_exact(&resolved)
+                .is_some_and(|entry| matches_owner(entry.target))
+            {
+                return Ok(());
+            }
+            candidate |= resolved
+                .resolved
+                .iter()
+                .any(|entry| matches_owner(entry.target));
+        }
+        Err(if candidate {
+            LossReason::NotExact
+        } else {
+            LossReason::NoMatchingSite
+        })
+    }
+
+    pub(super) fn return_sites(&self, to: NodeIndex) -> impl Iterator<Item = &CallSite> {
+        let owner = self.node_file_fn(to);
         self.call_graph
             .calls
             .iter()
-            .filter(|(id, _)| {
-                id.file == caller.file
-                    && id.name == caller.name
-                    && id.start_line == caller.start_line
+            .filter(move |(id, _)| {
+                owner.as_ref().is_some_and(|(file, name, start)| {
+                    (&id.file, &id.name, id.start_line) == (file, name, *start)
+                })
             })
             .flat_map(|(_, sites)| sites)
-            .any(|site| {
-                super::build::singleton_exact(&self.call_graph.resolve_call_site_full(site))
-                    .is_some_and(|resolved| {
-                        resolved.target.file == callee_file
-                            && resolved.target.name == callee_name
-                            && resolved.target.start_line == callee_start
-                    })
-            })
+    }
+
+    pub(super) fn crossing_kind(
+        &self,
+        from: NodeIndex,
+        to: NodeIndex,
+        rel: Relation,
+        label: Option<FlowConfidence>,
+    ) -> Option<super::BoundaryKind> {
+        use super::BoundaryKind::*;
+        let from_owner = self.node_file_fn(from)?;
+        let to_owner = self.node_file_fn(to)?;
+        if from_owner != to_owner {
+            Some(CrossFunction)
+        } else if rel == Relation::ReturnFlow {
+            Some(SelfFunctionReturn)
+        } else if label == Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly))
+            || label == Some(FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback))
+            || self.is_parameter_binding_from(from, to, rel)
+        {
+            Some(SelfFunctionParam)
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn crossing_gate(
+        &self,
+        kind: super::BoundaryKind,
+        relation: Relation,
+        from: NodeIndex,
+        to: NodeIndex,
+        label: Option<FlowConfidence>,
+        depth: usize,
+        cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
+        policy: Option<&super::TaintCrossingPolicy<'_>>,
+    ) -> Result<(), LossReason> {
+        use super::BoundaryKind::*;
+        match kind {
+            SelfFunctionParam => return Err(LossReason::SelfParam),
+            SelfFunctionReturn => return Err(LossReason::SelfReturn),
+            CrossFunction => {}
+        }
+        if depth >= super::trace::MAX_TAINT_DESCENT_DEPTH {
+            return Err(LossReason::DepthCap);
+        }
+        if relation == Relation::ReturnFlow {
+            return self.return_flow_ascent(from, to);
+        }
+        self.descend_target(from, to, label, cache)?;
+        if policy.is_some() && self.admitted_data_flow_label(policy, from, to).is_none() {
+            return Err(LossReason::PolicyCeiling);
+        }
+        Ok(())
     }
 }
 

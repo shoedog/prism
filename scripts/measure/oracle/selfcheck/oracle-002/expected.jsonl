@@ -1,0 +1,1 @@
+{"key": {"from": {"file": "cases.ts", "base": "x", "fields": [], "line": 8, "start_byte": 182, "end_byte": 183}, "to": {"file": "cases.ts", "base": "x", "fields": [], "line": 10, "start_byte": 213, "end_byte": 214}}, "relation": "lexical_binding", "property": "declaration-and-read", "verdict": "CORRECT"}

@@ -1,19 +1,10 @@
-//! Object-literal call arguments bind field-selectively to the callee formal (#594).
+//! Field-selective binding for direct JS/TS/TSX object-literal arguments.
 //!
-//! `f({ k: v })` gives no path from `v` into `f`: the argument text is not a variable, so
-//! Step 5b mints no `Use(v) -> Def(p)` edge. This pass adds, per data-carrying leaf of the
-//! literal, `Use(v) -> Use(p.<read>)` edges straight to the callee reads that can observe
-//! that leaf. It never routes through `Def(p)`: that node reaches every sibling read, which
-//! is exactly the imprecision a literal's known keys let us avoid. The pairing lives in
-//! `props_binding.rs`.
-//!
-//! Where it runs: inside the Step-5b per-site loop, after the positional formal is found.
-//! It is gated on a call that resolves to an `Exact` singleton (NameOnly singletons were
-//! wrong at 44 census sites; no multi-target pool is bound) and on a JS/TS/TSX caller and
-//! callee. The callee formal is whatever Step 5b already admits as a positional target
-//! (plain identifier, member-only, parenthesised or admitted bare arrow). Bare targets
-//! also require lexical admission for the selected call, even when a read adds doubt to
-//! the final edge label. Destructured and rest slots remain unsupported.
+//! Inventory precedes target iteration. An Exact singleton with an admitted
+//! plain formal keeps #594's projection from literal leaves to reached reads,
+//! after proving the selected Use. An admitted object pattern binds surviving
+//! leaves to its concrete local Defs. The pairing and writer fold live in
+//! `props_binding.rs`. Both routes run before positional and rest collection.
 //!
 //! Callee reads. The targets are the `Use` nodes one DataFlow hop from the formal's `Def`
 //! whose path base is the formal: the DFG has already decided which reads that definition
@@ -21,7 +12,7 @@
 //! member write), and the new edge inherits that decision. A member-only formal's reads
 //! carry their field path (`p.a.b`); a mixed formal's member reads are base `p` Uses, so
 //! the static member chain is read back from the syntax (`p.a.b` -> `[a, b]`; any other
-//! use of `p`, including a `p[k]` read, is a bare read with an empty chain).
+//! use of `p`, including a `p[k]` read, retains an empty legacy chain).
 //!
 //! Pairing. A leaf at key path `L` (a chain of static keys) feeds a read with chain `R`
 //! when one is a prefix of the other: `L = [a]` feeds `p.a`, `p.a.x` and bare `p`, never
@@ -60,11 +51,20 @@
 //! * A defaulted formal is bound exactly when Step 5b binds it for a plain argument; a
 //!   literal is never `undefined`, so the default cannot replace it.
 
-use super::{props_binding::Leaf, *};
+use super::{
+    props_binding::{self, Counters, Leaf, PropsEntry, PropsValue, PropsWriter},
+    *,
+};
+use crate::ast::js_ts::component_route::{js_ts_component_route, Route, SiteKind};
+pub(super) use crate::ast::js_ts::props_keys::is_transparent_wrapper;
+use crate::ast::js_ts::props_keys::{definite_key, strip_transparent_wrappers};
+use crate::resolution::go::satisfiers::CpgCallResolver;
 use tree_sitter::Node;
 
 /// Everything one resolved call site contributes to the pass.
 pub(super) struct SiteInputs<'a> {
+    #[cfg(test)]
+    pub call_bytes: (usize, usize),
     pub caller_id: &'a FunctionId,
     pub caller_parsed: &'a ParsedFile,
     pub callee_parsed: &'a ParsedFile,
@@ -75,39 +75,6 @@ pub(super) struct SiteInputs<'a> {
     pub cross_file_free_single_exact: bool,
 }
 
-fn is_js_family(language: crate::languages::Language) -> bool {
-    use crate::languages::Language;
-    matches!(
-        language,
-        Language::JavaScript | Language::TypeScript | Language::Tsx
-    )
-}
-
-pub(super) fn is_transparent_wrapper(kind: &str) -> bool {
-    matches!(
-        kind,
-        "parenthesized_expression"
-            | "non_null_expression"
-            | "as_expression"
-            | "satisfies_expression"
-            | "type_assertion"
-    )
-}
-
-/// The expression inside a transparent wrapper (`type_assertion` carries it last).
-fn unwrap_expression(mut node: Node<'_>) -> Option<Node<'_>> {
-    while is_transparent_wrapper(node.kind()) {
-        let mut cursor = node.walk();
-        let mut inner = node.named_children(&mut cursor).filter(|c| !c.is_extra());
-        node = if node.kind() == "type_assertion" {
-            inner.last()?
-        } else {
-            inner.next()?
-        };
-    }
-    Some(node)
-}
-
 fn plain_identifier(text: &str) -> bool {
     let mut bytes = text.bytes();
     bytes
@@ -116,160 +83,156 @@ fn plain_identifier(text: &str) -> bool {
         && bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'$'))
 }
 
-/// How one object property writes its key.
-enum Write {
-    /// Spread or a computed key: may overwrite any earlier key.
-    Wildcard,
-    /// A definite key that cannot be bound (accessor, method, odd spelling, `__proto__`).
-    Opaque(Option<String>),
-    /// A definite key with a value expression.
-    Value(String),
-}
-
-/// `None`: a key that may equal any other key (computed, or spelled with an escape or a
-/// non-ASCII character, which can alias an identifier key): a wildcard writer.
-/// `Some(None)`: a definite key no static member read can name (numeric, `"a-b"`).
-fn literal_key(parsed: &ParsedFile, key: Node<'_>) -> Option<Option<String>> {
-    let text = parsed.node_text(&key);
-    match key.kind() {
-        "property_identifier" => {
-            (text.is_ascii() && !text.contains('\\')).then(|| Some(text.to_string()))
+pub(super) fn operand_path(parsed: &ParsedFile, node: Node<'_>) -> Option<AccessPath> {
+    let node = strip_transparent_wrappers(node)?;
+    match node.kind() {
+        "identifier" | "shorthand_property_identifier" | "this" | "super" => {
+            Some(AccessPath::simple(parsed.node_text(&node)))
         }
-        "string" => {
-            if !text.is_ascii() || text.contains('\\') {
-                return None;
-            }
-            let inner = text.get(1..text.len().checked_sub(1)?)?;
-            Some(plain_identifier(inner).then(|| inner.to_string()))
+        "member_expression" => {
+            let property = node.child_by_field_name("property").filter(|property| {
+                matches!(
+                    property.kind(),
+                    "property_identifier" | "private_property_identifier"
+                )
+            })?;
+            let mut path = operand_path(parsed, node.child_by_field_name("object")?)?;
+            path.fields.push(parsed.node_text(&property).to_owned());
+            Some(path)
         }
-        "computed_property_name" => None,
-        _ => Some(None),
+        _ => None,
     }
 }
 
-/// Collect the data-carrying leaves of `object` below `prefix`. `None` refuses the whole
-/// literal (parse recovery inside it).
-fn collect_leaves(
-    parsed: &ParsedFile,
-    object: Node<'_>,
-    prefix: &[String],
-    out: &mut Vec<Leaf>,
-) -> Option<()> {
+fn entries(parsed: &ParsedFile, object: Node<'_>) -> Option<Vec<PropsEntry>> {
+    parse_entries(parsed, object, false)
+}
+
+fn parse_entries(parsed: &ParsedFile, object: Node<'_>, jsx: bool) -> Option<Vec<PropsEntry>> {
     if object.has_error() {
         return None;
     }
-    let mut writes: Vec<(Write, Node<'_>)> = Vec::new();
+    let mut entries = Vec::new();
     let mut cursor = object.walk();
     for child in object.named_children(&mut cursor) {
-        match child.kind() {
-            "comment" => {}
-            "spread_element" => writes.push((Write::Wildcard, child)),
-            "shorthand_property_identifier" => {
-                let name = parsed.node_text(&child).to_string();
-                if name.is_ascii() && !name.contains('\\') {
-                    writes.push((Write::Value(name), child));
-                } else {
-                    writes.push((Write::Wildcard, child));
-                }
+        let (key, value) = match child.kind() {
+            "comment" => continue,
+            "spread_element" => {
+                entries.push(PropsEntry::Spread);
+                continue;
             }
-            "pair" => {
-                let key = child.child_by_field_name("key")?;
-                match literal_key(parsed, key) {
-                    None => writes.push((Write::Wildcard, child)),
-                    Some(None) => writes.push((Write::Opaque(None), child)),
-                    Some(Some(name)) => writes.push((Write::Value(name), child)),
-                }
-            }
-            "method_definition" => {
-                let name = child.child_by_field_name("name")?;
-                match literal_key(parsed, name) {
-                    None => writes.push((Write::Wildcard, child)),
-                    Some(key) => writes.push((Write::Opaque(key), child)),
-                }
-            }
+            "shorthand_property_identifier" => (child, Some(child)),
+            "pair" => (
+                child.child_by_field_name("key")?,
+                child.child_by_field_name("value"),
+            ),
+            "method_definition" => (child.child_by_field_name("name")?, None),
             _ => return None,
-        }
-    }
-    let last_wildcard = writes
-        .iter()
-        .rposition(|(write, _)| matches!(write, Write::Wildcard));
-    // The last property for a key decides it, whatever its kind.
-    let mut last_for_key: BTreeMap<String, usize> = BTreeMap::new();
-    for (i, (write, _)) in writes.iter().enumerate() {
-        match write {
-            Write::Value(name) | Write::Opaque(Some(name)) => {
-                last_for_key.insert(name.clone(), i);
-            }
-            _ => {}
-        }
-    }
-    for (i, (write, node)) in writes.iter().enumerate() {
-        let Write::Value(name) = write else {
-            continue;
         };
-        if last_for_key.get(name) != Some(&i)
-            || last_wildcard.is_some_and(|wild| wild > i)
-            || name == "__proto__"
-        {
-            continue;
-        }
-        let mut keys = prefix.to_vec();
-        keys.push(name.clone());
-        if node.kind() == "shorthand_property_identifier" {
-            out.push(Leaf {
-                keys,
-                span: node.start_byte()..node.end_byte(),
+        let name = definite_key(parsed, key);
+        if key.kind() == "number" {
+            entries.push(match name {
+                Some(key) => PropsEntry::Named(PropsWriter {
+                    key,
+                    legacy: false,
+                    value: PropsValue::Numeric,
+                }),
+                None => PropsEntry::NumericWildcard,
             });
             continue;
         }
-        let Some(value) = node
-            .child_by_field_name("value")
-            .and_then(unwrap_expression)
-        else {
+        let Some(name) = name else {
+            entries.push(PropsEntry::Wildcard);
             continue;
         };
-        match value.kind() {
-            "object" => collect_leaves(parsed, value, &keys, out)?,
-            "identifier" | "member_expression" => out.push(Leaf {
-                keys,
-                span: value.start_byte()..value.end_byte(),
-            }),
-            _ => {}
-        }
+        let legacy = key.kind() != "string" || plain_identifier(&name);
+        let value = if name == "__proto__" {
+            PropsValue::Opaque
+        } else {
+            parse_value(parsed, value, jsx)?
+        };
+        entries.push(PropsEntry::Named(PropsWriter {
+            key: name,
+            legacy,
+            value,
+        }));
     }
-    Some(())
+    Some(entries)
 }
 
-/// The literal behind an argument span, with its leaves, or `None` when the argument is
-/// not a literal or is not safely positional.
-fn argument_leaves(parsed: &ParsedFile, span: &std::ops::Range<usize>) -> Option<Vec<Leaf>> {
-    let node = parsed
-        .tree
-        .root_node()
-        .descendant_for_byte_range(span.start, span.end)?;
-    if node.start_byte() != span.start || node.end_byte() != span.end {
-        return None;
-    }
-    // A spread argument before this one shifts which positional slot this is.
-    let mut earlier = node.prev_sibling();
-    while let Some(sibling) = earlier {
-        if sibling.kind() == "spread_element" {
-            return None;
+pub(super) fn parse_value(
+    parsed: &ParsedFile,
+    value: Option<Node<'_>>,
+    jsx: bool,
+) -> Option<PropsValue> {
+    let Some(value) = value.and_then(strip_transparent_wrappers) else {
+        return Some(PropsValue::Opaque);
+    };
+    Some(match value.kind() {
+        "object" => PropsValue::Object(parse_entries(parsed, value, jsx)?),
+        "shorthand_property_identifier" | "identifier" | "member_expression" => {
+            PropsValue::Operand {
+                span: value.byte_range(),
+                path: operand_path(parsed, value),
+            }
         }
-        earlier = sibling.prev_sibling();
-    }
-    let object = unwrap_expression(node)?;
-    if object.kind() != "object" {
-        return None;
-    }
-    let mut leaves = Vec::new();
-    collect_leaves(parsed, object, &[], &mut leaves)?;
-    Some(leaves)
+        "this" | "super" if jsx => PropsValue::Operand {
+            span: value.byte_range(),
+            path: operand_path(parsed, value),
+        },
+        _ => PropsValue::Opaque,
+    })
 }
 
-fn may_be_literal(text: &str, language: crate::languages::Language) -> bool {
-    text.starts_with(['{', '('])
-        || (text.starts_with('<') && language == crate::languages::Language::TypeScript)
+pub(super) struct Literal<'tree> {
+    pub(super) position: usize,
+    pub(super) safe: bool,
+    object: Node<'tree>,
+}
+
+pub(super) fn literal_arguments<'tree>(
+    caller: &'tree ParsedFile,
+    site: &CallSite,
+    args: &[spread_args::Argument],
+) -> Vec<Literal<'tree>> {
+    if !caller.language.is_js_family()
+        || site.jsx_element
+        || site.kind != crate::call_graph::CallKind::Call
+    {
+        return Vec::new();
+    }
+    let root = caller.tree.root_node();
+    let mut safe = true;
+    let mut literals = Vec::new();
+    for (position, (text, span)) in args.iter().enumerate() {
+        if !text.starts_with(['{', '(', '<', '.']) {
+            continue;
+        }
+        let Some(node) = root.descendant_for_byte_range(span.start, span.end) else {
+            continue;
+        };
+        if node.byte_range() != *span {
+            continue;
+        }
+        if node.kind() == "spread_element" {
+            safe = false;
+        } else if let Some(object) =
+            strip_transparent_wrappers(node).filter(|node| node.kind() == "object")
+        {
+            literals.push(Literal {
+                position,
+                safe,
+                object,
+            });
+        }
+    }
+    literals
+}
+
+impl Literal<'_> {
+    pub(super) fn entries(&self, parsed: &ParsedFile) -> Option<Vec<PropsEntry>> {
+        entries(parsed, self.object)
+    }
 }
 
 /// A call site binds object literals only when it resolves to one Exact callee.
@@ -277,54 +240,275 @@ pub(super) fn exact_singleton(resolved: &[ResolvedCallee<'_>]) -> bool {
     resolved.len() == 1 && resolved[0].confidence == ResolutionConfidence::Exact
 }
 
-/// Emit the literal edges for one Exact-singleton call site. `params` is the callee's
-/// positional formals; `resolve` turns one into its definition node (holes stay holes).
-pub(super) fn collect<T>(
-    out: &mut Vec<PendingArgumentFlow>,
+pub(super) fn inventory<'tree>(
+    caller: &'tree ParsedFile,
+    site: &CallSite,
+    call_args: &mut Option<(Vec<spread_args::Argument>, spread_args::Offsets)>,
+    read_arguments: impl FnOnce(
+        &ParsedFile,
+        &CallSite,
+    ) -> (Vec<spread_args::Argument>, spread_args::Offsets),
+    resolved: &[ResolvedCallee<'_>],
+    files: &BTreeMap<String, ParsedFile>,
+    counters: &mut Counters,
+) -> Vec<Literal<'tree>> {
+    if !caller.language.is_js_family() || site.jsx_element {
+        return Vec::new();
+    }
+    let (args, _) = call_args.get_or_insert_with(|| read_arguments(caller, site));
+    let mut literals = literal_arguments(caller, site, args);
+    if literals.is_empty() {
+        return literals;
+    }
+    counters.add("sites_literal", 1);
+    literals.retain(|literal| !literal.object.has_error());
+    let exact = exact_singleton(resolved)
+        && files
+            .get(&resolved[0].target.file)
+            .is_some_and(|file| file.language.is_js_family());
+    let refusal = (!exact && !literals.is_empty()).then_some("refused_not_exact_singleton");
+    #[cfg(test)]
+    counters
+        .attempts
+        .push(super::super::props_s2_test_support::LiteralAttempt {
+            caller: site.caller.clone(),
+            bytes: (site.start_byte, site.end_byte),
+            kind: SiteKind::Literal,
+            exact,
+            refusal,
+        });
+    if let Some(reason) = refusal {
+        counters.add(reason, 1);
+        return Vec::new();
+    }
+    literals
+}
+
+impl SiteInputs<'_> {
+    fn literal_sources(&self, leaf: &Leaf) -> Vec<NodeIndex> {
+        let Some(path) = &leaf.path else {
+            return CodePropertyGraph::argument_nodes(
+                self.caller_id,
+                self.caller_parsed,
+                self.caller_parsed
+                    .source
+                    .get(leaf.span.clone())
+                    .unwrap_or("")
+                    .trim(),
+                &leaf.span,
+                self.var_index,
+                self.exact_var_index,
+                self.graph,
+            );
+        };
+        let base = AccessPath::simple(&path.base);
+        std::iter::once(path)
+            .chain((base != *path).then_some(&base))
+            .filter_map(|path| {
+                CodePropertyGraph::argument_var_node_in_span_with_exact(
+                    self.caller_id,
+                    self.caller_parsed,
+                    path,
+                    &leaf.span,
+                    self.var_index,
+                    self.exact_var_index,
+                    self.graph,
+                )
+            })
+            .collect()
+    }
+}
+
+fn pattern_admission(
+    inputs: &SiteInputs<'_>,
+    call: &CallSite,
+    resolver: &impl CpgCallResolver,
+    callee: &FunctionId,
+    callable: (usize, usize),
+) -> Result<Route, (u8, &'static str)> {
+    let lexical = inputs
+        .caller_parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(call.start_byte, call.end_byte)
+        .filter(|node| {
+            node.byte_range() == (call.start_byte..call.end_byte)
+                && node.kind() == "call_expression"
+        })
+        .ok_or((3, "refused_target_identity"))?;
+    let value = lexical
+        .child_by_field_name("function")
+        .and_then(strip_transparent_wrappers)
+        .ok_or((3, "refused_target_identity"))?;
+    let qualified = matches!(value.kind(), "member_expression" | "subscript_expression")
+        || call.qualifier.is_some();
+    let export = resolver.js_ts_props_export_matches(call, callee, inputs.callee_parsed);
+    if qualified {
+        let simple_namespace = value.kind() == "member_expression"
+            && value.child_by_field_name("object").is_some_and(|node| {
+                node.kind() == "identifier"
+                    && Some(inputs.caller_parsed.node_text(&node)) == call.qualifier.as_deref()
+            })
+            && value.child_by_field_name("property").is_some_and(|node| {
+                node.kind() == "property_identifier"
+                    && inputs.caller_parsed.node_text(&node) == call.callee_name
+            })
+            && matches!(
+                call.local_binding,
+                crate::call_graph::JsLocalBinding::NamespaceImport { .. }
+            );
+        if !simple_namespace {
+            return Err((2, "refused_member_qualifier"));
+        }
+        if !export {
+            return Err((2, "refused_member_not_export"));
+        }
+    }
+    let selected = inputs
+        .callee_parsed
+        .tree
+        .root_node()
+        .descendant_for_byte_range(callable.0, callable.1)
+        .filter(|node| node.byte_range() == (callable.0..callable.1))
+        .ok_or((3, "refused_target_identity"))?;
+    let route = js_ts_component_route(
+        SiteKind::Literal,
+        inputs.caller_parsed,
+        lexical,
+        inputs.callee_parsed,
+        selected,
+        export,
+    );
+    match route {
+        Route::Direct | Route::LocalHookOperand => Ok(route),
+        Route::UnknownWrapper | Route::JsxRenderOperand => Err((3, "refused_unknown_wrapper")),
+        Route::PreInitializerUnproved => Err((3, "refused_pre_initializer_unproved")),
+        Route::UnprovedIdentity => Err((3, "refused_target_identity")),
+    }
+}
+
+/// Emit literal edges immediately before ordinary positional binding.
+pub(super) fn collect<T, P, F>(
+    output: &mut props_binding::Step5bOutput,
+    literals: &[Literal<'_>],
     site: &SiteInputs<'_>,
+    call: &CallSite,
+    resolver: &impl CpgCallResolver,
+    callee: &FunctionId,
     params: &[Option<T>],
     admission: &bare_param_admission::Admission,
     bare_slot: impl Fn(&T) -> Option<callee_params::BareSlot>,
     resolve: impl Fn(&T) -> Option<NodeIndex>,
+    patterns: impl FnOnce() -> F,
+    as_patterns: impl Fn(&F) -> Option<&callee_params::PatternFacts<P>>,
+    resolve_pattern: impl Fn(&P) -> Option<NodeIndex>,
 ) {
-    let language = site.caller_parsed.language;
-    if !is_js_family(language)
-        || !is_js_family(site.callee_parsed.language)
-        || !site
-            .args
-            .iter()
-            .any(|(text, _)| may_be_literal(text, language))
-    {
+    use props_binding::{PropsTarget, SiteReadRefusals};
+
+    if literals.is_empty() {
         return;
     }
-    let mut seen: BTreeSet<(NodeIndex, NodeIndex)> = BTreeSet::new();
-    for (i, param) in params.iter().enumerate() {
-        let Some((arg_text, arg_span)) = site.args.get(i) else {
-            break;
-        };
-        if !may_be_literal(arg_text, language) {
+    let mut get_patterns = Some(patterns);
+    let mut facts = None;
+    let mut route = None;
+    let mut refusals = Vec::new();
+    let mut read_refusals = SiteReadRefusals::default();
+    for literal in literals {
+        if !literal.safe {
+            output.props.add("refused_argument_after_spread", 1);
             continue;
         }
-        let Some(param) = param.as_ref() else {
+        let position = literal.position;
+        let plain = params.get(position).and_then(Option::as_ref);
+        let target = if let Some(param) = plain {
+            let bare = bare_slot(param);
+            if !admission.literal(bare) {
+                // The incoming bare-formal admission skips this position; the
+                // site still counts one reason (check 3).
+                if bare.is_some() {
+                    refusals.push((position, true, 3, "refused_bare_formal_skipped"));
+                }
+                continue;
+            }
+            let Some(def) = resolve(param) else {
+                continue;
+            };
+            PropsTarget::Plain {
+                def,
+                bare_literal: bare.is_some(),
+            }
+        } else {
+            if let Some(get) = get_patterns.take() {
+                facts = Some(get());
+            }
+            let Some(facts) = facts.as_ref().and_then(&as_patterns) else {
+                refusals.push((position, true, 3, "refused_target_identity"));
+                continue;
+            };
+            let Some(pattern) = facts
+                .positions
+                .iter()
+                .find(|pattern| pattern.syntax.position == position)
+            else {
+                refusals.push((position, true, 4, "refused_no_props_formal"));
+                continue;
+            };
+            if let Err((check, refusal)) = *route.get_or_insert_with(|| {
+                pattern_admission(site, call, resolver, callee, facts.callable)
+            }) {
+                refusals.push((position, true, check, refusal));
+                continue;
+            }
+            if pattern.syntax.alias_skipped {
+                refusals.push((position, true, 4, "refused_alias_pattern"));
+                continue;
+            }
+            PropsTarget::Pattern(pattern)
+        };
+        let Some(writes) = literal.entries(site.caller_parsed) else {
             continue;
         };
-        let bare = bare_slot(param);
-        if !admission.literal(bare) {
-            continue;
-        }
-        let Some(def) = resolve(param) else {
-            continue;
+        let rich = props_binding::rich_leaves(&writes, &mut output.props);
+        let legacy;
+        let leaves = match target {
+            PropsTarget::Plain { .. } => {
+                legacy = props_binding::legacy_leaves(&writes);
+                &legacy
+            }
+            PropsTarget::Pattern(_) => &rich,
         };
-        let Some(leaves) = argument_leaves(site.caller_parsed, arg_span) else {
-            continue;
-        };
-        if leaves.is_empty() {
-            continue;
-        }
-        props_binding::bind(out, &mut seen, site, def, &leaves, bare.is_some());
+        props_binding::bind(
+            output,
+            &mut read_refusals,
+            &props_binding::BindingSite {
+                kind: SiteKind::Literal,
+                #[cfg(test)]
+                bytes: site.call_bytes,
+                graph: site.graph,
+                callee: site.callee_parsed,
+                cross_file_free_single_exact: site.cross_file_free_single_exact,
+            },
+            target,
+            leaves,
+            &rich,
+            |leaf| Ok(site.literal_sources(leaf)),
+            &resolve_pattern,
+        );
     }
+    if let Some(refusal) = props_binding::literal_site_refusal(&refusals) {
+        output.props.add(refusal, 1);
+        #[cfg(test)]
+        if let Some(attempt) = output.props.attempts.last_mut() {
+            attempt.refusal = Some(refusal);
+        }
+    }
+    read_refusals.record(&mut output.props);
 }
 
 #[cfg(test)]
 #[path = "object_literal_parity_tests.rs"]
 mod parity_tests;
+
+#[cfg(test)]
+#[path = "object_literal_args_coverage_tests.rs"]
+mod coverage_tests;

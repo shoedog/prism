@@ -484,6 +484,59 @@ fn export_matches(
         && export.span == Some((target.start_line, target.end_line))
 }
 impl CallGraph {
+    pub(crate) fn js_ts_props_export_matches(
+        &self,
+        site: &CallSite,
+        target: &FunctionId,
+        parsed: &ParsedFile,
+    ) -> bool {
+        let file = &site.caller.file;
+        let local = match &site.local_binding {
+            JsLocalBinding::NamespaceImport { module_path } => {
+                return self.js_ts_props_namespace_export_matches(
+                    site,
+                    target,
+                    parsed,
+                    module_path,
+                );
+            }
+            JsLocalBinding::AliasNamespaceMember {
+                module_path,
+                member,
+            } => {
+                return self
+                    .resolve_js_ts_member_module(module_path, file)
+                    .and_then(|module| self.js_ts_resolved_exports.get(&module))
+                    .and_then(|exports| exports.get(member))
+                    .is_some_and(|export| {
+                        export_matches(export, target)
+                            && !export.via_unresolved_star
+                            && (!export.wrapped || site.jsx_element)
+                    });
+            }
+            JsLocalBinding::AliasImport { local } => local,
+            JsLocalBinding::Unproven(reason) if reason == "import" => &site.callee_name,
+            _ => return false,
+        };
+        self.js_ts_exports
+            .get(file)
+            .is_some_and(|exports| exports.esm_named_imports.contains(local))
+            && self
+                .import_bindings
+                .get(file)
+                .and_then(|bindings| {
+                    bindings.iter().find(|binding| {
+                        binding.eligible
+                            && binding.local == *local
+                            && binding.kind == crate::call_graph::ImportBindingKind::MemberImport
+                    })
+                })
+                .and_then(|binding| self.anonymous_import_export(site, binding, target))
+                .is_some_and(|(_, export)| {
+                    !export.via_unresolved_star && (!export.wrapped || site.jsx_element)
+                })
+    }
+
     fn anonymous_target_supported(&self, target: &FunctionId) -> bool {
         self.js_anonymous
             .0

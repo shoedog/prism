@@ -21,13 +21,16 @@ pub(super) fn collect(
     exact: &ExactVarIndex,
     graph: &DiGraph<CpgNode, CpgEdge>,
     files: &BTreeMap<String, ParsedFile>,
-) -> Vec<PendingArgumentFlow> {
-    cg.calls
-        .iter()
-        .flat_map(|(caller, sites)| {
-            CodePropertyGraph::step5b_caller_legacy(caller, sites, cg, index, exact, graph, files)
-        })
-        .collect()
+) -> props_binding::Step5bOutput {
+    cg.calls.iter().fold(
+        props_binding::Step5bOutput::default(),
+        |mut output, (caller, sites)| {
+            output.merge(CodePropertyGraph::step5b_caller_legacy(
+                caller, sites, cg, index, exact, graph, files,
+            ));
+            output
+        },
+    )
 }
 impl CodePropertyGraph {
     pub(super) fn step5b_caller_legacy(
@@ -38,16 +41,21 @@ impl CodePropertyGraph {
         exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
-    ) -> Vec<PendingArgumentFlow> {
-        let mut out = Vec::new();
+    ) -> props_binding::Step5bOutput {
+        let mut output = props_binding::Step5bOutput::default();
+        let Some(caller_parsed) = files.get(&caller_id.file) else {
+            return output;
+        };
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<callee_params::ParamDef>>>> =
             BTreeMap::new();
         let mut rest_cache = BTreeMap::new();
+        let mut pattern_cache = BTreeMap::new();
         let trace_builtin = builtin_callbacks::diagnostic::enabled();
+        let jsx = jsx_props::Collector::new(cg, caller_parsed, graph, var_index, exact_var_index);
         for site in sites {
             if let Some(parsed) = files.get(&caller_id.file) {
                 builtin_callbacks::collect(
-                    &mut out,
+                    &mut output.flows,
                     site,
                     caller_id,
                     parsed,
@@ -57,9 +65,24 @@ impl CodePropertyGraph {
                     trace_builtin,
                 );
             }
-            let resolved_site = cg.resolve_call_site(site);
+            let Some(resolved_site) = jsx.resolve_site(
+                site,
+                &mut output,
+                jsx_props::Patterns::Direct(files, &mut pattern_cache),
+            ) else {
+                continue;
+            };
             let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
             let mut call_args = None;
+            let literals = object_literal_args::inventory(
+                caller_parsed,
+                site,
+                &mut call_args,
+                spread_args::for_call,
+                &resolved_site,
+                files,
+                &mut output.props,
+            );
             for resolved in resolved_site {
                 // P3 (F1): R6MultiOwnerCandidate is an unverified, capped NameOnly
                 // maybe-edge (nav-only). DataFlow carries no confidence/kind and
@@ -73,10 +96,6 @@ impl CodePropertyGraph {
                 let cross_file_free_single_exact = resolved.kind == ResolutionKind::FreeSingle
                     && resolved.confidence == ResolutionConfidence::Exact
                     && callee_id.file != caller_id.file;
-                let caller_parsed = match files.get(&caller_id.file) {
-                    Some(p) => p,
-                    None => continue,
-                };
                 let (args, offsets) =
                     call_args.get_or_insert_with(|| spread_args::for_call(caller_parsed, site));
                 if args.is_empty() {
@@ -94,6 +113,8 @@ impl CodePropertyGraph {
                     .as_deref()
                     .unwrap_or_default();
                 let inputs = object_literal_args::SiteInputs {
+                    #[cfg(test)]
+                    call_bytes: (site.start_byte, site.end_byte),
                     caller_id,
                     caller_parsed,
                     callee_parsed,
@@ -115,13 +136,30 @@ impl CodePropertyGraph {
                     exact_singleton,
                     cross_file_free_single_exact,
                 );
+                let patterns = &mut pattern_cache;
                 object_literal_args::collect(
-                    &mut out,
+                    &mut output,
+                    &literals,
                     &inputs,
+                    site,
+                    cg,
+                    callee_id,
                     param_nodes,
                     &admission,
-                    |t| t.bare,
-                    |t| Some(t.node),
+                    |target| target.bare,
+                    |target| Some(target.node),
+                    move || {
+                        patterns.entry(callee_id.clone()).or_insert_with(|| {
+                            callee_params::compute_pattern_formal_nodes(
+                                callee_parsed,
+                                callee_id,
+                                exact_var_index,
+                                graph,
+                            )
+                        })
+                    },
+                    |facts| facts.as_ref(),
+                    |node| Some(*node),
                 );
                 for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
                     let Some(param) = slot
@@ -162,7 +200,7 @@ impl CodePropertyGraph {
                         })
                         .collect();
                     for from in arg_idxs {
-                        out.push(PendingArgumentFlow {
+                        output.flows.push(PendingArgumentFlow {
                             edge: (
                                 from,
                                 param.node,
@@ -182,7 +220,7 @@ impl CodePropertyGraph {
                     continue;
                 };
                 rest_params::collect(
-                    &mut out,
+                    &mut output.flows,
                     &inputs,
                     target,
                     offsets,
@@ -190,7 +228,7 @@ impl CodePropertyGraph {
                 );
             }
         }
-        out
+        output
     }
 }
 

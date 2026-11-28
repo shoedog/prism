@@ -2,6 +2,7 @@ use super::context::ContextUse;
 use crate::targets::dependency_identity::python_imports;
 use crate::targets::inventory::python::{
     source::{children, name, ungroup, ungroup_target},
+    type_syntax::alias_name,
     walk::{ScopeId, ScopeKind, Walk},
 };
 use prism::ast::ParsedFile;
@@ -52,7 +53,7 @@ pub(super) struct Census<'tree> {
 }
 
 impl<'tree> Census<'tree> {
-    pub(super) fn new(parsed: &ParsedFile, walk: &Walk<'tree>) -> Self {
+    pub(super) fn new(parsed: &ParsedFile, walk: &Walk<'tree>, field_rows: bool) -> Self {
         let mut this = Self {
             spaces: walk.scopes.iter().map(|_| Namespace::default()).collect(),
             wildcard: false,
@@ -216,8 +217,21 @@ impl<'tree> Census<'tree> {
                     }
                 }
                 "type_alias_statement" => {
-                    if let Some(target) = children(node).next().and_then(first_identifier) {
+                    if !field_rows {
+                        if let Some(target) = children(node).next().and_then(first_identifier) {
+                            this.add(parsed, walk, scope, target, node, Kind::Other);
+                        }
+                    } else if let Some(target) = alias_name(node) {
+                        // A PEP 695 `type NAME [params] = value`.
                         this.add(parsed, walk, scope, target, node, Kind::Other);
+                    } else {
+                        // The grammar also reads `type(x).attr = v` as an alias
+                        // statement. It is an assignment whose operands the
+                        // walk skips, so every name in it is unreadable and
+                        // refuses (a walrus on the right rebinds a name).
+                        for target in identifiers(node) {
+                            this.add(parsed, walk, scope, target, node, Kind::Other);
+                        }
                     }
                 }
                 _ => {}
@@ -348,6 +362,14 @@ pub(super) fn parameter_name(node: Node<'_>) -> Option<Node<'_>> {
             children(node).next().and_then(parameter_name)
         }
         _ => None,
+    }
+}
+
+fn identifiers(node: Node<'_>) -> Vec<Node<'_>> {
+    if node.kind() == "identifier" {
+        vec![node]
+    } else {
+        children(node).flat_map(identifiers).collect()
     }
 }
 

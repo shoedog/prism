@@ -303,7 +303,19 @@ the right cell. The benchmark's harness records trace-mode review, not default r
 Benchmark gate's paired `taint-reaches` non-regression only, not classes.
 
 **Crossing ledger (product diagnostic, PLAN I-1).** Under `PRISM_TAINT_CROSSING_TRACE` the walk logs each accepted crossing, each synthetic ReturnInput traversal (Use, return component, owner and state), and every refused
-hop with its reason, keyed by root and hop. This ledger supplies the I-walk pre-dispatch comparison. Option B
+hop with its reason, keyed by walk, root and hop. The `walk` field identifies the primary walk or a
+sanitizer bypass rewalk. The process-local `walk_id` distinguishes individual invocations.
+The hop's site is a resolver candidate of any grade (not a claim that its callee binds it). It is
+established only when the same call expression contains the source operand and its result reaches
+the receiving occurrence; for a CallDescent the call contains the source actual and a resolver
+candidate of the site binds it to the receiving formal. Navigation and the sanitizer-bypass
+rewalks print that call's span, the proved argument or receiving `slot`, and the call's
+resolution `grades`; where no site is established the empty form `site=- slot=- grades=[]` means
+“not established.” `edge_grade` describes the CPG edge label. Review mode (`--format review`, with
+either return-flow setting, and the legacy ledger) prints the reason and `edge_grade` but no
+`site=`, `slot=` or `grades=`. Review still uses its parsed files to find the site for the
+boundary record, including on cache hits.
+This ledger supplies the I-walk pre-dispatch comparison. Option B
 supplies distal reachability and attribution. From the census's
 frozen sources, `taint-reaches` frontier mode on the full checkout at each commit gives the whole-repository
 ledger; a slice's new crossings are its difference against the parent build, whether or not the sink line is

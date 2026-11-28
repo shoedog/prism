@@ -1,9 +1,9 @@
 //! Data-driven coverage for pattern formals, object-literal calls and JSX props.
 
 use super::flow_confidence::{FlowConfidence, FlowDoubt};
-use super::object_literal_arg_tests::{build, spell};
+use super::object_literal_arg_tests::{build, parse_files, spell};
 use super::trace::BoundaryKind;
-use super::{CodePropertyGraph, CpgEdge, CpgNode};
+use super::{CodePropertyGraph, CpgEdge, CpgNode, VarAccess};
 use crate::ast::ParsedFile;
 use crate::data_flow::s1_evidence::{Binding, Evidence, COUNTER_KEYS};
 use crate::data_flow::DataFlowGraph;
@@ -13,7 +13,7 @@ use petgraph::visit::EdgeRef;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-const ENABLED: &[&str] = &["control", "S1"];
+const ENABLED: &[&str] = &["control", "S1", "S2", "S3"];
 const ROWS: &str = include_str!("../../tests/fixtures/props_matrix/rows.jsonl");
 
 #[derive(Deserialize)]
@@ -54,6 +54,7 @@ impl TryFrom<serde_json::Value> for Check {
         let allowed: &[&str] = match kind {
             "def" => &["node", "bytes", "count"],
             "no_def" => &["node"],
+            "no_def_named" => &["name"],
             "edge" => &["from", "to", "label", "from_bytes", "to_bytes", "count"],
             "no_edge" => &["from", "to", "label", "from_bytes", "to_bytes", "absent_ok"],
             "no_edge_into" => &["to", "absent_ok"],
@@ -164,6 +165,9 @@ enum Assertion {
     },
     NoDef {
         node: String,
+    },
+    NoDefNamed {
+        name: String,
     },
     Edge {
         #[serde(flatten)]
@@ -471,6 +475,14 @@ impl<'a> Fixture<'a> {
                     return Err(format!("found {} matching nodes", self.named(node).len()));
                 }
             }
+            Assertion::NoDefNamed { name } => {
+                if self.graph.graph.node_indices().any(|index| {
+                    matches!(self.graph.node(index), CpgNode::Variable { access: VarAccess::Def, path, .. }
+                        if path.is_simple() && path.base == *name)
+                }) {
+                    return Err(format!("found a definition named {name:?}"));
+                }
+            }
             Assertion::Edge { between, .. } | Assertion::NoEdge { between, .. } => {
                 let edges = self.edges(between);
                 let matching = edges
@@ -508,10 +520,7 @@ impl<'a> Fixture<'a> {
                 }
             }
             Assertion::Counter { key, count } => {
-                let actual = self.stats["dfg_props"][key].as_u64().unwrap_or(0);
-                if actual != *count {
-                    return Err(format!("observed {actual}"));
-                }
+                super::props_s2_test_support::check_counter(&self.stats, key, *count)?;
             }
             Assertion::S1Counter { key, count } => {
                 check_s1_counter(COUNTER_KEYS, &self.s1_counters, key, *count)?;
@@ -648,10 +657,47 @@ impl Row {
                 };
                 // The shared builder panics on parser errors. Continue collecting rows if a
                 // fixture is malformed, and distinguish that from an assertion failure.
-                let Ok(graph) = std::panic::catch_unwind(|| build(language, &files, ext)) else {
+                let Ok((graph, assembly)) = std::panic::catch_unwind(|| {
+                    let parsed = parse_files(language, &files, ext);
+                    let build = || CodePropertyGraph::build(&parsed);
+                    if super::props_s2_matrix_evidence::needs_capture(&self.id) {
+                        let (graph, observed) =
+                            super::props_s2_test_support::capture(&parsed, build);
+                        (graph, Some(observed))
+                    } else {
+                        (build(), None)
+                    }
+                }) else {
                     failures.push(format!("{tag}: fixture build failed (see panic above)"));
                     continue;
                 };
+                if let Some(result) = super::props_s2_matrix_evidence::check(
+                    &self.id,
+                    case,
+                    ext,
+                    &graph,
+                    assembly.as_ref(),
+                ) {
+                    match result {
+                        Ok(evidence) => {
+                            println!("PROPS_PRECONDITION {} {tag} PASS {evidence}", self.id);
+                            if let Some(Err(detail)) =
+                                super::props_s2_matrix_evidence::guard_counterfactual(
+                                    &self.id,
+                                    case,
+                                    &graph,
+                                    assembly.as_ref(),
+                                )
+                            {
+                                failures.push(format!("{tag}: guard counterfactual: {detail}"));
+                            }
+                        }
+                        Err(detail) => {
+                            println!("PROPS_PRECONDITION {} {tag} UNMET {detail}", self.id);
+                            failures.push(format!("{tag}: evidence precondition unmet: {detail}"));
+                        }
+                    }
+                }
                 let parsed = files
                     .iter()
                     .map(|(stem, source)| {
@@ -669,10 +715,20 @@ impl Row {
                 fixture.s1_evidence = Some(&evidence);
                 fixture.s1_counters =
                     serde_json::to_value(evidence.counters()).expect("serialize S1 counters");
-                for check in &checks {
-                    if let Err(detail) = fixture.check(&check.assertion) {
+                let mut failed = 0;
+                for (index, check) in checks.iter().enumerate() {
+                    let result = fixture.check(&check.assertion);
+                    if matches!(self.group.as_str(), "S2" | "S3") {
+                        let status = if result.is_ok() { "PASS" } else { "FAIL" };
+                        println!("PROPS_ASSERT {} {tag} {index} {status}", self.id);
+                    }
+                    if let Err(detail) = result {
+                        failed += 1;
                         failures.push(format!("{tag}: {:?}: {detail}", check.assertion));
                     }
+                }
+                if matches!(self.group.as_str(), "S2" | "S3") {
+                    println!("PROPS_CASE {} {tag} {} {failed}", self.id, checks.len());
                 }
             }
             if !fixed_exts.is_empty()
@@ -738,7 +794,7 @@ fn props_matrix_rejects_unknown_assertion_fields() {
             assert!(err.contains("unknown_field"), "{err}");
         }
     }
-    assert_eq!(kinds.len(), 13);
+    assert_eq!(kinds.len(), 14);
 }
 
 #[test]
@@ -753,7 +809,12 @@ fn props_matrix_negative_assertions_detect_connected_edge_and_wrong_counter() {
     let to = "D:p.other@2(use)";
     let check = |value| fixture.check(&Check::try_from(value).unwrap().assertion);
     check(json!({"kind":"edge", "from":from, "to":to})).unwrap();
+    check(json!({"kind":"no_def_named", "name":"missing"})).unwrap();
     for (negative, reason) in [
+        (
+            json!({"kind":"no_def_named", "name":"t"}),
+            "found a definition named",
+        ),
         (
             json!({"kind":"no_edge", "from":from, "to":to}),
             "found 1 matching edges",

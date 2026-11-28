@@ -322,29 +322,37 @@ pub(super) fn check(fixture: &Fixture, file: &str, row: &Row) -> Result<(), Stri
             ));
         }
     }
-    if row.id == "Q02.both.py" && selected.len() == 2 {
-        let [(a, hop), (b, _)] = selected.as_slice() else {
-            unreachable!()
-        };
-        let excluded = BTreeSet::from([*hop]);
-        for (root, should_reach) in [(*a, false), (*b, true)] {
-            let trace = cpg.taint_trace_nodes_excluding_with_mode(
-                &[root],
-                Some(&order),
-                &excluded,
-                ReturnFlowMode::On,
-            );
-            let result = reachability_for_node_from_ordered(
-                cpg,
-                &trace,
-                root,
-                sinks[0],
-                Some(&order),
-                &mut Vec::new(),
-            );
-            if (result == Reachability::Reached) != should_reach {
-                failures.push(format!("masking A's W→R: root {root:?} got {result:?}, expected reaches={should_reach}"));
+    if row.id == "Q02.both.py" {
+        // The masking oracle must run for both roots; a missing selection is a failure, not a skip.
+        let mut ran = 0;
+        if let [(a, hop), (b, _)] = selected.as_slice() {
+            let excluded = BTreeSet::from([*hop]);
+            for (root, should_reach) in [(*a, false), (*b, true)] {
+                let trace = cpg.taint_trace_nodes_excluding_with_mode(
+                    &[root],
+                    Some(&order),
+                    &excluded,
+                    ReturnFlowMode::On,
+                );
+                let result = reachability_for_node_from_ordered(
+                    cpg,
+                    &trace,
+                    root,
+                    sinks[0],
+                    Some(&order),
+                    &mut Vec::new(),
+                );
+                ran += 1;
+                if (result == Reachability::Reached) != should_reach {
+                    failures.push(format!("masking A's W→R: root {root:?} got {result:?}, expected reaches={should_reach}"));
+                }
             }
+        }
+        if ran != 2 {
+            let found = selected.len();
+            failures.push(format!(
+                "Q02.both masking oracle did not run: {ran} of 2 roots checked, {found} selected pairs"
+            ));
         }
     }
     if failures.is_empty() {

@@ -4,16 +4,14 @@ use std::collections::BTreeMap;
 
 use petgraph::graph::NodeIndex;
 
-use crate::cpg::{
-    BoundaryKind, CodePropertyGraph, OrderingWarning, Relation, ReturnFlowMode, SameLineOrderView,
-    Trace,
-};
+use crate::cpg::{OrderingWarning, Relation, ReturnFlowMode, SameLineOrderView, Trace};
 use crate::data_flow::VarLocation;
 use crate::navigation::types::{
     Evidence, EvidenceItem, GraphEdge, GraphNode, GraphPayload, Location, QueryError, Reason,
     Source, SymbolRef, Warning, WarningKind,
 };
 use crate::navigation::NavigationSession;
+use crate::reasoning::boundary_warnings::boundary_warnings;
 use crate::reasoning::order::AstOrderView;
 use crate::reasoning::sanitizer_walk::{
     sanitized_hits_on_chain, sanitizer_bypass_exclusions, SanitizerHit,
@@ -21,7 +19,7 @@ use crate::reasoning::sanitizer_walk::{
 use crate::reasoning::scope_honesty;
 use crate::reasoning::seeds::{resolve, ResolvedSeed, SeedRole, SeedSpec};
 use crate::reasoning::shape::{
-    node_to_graph_node, reachability_for_node_from_ordered, window_relations, witness_chain_for,
+    node_to_graph_node, reachability_and_boundary, window_relations, witness_chain_for,
     witness_graph_for_chain,
 };
 use crate::reasoning::types::{
@@ -170,7 +168,7 @@ fn witness_mode(
         let mut source_results = Vec::new();
         for source in sources {
             let mut ordering_warnings = Vec::new();
-            let raw_reachability = reachability_for_node_from_ordered(
+            let (raw_reachability, boundary) = reachability_and_boundary(
                 &session.index.cpg,
                 trace,
                 source.node,
@@ -184,6 +182,7 @@ fn witness_mode(
             // FINAL verdict BEFORE the witness-graph gate below — the graph (for Reached|Sanitized)
             // then carries the sanitizer step for whichever verdict actually won.
             let mut reachability = raw_reachability;
+            let mut reason = boundary.map(|edge| edge.reason);
             let mut graph_node = None;
             let mut sanitized_by: Vec<SanitizerSite> = Vec::new();
             let mut descent_depth: usize = 0;
@@ -229,7 +228,7 @@ fn witness_mode(
                             ReturnFlowMode::On,
                         );
                         let mut bypass_ordering_warnings = Vec::new();
-                        let bypass_reachability = reachability_for_node_from_ordered(
+                        let (bypass_reachability, bypass_boundary) = reachability_and_boundary(
                             &session.index.cpg,
                             &rewalk,
                             source.node,
@@ -248,6 +247,7 @@ fn witness_mode(
                             // no graph, no `sanitized_by`, `descent_depth` 0.
                             Reachability::BoundaryExited => {
                                 reachability = Reachability::BoundaryExited;
+                                reason = bypass_boundary.map(|edge| edge.reason);
                                 descent_depth = 0;
                                 skip_graph = true;
                             }
@@ -329,6 +329,7 @@ fn witness_mode(
             source_results.push(SinkSourceResult {
                 source: source.symbol.clone(),
                 reachability,
+                reason,
                 graph_node,
                 sanitizers_present_in_source_fn: sanitizers,
                 sanitized_by,
@@ -552,28 +553,6 @@ fn ordering_warning(warning: &OrderingWarning) -> Warning {
     }
 }
 
-fn boundary_warnings(cpg: &CodePropertyGraph, trace: &Trace) -> Vec<Warning> {
-    trace
-        .boundary
-        .iter()
-        .filter_map(|boundary| {
-            let loc = cpg.to_var_location(boundary.to)?;
-            let kind = match boundary.kind {
-                BoundaryKind::CrossFunction => "cross-function",
-                BoundaryKind::SelfFunctionParam => "self-function parameter",
-                BoundaryKind::SelfFunctionReturn => "self-function return",
-            };
-            Some(Warning {
-                kind: WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary {
-                    sink: loc.path.to_string(),
-                }),
-                message: format!("taint reached a {kind} boundary at {}", loc.path),
-                location: Some(location_for_var(&loc)),
-            })
-        })
-        .collect()
-}
-
 fn sanitizers_for_source(session: &NavigationSession, source: &VarLocation) -> Vec<String> {
     cleansed_categories_for_source(&session.repo.files, source)
 }
@@ -595,7 +574,7 @@ fn symbol_for_var_location(loc: &VarLocation) -> SymbolRef {
     }
 }
 
-fn location_for_var(loc: &VarLocation) -> Location {
+pub(super) fn location_for_var(loc: &VarLocation) -> Location {
     Location {
         file: loc.file.clone(),
         start_line: loc.line,
@@ -608,10 +587,15 @@ fn location_for_var(loc: &VarLocation) -> Location {
 fn dedup_warnings(warnings: Vec<Warning>) -> Vec<Warning> {
     let mut by_key = BTreeMap::new();
     for warning in warnings {
+        let kind = match &warning.kind {
+            WarningKind::Reasoning(ReasoningWarning::InterproceduralBoundary { sink, .. }) => {
+                format!("Reasoning(InterproceduralBoundary {{ sink: {sink:?} }})")
+            }
+            kind => format!("{kind:?}"),
+        };
         by_key
             .entry(format!(
-                "{:?}:{}:{}:{}:{}",
-                warning.kind,
+                "{kind}:{}:{}:{}:{}",
                 warning.message,
                 warning
                     .location

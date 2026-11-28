@@ -83,20 +83,22 @@ records. Include test sources, preserving their package/build partition.
 | Receiver | router (file, binding, construction byte) or unproven(reason). Anonymous constructor expressions use their expression text and first byte. A framework parameter, controller decorator, URLconf list or default mux may supply the identity as specified below. |
 | Methods | `{"known":[…]}` sorted unique, `"any"`, `{"status":"unknown","text":…}`, or `null` for an omitted declaration or a WebSocket. Preserve case for ServeMux. An explicit empty list remains known empty. |
 | Path | `raw` is the expression as written, `literal` its single decoded path if known. Arrays retain raw spelling and null scalar literal. Regex retains its source and flags. A ServeMux pattern retains the original method/host in raw. |
-| Exposure | root identity (nullable), status full(value), suffix(value,reason), or dynamic(reason), normalized path or null. Store effective mount constraints on the individual exposure (host, method guard, active version selector where present). Full describes a certified installation in that root at the listing epoch. Binding also checks root health and effective dispatch (§5.2). |
+| Exposure | root identity (nullable), status full(value), suffix(value,reason), or dynamic(reason), normalized path or null. Store effective mount constraints on the individual exposure (host, method guard, active version selector where present). Full certifies installation in that root at the listing epoch under the supported setup model and the adapter boundary in §5.3. Binding holds under the same conditions and also checks root health and effective dispatch (§5.2). |
 | Callback | position (zero-based), resolved or anonymous identity (file, name, span), or unresolved(text,reason). Optional delegate identifies a forwarded argument. Hapi prerequisites also have role and group. An endpoint-only registration has zero written callbacks. |
 | Mount | parent, child, site, one prefix (literal, absent, unevaluated with text), and any request guard/strip transform. One site can supply several edges. Object alternatives, branches and child arguments have stable source ordinals. |
 
-**Values at a use.** Walk the lexical scope, including captures, to the reaching declaration. A straight-line assignment of a fresh router starts a new lifetime (ex29). A use before or after that assignment retains the corresponding identity. Resolve a direct, unwritten alias to that object. Distinguish factories and scopes, imports and package partitions. A conditional merge of different identities, a write of unknown order, an unknown alias mutation or an escaping mutable value cannot prove a single target. Only propagate an object through a factory with a unique direct return of a grounded local construction and a distinguishable invocation. Do not merge separate instances at one allocation site: qualify by the invocation when distinguishable, otherwise refuse. Retain a recognisable but unproven site with empty paths and no binding credit. Proven-absent execution, a settings read and ordinary middleware emit nothing.
+**Values at a use.** Walk the lexical scope, including captures, to the reaching declaration. A straight-line assignment of a fresh router starts a new lifetime (ex29). A use before or after that assignment retains the corresponding identity. Resolve a direct, unwritten alias to that object. Distinguish factories and scopes, imports and package partitions. A conditional merge of different identities or a write of unknown order defeats a unique-target proof. For adapters with a stated value boundary in §5.3, apply its traced-form checks for uncertain alias mutations and mutable-value escapes. All other adapters apply the strict rule that an uncertain alias mutation or mutable-value escape defeats proof. Only propagate an object through a factory with a unique direct return of a grounded local construction and a distinguishable invocation. Qualify separate instances at one allocation site by their invocation when distinguishable, otherwise refuse. Retain a recognisable but unproven site with empty paths and no binding credit. Proven-absent execution, a settings read and ordinary middleware emit nothing.
 
 Use direct named/default/namespace ES imports, unshadowed literal CJS require (including destructuring, property and
 default interop), Python from/qualified/relative imports including package initializers. Require one eligible target
 module and the requested *member* in it. Validate the export's reaching value and callable or router type. Follow
 local export specifiers, direct module.exports and its own properties, observing replacement/detachment of exports.
-A second module forwarding the value, star import, ambiguous export, or shadowed require supplies no proof. If such
-a value controls a conditional mount, retain the syntactic unproven mount unless the condition is independently
-decidable (es1-06). Do not use a file basename as an owner. An initializer declaring a router differs from one
-re-exporting it (cx02, es1-15).
+A second ES/CJS module forwarding the value, a star import, an ambiguous export or a shadowed require supplies no
+proof. For Python module members, apply the static import proof in §5.3, including syntactically established
+package hops. A terminal binding that gets its router or callable from another module is an unsupported re-export. If an
+unproved value controls a conditional mount, retain the syntactic unproven mount unless the condition is
+independently decidable (es1-06). Do not use a file basename as an owner. An initializer declaring a router
+differs from one re-exporting it (cx02, es1-15).
 
 For path and method arguments decode native literal nodes (JS literal/template without substitutions, Python
 string/raw and adjacent tokens, Go raw/interpreted). Fold only literal string concatenation; preserve interpolation,
@@ -129,6 +131,8 @@ Go selector values see 5.6.
 **Reason** is one closed snake_case enum shared by records, exposure cuts, diagnostics and matrix validation. Its variants are
 `receiver_unproven imported_unproven mount_child_unproven table_consumer_unproven no_known_mount variable_prefix
 non_literal_path regex_path mount_cycle expansion_truncated`,
+`getattr_module star_import global_write multi_write nested_single submodule_shadow module_descriptor_name
+class_private_name class_body_import` (Python import diagnostics),
 `callback_unproven member_handler wrapper_call inner_decorator class_view anonymous_unindexed spread_callback handler_object`,
 `method_value_receiver_unproven method_value_receiver_shadowed method_value_method_unproven method_value_interface
 method_value_external func_field_value qualified_function_value method_expression`,
@@ -138,6 +142,10 @@ and `runtime_generated_registration unsupported_registration build_only supersed
 fabricated path. Accepted-loss descriptions in the matrix are audit notes; the enum is the wire contract.
 
 ### 5.2 Composition, ordering and comparison
+
+The **supported setup model** is the declared static setup subject to the adapter boundary in §5.3.
+A runtime discrepancy is exempt from the §7 veto only if a frozen disposition ties it by evidence to
+a named out-of-model form.
 
 Start from the selected application/URLconf/module root, or independent outermost application constructors when no
 entry is selected. The optional CLI/API entry in 5.4 selects one statically bound app, factory return or URLconf. A mounted sub-app is seen through its parent; select it separately to query it as a root. Count a
@@ -189,7 +197,7 @@ coalesce only within one object-qualified origin, and only when their setup, dis
 | Django | Consume parent match, append child remainder verbatim, prepend the request's leading /. Preserve trailing slash; str/int/slug/uuid placeholders → {}, path and custom converters → null. Anchored regex made solely of literal path characters (escapes decoded as regex literals) may contribute an exact prefix; an end-anchored include permits only an empty-matching remainder. Only an exact anchored literal terminal gets an exact key. Record the regex source in guard_pattern, decoded literal prefix in prefix.value, and end_guard=true only for a terminal anchor. A known nonmatching remainder yields zero exposures along that edge; retain its declared URLPattern and callbacks (es3-24). Other regex leaves are dynamic(regex_path), unanchored/complex regex mounts keep a suffix with an unevaluated prefix. |
 | Hapi / object-table | With a valid literal realm prefix (empty or a Hapi prefix beginning with / and without a trailing slash), concatenate prefix and route verbatim, except a slash-only child under a nonempty prefix gives the prefix. Empty prefix preserves the leaf including /. {id} keys as {}, optional, wildcard and counted wildcard are unkeyed. Object-table's certified dispatcher has literal key semantics; concatenate its proven prefix as its code spells it. |
 
-**Setup completes.** Exposures describe the declared setup conditional on completion. Keep every registration record, written callback and origin. Compare events on the same dispatcher at the same epoch using native installation resources (e.g. a Flask endpoint name) and effective request sets. A proved rejection removes the rejected key and adds the root, event site and reason to failed_roots. Preserve other installed keys as historical exposures. Every exposure on a failed root carries binding_blocked="any" and earns zero served-schema or binding credit. Independent setups retain their evidence.
+**Setup completes.** Exposures describe the declared setup conditional on completion. Full exposures and dispatch bindings hold under the supported setup model and the adapter boundary in §5.3. Keep every registration record, written callback and origin. Compare events on the same dispatcher at the same epoch using native installation resources (e.g. a Flask endpoint name) and effective request sets. A proved rejection removes the rejected key and adds the root, event site and reason to failed_roots. Preserve other installed keys as historical exposures. Every exposure on a failed root carries binding_blocked="any" and earns zero served-schema or binding credit. Independent setups retain their evidence.
 
 An undecidable installation or overwrite withholds full and binding only on keys that could collide. Keep the source spelling and record conflicts on the affected origins. A known earlier install on an append-or-reject dispatcher survives a later attempted insert. If co-installation is proved but dispatch is undecidable, keep both paths and block only the contested methods. A proved overwrite removes only the superseded slot. Disjoint keys, roots and later events keep their own outcomes. Within the same config-prefixed gin group, compare known method and segment boundaries below the shared prefix before marking a potential collision. A proved skip or a sibling beyond a definite rejection in the same native call has no installation through that item. There is no speculative startup timeline, catch/await analysis or root-wide penalty for uncertainty.
 
@@ -221,6 +229,249 @@ declares its verb. Omitted methods remain null (usual effective GET/HEAD/OPTIONS
 provide_automatic_options may alter dispatch. Endpoint text alone adds no callback; a later @endpoint is no second
 registration. Preserve a build_only declaration with empty exposures. Stored decorator application and
 data-generated registrations are accepted losses.
+
+##### Router and view value boundary (Python)
+
+This boundary applies to Flask in S2a and FastAPI/Starlette in S2b. It governs decorator and call receivers,
+children of `register_blueprint`, `include_router` and `mount`, and the view supplied by `view_func`, `endpoint` or a decorated def.
+
+- **Router values.** Admit a bare name with a proved reaching binding, including a simple assignment or an
+  alias that passes the existing write/use checks. Follow direct imports and `from` imports (including `as`
+  aliases), and attribute chains through resolved modules to a proved definition or allocation. Admit calls to
+  import-proved framework constructors (`Flask`, `Blueprint` here), and zero-argument calls to proved synchronous,
+  parameterless factories without decorators whose sole return is the final direct statement and resolves to a
+  named router in the invocation frames. Ordinary grouped value expressions are normalized. The following
+  are disclosed residuals at `56a9a0d4`. The alias write/use check handles `alias = app` and skips
+  `alias = (app)`. The Flask `record_once` setup-state matcher gets the owner of a bare
+  `state.add_url_rule(...)` from the proved Blueprint. Comparing the receiver's written text to
+  the formal leaves `(state).add_url_rule(...)` untraced.
+  S2b retains the built-in FastAPI `.router` case below.
+- **View values.** Admit the function definition at a route decorator with no opaque decorator beneath it, or a
+  bare function name reached directly or through the same assignment, import/alias and module-member forms.
+  A passed function's decorators must all be proved transparent. Flask's recognized `View`/`MethodView`
+  subclass calls `C.as_view('n')` and `C.as_view(name='n')` can prove metadata under the same native
+  class-shape checks. Their callbacks remain unresolved (`class_view`).
+
+A subscript (including tuple, list or dict lookup), conditional, arbitrary call result, lambda, `self`/`cls`
+member or value returned through an unproved helper never supplies a value proof. An unproved receiver is
+`receiver_unproven` or `imported_unproven` when the site is retained (Flask drops sites without a receiver hint).
+An unproved mount child is `mount_child_unproven`. A view argument stays unresolved with its existing reason,
+including `callback_unproven`, `wrapper_call`, `anonymous_unindexed`, `member_handler`, `imported_unproven`,
+`inner_decorator` or `spread_callback` as applicable.
+
+As with `Exact`, arbitrary post-creation replacement or deletion of router/app methods or attributes is out of
+model. This includes `x.get = ...`, reflective replacement and method or attribute mutation through an untraced
+rebind of a module attribute whose name matches a submodule. A direct store of a traced router such as
+`pkg.routes = app` escapes the object and defeats its receiver proof.
+
+View mutation is out of model when the argument path is untraced. This includes a subscript, a loop or
+comprehension target, a container bound to a name (`vs = [f]` followed by `patch_all(vs)`), a class attribute
+reached through a decorator, or an alias through an unproved form. For escape checks, trace a resolved view
+supplied by a bare name, attribute or call, including one written inside an argument's tuple, list, set or dict
+display, splat, conditional or boolean expression. Outside a proved native registration use, a view reaching a
+call through a traced form withholds view-derived metadata unless the callee earns the no-effect exemption
+below. Thus a traced `patch(f)` can keep its written callback identity while losing inferred
+endpoint and method metadata.
+
+Source-only pins still compare the declaration and written callback. Explicit setup checks still apply to
+supported view metadata writes, endpoint decorators and Blueprint view-map merges. For mutation of the
+`view_functions` mapping itself, d2-14 covers only direct `X.view_functions[key] = v`. App registry
+`.update`, `.pop`, `del` on an entry and writes through a `view_functions` alias are out-of-model mutations
+pinned as `KNOWN_LIMIT` in fk-26–29.
+
+**Static import binding (controller decision, Option 1).** `PROVEN` for an imported router, view or
+no-effect callee means that the source import, in its lexical scope, identifies one eligible router
+allocation or callable declaration under Prism's static rules for declaration, scope and import syntax.
+An imported callee must also pass the existing body check for the no-effect exemption. Full exposure,
+effective methods and dispatch binding each require their own proofs. The grade makes no claim about
+the object a running Python process held at capture time.
+
+The controller withdrew the closed-world rule and its eight reasons. The application census shows
+that it withholds 100 of 115 import-reached registration and mount sites, including every Flask site
+in that population, on evidence unrelated to module mutation. Option 1 applies the repository's
+standing static-binding contract as written. §10 reports the measured change.
+
+Require one eligible in-repo source module. Resolve the `P.N` module path in `from P.N import x`
+through import syntax. Python loads that module without reading `P.N` as a package attribute. Apply
+the hop predicates only where the capture reads a package member, including `import P.N as r`,
+qualified access such as `P.N.x`, and selection of `N` in `from P import N`. Apply the terminal
+predicates to the captured member `x`. Resolve a relative import from the capturing file's source
+package.
+
+Each attribute-path hop needs a syntactically established binding. A child-naming import
+(`import P.N`, `import P.N as r`, or `from P import N` when it imports the child) must occur in
+the capture's own lexical scope in the capture module, at or before the capture in that scope's
+source text. The dotted aliased import itself supplies that evidence for its attribute reads.
+`from P import N` imports the child under this rule when an eligible child exists, `P` has no
+lexical value write to `N`, and `P` has no explicit lexical module-scope `__getattr__` binding. A lexical binding
+of `N` in the package initializer, by import, definition or assignment, also establishes a member.
+Follow it as a module only when the syntax identifies an eligible module, including an explicit
+initializer alias such as `from . import real as routes`. The initializer's `from . import N`
+is the explicit same-child binding in predicate 6. An empty initializer and `import P` leave
+`P.N.x` unproved even if `P/N.py` exists or an unrelated module imports `P.N`. Keep the lexical
+alias and shadow checks. Refuse a router or callable terminal re-export such as `from pkg import bp`
+when the initializer obtains `bp` via `from .base import bp`. A terminal assignment alias whose
+reaching value comes from an import from another module is also a re-export, for example
+`from .base import bp as _bp; bp = _bp` (fk-80). A simple assignment alias in the capturing scope
+can still name a directly imported declaration under the value rules above. Recognized native Flask imports continue to supply `Flask`,
+`Blueprint`, `View` and `MethodView` under the existing framework checks.
+
+Require one unconditional eligible terminal binding. The capturing module must also contain
+exactly one binding of the captured import's local name, the import that creates it.
+Find the candidate import by lexical lookup of the written capture's root name, whether bare or
+qualified, including an earlier import hidden by a later write to the same name. The capture-side
+census reads these sites for the import's effective local key throughout the importing file, including
+conditional sites, nested scopes and sites after the read (fk-86–91).
+
+- Explicit `import` and `from ... import` names, including `as` aliases and the leading name of an
+  unaliased dotted import.
+- Function and class declaration names, function and lambda parameters, and Python 3.12+
+  `type` alias declaration names, including the alias name in a generic declaration.
+- Bare-name targets of ordinary and augmented assignments, annotated assignments with a value,
+  walrus expressions, `for` statements and comprehension or generator iteration. Include explicit
+  name targets in destructuring and the `as` names of `with`, `except` and `except*` clauses.
+- Structural match capture names and explicit name deletions.
+
+Read `global` and `nonlocal` as scope declarations and use annotation-only declarations for local
+lookup. These sites define the complete capture-side contract. The census counts assignment targets
+under their own names. It starts from the written root, so following `callback = handler` back to
+`handler` to census competing bindings is outside its scope, as are names introduced by a wildcard
+in the importing module. The source-side checks cover assignment-alias chains for terminal
+re-export detection and wildcard imports that could supply a source member. The capture-side census
+is lexical and requires no execution model. Use Python's NFKC-normalised identifiers as
+binding and predicate keys. NFKC-normalise module-path and hop segments in the source text and
+match the resulting keys byte-for-byte against filesystem candidate names (fk-74–75).
+A capturing import is eligible at module or function scope, subject to the predicates below.
+An import whose nearest enclosing scope is the class body triggers `class_body_import`,
+including inside an `if`, `try` or `with` in that body. Keep original UTF-8 byte spans and
+spellings in diagnostics. Apply the first seven predicates in order across the terminal and
+applicable attribute-path hops, with predicates 3 and 4 also covering the capturing name.
+Then apply the root-chain spelling check and the import-scope check, in that order.
+
+1. `getattr_module` applies to any explicit module-scope lexical binding of `__getattr__`,
+   conditional or unconditional. Count named imports and aliases that bind that spelling,
+   defs, classes, `type __getattr__` statements, assignment targets including tuples, `for`,
+   `with`, `except` and `except*` targets, match captures and walrus targets. A binding through
+   `global __getattr__` in a nested scope also counts. A nested scope's own local binding or an
+   unwritten `global` declaration does not trigger the veto. A wildcard-supplied hook is a
+   `KNOWN_LIMIT` (fk-72 and fk-c72). Predicate 2 still checks whether the star could supply the
+   captured member itself.
+2. `star_import` applies when a wildcard import in a checked source module could supply the name,
+   including an unknown source or export set.
+3. `global_write` applies when a class or function body writes a module binding through
+   `global`, including a competing write to the captured local name in the importing module
+   (fk-86 and fk-90). Use the effective identifier after NFKC and Python's class-private mangling for
+   both `global_write` and the write keys of `multi_write`. Within an enclosing class's lexical
+   context, including its methods, a name with at least two leading underscores and fewer
+   than two trailing underscores gets the class name as a prefix. Strip the class name's leading underscores
+   and prepend one underscore. An all-underscore class leaves the name as written, and a
+   nested class supplies its own prefix. All five pinned CPython versions (3.9.6, 3.11.15,
+   3.12.13, 3.13.13 and 3.14.4) disassemble `global __f` followed by `def __f` in
+   `class Install` to `STORE_GLOBAL _Install__f` (fk-69–70). An ordinary class attribute binds
+   in the class namespace. [Python's private-name mangling rules](https://docs.python.org/3.12/reference/expressions.html#private-name-mangling)
+4. `multi_write` applies to competing lexical binding or deletion sites for the same effective
+   module name, including later writes, writes through `global`, imports, `del`, `match` captures,
+   `for` targets, `with ... as`,
+   `except ... as`, `except* ... as`, walrus writes to the enclosing scope and Python 3.12
+   `type` statement names (including generic aliases). Count an annotated assignment with a
+   value as a write. An annotation without a value (`f: object`) writes no value and can still
+   affect function-local name resolution. Conservatively count comprehension iteration targets
+   for `multi_write` and `nested_single`. In the importing file, use the capture-side forms
+   listed above. Same-value repeated bindings are an **accepted over-refusal**. This includes
+   `import pkg` followed by `import pkg.routes` (fk-91), the same named import twice, a successful
+   named import with an `except ImportError` fallback binding, and a duplicate guarded by
+   `TYPE_CHECKING`. The reshaped fk-c55 uses only `import pkg.routes` and remains `PROVEN`.
+5. `nested_single` applies when the sole counted write, including a `type` statement, is nested
+   in conditional or control-flow syntax.
+6. `submodule_shadow` applies when the hop or terminal module binds `N` by a lexical write
+   other than an import of that same child (for example, the initializer's `from . import N`),
+   while an eligible same-named in-repo child `N` exists (`P/N.py`, `P/N/__init__.py` or
+   a source namespace directory `P/N/`). A capture-side import of the child does not clear
+   the veto. Use source candidates independently of installation order.
+7. `module_descriptor_name` is a spelling-only veto for the closed list `__dict__` and
+   `__class__`. On CPython 3.9.6, 3.11.15, 3.12.13, 3.13.13 and 3.14.4, from-import and a
+   first qualified lookup return the module dictionary or type in place of a same-named
+   def. On 3.11+ a repeated qualified lookup may return the def after specialization. The veto
+   applies in both cases. The tested `__annotations__` and `__annotate__` lookups preserve an
+   explicit declaration, including on versions exposing the corresponding descriptors.
+8. `class_private_name` withholds a capture if any NFKC-normalised identifier in the root
+   chain is mangle-eligible. A mangle-eligible name has at least two leading underscores
+   and fewer than two trailing underscores. Check the imported name, import path segments,
+   the local or alias name at the read, alias sources and attribute segments read to reach a
+   router, view or callee, wherever the import or read stands. CPython decides mangling from
+   the spelling and the enclosing class at compile time. Prism withholds on spelling
+   because the capture proof does not model which class encloses the use. A module-scope
+   read of `views.__f` is an accepted over-refusal with zero measured cost (§10, fk-85).
+   See fk-70 and fk-82–85 for the spelling boundary.
+9. `class_body_import` applies when the capturing import's nearest enclosing scope is the
+   class body, including under `if`, `try` and `with` in that body. An ordinary name
+   imported there remains withheld because it binds in the class namespace (fk-81 and its
+   module-scope control fk-c81).
+
+Keep the existing decorator transparency checks. Flask accepts a proved `@bp.get('/a')` (fk-c10).
+For the following stack, keep the admitted route and mark its written callback unresolved with
+`inner_decorator`.
+
+```python
+@bp.get('/a')
+@skip('/a')
+def f():
+    pass
+```
+
+A no-effect callee must bind to its direct, undecorated def. Assignment aliases of that def cannot
+earn the exemption. Comments, `pass`, a bare return and a return of `None`
+(including grouped `None`) pass. A docstring statement fails.
+
+Evaluate imported captures used by registration or mount proofs, by the no-effect check, or reached
+during escape indexing (fk-34). On refusal preserve independently established literals, the written
+callback and the role-specific receiver, callback or mount behavior. A failed callee check withholds
+dependent inferred metadata. Emit only the first applicable counted reason per distinct refused
+capture span. Use the candidate import's name before `as` for a bare from-import, including an
+earlier import hidden by a competing write. Use the full written expression for a qualified capture.
+For a counted import refusal of a no-effect callee, emit once at each distinct whole-call span
+(fk-65). Emit the diagnostic even when Flask drops a site for lack of a receiver hint. An unsupported
+form with no counted reason, including an unestablished child hop or terminal re-export, keeps
+only its role-specific refusal. Use `mount_child_unproven` for a mount child and
+`imported_unproven` for an imported receiver or view retained by the adapter. For an unsupported
+imported callee, the no-effect exemption is unavailable and dependent fields are withheld.
+`unestablished_hop` and `terminal_reexport` name census outcomes only.
+
+During escape indexing, keep possible targets when an import proof fails and withhold their
+view-derived metadata if the escape cannot be cleared. In fk-34, the helper captures and mutates
+one of two definitions of `f`. Keep the resolved written local callback and withhold inferred
+endpoint and effective methods. In fk-c44 this amendment deliberately recovers `setup.patch`:
+at `56a9a0d4`, `setup.unused = _mut` invalidated the entire module for the no-effect exemption.
+
+**Standing static-binding contract.** The following paragraph defines `Exact`. [CLAUDE.md](../../../../../CLAUDE.md)
+
+> `Exact` is a static-binding grade: the site's name resolves, by the language's declaration, scope, import
+> and export syntax as prism models it, to exactly one callable. It does not assert runtime truth. Runtime
+> mutation of module objects (monkey-patching, reflective writes, `eval`, host globals, re-acquisition through
+> `require`/`import()`), from the same file or another, is out of model for every rung and every language
+> (replan probes, 2026-09-25). Producer-side mutation is modeled only where mutation is the construction
+> idiom (CJS `module.exports`, `src/ast/js_cjs_export_barriers.rs`). A slice that wants to model runtime
+> mutation proposes it as a new contract, not as a precision fix to an existing rung.
+
+For these Python imports, out-of-model behavior includes runtime module-object mutation (reflective
+writes and direct attribute stores, `globals()`, `vars()`, `setattr` and `__dict__` stores,
+`importlib.reload`, `sys.modules` replacement (fk-66) and `exec`), dynamic lookup without an
+explicit lexical module `__getattr__` binding, dynamic import machinery changes and non-source
+children, initialization order and timing, and native descriptor precedence. The controller withdrew
+the import-machinery veto after the rule produced three of the four distinct material findings in
+review round 2. The five attributes `__path__`, `__name__`, `__spec__`, `__package__` and
+`__loader__` are inputs to runtime import machinery. Static name binding follows the source import path.
+Module-scope lexical writes to these attributes, including writes through `global`, are out of model
+in the terminal module, hop packages, source initializers and the capturing module. Mutations such
+as `__path__.insert(...)`, `__path__.append(...)` and `__path__[:] = ...` are also out of model.
+A wildcard import can supply one of these attributes or install a `__getattr__` hook through its
+export set. Pins fk-68, fk-71–73 and fk-76–77 record these import boundaries. fk-c68 is the
+`PROVEN` source-import control. The closed descriptor veto
+is a conservative belt based on source spelling. Supported view and router escape checks and
+explicit view metadata writes remain part of the setup model. The [Stage D pins](STAGE-D-ROWS.md#python-router-and-view-value-boundary)
+record expected adapter fields beside native observations across 163 cases, with 56 `WITHHELD`,
+32 `KNOWN_LIMIT` and 75 `PROVEN`. Each `KNOWN_LIMIT` pin earns zero runtime credit for the
+affected fields.
 
 #### FastAPI
 
@@ -508,7 +759,7 @@ module in `sys.modules` must come from the row, the venv or the standard library
 | Matrix | Every enabled row after the STAGE-D-ROWS patch. Compare site spans, per-origin multiplicity, mount alternatives, callbacks and reasons, including controls with an empty listing. Preserve all 158 executed observations. Hand truths and the generator's synthetic cases are separate evidence. |
 | Ledger reconciliation | Freeze SHA-256 867a441dc2c127c5f8428b7b52fc1f45c13dc524a2df98c969cba18bb5966d58: 5,607 sites, 4,984 registrations + 623 mounts. Match (corpus,revision,framework,kind,file,start,end); both ends distinguish builder legs. A table object can be matched through its element origin. A many-to-one mount alias needs its own ledger disposition. For every site record extracted, independently excluded, accepted loss with rule/row, or unexplained. Zero unexplained; classify all extras separately and fail a supported nonempty class with zero representatives. Mount-only classes can pass by a mount. |
 | Site recall | Population is actual non-test registrations **in the frozen ledger**, per corpus for the enabled wave, including actual registrations missed or listed only as candidates. Require ≥0.80 site recall for N≥25. A site hit needs a proved receiver, candidate:false, and an exposure. Reconcile those spans exhaustively with the ledger. For recall credit the exposure must be independently correct; estimate that numerator by the weighted source audit where no field oracle exists. Report test, non-test and gross yield separately. For 1–24 eligible sites audit all, report exact numerator and denominator, and classify each miss without a percentage recall veto (one site changes the rate by more than four points). Before eligibility decisions Prometheus has 6, gin 13 and Flask 22. Zero needs independent evidence. Retain positive registration/mount controls and report binding yield wherever independently possible. Opaque out-of-ledger elements get a separate opportunity denominator (§11.4). |
-| Schema | Frozen scope reports: Directus 136/136 operations, Cal.com 121/121, Apache Answer 191/199 (seven installer keys and one reviewed drift). Use validated path_tokens and effective per-exposure constraints under the bound root/base. Precision ≥0.95 per scope on scorable full method/path pairs; never use ambiguous suffixes, Any, unknown, WebSocket, or unbound host/version for exact credit. Require exact-full recall ≥0.80 of independently full-scorable keys per positive scope (including a positive Directus literal-chain denominator), and ≥0.80 of independently full-or-unique-suffix-scorable keys recovered in the appropriate class per scope. Freeze denominators before extraction, report raw recall on all 136/121/191 as well, and classify every exclusion/miss/extra. A suffix never satisfies a full requirement. Where all prefixes are unknown, zero full precision is undefined and needs independent evidence of that fact plus positive unique-suffix yield; a missing positive control fails. An observed false full fails even above the precision floor. |
+| Schema | Frozen scope reports: Directus 136/136 operations, Cal.com 121/121, Apache Answer 191/199 (seven installer keys and one reviewed drift). Use validated path_tokens and effective per-exposure constraints under the bound root/base. Precision ≥0.95 per scope on scorable full method/path pairs; never use ambiguous suffixes, Any, unknown, WebSocket, or unbound host/version for exact credit. Require exact-full recall ≥0.80 of independently full-scorable keys per positive scope (including a positive Directus literal-chain denominator), and ≥0.80 of independently full-or-unique-suffix-scorable keys recovered in the appropriate class per scope. Freeze denominators before extraction, report raw recall on all 136/121/191 as well, and classify every exclusion/miss/extra. A suffix never satisfies a full requirement. Where all prefixes are unknown, zero full precision is undefined and needs independent evidence of that fact plus positive unique-suffix yield; a missing positive control fails. A false full under the supported setup model fails even above the precision floor. |
 | Go | Non-test Apache Answer ≥207/217 (95%) and Miniflux ≥143/150 (95%) admitted terminals with the **exact census method.declaration** in the frozen go_callback_shapes.json. Join by pinned revision, registration/selector site and terminal position; compare FunctionId's repo-relative declaring file + declaration line (and method name). Join all 217/150, including schema-unmatched sites. Report equal / unresolved / contradicted / missing per corpus, list contradictions and apply the false-certainty veto below. The other 15 Miniflux concrete values are wrapper arguments. Report its separate external http.Handler refusal outside the 150. On Apache, ≥90% of distinct matched in-scope operations (full or unique suffix) must agree with their annotated **terminal** callback or certified terminal delegate; matched denominator must be positive. The annotation check compares terminal callbacks and ignores `binding_blocked`. "Same config-prefixed gin group" means the same prefix expression, so the separate `Group(APIBaseURL+"/answer/api/v1")` calls count as one. A wrong binding, even at the correct pathname, cannot earn credit; any observed false binding must be corrected or withdrawn and rescored. |
 | Hapi | 11.4; report the private aggregate separately. |
 | No regression | Unchanged callers, call-stats, navigation goldens and cache versions. Record cold session time, table time and peak RSS per gate corpus. |
@@ -516,13 +767,30 @@ module in `sys.modules` must come from the row, the venv or the standard library
 **Accuracy gate.** Freeze eligibility, comparators and inclusion probabilities before the product run. Exhaustively compare a field when its independent oracle exists: ledger for site membership, frozen schema scopes for operation keys, Go declarations for selector identity, saved executed truth for fixture observations, and the authorized entry oracle in §11.4. An oracle for a span says nothing about its parent, path or callback.
 Audit the following dimensions separately: origin/receiver, root, path status/value/tokens with effective guards, installation/dispatch outcome, and terminal or certified delegate identity. Compare complete expected and emitted sets on selected sites (additional, missing, downgraded and refused claims included). A wrong positive is an FP and leaves the correct expected fact missed. Independently justified refusals get their own disposition and never count as positive endpoints.
 
+Score exposure and binding claims against the supported setup model (§5.2). Each `KNOWN_LIMIT`
+pin records the emitted proof or withhold beside native observations and identifies the named
+out-of-model form. For example, fk-38 pins the emitted binding to the source `views.__doc__` def
+beside native capture of None and a GET KeyError. fk-53 pins emitted endpoint f and GET/HEAD/OPTIONS
+beside native endpoint renamed and POST/OPTIONS after a function-local reflective write. Award zero
+runtime credit for affected claims. A ledger exemption requires evidence for that site and the named
+form. Apply ordinary checks to source-only pins, explicit metadata writes and supported view-map
+operations, including d2-14.
+
+Compare §5.3 diagnostics at their exact capture or call spans. The descriptor and unestablished
+child-hop pins (fk-52 and fk-54) have scored refusals with distinct controls. The former keeps the
+explicit endpoint and methods with an unresolved callback and one counted diagnostic. The latter
+keeps the parent and independent child declarations with the role-specific mount refusal.
+Record withheld fields and independently justified partial facts, including at unlisted receiver
+sites and refused no-effect callees. Count losses in the applicable recall denominators. §10 gives
+the two scanner populations and the measured import-binding cost.
+
 Without a field oracle, freeze one stratified source sample per corpus across all dimensions. Label every applicable field at each selected site, including implicit claims in its setup. Rank by SHA-256 of the UTF-8 compact JSON array ["lane12-D3",corpus,revision,split,framework,kind,file,start_byte,end_byte] (no ASCII escaping or whitespace). Break ties by the tuple in byte order.
 Draw up to 48 non-test and 16 test sites per corpus, splitting by adapter, registration/mount, and source form (direct, composed, dynamic/guarded, opaque or interacting). Take at least one per occupied stratum, expanding the budget if needed, then allocate remaining places proportionally by largest remainder, breaking ties by stratum name. Audit the whole stratum when its allocation reaches N, then redistribute unused places. Audit every member of a frame below 25.
 Freeze source-derived eligibility and labels blind to output. Deduplicate shared reads, record N, n, seed, spans and labels, and weight sampled totals by N/n within each stratum. Give independently classified out-of-ledger extras their own certainty stratum (weight 1), so each false positive is counted once. Publish the selected IDs, unsampled counts and weighted estimates with stratified finite-population uncertainty (enumerated strata have zero sampling variance).
 Full-population site coverage and sampled field correctness have separate denominators. Classify every ledger disposition, every extra site and **every** discrepancy in each scored population, with reason and evidence. Inspect extras lacking a ledger key independently so false positives also enter precision.
 
 Gate each corpus and claimed dimension on precision TP/(TP+FP) ≥0.95, both overall and for the non-test split when defined. Gate non-test recall TP/(TP+FN) ≥0.80 per eligible dimension with N≥25. Also report tests separately. Every instance in the scored joins/samples needs a disposition. Unexplained discrepancies fail; a source-backed unknown has the stated refusal cost.
-An empty positive prediction has undefined precision, still owes recall and the positive control. Schema and Go keep their dedicated floors. Any independently observed false claim of certainty, inside or outside the sample (including a false full, root, terminal, mount or binding), vetoes the gate even if explained and above both rate floors. Fix or withdraw the claim in the listing and rerun the same frozen comparison. Preserve the original discrepancy and count any resulting miss/refusal in recall. Freeze full-scorable schema keys by root, native method, static chain, comparable tokens and proved compatible constraints; a suffix-scorable key needs a unique matching tail. Demonstrate any zero denominator independently. Mutate enough roots/handlers or downgrade enough true full paths to cross each threshold; 47 correct full paths and one known false full must fail despite 47/48 precision.
+An empty positive prediction has undefined precision, still owes recall and the positive control. Schema and Go keep their dedicated floors. Any independently observed false claim of certainty under the supported setup model, inside or outside the sample (including a false full, root, terminal, mount or binding), vetoes the gate even if explained and above both rate floors. Fix or withdraw the claim in the listing and rerun the same frozen comparison. Preserve the original discrepancy and count any resulting miss/refusal in recall. Freeze full-scorable schema keys by root, native method, static chain, comparable tokens and proved compatible constraints; a suffix-scorable key needs a unique matching tail. Demonstrate any zero denominator independently. Mutate enough roots/handlers or downgrade enough true full paths to cross each threshold; 47 correct full paths and one known false full must fail despite 47/48 precision.
 
 **Mount semantics.** Before scoring enumerate every (corpus, adapter, split) with mounts only and every edge with zero independently scorable descendants, including opaque children, blocked/empty subtrees and register calls with no grounded chain. Freeze a small independent oracle for **every** such site and its zero-or-more edges. The census totals have exactly one mount-only (corpus, adapter, split) cell: Caddy/chi non-test, one Route and zero route rows; screwdriver has six non-test and 75 test register sites to classify.
 For other mounts use existing truth or the stratified protocol. Compare the exact alternative multiset at each selected site by parent and child identity (including instance/realm), prefix status and value/text, guard/transform and alternative count, independently of the span or downstream route. Missing/extra edges enter recall/precision. Mount-only controls require exact agreement on every field and edge count, including zero. Replacing Caddy's child with its parent, changing only its prefix, dropping a guard or duplicating an edge must fail the corresponding control.
@@ -573,6 +841,111 @@ The frozen populations, binding floors and ledger dispositions above govern each
 - **Handler wrappers.** A wrapper call is an unresolved callback; a delegate is recorded only through stage
   D's closed forwarder list. Decorators that may replace the handler, dependency injection and class-based
   views are unresolved with a reason. Request-source coverage built on the listing pays for this.
+- **Python router/view boundary (§5.3).** Section 1 of `~/prism-evidence/routes/m/UNTRACED-FORMS-CENSUS.md`
+  used Flask `36e4a824f340`, FastAPI `0cb4a8e284b4` and Apache Superset `7519fa8b6f5a` for a separate set
+  of syntax-only raw tallies. Section 4 instead used Superset `ad7fcac1` for the import-binding census.
+  Section 1 counted 2,206 candidate registrations and mounts, including two
+  receiver calls and four child-router calls with non-constructor spellings. It counted zero subscript or
+  conditional shapes among the classified receivers and child arguments, and three lambdas among 58 explicit
+  view arguments. The mutation predicates returned eight method-attribute write hits, zero router/app
+  `setattr` or `delattr` hits and eleven functions flagged for writes to route attributes on parameters.
+  The no-effect predicate found zero duplicates among 168 candidates using direct defs and simple assignments
+  for the write count. Its body filter also admits docstrings. Runtime module-attribute rebinding and indirect
+  view-map writes are unmeasured.
+- **Capture-side limits (§5.3).** The matrix pins `PROVEN` for three
+  of these cases (fk-93 to fk-95); fk-92 is pinned `WITHHELD` (`multi_write`) because the
+  comprehension's own target is a second binding the census counts file-wide, and the scanner
+  disagrees with that pin today. The fixtures record the scanner status and native Flask
+  result beside each control. By the owner's decision of 2026-11-27 (a zero-incidence case after the
+  symmetric fold is pinned, not folded), fk-93, fk-94 and fk-95 are accepted as known limits.
+  Under native Flask fk-95 appears as an HTTP 500 unless `app.testing` is set. Job 101 measured zero registrations and zero mounts for each
+  form in both populations (3,503 framework/Superset sites and 340 application sites).
+  - **First iterable of a comprehension or generator (fk-92).** Python evaluates the first iterable
+    in the enclosing scope and Flask binds `views.f`. The oracle withholds (`multi_write`, the
+    target is a second binding); the scanner treats the site as inside the iteration target's scope
+    and reports `not_import_captured`, a scanner/oracle divergence with the safe outcome pinned.
+  - **Assignment alias after a nested global rebind (fk-93).** The census keys the assignment
+    by `callback` and stops at that written root. Chasing the right-hand side back to the
+    imported name is outside the capture-side contract. The scanner reports
+    `not_import_captured` with no defining member. Flask binds `views.g`.
+  - **Direct wildcard in the capturing module (fk-94).** Only explicitly named imports
+    supply keys to the capture-side census. A wildcard's literal `__all__` can still overwrite
+    the local name at runtime. The scanner selects `views.f` with no counted predicate flagged.
+    Flask binds `views.g`. Source-side wildcard and terminal alias-chain checks still apply
+    within source modules.
+  - **Python 3.12 generic type parameter (fk-95).** Generic parameter bindings are outside
+    the lexical census. The scanner selects `views.f` with no counted predicate flagged.
+    Flask installs a `TypeVar` and dispatch raises `TypeError`.
+
+  **Reason-label note (IMMATERIAL).** When a later assignment hides the import in fk-89 and
+  the source also declares `__getattr__`, the scanner reports `multi_write` where the
+  specified precedence selects `getattr_module`. Both reasons withhold dispatch proof.
+- **Static import cost (§5.3).** DESIGN specifies the rule. Section 4 of
+  `~/prism-evidence/routes/m/UNTRACED-FORMS-CENSUS.md` estimates its costs and supersedes the earlier
+  file-wide counts. Twenty source checks trace the import and destination, ten per population.
+
+  R and M denote registrations and mounts. For the frameworks and Superset, the source screen
+  excludes 1,545 client-like sites from 3,503 scanner sites. The scanner excludes 413 Superset mock
+  decorators before that site count. The five-app denominator includes all 340 scanner sites.
+  Review round 2 reproduced the preceding site keys, import-reached keys and cost table.
+  The outcome columns use the first counted reason. The `class_body_import` column counts
+  sites with at least one such capture. The `class_private_name` column counts sites with
+  a mangle-eligible name anywhere in a scanner root chain, across all scanner sites.
+  The capturing-module column counts sites with a competing write to a capture's effective
+  key under `global_write` or `multi_write`. These columns include sites where an earlier reason
+  takes precedence. Across 3,503 framework/Superset sites and 340 application sites, the symmetric
+  rule flagged 0 registrations and 0 mounts in each population. The scan found zero
+  mangle-eligible root names across 3,503 framework/Superset sites and 340 application sites.
+  The accepted module-scope over-refusal therefore costs zero measured registrations or mounts.
+
+  | Framework or corpus | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | `class_body_import` R / M | `class_private_name` R / M | Capturing-module writes R / M | Former rule flagged R / M |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | Flask | `36e4a824` | 683 | 354 | 74 | 3 / 5 | 3 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 3 |
+  | FastAPI | `0cb4a8e2` | 2,142 | 1,358 | 152 | 1 / 5 | 1 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 2 |
+  | Apache Superset | `ad7fcac1` | 678 | 14 | 6 | 0 / 1 | 0 / 1 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 1 |
+  | Total |  | 3,503 | 1,726 | 232 | 4 / 11 | 4 / 11 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 3 / 6 |
+
+  | Application | Revision | Scanner sites | R | M | Import-reached R / M | No counted predicate flagged R / M | `terminal_reexport` R / M | Unestablished hop R / M | Counted reasons R / M | `class_body_import` R / M | `class_private_name` R / M | Capturing-module writes R / M | Former rule flagged R / M |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | full-stack-fastapi-template | `77e550a7` | 29 | 23 | 6 | 0 / 6 | 0 / 6 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+  | fastapi-realworld-example-app | `029eb778` | 29 | 20 | 9 | 0 / 9 | 0 / 9 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+  | microblog | `a975ef64` | 32 | 27 | 5 | 27 / 5 | 27 / 5 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 27 / 5 |
+  | redash | `f561a53d` | 66 | 60 | 6 | 21 / 1 | 4 / 1 | 17 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 21 / 1 |
+  | CTFd | `b88e0bf7` | 184 | 171 | 13 | 34 / 12 | 34 / 12 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 34 / 12 |
+  | Total |  | 340 | 301 | 39 | 82 / 33 | 65 / 33 | 17 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 82 / 18 |
+
+  Every first-reason count and pairwise overlap is zero for both populations and both site kinds
+  (`getattr_module`, `star_import`, `global_write`, `multi_write`, `nested_single`, `submodule_shadow`,
+  `module_descriptor_name`, `class_private_name`, `class_body_import`). Other unresolved cases
+  among the import-reached sites are also zero.
+  Review round 1 measured 18 framework/Superset and 157 app check entries removed by skipping
+  attribute-hop predicates on a from-import's module path, with the same site classifications.
+
+  The withdrawn rule flagged 9 of 15 import-reached sites across the frameworks and Superset
+  (9 of 1,958 source-screened sites). The former mutation check was first on three mounts and the
+  former initialization check was first on three registrations and three mounts. Those checks
+  overlapped on one Superset mount. The withdrawn rule flagged 100 of 115 in the applications,
+  including every import-reached Flask site. Its mutation check was first at all 100 sites, and
+  the former initialization check overlapped at 99. The application flags came from `setattr`
+  on ordinary objects or `exec` on private dictionaries.
+
+  The estimator still records 17 role-only refusals, all Redash registrations that import the
+  Blueprint through a terminal re-export. Redash has four import-reached registrations and one mount
+  with no counted predicate flagged. A follow-up could measure one terminal re-export hop, including
+  assignment aliases of imported values.
+
+  The scanner estimates flags from Tree-sitter syntax. Its lexical inventory now normalises
+  NFKC identifiers, uses effective class-private keys for global writes and capture-side bindings,
+  distinguishes annotation-only declarations from value writes and counts Python 3.12 type
+  statements. It preserves raw source text
+  and records lexical import-machinery writes as informational evidence. It can skip opaque ordinary
+  verb calls, computed or subscripted roots, splatted arguments and module-valued assignments it cannot
+  trace. It flags explicit terminal imports and simple assignment aliases rooted in a reaching import,
+  uses source-only module candidates and does not model transitive wildcard
+  exports, arbitrary import lookup, dynamic hooks, reflective writes, or runtime branch and
+  initialization order. Static hook bindings are screened by name. The wildcard screen is broader
+  than the rule when a known export set excludes the name. Imported no-effect callees, decorator and
+  escape proofs, exact adapter yield and downstream paths lost per mount remain unmeasured.
 - **Two registration facts for Go.** The existing callback-registration edges and the new records describe
   the same calls; the records prefer those facts at the argument's own bytes. Only the two unindexed bare-function positions in 5.1 use the declaration fallback. A Go
   method value (`c.List`) has no such fact; the records resolve it by 5.6 (owner decision 6), and nothing
@@ -585,8 +958,8 @@ The frozen populations, binding floors and ledger dispositions above govern each
   method's own receiver `a` either, so the route table can bind handlers that `nav callees` cannot. The rule
   reads only the method's declaration; carrying it into call resolution is outside this lane (a resolution
   change with its own corpus measurement).
-- **Strict receiver and import proof costs recall** (factory apps, re-exported routers); each refusal is a
-  counted reason, and the stage D recall floor is set knowing it.
+- **Strict receiver and import proof costs recall** (factory apps, re-exported routers); include each refusal in the
+  applicable recall denominator, including role-specific refusals with no counted diagnostic.
 - **Out of model:** routes added at run time in loops over data, plugin systems other than the Hapi plugin
   adapter (section 11), reflection.
 

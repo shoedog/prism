@@ -5,12 +5,42 @@ use crate::targets::inventory::{
         lookup::{args, direct, Alternative},
         slots::{Instance, Read},
     },
+    py_tables,
     python::{
         source::{children, name, scalar_subscript, ungroup},
         walk::ScopeId,
     },
 };
 use tree_sitter::Node;
+
+#[derive(Clone, Copy)]
+pub(super) enum WriteAccess {
+    Attribute,
+    DeleteAttribute,
+    Namespace,
+}
+
+impl WriteAccess {
+    fn affects(self, path: &str, key: Option<&str>) -> bool {
+        match self {
+            Self::Namespace => match (path, key) {
+                // Preserve existing root-class vetoes outside _Environ lookup.
+                ("builtins.object", _) => true,
+                ("os.environ" | "os.path" | "posixpath" | "ntpath", Some("__class__")) => false,
+                // Class dictionaries are read-only. A typing alias has its own
+                // dictionary, separate from the origin's namespace.
+                _ => !py_tables::stdlib_class_or_typing_alias(path),
+            },
+            Self::Attribute | Self::DeleteAttribute => {
+                // The typing wrapper forwards ordinary stores to the origin.
+                // Dunders and attribute deletions stay on the wrapper.
+                !py_tables::typing_mapping_alias(path)
+                    || (matches!(self, Self::Attribute)
+                        && !key.is_some_and(|key| key.starts_with("__") && key.ends_with("__")))
+            }
+        }
+    }
+}
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(super) struct Objects {
@@ -67,7 +97,7 @@ impl Objects {
         }
     }
 
-    pub(super) fn slots(self, key: Option<String>) -> Vec<Slot> {
+    pub(super) fn slots(self, key: Option<String>, access: WriteAccess) -> Vec<Slot> {
         let definite = self.paths.len() == 1
             && self.instances.is_empty()
             && !self.unknown
@@ -76,6 +106,7 @@ impl Objects {
             && key.is_some();
         self.paths
             .into_iter()
+            .filter(|path| access.affects(path, key.as_deref()))
             .map(Some)
             .chain(self.unknown.then_some(None))
             .map(|object| Slot::Member {

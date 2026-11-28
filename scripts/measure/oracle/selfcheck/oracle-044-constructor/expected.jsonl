@@ -1,0 +1,2 @@
+{"key":{"from":{"base":"a","end_byte":78,"fields":[],"file":"cases.ts","line":2,"start_byte":77},"to":{"base":"v","end_byte":23,"fields":[],"file":"cases.ts","line":1,"start_byte":22}},"property":"implementation-slot","relation":"argument_binding","verdict":"CORRECT"}
+{"key":{"site":{"end_byte":79,"file":"cases.ts","line":2,"start_byte":71},"target":{"end_line":1,"file":"cases.ts","name":"C","start_line":1}},"property":"callee-implementation","relation":"call_target","verdict":"UNDECIDED","why":"target-id-unproved"}

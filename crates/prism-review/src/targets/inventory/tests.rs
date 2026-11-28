@@ -19,6 +19,7 @@ pub(super) fn file(input: &str, repo: &Path, families: &[Family]) -> InventoryOu
         &parsed,
         repo,
         &families.iter().copied().collect::<BTreeSet<_>>(),
+        false,
         &mut out,
     );
     out
@@ -89,7 +90,7 @@ fn import_locality_and_builtin_startup_precedence() {
         1
     );
     let internals = file(
-        "import builtins as b\nfrom builtins import open as opened\nimport io\nimport os.path as p\nfrom os import path as os_path\ndef f(pth):\n    open(pth)\n    b.open(pth)\n    opened(pth)\n    io.open(pth)\n    p.exists(pth)\n    os_path.exists(pth)\n",
+        "import builtins as b\nfrom builtins import open as opened\nimport io\nimport os.path as p\nfrom os import path as os_path\ndef f(pth):\n    open(pth)\n    b.open(pth)\n    opened(pth)\n    io.open(pth)\n    p.getsize(pth)\n    os_path.getsize(pth)\n",
         repo.path(), &[Family::Filesystem],
     );
     let observed: Vec<_> = internals
@@ -104,12 +105,12 @@ fn import_locality_and_builtin_startup_precedence() {
             "builtins.open",
             "builtins.open",
             "io.open",
-            "os.path.exists",
-            "os.path.exists"
+            "os.path.getsize",
+            "os.path.getsize"
         ]
     );
     let relative = file(
-        "from . import os\ndef f(p):\n    return os.open(p, 0)\n",
+        "from . import os\ndef f(p):\n    return os.stat(p)\n",
         repo.path(),
         &[Family::Filesystem],
     );
@@ -127,13 +128,20 @@ fn import_locality_and_builtin_startup_precedence() {
         1
     );
     let parsed = ParsedFile::parse("x.py", "def f(p): return open(p)\n", Language::Python).unwrap();
+    let files = BTreeMap::from([("x.py".to_owned(), parsed)]);
     let disabled = collect(
-        &BTreeMap::from([("x.py".to_owned(), parsed)]),
+        &files,
         repo.path(),
-        &InventoryOptions::default(),
+        &InventoryOptions {
+            families: BTreeSet::from([Family::Http]),
+        },
     );
     assert!(disabled.sites.is_empty() && disabled.unproven.is_empty());
     assert_eq!(disabled.parse_quality["x.py"], ParseQuality::Clean);
+    let enabled = collect(&files, repo.path(), &InventoryOptions::default());
+    assert_eq!(enabled.sites.len(), 1);
+    assert_eq!(enabled.sites[0].resolved_callee, "builtins.open");
+    assert!(enabled.unproven.is_empty());
 }
 
 #[test]

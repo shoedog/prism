@@ -65,6 +65,7 @@ fn run_site(
         &ParamCache::new(files),
         read_arguments,
     )
+    .flows
 }
 
 fn bindings(

@@ -11,6 +11,7 @@ pub enum Route {
     Root,
     R1,
     R2,
+    R3,
     R4,
     R5,
 }
@@ -39,6 +40,21 @@ pub struct Proof {
     pub callee: Span,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub receiver: Option<ReceiverProof>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declaration: Option<ClassSource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<Box<FieldProof>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct FieldProof {
+    pub class: String,
+    pub owner: Span,
+    pub initializer: Span,
+    pub parameter: Span,
+    pub annotation: Span,
+    pub store: Span,
+    pub receiver_use: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

@@ -1,0 +1,2 @@
+{"key": {"site": {"file": "cases.ts", "line": 23, "start_byte": 463, "end_byte": 470}, "target": {"file": "cases.ts", "name": "sameB", "start_line": 22, "end_line": 22}}, "relation": "call_target", "property": "callee-implementation", "verdict": "WRONG"}
+{"key": {"site": {"file": "cases.ts", "line": 23, "start_byte": 471, "end_byte": 478}, "target": {"file": "cases.ts", "name": "sameA", "start_line": 22, "end_line": 22}}, "relation": "call_target", "property": "callee-implementation", "verdict": "WRONG"}
