@@ -254,7 +254,7 @@ children of `register_blueprint`, `include_router` and `mount`, and the view sup
 
 A subscript (including tuple, list or dict lookup), conditional, arbitrary call result, lambda, `self`/`cls`
 member or value returned through an unproved helper never supplies a value proof. An unproved receiver is
-`receiver_unproven` or `imported_unproven` when the site is retained (Flask drops sites without a receiver hint).
+`receiver_unproven`, `imported_unproven` or `terminal_reexport` (a terminal re-export) when the site is retained (Flask drops sites without a receiver hint).
 An unproved mount child is `mount_child_unproven`. A view argument stays unresolved with its existing reason,
 including `callback_unproven`, `wrapper_call`, `anonymous_unindexed`, `member_handler`, `imported_unproven`,
 `inner_decorator` or `spread_callback` as applicable.
