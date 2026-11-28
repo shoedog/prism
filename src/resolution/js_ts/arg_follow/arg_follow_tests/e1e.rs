@@ -12,10 +12,15 @@ const SELF_DEFAULTS: &[(&str, &str, &str, Language)] = &[
     (
         "object shorthand",
         "{cb = cb} = {}",
-        "{}",
+        "{cb:undefined}",
         Language::JavaScript,
     ),
-    ("object pair", "{f: cb = cb}", "{}", Language::JavaScript),
+    (
+        "object pair",
+        "{f: cb = cb}",
+        "{f:undefined}",
+        Language::JavaScript,
+    ),
     ("array", "[cb = cb] = []", "[]", Language::JavaScript),
     (
         "nested element",
@@ -27,7 +32,7 @@ const SELF_DEFAULTS: &[(&str, &str, &str, Language)] = &[
     (
         "outer element",
         "{a: {cb} = cb}",
-        "{}",
+        "{a:undefined}",
         Language::JavaScript,
     ),
     (
@@ -63,7 +68,12 @@ fn self_defaults_refuse_without_aborting() {
         assert!(control.site("cb('changed')").is_some());
         eprintln!("{name}: same-file control passed");
         let fixture = direct_case(&holder, &format!("holder({actual});"), language);
-        fixture.refuses("cb('changed')", "stale_terminal");
+        // The read of the tracked formal inside its own initializer is a
+        // tracked use (O2, `stale_path`), which precedes `path_step` and
+        // `default_dependency` in the counter order. The row's real subject is
+        // that the walk terminates (no abort) and refuses.
+        let reason = "stale_path";
+        fixture.refuses("cb('changed')", reason);
         return;
     }
     let test = format!("{}::self_defaults_refuse_without_aborting", module_path!());
@@ -101,10 +111,10 @@ fn default_stability(holder: &str, calls: &str, reason: &str) {
     let fixture = direct_case(
         &format!(
             "{holder}
-            function entryKeeps({{a = verified, cb = a}} = {{}}) {{ cb('entry kept'); }}
-            function bodyKeeps(p, a) {{ const {{cb = a}} = p; cb('body kept'); }}"
+            function entryKeeps({{cb = verified}} = {{__proto__:null}}) {{ cb('entry kept'); }}
+            function bodyKeeps(p) {{ const {{cb = verified}} = p; cb('body kept'); }}"
         ),
-        &format!("{calls} entryKeeps(); bodyKeeps({{}}, verified);"),
+        &format!("{calls} entryKeeps(); bodyKeeps({{cb:undefined}});"),
         Language::JavaScript,
     );
     fixture.targets("cb('entry kept')", &["verified"]);
@@ -172,13 +182,13 @@ fn body_default_checks_holder_eval() {
 }
 
 #[test]
-fn entry_default_preserves_credit_despite_body_write() {
+fn entry_default_after_effectful_prefix_refuses() {
     let fixture = direct_case(
         "function holder(a, cb = a) { a = fallback; cb('kept'); }",
         "holder(verified);",
         Language::JavaScript,
     );
-    fixture.targets("cb('kept')", &["verified"]);
+    fixture.refuses("cb('kept')", "read_timing");
 }
 
 #[test]
@@ -189,7 +199,7 @@ fn default_does_not_read_a_foreign_holders_argument_slot() {
              holder(stale);
          }",
         "outer(verified);",
-        "stale_terminal",
+        "default_dependency",
     );
 }
 
@@ -211,13 +221,16 @@ fn grounded_and_relayed_parameters_keep_their_stability_check() {
 
 fn prototype_at_read(holder: &str, invoke: &str, prototype: &str) -> Fixture {
     let fixture = direct_case(
-        &format!("{holder}
+        &format!(
+            "{holder}
             function entryKeeps({{cb = fallback}}) {{ cb('entry kept'); }}
             function bodyKeeps(p) {{ const {{cb}} = p; cb('body kept'); }}
-            function ownKeeps(p) {{ return () => {{ const {{cb = verified}} = p; cb('own kept'); }}; }}"),
-        &format!("const entry = {{cb: verified}}, body = {{cb: verified}};
-            entryKeeps({{__proto__: entry}}); bodyKeeps({{__proto__: body}});
-            ownKeeps({{}})(); const proto = {prototype}; {invoke}"),
+            function ownKeeps(p) {{ const {{cb = verified}} = p; cb('own kept'); }}"
+        ),
+        &format!(
+            "entryKeeps({{cb: verified}}); bodyKeeps({{cb: verified}});
+            ownKeeps({{cb: undefined}}); const proto = {prototype}; {invoke}"
+        ),
         Language::JavaScript,
     );
     fixture.targets("cb('entry kept')", &["verified"]);
@@ -382,7 +395,7 @@ fn deferred_relay_read_keeps_refusal() {
 }
 
 #[test]
-fn reads_before_suspension_keep_credit() {
+fn carrier_reads_in_deferred_holders_refuse_even_before_suspension() {
     let fixture = direct_case(
         "async function holder(p) { async function later() { await 0; }
              const {cb} = p; await 0; cb('async kept'); }
@@ -406,6 +419,9 @@ fn reads_before_suspension_keep_credit() {
         "cb('case kept')",
         "cb('own kept')",
     ] {
-        fixture.targets(invocation, &["verified"]);
+        assert!(
+            matches!(fixture.outcome(invocation), Some(ArgOutcome::Empty(reason)) if reason == "read_timing"),
+            "{invocation}"
+        );
     }
 }

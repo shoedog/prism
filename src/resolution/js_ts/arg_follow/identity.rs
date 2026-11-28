@@ -559,7 +559,7 @@ pub(super) fn initialized_at(
     false
 }
 
-fn index_eval_sites(parsed: &ParsedFile) -> EvalSites<'_> {
+pub(super) fn index_eval_sites(parsed: &ParsedFile) -> EvalSites<'_> {
     let mut sites = EvalSites::new();
     if !parsed.source.contains("eval") && !parsed.source.contains('\\') {
         return sites;
@@ -601,7 +601,7 @@ fn direct_eval_callee<'a>(parsed: &ParsedFile, node: Node<'a>) -> Option<Node<'a
     Some(callee)
 }
 
-fn eval_may_write<'a>(
+pub(super) fn eval_may_write<'a>(
     parsed: &'a ParsedFile,
     call: Node<'a>,
     callee: Node<'a>,

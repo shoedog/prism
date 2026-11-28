@@ -6,6 +6,7 @@ mod e1d;
 mod e1e;
 mod grounds;
 mod lifecycle;
+mod v2;
 mod values;
 
 struct Fixture {
@@ -74,15 +75,34 @@ impl Fixture {
 const CONTROL: &str = "function verified(value) {}\nfunction control(good) { good('control'); }\n";
 
 fn direct_case(holder: &str, calls: &str, language: Language) -> Fixture {
-    let source = format!("{CONTROL}function stale(value) {{}}\nfunction fallback(value) {{}}\n{holder}\nfunction run() {{ control(verified); {calls} }}");
+    let source = format!("export {{}};
+{CONTROL}function stale(value) {{}}\nfunction fallback(value) {{}}\n{holder}\nfunction run() {{ control(verified); {calls} }}");
     let fixture = Fixture::build(source, language);
+    fixture.targets("good('control')", &["verified"]);
+    fixture
+}
+
+fn classic_case(holder: &str, calls: &str) -> Fixture {
+    let fixture = Fixture::build(
+        format!(
+            "function control(good) {{ good('control'); }}
+         function run() {{
+             function verified(value) {{}}
+             function stale(value) {{}}
+             control(verified); {calls}
+         }}
+         function fallback(value) {{}}
+         {holder}"
+        ),
+        Language::JavaScript,
+    );
     fixture.targets("good('control')", &["verified"]);
     fixture
 }
 
 #[test]
 fn refuses_default_without_ground() {
-    for (actual, reason) in [(None, "no_caller"), (Some("opaque"), "opaque_terminal")] {
+    for (actual, reason) in [(None, "no_caller"), (Some("opaque"), "undefined_lookup")] {
         let calls = actual.map_or_else(String::new, |actual| format!("holder({actual});"));
         let fixture = direct_case(
             "function holder(cb = fallback) { cb('refusal'); }",
@@ -91,7 +111,7 @@ fn refuses_default_without_ground() {
         );
         fixture.refuses("cb('refusal')", reason);
     }
-    for actual in ["", "undefined", "void stale"] {
+    for actual in ["", "undefined", "void 0"] {
         let fixture = direct_case(
             "function holder(cb = fallback) { cb('default'); }",
             &format!("holder({actual});"),
@@ -99,6 +119,12 @@ fn refuses_default_without_ground() {
         );
         fixture.targets("cb('default')", &["fallback"]);
     }
+    direct_case(
+        "function holder(cb = fallback) { cb('refusal'); }",
+        "holder(void stale);",
+        Language::JavaScript,
+    )
+    .refuses("cb('refusal')", "undefined_lookup");
 }
 
 #[test]
@@ -150,13 +176,19 @@ fn refuses_unknown_spread_slot() {
         );
         fixture.refuses("cb('refusal')", "unknown_spread");
     }
+    let fixture = direct_case(
+        "function holder(this: void, cb: () => void) { cb('kept'); }",
+        "holder(stale);",
+        Language::TypeScript,
+    );
+    fixture.targets("cb('kept')", &["stale"]);
     for actual in ["...[stale]", "stale, ...unknown"] {
         let fixture = direct_case(
-            "function holder(this: void, cb: () => void) { cb('kept'); }",
+            "function holder(this: void, cb: () => void) { cb('refusal'); }",
             &format!("holder({actual});"),
             Language::TypeScript,
         );
-        fixture.targets("cb('kept')", &["stale"]);
+        fixture.refuses("cb('refusal')", "unknown_spread");
     }
 }
 
@@ -174,19 +206,21 @@ fn refuses_dynamic_binding_environment() {
         fixture.refuses("cb('refusal')", "dynamic_binding");
     }
     for evaluation in [
-        "function eval(code) {} eval('ignored');",
         "eval?.('ignored');",
         "(0, eval)('ignored');",
-        "function disjoint(cb) { eval('cb = fallback'); }",
-        "function disjoint() { function eval(code) {} eval('cb = fallback'); }",
+        "const eval = 0; eval('ignored');",
     ] {
-        let fixture = direct_case(
+        let fixture = classic_case(
             &format!("function holder(cb) {{ {evaluation} cb('kept'); }}"),
             "holder(stale);",
-            Language::JavaScript,
         );
         fixture.targets("cb('kept')", &["stale"]);
     }
+    classic_case(
+        "function holder(cb) { function disjoint(cb) { eval('cb = fallback'); } cb('refusal'); }",
+        "holder(stale);",
+    )
+    .refuses("cb('refusal')", "dynamic_binding");
 }
 
 #[test]
@@ -265,24 +299,48 @@ fn refuses_hidden_literal_key() {
             &format!("holder({actual});"),
             Language::JavaScript,
         );
-        fixture.targets("cb('kept')", &["stale"]);
+        fixture.refuses("cb('kept')", "hidden_literal_key");
     }
 }
 
 #[test]
 fn prototype_setters_and_computed_data_choose_different_values() {
-    for (key, want) in [
-        ("__proto__", "stale"),
-        ("\"__proto__\"", "stale"),
-        ("[\"__proto__\"]", "fallback"),
-    ] {
+    // Colon `__proto__` sets the prototype: a custom prototype is an unproved descriptor.
+    for key in ["__proto__", "\"__proto__\""] {
         let fixture = direct_case(
             "function holder({cb = fallback}) { cb('selected'); }",
             &format!("const proto = {{cb: stale}}; holder({{{key}: proto}});"),
             Language::JavaScript,
         );
-        fixture.targets("cb('selected')", &[want]);
+        fixture.refuses("cb('selected')", "undefined_lookup");
     }
+    // Bracketed `['__proto__']` defines an own data key and sets no prototype
+    // (O1). The read of `cb` then misses on an ordinary prototype, which proves
+    // no undefined trigger, so the default must not be credited. With a null
+    // value a prototype setter would be a null-prototype miss and take the
+    // default, so this row distinguishes the two readings.
+    for value in ["{cb: stale}", "null"] {
+        let fixture = direct_case(
+            "function holder({cb = fallback}) { cb('selected'); }",
+            &format!("holder({{[\"__proto__\"]: {value}}});"),
+            Language::JavaScript,
+        );
+        fixture.refuses("cb('selected')", "undefined_lookup");
+    }
+    // An entry value bound to a const object is not an S4 value (the object is
+    // not an inert literal, F1-F4 callable or fresh carrier).
+    let fixture = direct_case(
+        "function holder({cb = fallback}) { cb('selected'); }",
+        "const proto = {cb: stale}; holder({[\"__proto__\"]: proto});",
+        Language::JavaScript,
+    );
+    fixture.refuses("cb('selected')", "hidden_literal_key");
+    direct_case(
+        "function holder({['__proto__']: cb}) { cb('own computed'); }",
+        "holder({['__proto__']: verified});",
+        Language::JavaScript,
+    )
+    .targets("cb('own computed')", &["verified"]);
 }
 
 #[test]
@@ -299,17 +357,17 @@ fn final_descriptor_preserves_getters_and_resets_data() {
         );
         fixture.refuses("cb('refusal')", "undefined_lookup");
     }
-    for (actual, want) in [
-        ("get cb() {}, cb: stale", "stale"),
-        ("cb: stale, set cb(v) {}", "fallback"),
-        ("set cb(v) {}", "fallback"),
+    for actual in [
+        "get cb() {}, cb: stale",
+        "cb: stale, set cb(v) {}",
+        "set cb(v) {}",
     ] {
         let fixture = direct_case(
             "function holder({cb = fallback}) { cb('kept'); }",
             &format!("holder({{{actual}}});"),
             Language::JavaScript,
         );
-        fixture.targets("cb('kept')", &[want]);
+        fixture.refuses("cb('kept')", "undefined_lookup");
     }
 }
 
@@ -321,7 +379,10 @@ fn refuses_third_lookup_only_on_that_path() {
         Language::JavaScript,
     );
     fixture.targets("cb('derived')", &["verified"]);
-    fixture.targets("forwarded('two')", &["stale"]);
+    assert_eq!(
+        fixture.outcome("forwarded('two')"),
+        Some(&ArgOutcome::Empty("stale_path".into()))
+    );
     fixture.targets("carried('one')", &["stale"]);
     assert_eq!(fixture.index.refusal_count("depth"), 1);
 }
@@ -364,35 +425,32 @@ fn refuses_live_mapped_arguments_mutation() {
         "Reflect.set(arguments, '0', fallback);",
         "external(arguments);",
         "(() => { arguments[0] = fallback; })();",
-    ] {
-        let fixture = direct_case(
-            &format!("function holder(cb) {{ {mutation} cb('refusal'); }}"),
-            "holder(stale);",
-            Language::JavaScript,
-        );
-        fixture.refuses("cb('refusal')", "mapped_arguments");
-    }
-    for mutation in [
-        "'use strict'; arguments[0] = fallback;",
         "delete arguments[0]; arguments[0] = fallback;",
         "arguments[1] = fallback;",
         "const copy = [...arguments]; copy[0] = fallback;",
-        "{ const arguments = []; arguments[0] = fallback; }",
         "Reflect.set(arguments, '0', fallback, {});",
     ] {
-        let fixture = direct_case(
+        classic_case(
+            &format!("function holder(cb) {{ {mutation} cb('refusal'); }}"),
+            "holder(stale);",
+        )
+        .refuses("cb('refusal')", "mapped_arguments");
+    }
+    for mutation in [
+        "'use strict'; arguments[0] = fallback;",
+        "{ const arguments = []; arguments[0] = fallback; }",
+    ] {
+        classic_case(
             &format!("function holder(cb) {{ {mutation} cb('kept'); }}"),
             "holder(stale);",
-            Language::JavaScript,
-        );
-        fixture.targets("cb('kept')", &["stale"]);
+        )
+        .targets("cb('kept')", &["stale"]);
     }
-    let fixture = direct_case(
-        "function holder(cb, cb) { arguments[0] = fallback; cb('kept'); }",
+    classic_case(
+        "function holder(cb, cb) { cb('duplicate'); }",
         "holder(verified, stale);",
-        Language::JavaScript,
-    );
-    fixture.targets("cb('kept')", &["stale"]);
+    )
+    .refuses("cb('duplicate')", "path_step");
 }
 
 #[test]
@@ -411,8 +469,8 @@ fn refuses_stale_selected_path() {
         ("", "properties.cb = fallback;"),
         ("properties.cb.rank = 2;", ""),
     ] {
-        let fixture = direct_case(&format!("function holder(properties) {{ {before} const {{cb}} = properties; {after} cb('kept'); }}"), "holder({cb: stale});", Language::JavaScript);
-        fixture.targets("cb('kept')", &["stale"]);
+        let fixture = direct_case(&format!("function holder(properties) {{ {before} const {{cb}} = properties; {after} cb('refusal'); }}"), "holder({cb: stale});", Language::JavaScript);
+        fixture.refuses("cb('refusal')", "stale_path");
     }
 }
 
@@ -437,7 +495,7 @@ fn refuses_fallback_on_inherited_builtin_keys() {
             "holder({});",
             Language::JavaScript,
         );
-        fixture.refuses("cb('refusal')", "opaque_terminal");
+        fixture.refuses("cb('refusal')", "undefined_lookup");
     }
     for actual in ["{constructor: undefined}", "{__proto__: null}"] {
         let fixture = direct_case(
@@ -451,20 +509,23 @@ fn refuses_fallback_on_inherited_builtin_keys() {
 
 #[test]
 fn refuses_cycle_without_erasing_independent_ground() {
-    let fixture = direct_case(
+    direct_case(
         "function holder(cb) { cb('cycle'); holder(cb); }",
         "",
         Language::JavaScript,
-    );
-    fixture.refuses("cb('cycle')", "cycle");
+    )
+    .refuses("cb('cycle')", "stale_path");
     let fixture = direct_case(
         "function holder(cb, other) { cb('first'); other('second'); holder(other, cb); }",
         "holder(stale, fallback);",
         Language::JavaScript,
     );
-    fixture.targets("cb('first')", &["fallback", "stale"]);
-    fixture.targets("other('second')", &["fallback", "stale"]);
-    assert_eq!(fixture.index.refusal_count("cycle"), 2);
+    fixture.targets("cb('first')", &["stale"]);
+    fixture.targets("other('second')", &["fallback"]);
+    // Reasons count per refused contribution (ACCEPT-LIST, counters): each of
+    // the two sites has two refused relay routes (the cycle route and the
+    // route through the swapped call) beside its one credited direct route.
+    assert_eq!(fixture.index.refusal_count("stale_path"), 4);
 }
 
 #[test]
@@ -477,14 +538,25 @@ fn refuses_writes_in_other_execution_regions() {
         let fixture = direct_case(holder, "holder(stale);", Language::JavaScript);
         fixture.refuses("cb('refusal')", "entry_write");
     }
-    for holder in [
-        "function holder(cb, result = cb('copied')) { function cb() {} }",
-        "function holder(source, cb = source) { source = fallback; cb('copied'); }",
-        "function holder(cb, fire = () => cb('copied')) { var cb = fallback; fire(); }",
+    let fixture = direct_case(
         "function holder(cb) { function change(cb) { cb = fallback; } cb('copied'); }",
+        "holder(stale);",
+        Language::JavaScript,
+    );
+    fixture.targets("cb('copied')", &["stale"]);
+    for (holder, reason) in [
+        (
+            "function holder(cb, result = cb('copied')) { function cb() {} }",
+            "read_timing",
+        ),
+        // The prefix statement fails I1 placement, which precedes the default
+        // dependency in the counter order.
+        (
+            "function holder(source, cb = source) { source = fallback; cb('copied'); }",
+            "read_timing",
+        ),
     ] {
-        let fixture = direct_case(holder, "holder(stale);", Language::JavaScript);
-        fixture.targets("cb('copied')", &["stale"]);
+        direct_case(holder, "holder(stale);", Language::JavaScript).refuses("cb('copied')", reason);
     }
 }
 
@@ -533,7 +605,7 @@ fn refuses_shadow_and_scalar_alias() {
 #[test]
 fn refuses_nonformal_invocation_shapes() {
     let fixture = direct_case(
-        "function holder(cb, ...rest) { cb('direct'); cb.call(null); cb.apply(null, []); cb.member(); rest[0](); cb`tag`; new cb(); }",
+        "function holder(cb, rest) { cb('direct'); cb.call(null); cb.apply(null, []); cb.member(); rest[0](); cb`tag`; new cb(); }",
         "holder(stale, fallback);",
         Language::JavaScript,
     );

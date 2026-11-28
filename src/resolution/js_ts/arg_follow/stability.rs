@@ -52,7 +52,7 @@ impl<'a> References<'a> {
         self.timing.deferred(parsed, owner, read)
     }
 
-    fn in_scope(&self, name: &str, scope: Node<'a>) -> &[Node<'a>] {
+    pub(super) fn in_scope(&self, name: &str, scope: Node<'a>) -> &[Node<'a>] {
         let nodes = self.names.get(name).map(Vec::as_slice).unwrap_or_default();
         let start = nodes.partition_point(|node| node.start_byte() < scope.start_byte());
         let end = nodes.partition_point(|node| node.start_byte() < scope.end_byte());
@@ -187,7 +187,7 @@ fn unwrap_use(mut node: Node<'_>) -> Node<'_> {
 }
 
 /// Identify actual lvalue leaves, including targets wrapped in assignment patterns.
-fn write_operation<'a>(parsed: &ParsedFile, mut node: Node<'a>) -> Option<Node<'a>> {
+pub(super) fn write_operation<'a>(parsed: &ParsedFile, mut node: Node<'a>) -> Option<Node<'a>> {
     while let Some(parent) = node.parent() {
         let field = match parent.kind() {
             "array_pattern" | "object_pattern" | "rest_pattern" | "parenthesized_pattern" => {

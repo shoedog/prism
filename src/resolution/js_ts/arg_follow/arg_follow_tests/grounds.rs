@@ -148,7 +148,7 @@ fn refuses_existing_derived_ground_during_recompute() {
 }
 
 #[test]
-fn supplied_constructor_uses_exact_target_and_argument_occurrences() {
+fn supplied_constructor_refuses_even_with_exact_target_and_argument_occurrences() {
     for language in [Language::JavaScript, Language::TypeScript, Language::Tsx] {
         let mut fixture = direct_case(
             "class Runner { constructor(cb, input) { cb(input); } }\nclass Other { constructor(unused) {} }",
@@ -205,10 +205,10 @@ fn supplied_constructor_uses_exact_target_and_argument_occurrences() {
         let mut reversed = arguments.clone();
         reversed.reverse();
         for (target, arguments, refusal) in [
-            (&real, arguments.as_slice(), None),
-            (&wrong, arguments.as_slice(), Some("holder_outcome")),
-            (&real, bad_spans.as_slice(), Some("source")),
-            (&real, reversed.as_slice(), Some("source")),
+            (&real, arguments.as_slice(), "source"),
+            (&wrong, arguments.as_slice(), "source"),
+            (&real, bad_spans.as_slice(), "source"),
+            (&real, reversed.as_slice(), "source"),
         ] {
             let outcome = ResolutionOutcome::hit(vec![ResolvedCallee {
                 target,
@@ -224,10 +224,7 @@ fn supplied_constructor_uses_exact_target_and_argument_occurrences() {
                     arguments: Some(arguments),
                 },
             );
-            match refusal {
-                Some(reason) => fixture.refuses("cb(input)", reason),
-                None => fixture.targets("cb(input)", &["stale"]),
-            }
+            fixture.refuses("cb(input)", refusal);
             assert!(fixture
                 .graph
                 .calls

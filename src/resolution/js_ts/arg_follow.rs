@@ -2,10 +2,8 @@
 //! reads this index in E1. Each slot is computed from an empty stack and admits
 //! at most two holder-caller lookups per path.
 //!
-//! Empty outcomes store the first proof failure in DESIGN §5 E order: site
-//! and Source grounding, holder stability, position and selected value,
-//! terminal identity, forwarding and fanout. Each refused contribution is
-//! counted even when another path supplies a target for the same site.
+//! The baseline fanout veto precedes filtering. The accept-list orders the
+//! remaining proof failures, including at sites with independent credit.
 
 use crate::ast::js_ts::param_slot::{self, Parameter, Selection};
 use crate::ast::{JsBindingCache, ParsedFile};
@@ -19,8 +17,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use tree_sitter::Node;
 
+mod accept;
 #[cfg(test)]
 mod arg_follow_tests;
+mod baseline;
 pub(crate) mod diagnostic;
 mod identity;
 mod stability;
@@ -148,7 +148,8 @@ struct Candidate<'a> {
 
 #[derive(Default)]
 struct Contributions {
-    targets: BTreeMap<FunctionId, (usize, usize)>,
+    targets: BTreeSet<FunctionId>,
+    baseline_fanout: Option<usize>,
     reasons: Vec<&'static str>,
     depths: BTreeMap<usize, usize>,
 }
@@ -243,17 +244,7 @@ fn compute_index<'a>(
         }
         let mut result = Contributions::default();
         let diagnostic = diagnostic::Site::new(candidate.site, output.as_ref());
-        context.follow(
-            &candidate.parameter,
-            &candidate.slot,
-            &mut Vec::new(),
-            &mut result,
-            &diagnostic,
-            None,
-        );
-        if result.targets.len() > MAX_TARGETS {
-            diagnostic.report(&candidate.parameter, &candidate.slot, None, None, "fanout");
-        }
+        context.follow(&candidate, &mut result, &diagnostic);
         index.record(key, candidate, &context, result);
     }
     index
@@ -317,27 +308,23 @@ impl ArgIndex {
         for (depth, count) in result.depths {
             *stats.ground_depth.entry(depth).or_default() += count;
         }
-        let outcome = match result.targets.len() {
-            0 => {
-                let reason = result
-                    .reasons
-                    .iter()
-                    .min_by_key(|reason| proof_order(reason))
-                    .copied()
-                    .unwrap_or("no_target");
-                stats.empty += 1;
-                *stats.empty_reasons.entry(reason.into()).or_default() += 1;
-                ArgOutcome::Empty(reason.into())
-            }
-            count if count > MAX_TARGETS => {
-                stats.fanout += 1;
-                *stats.reasons.entry("fanout".into()).or_default() += 1;
-                ArgOutcome::Fanout(count)
-            }
-            _ => {
-                stats.target_sites += 1;
-                ArgOutcome::Targets(result.targets.into_keys().collect())
-            }
+        let outcome = if let Some(count) = result.baseline_fanout {
+            stats.fanout += 1;
+            *stats.reasons.entry("fanout".into()).or_default() += 1;
+            ArgOutcome::Fanout(count)
+        } else if result.targets.is_empty() {
+            let reason = result
+                .reasons
+                .iter()
+                .min_by_key(|reason| accept::rank(reason))
+                .copied()
+                .unwrap_or("no_target");
+            stats.empty += 1;
+            *stats.empty_reasons.entry(reason.into()).or_default() += 1;
+            ArgOutcome::Empty(reason.into())
+        } else {
+            stats.target_sites += 1;
+            ArgOutcome::Targets(result.targets)
         };
         self.sites.insert(
             key,
@@ -349,87 +336,40 @@ impl ArgIndex {
     }
 }
 
-fn proof_order(reason: &str) -> u8 {
-    match reason {
-        "source" | "holder_outcome" | "holder_identity" | "no_caller" => 0,
-        "entry_write" | "dynamic_binding" | "mapped_arguments" | "stale_path" => 1,
-        "unknown_spread" | "path_step" | "hidden_literal_key" | "jsx_attribute"
-        | "undefined_lookup" => 2,
-        "opaque_terminal" | "stale_terminal" | "callable_collision" => 3,
-        "depth" | "cycle" => 4,
-        _ => 5,
-    }
-}
-
 impl<'a> Context<'a> {
     fn follow(
         &self,
-        parameter: &Parameter<'a>,
-        slot: &ParamSlot,
-        stack: &mut Vec<ParamSlot>,
+        candidate: &Candidate<'a>,
         result: &mut Contributions,
         diagnostic: &diagnostic::Site<'_>,
-        relay: Option<&CallSite>,
     ) {
-        let refuse = |result: &mut Contributions, call, reason| {
-            result.reasons.push(reason);
-            diagnostic.report(parameter, slot, call, None, reason);
-        };
-        if stack.contains(slot) {
-            refuse(result, relay, "cycle");
+        let baseline = self.baseline(candidate);
+        if baseline.targets.len() > MAX_TARGETS {
+            result.baseline_fanout = Some(baseline.targets.len());
+            diagnostic.report(candidate, &[], &[], None, "fanout");
             return;
         }
-        if stack.len() == MAX_DEPTH {
-            refuse(result, relay, "depth");
-            return;
-        }
-        let (holder_file, _) = self
-            .files
-            .get_key_value(&slot.holder.file)
-            .expect("indexed holder file");
-        if !self.unique_owner(&slot.holder, parameter.owner) {
-            refuse(result, relay, "holder_identity");
-            return;
-        }
-        let Some(callers) = self.callers.get(&slot.holder) else {
-            refuse(result, relay, "no_caller");
-            return;
-        };
-        stack.push(slot.clone());
-        for call in callers {
-            let ground = self.ground(slot, parameter, call);
-            let (caller_parsed, node) = match ground {
-                Ok(ground) => ground,
-                Err(reason) => {
-                    refuse(result, Some(call), reason);
-                    continue;
-                }
-            };
-            for value in self.values_of(holder_file, parameter, caller_parsed, call, node) {
-                match value.and_then(|value| self.terminal(value)) {
-                    Ok(identity::Terminal::Callable(target, bytes)) => {
-                        diagnostic.report(
-                            parameter,
-                            slot,
-                            Some(call),
-                            Some((&target, bytes)),
-                            "witnessed_callable",
-                        );
-                        result.targets.insert(target, bytes);
-                        *result.depths.entry(stack.len()).or_default() += 1;
-                    }
-                    Ok(identity::Terminal::Parameter(file, parameter)) => {
-                        let Some(next) = self::slot(&self.files[file], file, &parameter) else {
-                            refuse(result, Some(call), "holder_identity");
-                            continue;
-                        };
-                        self.follow(&parameter, &next, stack, result, diagnostic, Some(call));
-                    }
-                    Err(reason) => refuse(result, Some(call), reason),
-                }
+
+        // The baseline walk has already enumerated the available caller chains.
+        // Prove each transfer before its upstream value can enter the index.
+        let proof = accept::Proof::new(self);
+        for route in baseline.routes {
+            let decision = proof.route(candidate, &route);
+            if let Some(reason) = decision.reason {
+                result.reasons.push(reason);
+                diagnostic.report(candidate, &route.hops, &decision.recipes, None, reason);
+            } else if let Ok((target, span)) = route.terminal {
+                diagnostic.report(
+                    candidate,
+                    &route.hops,
+                    &decision.recipes,
+                    Some((&target, span)),
+                    "witnessed_callable",
+                );
+                result.targets.insert(target);
+                *result.depths.entry(route.hops.len()).or_default() += 1;
             }
         }
-        stack.pop();
     }
 
     fn ground(

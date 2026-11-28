@@ -196,7 +196,7 @@ impl ParsedFile {
 
     /// `scope`'s declarations of `name` (memoized per scope) and whether the name is an
     /// unknown-strictness Annex-B name there.
-    pub(super) fn js_ts_scope_lookup<'a>(
+    pub(crate) fn js_ts_scope_lookup<'a>(
         &'a self,
         scope: Node<'a>,
         name: &str,

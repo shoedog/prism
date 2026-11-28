@@ -1,4 +1,4 @@
-use super::{bytes, CallSite, FunctionId, ParamSlot, Parameter};
+use super::{accept::Replay, baseline::Hop, bytes, CallSite, Candidate, FunctionId};
 use std::io::{self, Write};
 
 pub(super) enum Output {
@@ -29,15 +29,42 @@ impl<'a> Site<'a> {
 
     pub(super) fn report(
         &self,
-        parameter: &Parameter<'_>,
-        slot: &ParamSlot,
-        caller: Option<&CallSite>,
+        candidate: &Candidate<'_>,
+        hops: &[Hop<'_>],
+        recipes: &[Option<Replay<'_>>],
         target: Option<(&FunctionId, (usize, usize))>,
         reason: &str,
     ) {
         let Some(output) = self.output else {
             return;
         };
+        let last = hops.last();
+        let (parameter, slot) = last.map_or((&candidate.parameter, &candidate.slot), |hop| {
+            (&hop.parameter, &hop.slot)
+        });
+        let chain: Vec<_> = hops.iter().zip(recipes).map(|(hop, recipe)| {
+            serde_json::json!({
+                "caller": occurrence(hop.call),
+                "holder": hop.slot.holder,
+                "holder_span": bytes(hop.parameter.owner),
+                "declaration": hop.slot.declaration,
+                "position": hop.slot.position,
+                "path": hop.slot.path,
+                "timing": recipe.as_ref().and_then(|recipe| recipe.timing),
+                "argument": recipe.as_ref().and_then(|recipe| recipe.actual.map(bytes)),
+                "defaults": recipe.as_ref().map(|recipe| {
+                    recipe.defaults.iter().map(|&(binding, default)| {
+                        serde_json::json!({"binding": bytes(binding), "initializer": bytes(default)})
+                    }).collect::<Vec<_>>()
+                }),
+                "selections": recipe.as_ref().map(|recipe| {
+                    recipe.selections.iter().map(|(key, value)| {
+                        serde_json::json!({"key": key, "value": value.map(expression)})
+                    }).collect::<Vec<_>>()
+                }),
+                "value": recipe.as_ref().and_then(|recipe| recipe.value.map(expression)),
+            })
+        }).collect();
         let record = serde_json::json!({
             "route": "js_arg_follow",
             "site": occurrence(self.site),
@@ -47,7 +74,11 @@ impl<'a> Site<'a> {
             "position": slot.position,
             "path": slot.path,
             "body_read": parameter.body_read.map(bytes),
-            "caller": caller.map(occurrence),
+            "caller": last.map(|hop| occurrence(hop.call)),
+            "chain": chain,
+            "jsx_invocation": self.site.jsx_element,
+            "jsx_hop": hops.iter().any(|hop| hop.call.jsx_element),
+            "jsx_form": if self.site.jsx_element || hops.iter().any(|hop| hop.call.jsx_element) { "J1" } else { "J0" },
             "target": target.map(|(id, span)| serde_json::json!({"id": id, "span": span})),
             "disposition": if target.is_some() { "admitted" } else { "refused" },
             "reason": reason,
@@ -63,11 +94,16 @@ impl<'a> Site<'a> {
     }
 }
 
+fn expression((file, node): (&str, tree_sitter::Node<'_>)) -> serde_json::Value {
+    serde_json::json!({ "file": file, "span": bytes(node) })
+}
+
 fn occurrence(site: &CallSite) -> serde_json::Value {
     serde_json::json!({
         "owner": site.caller,
         "span": [site.start_byte, site.end_byte],
         "callee": site.effective_source_callee_name(),
+        "jsx": site.jsx_element,
     })
 }
 

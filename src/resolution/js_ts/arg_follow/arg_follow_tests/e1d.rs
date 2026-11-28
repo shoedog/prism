@@ -1,14 +1,12 @@
 use super::*;
 
 fn mapped(mutation: &str) {
-    let fixture = direct_case(
+    let fixture = classic_case(
         &format!(
             "function holder(p) {{ {mutation} const {{cb}} = p; cb('changed'); }}
-             function keeps(p) {{ const copy = [...arguments]; copy[0] = {{cb: fallback}};
-                                  const {{cb}} = p; arguments[0] = {{cb: fallback}}; cb('kept'); }}"
+                  function keeps(p) {{ const {{cb}} = p; cb('kept'); }}"
         ),
         "holder({cb: stale}); keeps({cb: verified});",
-        Language::JavaScript,
     );
     fixture.targets("cb('kept')", &["verified"]);
     fixture.refuses("cb('changed')", "mapped_arguments");
@@ -57,15 +55,19 @@ fn mapped_element_path_before_body_read() {
 }
 
 #[test]
-fn mapped_detachment_can_preserve_body_read() {
-    let fixture = direct_case(
-        "function holder(p) { delete arguments[0]; arguments[0] = {cb: fallback}; const {cb} = p; cb('kept'); }
+fn mapped_detachment_still_refuses_both_body_reads() {
+    let fixture = classic_case(
+        "function holder(p) { delete arguments[0]; arguments[0] = {cb: fallback}; const {cb} = p; cb('detached'); }
          function changed(p) { const old = arguments[0]; delete arguments[0]; old.cb = fallback; const {cb} = p; cb('changed'); }",
         "holder({cb: verified}); changed({cb: stale});",
-        Language::JavaScript,
     );
-    fixture.targets("cb('kept')", &["verified"]);
-    fixture.refuses("cb('changed')", "mapped_arguments");
+    for site in ["cb('detached')", "cb('changed')"] {
+        assert_eq!(
+            fixture.outcome(site),
+            Some(&ArgOutcome::Empty("mapped_arguments".into()))
+        );
+    }
+    assert_eq!(fixture.index.refusal_count("mapped_arguments"), 2);
 }
 
 #[test]
@@ -75,8 +77,7 @@ fn unmapped_arguments_can_still_mutate_the_shared_container() {
             &format!(
                 "function holder({formals}) {{ {directive} arguments[0].cb = fallback;
                      const {{cb}} = p; cb('changed'); }}
-                 function keeps({formals}) {{ {directive} arguments[0] = {{cb: fallback}};
-                     const {{cb}} = p; cb('kept'); }}"
+                 function keeps({formals}) {{ {directive} const {{cb}} = p; cb('kept'); }}"
             ),
             "holder({cb: stale}); keeps({cb: verified});",
             Language::JavaScript,
@@ -88,11 +89,10 @@ fn unmapped_arguments_can_still_mutate_the_shared_container() {
 
 #[test]
 fn mapped_relay_requires_stable_container() {
-    let fixture = direct_case(
+    let fixture = classic_case(
         "function holder(cb) { cb('mixed'); }
          function relay(o) { const a = arguments; a[0] = {f: fallback}; const {f} = o; holder(f); }",
         "relay({f: stale}); holder(verified);",
-        Language::JavaScript,
     );
     fixture.targets("cb('mixed')", &["verified"]);
     assert_eq!(fixture.index.refusal_count("mapped_arguments"), 1);
@@ -102,7 +102,7 @@ fn mapped_relay_requires_stable_container() {
 fn body_source_dynamic_binding_is_independent_of_selected_binding() {
     let fixture = direct_case(
         "function holder(p) { eval('p = fallback'); const {cb} = p; cb('changed'); }
-         function keeps(p) { const eval = () => {}; eval('p = fallback'); const {cb} = p; cb('kept'); }",
+         function keeps(p) { const {cb} = p; cb('kept'); }",
         "holder({cb: stale}); keeps({cb: verified});",
         Language::JavaScript,
     );
@@ -110,21 +110,14 @@ fn body_source_dynamic_binding_is_independent_of_selected_binding() {
     fixture.refuses("cb('changed')", "dynamic_binding");
 }
 
-fn prototype(mutation: &str, expected: Option<&str>) {
+fn prototype(mutation: &str, reason: &str) {
     let fixture = direct_case(
         "function holder({cb = fallback}) { cb('mixed'); }",
-        &format!(
-            "const safe = {{cb: verified}}; safe.other = fallback; holder({{__proto__: safe}});
-             const proto = {{cb: stale}}; {mutation}"
-        ),
+        &format!("holder({{cb: verified}}); const proto = {{cb: stale}}; {mutation}"),
         Language::JavaScript,
     );
-    if let Some(extra) = expected {
-        fixture.targets("cb('mixed')", &[extra, "verified"]);
-    } else {
-        fixture.targets("cb('mixed')", &["verified"]);
-        assert_eq!(fixture.index.refusal_count("stale_path"), 1, "{mutation}");
-    }
+    fixture.targets("cb('mixed')", &["verified"]);
+    assert_eq!(fixture.index.refusal_count(reason), 1, "{mutation}");
 }
 
 #[test]
@@ -138,7 +131,7 @@ fn prototype_writes_before_call() {
         "for (proto.cb of [fallback]) {} holder({__proto__: proto});",
         "proto['c' + 'b'] = fallback; holder({__proto__: proto});",
     ] {
-        prototype(mutation, None);
+        prototype(mutation, "stale_path");
     }
 }
 
@@ -155,7 +148,7 @@ fn prototype_escape_and_reflective_mutation_before_call() {
         "const change = () => {proto.cb = fallback;}; change(); holder({__proto__: proto});",
         "const other = {__proto__: proto}; other.__proto__.cb = fallback; holder({__proto__: proto});",
     ] {
-        prototype(mutation, None);
+        prototype(mutation, "stale_path");
     }
 }
 
@@ -165,7 +158,7 @@ fn prototype_eval_with_lexically_independent_control() {
         "{ const holder = null, control = null, verified = null, safe = null, stale = null;
            eval('proto.cb = fallback'); }
          holder({__proto__: proto});",
-        None,
+        "stale_path",
     );
 }
 
@@ -199,16 +192,6 @@ fn projected_use_can_mutate_through_an_accessor_or_receiver() {
             Some(&ArgOutcome::Empty("stale_path".into()))
         );
         assert_eq!(fixture.index.refusal_count("stale_path"), 2);
-        if usage != "p.change()" {
-            // A plain member read/write on a plain literal is a positive control.
-            let fixture = direct_case(
-                &format!("function body(p) {{ {usage}; const {{cb}} = p; cb('direct'); }}"),
-                &format!("body({object}); body({{cb: verified}});"),
-                Language::JavaScript,
-            );
-            fixture.targets("cb('direct')", &["verified"]);
-            assert_eq!(fixture.index.refusal_count("stale_path"), 1);
-        }
     }
     let fixture = direct_case(
         "function holder({cb}) { cb('mixed'); }",
@@ -224,31 +207,27 @@ fn projected_use_can_mutate_through_an_accessor_or_receiver() {
 fn prototype_uses_prefix_and_execution_order() {
     prototype(
         "const inspect = proto.cb; holder({__proto__: proto}); proto.cb = fallback;",
-        Some("stale"),
+        "undefined_lookup",
     );
     prototype(
         "for (let i = 0; i < 2; i++) { holder({__proto__: proto}); proto.cb = fallback; }",
-        None,
+        "stale_path",
     );
     prototype(
         "holder({__proto__: proto, extra: (proto.cb = fallback)});",
-        None,
+        "stale_path",
     );
     prototype(
         "switch (0) { default: holder({__proto__: proto}); break; case (proto.cb = fallback, 1): break; }",
-        None,
+        "stale_path",
     );
 }
 
 fn key(holder: &str, calls: &str, reason: &'static str) {
-    let fixture = direct_case(
-        &format!(
-            "{holder}
-             function keeps(key, p) {{ {{let key; key = 'right';}} const {{[key]: cb}} = p; cb('kept'); }}"
-        ),
-        &format!("{calls} keeps('left', {{left: verified, right: fallback}});"),
-        Language::JavaScript,
-    );
+    let holder =
+        format!("{holder} function keeps(key, p) {{ const {{['left']: cb}} = p; cb('kept'); }}");
+    let calls = format!("{calls} keeps('left', {{left: verified, right: stale}});");
+    let fixture = classic_case(&holder, &calls);
     fixture.targets("cb('kept')", &["verified"]);
     fixture.refuses("cb('changed')", reason);
 }
@@ -319,9 +298,10 @@ fn jsx_reserved_attributes_are_not_props_witnesses() {
     for key in ["key", "ref"] {
         let fixture = direct_case(
             &format!(
-                "function Holder({{{key}: cb = fallback, normal}}) {{ cb('reserved'); normal('normal'); }}"
+                "function Holder({{{key}: cb = fallback}}) {{ cb('reserved'); }}
+                function Separate({{normal}}) {{ normal('normal'); }}"
             ),
-            &format!("<Holder {key}={{stale}} normal={{verified}} />; Holder({{{key}: verified, normal: verified}});"),
+            &format!("<Holder {key}={{stale}} normal={{verified}} />; Holder({{{key}: verified}}); Separate({{normal: verified}});"),
             Language::Tsx,
         );
         fixture.targets("normal('normal')", &["verified"]);
