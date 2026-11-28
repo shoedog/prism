@@ -10,14 +10,15 @@ import random
 import re
 import unittest
 
-from .comparator_fixtures import ComparatorFixture, read_rows
+from .comparator_fixtures import ComparatorFixture, edge, read_rows
 from . import test_diff_edges, test_oracle, test_review_diff
-from .helpers import REPO, Workbench, write_tree
+from .gate_fixtures import GateWorkbench, require_gate, section
+from .helpers import REPO, Workbench, sha256_of, write_tree
 from .test_matrix_rows import CASES, MATRIX, read_jsonl
 from .test_population import AFTER, METRICS, POPULATION_FIELDS
 from .test_syntax import parse_as_python_39
 
-ENABLED_GROUPS = {"run", "comparator", "join", "oracle", "review"}
+ENABLED_GROUPS = {"run", "comparator", "join", "oracle", "review", "gate"}
 
 
 # Ledger "Materialize" IDs of the run group that the enabled matrix does not
@@ -47,10 +48,28 @@ S1_TESTS = {
                 ("test_corpora", "CorporaTests", "test_link_hops_refuse_even_when_dangling")],
 }
 # Round-four IDs owned by later slices, with their owning group.
-LATER_SLICE_IDS = {"gate-026": "gate", "cmp-061": "comparator"}
+LATER_SLICE_IDS = {"cmp-061": "comparator"}
 S3_TESTS = {"oracle-065": "test_declared_question_data_restricts_ambient_reads",
             "oracle-066": "test_drop_reason_substitution_survives_cancellation"}
 S4_TESTS = {"review-019": "test_review_019"}
+S5_TESTS = {
+    "gate-011": ("test_gate_steps", "GateStepsTests", "test_reuse_freezes_threshold_order_and_input_dependencies"),
+    "gate-012": ("test_gate_steps", "GateStepsTests", "test_reuse_checks_binary_digest_version_step_and_options_in_both_modes"),
+    "gate-013": ("test_gate_expect", "GateExpectTests", "test_empty_manifest_coverage_and_run_only_execution"),
+    "gate-014": ("test_gate_expect", "GateExpectTests", "test_each_stats_table_requires_numeric_leaves_on_each_arm"),
+    "gate-015": ("test_gate_expect", "GateExpectTests", "test_zero_threshold_never_waives_oracle_global_coverage"),
+    "gate-016": ("test_gate_credit", "GateCreditTests", "test_same_id_and_aliases_are_identity_controls_only"),
+    "gate-017": ("test_gate_file", "GateFileTests", "test_escaped_dotted_class_reads_one_literal_component"),
+    "gate-018": ("test_gate_steps", "GateStepsTests", "test_classifier_child_two_refuses_and_stops_graph"),
+    "gate-019": ("test_gate_expect", "GateExpectTests", "test_diff_stats_counts_and_child_failure_override_expect"),
+    "gate-020": ("test_gate_expect", "GateExpectTests", "test_relation_property_expectation_needs_decided_coverage"),
+    "gate-021": ("test_gate_steps", "GateStepsTests", "test_classifier_only_sees_controller_registered_sidecars"),
+    "gate-022": ("test_gate_decision", "GateDecisionTests", "test_fresh_differential_requires_registered_pin"),
+    "gate-023": ("test_gate_expect", "GateExpectTests", "test_integer_rate_boundary_and_decided_minimum_in_the_declared_scope"),
+    "gate-024": ("test_gate_steps", "GateStepsTests", "test_wrappers_round_trip_and_bind_predecessor_and_artifact_sets"),
+    "gate-025": ("test_gate_credit", "GateCreditTests", "test_empty_edge_waiver_never_enters_product_steps"),
+    "gate-026": ("test_gate_credit", "GateCreditTests", "test_fresh_same_digest_and_trace_only_are_identity_controls"),
+}
 
 
 class MatrixLedgerTests(unittest.TestCase):
@@ -66,12 +85,21 @@ class MatrixLedgerTests(unittest.TestCase):
         self.assertIn("adds all eight IDs", handoff.split("**Handoff.**", 1)[1])
         # Every ID is executed here or assigned to a later slice, none dropped.
         self.assertEqual(set(ids), {i for i in S1_TESTS if i >= "run-021"}
-                         | set(S3_TESTS) | set(S4_TESTS) | set(LATER_SLICE_IDS))
+                         | set(S3_TESTS) | set(S4_TESTS) | (set(S5_TESTS) & set(ids))
+                         | set(LATER_SLICE_IDS))
         for method in S3_TESTS.values():
             self.assertTrue(callable(getattr(test_oracle.OracleTests, method, None)))
         for method in S4_TESTS.values():
             self.assertTrue(callable(getattr(ReviewMatrixTests, method, None)))
         self.assertTrue(all(S1_TESTS[i] for i in S1_TESTS), "every S1 ID needs a nonempty mapping")
+        wanted = set(re.findall(r"^\| (gate-[0-9]+) \| Materialize", self.ledger(), re.MULTILINE))
+        self.assertEqual(wanted, set(S5_TESTS))
+        for ident, (module, name, method) in S5_TESTS.items():
+            with self.subTest(id=ident):
+                owner = getattr(importlib.import_module(f"measure.tests.{module}"), name)
+                test = getattr(owner, method)
+                self.assertTrue(callable(test))
+                self.assertIn(ident, test.__doc__)
 
     def test_every_run_materialize_id_is_a_matrix_row_or_a_named_test(self):
         ledger = self.ledger()
@@ -85,7 +113,6 @@ class MatrixLedgerTests(unittest.TestCase):
                 with self.subTest(id=ident, test=method):
                     owner = getattr(importlib.import_module(f"measure.tests.{module}"), name)
                     self.assertTrue(callable(getattr(owner, method, None)))
-
 
 class MatrixTests(Workbench):
     def check_row(self, row):
@@ -460,10 +487,106 @@ class ReviewMatrixTests(test_review_diff.ReviewChecks):
         self.check_drift_between_arms()
 
 
+class GateMatrixTests(GateWorkbench):
+    def materialize(self, setup):
+        import os
+
+        template = setup["gate"]
+        prediction = setup["prediction"]
+        self.prediction = self.work / prediction["path"]
+        mutation = setup.get("prediction_change", {})
+        contents = mutation.get("before", prediction["contents"])
+        if contents is not None:
+            self.prediction.write_bytes(contents.encode())
+        steps, binaries = [], {}
+        for step in template["steps"]:
+            ident, kind = step["id"], step["do"]
+            if kind == "run":
+                actions = {}
+                if mutation.get("when") == "between-steps" and mutation["after_step"] == ident:
+                    actions["edges"] = (f"Path({str(self.prediction)!r})"
+                                        f".write_bytes({mutation['after'].encode()!r})")
+                binaries[ident] = self.product(ident, actions=actions)
+                steps.append({**self.run_step(ident), **step})
+            elif kind == "diff-edges":
+                count = setup["step_results"][ident]["unattributed"]
+                binaries["base"] = self.product("base", edges=[edge()] + [edge(sb=200 + n)
+                                                                         for n in range(count)])
+                binaries["head"] = self.product("head")
+                self.classifier.write_text("CLASSES = ['fixture']\ndef classify(change, context): return None\n")
+                steps.extend((self.run_step(), self.run_step("head"), {**self.edge_step(), **step}))
+            else:
+                steps.append(step)
+        plan = {**self.plan(steps, **binaries), **template, "steps": steps}
+        prior = setup.get("reused_receipt")
+        pin = self.pin(plan) if any(s["do"] == "diff-edges" for s in steps) else None
+        if prior:
+            ident = steps[0]["id"]
+            binding = prior.get("prediction")
+            # Unknown kinds have no valid frozen graph. The known run is the
+            # positive receipt control for the whole-file preflight refusal.
+            graph = {**plan, "steps": [s for s in steps if s["do"] == "run"]}
+            if binding:
+                self.assertEqual(binding["path"], prediction["path"])
+                self.assertEqual(sha256_of(self.prediction), binding["sha256"])
+            directory = self.prior_run(plan, ident, self.work / "prior",
+                                       gate_pin=self.pin(graph) if binding else None,
+                                       prediction=self.prediction if binding else None)
+            plan = self.reuse(plan, ident, directory)
+            if mutation.get("mtime") == "preserved":
+                stamp = self.prediction.stat()
+                self.prediction.write_bytes(mutation["after"].encode())
+                os.utime(self.prediction, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+                self.assertEqual(self.prediction.stat().st_mtime_ns, stamp.st_mtime_ns)
+        self.next_output("gated")
+        return plan, pin
+
+    def check_row(self, row):
+        require_gate()
+        source = CASES / row["input"]["case"] / row["input"]["setup"]
+        setup = json.loads(source.read_bytes())
+        truth = {**row["truth"], **{
+            "gate-005": {"exit": 1, "reason": "retrospective"},
+            "gate-006": {"exit": 1, "reason": "threshold-failed"},
+            "gate-007": {"exit": 2, "reason": "unknown-step", "result": "refused",
+                         "steps_launched": 0},
+        }.get(row["id"], {})}
+        plan, pin = self.materialize(setup)
+        self.gate(plan, pin=pin, retrospective=setup["retrospective"], expected=truth["exit"])
+        report = self.report()
+        self.assertIn(truth["reason"], report + self.diagnostic)
+        if "result" in truth:
+            self.assertEqual(self.result()["result"], truth["result"])
+        if "failed_step" in truth:
+            failure = self.step(truth["failed_step"])
+            self.assertEqual(failure["status"], "fail")
+            self.assertEqual(failure["metrics"]["unattributed"], setup["step_results"]["compare"]["unattributed"])
+            self.assertTrue(failure["failures"])
+        if truth.get("steps_launched") == 0 or row["id"] in {"gate-001", "gate-002", "gate-004"}:
+            self.assert_no_launch()
+        if row["id"] == "gate-003":
+            self.assertEqual(self.step("next")["status"], "not_run")
+            self.assertEqual({event["arm"] for event in self.fake_log()}, {"bound"})
+        if "report_sections" in truth:
+            self.assertEqual(re.findall(r"(?m)^## (.+)$", report), truth["report_sections"])
+        if "report_prediction" in truth:
+            text = section(report, "Prediction")
+            quoted = re.search(r"(?ms)^(`{3,})[^\n]*\n(.*?)^\1$", text)
+            self.assertIsNotNone(quoted)
+            self.assertEqual(quoted[2], truth["report_prediction"])
+            self.assertIn(truth["report_prediction_sha256"], text)
+        if truth["exit"] == 0:
+            self.assertEqual(self.fake_log(), [])
+            self.assertEqual(self.step("bound")["status"], "pass")
+
+
 MATRIX_TESTS = {"run": MatrixTests, "comparator": ComparatorMatrixTests,
                 "join": ComparatorMatrixTests, "oracle": OracleMatrixTests,
-                "review": ReviewMatrixTests}
+                "review": ReviewMatrixTests, "gate": GateMatrixTests}
 for row in read_jsonl(MATRIX / "rows.jsonl"):
     group = row["group"]
     if group in ENABLED_GROUPS:
-        setattr(MATRIX_TESTS[group], "test_" + row["id"].replace("-", "_"), make_test(row))
+        method = make_test(row)
+        if group == "gate":
+            method.__doc__ = f"{row['id']}: {row['required']}"
+        setattr(MATRIX_TESTS[group], "test_" + row["id"].replace("-", "_"), method)
