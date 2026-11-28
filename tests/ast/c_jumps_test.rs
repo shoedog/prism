@@ -7,19 +7,15 @@
 //! Label rows that already hold on main are the "unchanged" guards; the rest
 //! are the label transitions the new edges cause.
 use crate::common::*;
-use prism::cpg::{FlowConfidence, FlowDoubt};
+use prism::cpg::FlowConfidence;
 
 type Edge = (usize, usize);
 type Label = (&'static str, usize, usize, &'static str);
 
 fn label_name(l: FlowConfidence) -> String {
-    match l {
-        FlowConfidence::Exact => "exact".into(),
-        FlowConfidence::NameOnly(FlowDoubt::Killed { kill_line }) => format!("killed@{kill_line}"),
-        FlowConfidence::NameOnly(FlowDoubt::SameLine) => "sameline".into(),
-        FlowConfidence::NameOnly(FlowDoubt::CfgIncomplete) => "cfg_incomplete".into(),
-        FlowConfidence::NameOnly(FlowDoubt::AliasUnstable) => "alias_unstable".into(),
-        FlowConfidence::NameOnly(FlowDoubt::CallNameOnly) => "call_nameonly".into(),
+    match l.kill_line() {
+        Some(line) => format!("killed@{line}"),
+        None => l.doubt_spelling().unwrap_or_else(|| l.level()).into(),
     }
 }
 

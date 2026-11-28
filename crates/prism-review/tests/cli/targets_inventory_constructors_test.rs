@@ -8,9 +8,15 @@ fn inline(imports: &str, body: &str) -> Value {
 }
 
 pub(super) fn source_document(source: &str) -> Value {
+    source_document_with(source, &[])
+}
+
+pub(super) fn source_document_with(source: &str, options: &[&str]) -> Value {
     let repo = TempDir::new().unwrap();
     fs::write(repo.path().join("probe.py"), source).unwrap();
-    document(&run(repo.path(), &["--files", "probe.py"]))
+    let mut args = vec!["--files", "probe.py"];
+    args.extend_from_slice(options);
+    document(&run(repo.path(), &args))
 }
 
 pub(super) fn assert_exact(doc: &Value, canonical: &str) {

@@ -256,12 +256,12 @@ fn s5_5_foreign_name_only_rest() {
 
 #[test]
 fn reviewed_companions() {
-    let mut rows = read_rows(r#"{"id":"x3-8-indented","group":"D","langs":["js","ts","tsx"],"class":"review-companion","truth":"correct","files":{"m.js":"function visit(item) {\n  use(item);\n}\nfunction main() {\n  const items = [1];\n  const direct = 2;\n  items.forEach(visit); visit(direct);\n}\n"},"expect":[{"kind":"edge","from":"m.js:main:items@7:3","to":"m.js:visit:item@1:16","label":"nameonly/builtin_callback","loss":"Indented receiver has only a line-start Use"},{"kind":"no_edge_into","to":"m.js:visit:item@1:16","label":"nameonly/builtin_callback"},{"kind":"edge","from":"m.js:main:direct@7:31","to":"m.js:visit:item@1:16","label":"exact","multiplicity":1},{"kind":"reaches","from":"m.js:main:direct@6:9","to":"m.js:visit:item@2:7"}]}
+    let mut rows = read_rows(r#"{"id":"x3-8-receiver-off-line-start","group":"D","langs":["js","ts","tsx"],"class":"review-companion","truth":"correct","files":{"m.js":"function visit(item) {\n  use(item);\n}\nfunction main() {\n  const items = [1];\n  const direct = 2;\n  items.forEach(visit); visit(direct);\n}\nexport {};\n"},"expect":[{"kind":"edge","from":"m.js:main:items@7:3","to":"m.js:visit:item@1:16","label":"nameonly/builtin_callback","loss":"missing_receiver_use: the receiver is not at line start and its only Use is a zero-width line-start anchor."},{"kind":"no_edge_into","to":"m.js:visit:item@1:16","label":"nameonly/builtin_callback"},{"kind":"edge","from":"m.js:main:direct@7:31","to":"m.js:visit:item@1:16","label":"exact","multiplicity":1},{"kind":"reaches","from":"m.js:main:direct@6:9","to":"m.js:visit:item@2:7"}]}
 {"id":"s2-15-admitted","group":"E","langs":["js","ts","tsx"],"class":"review-companion","truth":"correct","files":{"m.js":"class Thenable {\n  then(ok, fail) {\n    const reason = read();\n    fail(reason);\n  }\n}\nfunction fulfilled(value) {\n  use(value);\n}\nfunction rejected(reason) {\n  use(reason);\n}\nfunction main() {\n  const thenable = new Thenable();\n  thenable.then(fulfilled, rejected);\n}\n"},"expect":[{"kind":"resolves","call":{"site":"m.js@15:3","callee":"then","owner":"main"},"targets":["m.js:then@2"],"confidence":"exact","route":"constructor_local"},{"kind":"resolves","call":{"site":"m.js@4:5","callee":"fail","owner":"then"},"targets":["m.js:rejected@10"],"confidence":"nameonly","route":"argument_follow"},{"kind":"edge","from":"m.js:then:reason@4:10","to":"m.js:rejected:reason@10:19","label":"nameonly/call_nameonly","multiplicity":1},{"kind":"no_edge","from":"m.js:then:reason@4:10","to":"m.js:rejected:reason@10:19","label":"exact"}]}"#).unwrap();
     rows.extend(descriptor_companions());
     let mut failures = Vec::new();
     for row in &rows {
-        if row.id == "x3-8-indented" && ACTIVE_SLICES.contains(&"D") {
+        if row.id == "x3-8-receiver-off-line-start" && ACTIVE_SLICES.contains(&"D") {
             for ext in &row.langs {
                 let fixture = row.fixture(ext);
                 let uses: Vec<_> = fixture
@@ -359,13 +359,13 @@ fn receiver_byte_pins() {
         let call = line_text.trim_start();
         let source_variants =
             [format!("  {call}"), call.to_owned()].map(|text| source.replace(line_text, &text));
-        for (indented, source) in [true, false].into_iter().zip(source_variants) {
+        for (not_at_line_start, source) in [true, false].into_iter().zip(source_variants) {
             row.files.insert("m.js".to_owned(), source);
             for ext in &row.langs {
                 let fixture = row.fixture(ext);
                 let token = Endpoint::Plain(format!(
                     "m.js:main:{receiver}@{line}:{}",
-                    if indented { 3 } else { 1 }
+                    if not_at_line_start { 3 } else { 1 }
                 ));
                 let zero = Endpoint::Spanned {
                     at: format!("m.js:main:{receiver}@{line}:1"),
@@ -374,7 +374,7 @@ fn receiver_byte_pins() {
                 let token_nodes = fixture.nodes(&token, VarAccessKind::Use).unwrap();
                 let zero_nodes = fixture.nodes(&zero, VarAccessKind::Use).unwrap();
                 println!(
-                    "RECEIVER\t{id}\t{ext}\tindented={indented}\ttoken={}\tline_start={}",
+                    "RECEIVER\t{id}\t{ext}\treceiver_not_at_line_start={not_at_line_start}\ttoken={}\tline_start={}",
                     token_nodes.len(),
                     zero_nodes.len()
                 );

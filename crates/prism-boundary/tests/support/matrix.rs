@@ -24,6 +24,11 @@ pub fn p1b_rows() -> impl Iterator<Item = Row<'static>> {
     matrix_rows("p1b_rows", P1B_ROWS)
 }
 
+#[allow(dead_code)]
+pub fn p1c_rows() -> impl Iterator<Item = Row<'static>> {
+    matrix_rows("p1c_rows", include_str!("../fixtures/p1c_rows/rows.tsv"))
+}
+
 fn matrix_rows(matrix: &'static str, tsv: &'static str) -> impl Iterator<Item = Row<'static>> {
     tsv.lines().skip(1).map(move |line| {
         let [id, fixture, ids, warnings, truth, class] =
@@ -51,7 +56,7 @@ pub fn matrix_file(path: &str) -> PathBuf {
     matrix_path("ids_matrix", path)
 }
 
-fn matrix_path(matrix: &str, path: &str) -> PathBuf {
+pub fn matrix_path(matrix: &str, path: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
         .join(matrix)

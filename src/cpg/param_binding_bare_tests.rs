@@ -75,6 +75,7 @@ fn run(
         &ParamCache::new(files),
         spread_args::for_call,
     )
+    .flows
 }
 
 pub(super) type Endpoint<'a> = (

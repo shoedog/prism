@@ -57,7 +57,9 @@ pub(super) fn collect_file(
         return;
     }
 
-    let walk = walk::Walk::new(parsed);
+    let recovered = walk::recover_starred_annotations(parsed);
+    let parsed = recovered.parsed.as_ref().unwrap_or(parsed);
+    let walk = walk::Walk::with_refused_annotations(parsed, &recovered.refused);
     let resolver = Resolver::new(parsed, &walk, repo, file);
     let anchors = anchor::winners(&walk.calls);
     let owners: Vec<_> = walk
@@ -124,6 +126,7 @@ pub(super) fn collect_file(
                 call: super::evidence::Span::new(&source, call.node),
                 callee: super::evidence::Span::new(&source, call.callee),
                 receiver: result.receiver,
+                declaration: result.declaration,
             },
         });
 

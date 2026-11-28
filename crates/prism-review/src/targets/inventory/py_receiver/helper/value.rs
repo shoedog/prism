@@ -1,0 +1,320 @@
+use super::{Constructed, Resolver};
+use crate::targets::inventory::{
+    py_receiver::{annotation::Declaration, census::Binding},
+    py_tables,
+    python::source::{children, ungroup},
+    Family, UnprovenCause,
+};
+use prism::ast::ParsedFile;
+use tree_sitter::Node;
+
+pub(super) enum HelperResult<'tree> {
+    Constructed(Constructed<'tree>),
+    Opaque,
+}
+
+pub(super) struct HelperValue<'tree> {
+    pub(super) declaration: Option<Declaration<'tree>>,
+    pub(super) value: Result<HelperResult<'tree>, UnprovenCause>,
+    pub(super) family: Option<Family>,
+    pub(super) caller_cause: Option<UnprovenCause>,
+}
+
+impl<'tree> Resolver<'_, 'tree> {
+    pub(super) fn helper_definition(
+        &self,
+        binding: &Binding<'tree>,
+        visible: bool,
+        awaited: bool,
+        method: Option<&str>,
+        caller: Option<&Declaration<'tree>>,
+    ) -> Option<HelperValue<'tree>> {
+        let use_declaration = caller.is_some();
+        let definition = binding.node;
+        let scope = *self.census.definition_scopes.get(&definition.id())?;
+        let body = self.walk.scopes[scope].body;
+        let facts = &self.census.spaces[scope];
+        let syntax = definition.child_by_field_name("return_type");
+        let declaration = syntax.and_then(|syntax| self.declaration(syntax, binding.scope, false));
+        let declared_family = method.and_then(|method| {
+            let (family, _) = self.method_declaration(syntax?, binding.scope, false, method)?;
+            Some(family)
+        });
+        let declaration_cause = declaration.as_ref().and_then(|result| {
+            let cause = *result.as_ref().err()?;
+            (use_declaration || method.is_none() || declared_family.is_some()).then_some(cause)
+        });
+        let declaration = declaration.and_then(Result::ok);
+        let returns: Vec<_> = facts
+            .returns
+            .iter()
+            .map(|&statement| {
+                let value = children(statement).next().map(ungroup);
+                let constructor = value.and_then(|value| self.constructor(value, scope, None));
+                let family = method.and_then(|method| {
+                    self.method_constructor(value?, scope, method, None)
+                        .map(|(family, _)| family)
+                });
+                (value, constructor, family)
+            })
+            .collect();
+        let admissible = visible
+            && !facts.yields
+            && definition
+                .parent()
+                .is_none_or(|parent| parent.kind() != "decorated_definition")
+            && awaited
+                == definition
+                    .child(0)
+                    .is_some_and(|token| token.kind() == "async");
+        let known_none = (!returns.is_empty()
+            || Completion::suite(self.parsed, body) == Completion::Completes)
+            && returns
+                .iter()
+                .all(|(value, _, _)| value.is_none_or(|value| value.kind() == "none"));
+        // Decision K admits opaque declared stdlib receivers. The S2b HTTP
+        // refusal precedence remains the one recorded in DESIGN 10.2.
+        let caller_cause = caller
+            .filter(|caller| admissible && py_tables::declaration_only_class(&caller.class))
+            .and_then(|caller| {
+                if known_none {
+                    return Some(UnprovenCause::ReceiverIsNone);
+                }
+                returns
+                    .iter()
+                    .any(|(value, constructor, _)| {
+                        matches!(constructor, Some(Ok(class)) if *class != caller.class)
+                            || value.map_or(!caller.nullable, |value| {
+                                contradicts_literal(value, caller.nullable)
+                            })
+                    })
+                    .then_some(UnprovenCause::AnnotationConflict)
+            });
+        let matches_method =
+            |class: &str| method.is_none_or(|method| py_tables::constructor_method(class, method));
+        let direct_ties = returns.iter().any(|(_, constructor, family)| {
+            family.is_some() || (method.is_none() && constructor.is_some())
+        });
+        let final_return =
+            facts.returns.len() == 1 && children(body).last() == facts.returns.first().copied();
+        let returned_local =
+            if final_return && (declaration.is_some() || declaration_cause.is_some()) {
+                returns[0]
+                    .0
+                    .and_then(|value| self.returned_local(value, scope, method))
+            } else {
+                None
+            };
+        let local_family = returned_local.as_ref().and_then(|(family, _)| *family);
+        let local_ties = local_family.is_some()
+            || (method.is_none() && matches!(returned_local, Some((_, Ok(_)))));
+        let family = local_family
+            .or_else(|| returns.iter().filter_map(|(_, _, family)| *family).min())
+            .or(declared_family);
+        if !direct_ties
+            && !local_ties
+            && caller_cause.is_none()
+            && declaration_cause.is_none()
+            && !declaration
+                .as_ref()
+                .is_some_and(|declaration| use_declaration || matches_method(&declaration.class))
+        {
+            return None;
+        }
+        let value = (|| {
+            let mut causes: Vec<_> = declaration_cause.into_iter().collect();
+            causes.extend(returns.iter().filter_map(|(_, constructor, family)| {
+                if use_declaration || family.is_some() || method.is_none() {
+                    constructor.as_ref()?.as_ref().err().copied()
+                } else {
+                    None
+                }
+            }));
+            causes.extend(
+                returned_local
+                    .as_ref()
+                    .and_then(|(_, result)| result.as_ref().err())
+                    .copied(),
+            );
+            if declaration.is_none() {
+                causes.push(UnprovenCause::HelperUnannotated);
+            }
+            if !admissible {
+                causes.push(UnprovenCause::HelperNotAdmissible);
+            }
+            if let Some(cause) = causes.into_iter().min() {
+                return Err(cause);
+            }
+            let declaration = declaration
+                .as_ref()
+                .expect("missing declarations are refused");
+            if known_none {
+                return Err(UnprovenCause::ReceiverIsNone);
+            }
+            if final_return {
+                if let [(Some(call), Some(Ok(class)), family)] = returns.as_slice() {
+                    if family.is_some() || method.is_none() || use_declaration {
+                        return Ok(HelperResult::Constructed(Constructed {
+                            call: *call,
+                            class: class.clone(),
+                        }));
+                    }
+                }
+            }
+            if let Some((_, result)) = returned_local {
+                let built = result?;
+                if matches_method(&built.class) || use_declaration {
+                    return Ok(HelperResult::Constructed(built));
+                }
+                if built.class != declaration.class {
+                    return Err(UnprovenCause::AnnotationConflict);
+                }
+            }
+            if returns.iter().any(|(value, constructor, _)| {
+                matches!(constructor, Some(Ok(class)) if *class != declaration.class)
+                    || value.is_some_and(|value| contradicts_literal(value, declaration.nullable))
+            }) {
+                return Err(UnprovenCause::AnnotationConflict);
+            }
+            Ok(HelperResult::Opaque)
+        })();
+        Some(HelperValue {
+            declaration,
+            value,
+            family,
+            caller_cause,
+        })
+    }
+}
+
+/// Bounded witnesses for reaching the end of a suite.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Completion {
+    Completes,
+    Never,
+    Unknown,
+}
+
+#[derive(PartialEq, Eq)]
+enum Condition {
+    True,
+    False,
+    Either,
+    Unknown,
+}
+
+impl Completion {
+    fn suite(parsed: &ParsedFile, body: Node<'_>) -> Self {
+        let mut statements = children(body).peekable();
+        if body.has_error() || statements.peek().is_none() {
+            return Self::Unknown;
+        }
+        for statement in statements {
+            let completion = Self::statement(parsed, statement);
+            if completion != Self::Completes {
+                return completion;
+            }
+        }
+        Self::Completes
+    }
+
+    fn statement(parsed: &ParsedFile, statement: Node<'_>) -> Self {
+        match statement.kind() {
+            "expression_statement" | "pass_statement" => Self::Completes,
+            "raise_statement" | "return_statement" => Self::Never,
+            "if_statement" => Self::conditional(parsed, statement),
+            _ => Self::Unknown,
+        }
+    }
+
+    fn conditional(parsed: &ParsedFile, statement: Node<'_>) -> Self {
+        let arms = std::iter::once(statement).chain(
+            children(statement).filter(|arm| matches!(arm.kind(), "elif_clause" | "else_clause")),
+        );
+        let mut exits = Self::Never;
+        let mut implicit_exit = Self::Completes;
+        for arm in arms {
+            let (field, condition) = if arm.kind() == "else_clause" {
+                ("body", Condition::True)
+            } else {
+                ("consequence", Condition::at(parsed, arm))
+            };
+            match condition {
+                Condition::False => continue,
+                Condition::Unknown => return exits.or(Self::Unknown),
+                // A bare name can select an explicit arm. Without an else,
+                // it does not prove that control bypasses a non-completing arm.
+                Condition::Either => implicit_exit = Self::Unknown,
+                Condition::True => {}
+            }
+            let branch = arm
+                .child_by_field_name(field)
+                .map_or(Self::Unknown, |body| Self::suite(parsed, body));
+            exits = exits.or(branch);
+            if exits == Self::Completes || condition == Condition::True {
+                return exits;
+            }
+        }
+        exits.or(implicit_exit)
+    }
+
+    fn or(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Completes, _) | (_, Self::Completes) => Self::Completes,
+            (Self::Unknown, _) | (_, Self::Unknown) => Self::Unknown,
+            (Self::Never, Self::Never) => Self::Never,
+        }
+    }
+}
+
+impl Condition {
+    fn at(parsed: &ParsedFile, arm: Node<'_>) -> Self {
+        let Some(condition) = arm.child_by_field_name("condition").map(ungroup) else {
+            return Self::Unknown;
+        };
+        match condition.kind() {
+            "true" => Self::True,
+            "false" | "none" => Self::False,
+            "identifier" => Self::Either,
+            "integer" => {
+                let digits = match parsed.node_text(&condition).as_bytes() {
+                    [b'0', b'x' | b'X' | b'o' | b'O' | b'b' | b'B', digits @ ..] => digits,
+                    digits => digits,
+                };
+                if digits
+                    .iter()
+                    .any(|byte| !matches!(byte, b'0' | b'_' | b'j' | b'J'))
+                {
+                    Self::True
+                } else {
+                    Self::False
+                }
+            }
+            _ => Self::Unknown,
+        }
+    }
+}
+
+pub(super) fn contradicts_literal(node: Node<'_>, nullable: bool) -> bool {
+    match node.kind() {
+        "none" => !nullable,
+        "dictionary"
+        | "dictionary_comprehension"
+        | "list"
+        | "list_comprehension"
+        | "set"
+        | "set_comprehension"
+        | "tuple"
+        | "expression_list"
+        | "string"
+        | "concatenated_string"
+        | "integer"
+        | "float"
+        | "true"
+        | "false" => true,
+        "unary_operator" => node
+            .child_by_field_name("argument")
+            .is_some_and(|argument| matches!(ungroup(argument).kind(), "integer" | "float")),
+        _ => false,
+    }
+}

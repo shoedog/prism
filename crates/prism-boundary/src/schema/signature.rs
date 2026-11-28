@@ -66,7 +66,7 @@ pub(super) fn content_hash(index: &SchemaIndex) -> String {
     format!("{:x}", hash.finalize())
 }
 
-pub(super) fn member(value: &EnumValue) -> String {
+pub(crate) fn member(value: &EnumValue) -> String {
     match value {
         EnumValue::Null => "null".into(),
         EnumValue::Boolean(value) => value.to_string(),

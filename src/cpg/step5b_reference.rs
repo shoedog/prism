@@ -27,7 +27,9 @@ impl CodePropertyGraph {
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
     ) -> Vec<PendingEdge> {
-        Self::collect_step5b_flows_reference(cg, var_index, graph, files)
+        let exact = Self::exact_var_index_from_graph(graph);
+        Self::collect_step5b_flows_reference(cg, var_index, &exact, graph, files)
+            .flows
             .into_iter()
             .map(|flow| flow.edge)
             .collect()
@@ -36,24 +38,51 @@ impl CodePropertyGraph {
     pub(super) fn collect_step5b_flows_reference(
         cg: &CallGraph,
         var_index: &VarIndex,
+        exact_var_index: &ExactVarIndex,
         graph: &DiGraph<CpgNode, CpgEdge>,
         files: &BTreeMap<String, ParsedFile>,
-    ) -> Vec<PendingArgumentFlow> {
+    ) -> props_binding::Step5bOutput {
         // Serial twin of Step-5b (global lazy param_cache, no prewarm) — the par==serial
         // reference for the oracle. The arg→param binding mirrors the production helper's
         // field-sensitive logic so the oracle proves the par_iter restructure is faithful
         // (it is no longer a frozen pre-edge-steps original; that byte-identity is
         // intentionally superseded by the field-sensitivity change).
-        let mut out = Vec::new();
-        let exact_var_index = Self::exact_var_index_from_graph(graph);
+        let mut output = props_binding::Step5bOutput::default();
         let mut param_cache: BTreeMap<FunctionId, Option<Vec<Option<callee_params::ParamDef>>>> =
             BTreeMap::new();
         let mut rest_cache = BTreeMap::new();
+        let mut pattern_cache = BTreeMap::new();
+        let trace_builtin = builtin_callbacks::diagnostic::enabled();
         for (caller_id, sites) in &cg.calls {
+            let Some(caller_parsed) = files.get(&caller_id.file) else {
+                continue;
+            };
+            let mut caller_output = props_binding::Step5bOutput::default();
             for site in sites {
+                if let Some(parsed) = files.get(&caller_id.file) {
+                    builtin_callbacks::collect(
+                        &mut caller_output.flows,
+                        site,
+                        caller_id,
+                        parsed,
+                        var_index,
+                        &exact_var_index,
+                        graph,
+                        trace_builtin,
+                    );
+                }
                 let resolved_site = cg.resolve_call_site(site);
                 let exact_singleton = object_literal_args::exact_singleton(&resolved_site);
                 let mut call_args = None;
+                let literals = object_literal_args::inventory(
+                    caller_parsed,
+                    site,
+                    &mut call_args,
+                    spread_args::for_call,
+                    &resolved_site,
+                    files,
+                    &mut caller_output.props,
+                );
                 for resolved in resolved_site {
                     // P3 (F1): mirrors step5b_edges_for_caller's skip so this serial
                     // oracle stays byte-identical to the parallel production path.
@@ -61,10 +90,6 @@ impl CodePropertyGraph {
                         continue;
                     }
                     let callee_id = resolved.target;
-                    let caller_parsed = match files.get(&caller_id.file) {
-                        Some(p) => p,
-                        None => continue,
-                    };
                     let (args, offsets) =
                         call_args.get_or_insert_with(|| spread_args::for_call(caller_parsed, site));
                     if args.is_empty() {
@@ -85,12 +110,14 @@ impl CodePropertyGraph {
                         .as_deref()
                         .unwrap_or_default();
                     let inputs = object_literal_args::SiteInputs {
+                        #[cfg(test)]
+                        call_bytes: (site.start_byte, site.end_byte),
                         caller_id,
                         caller_parsed,
                         callee_parsed,
                         args,
                         var_index,
-                        exact_var_index: &exact_var_index,
+                        exact_var_index: exact_var_index,
                         graph,
                         cross_file_free_single_exact,
                     };
@@ -106,13 +133,30 @@ impl CodePropertyGraph {
                         exact_singleton,
                         cross_file_free_single_exact,
                     );
+                    let patterns = &mut pattern_cache;
                     object_literal_args::collect(
-                        &mut out,
+                        &mut caller_output,
+                        &literals,
                         &inputs,
+                        site,
+                        cg,
+                        callee_id,
                         param_nodes,
                         &admission,
-                        |t| t.bare,
-                        |t| Some(t.node),
+                        |target| target.bare,
+                        |target| Some(target.node),
+                        move || {
+                            patterns.entry(callee_id.clone()).or_insert_with(|| {
+                                callee_params::compute_pattern_formal_nodes(
+                                    callee_parsed,
+                                    callee_id,
+                                    exact_var_index,
+                                    graph,
+                                )
+                            })
+                        },
+                        |facts| facts.as_ref(),
+                        |node| Some(*node),
                     );
                     for ((arg_text, arg_span), slot) in args.iter().zip(&offsets.slot) {
                         let Some(param) = slot
@@ -144,13 +188,13 @@ impl CodePropertyGraph {
                                     &arg_path,
                                     arg_span,
                                     var_index,
-                                    &exact_var_index,
+                                    exact_var_index,
                                     graph,
                                 )
                             })
                             .collect();
                         for from in arg_idxs {
-                            out.push(PendingArgumentFlow {
+                            caller_output.flows.push(PendingArgumentFlow {
                                 edge: (
                                     from,
                                     param.node,
@@ -175,7 +219,7 @@ impl CodePropertyGraph {
                         continue;
                     };
                     rest_params::collect(
-                        &mut out,
+                        &mut caller_output.flows,
                         &inputs,
                         target,
                         offsets,
@@ -183,7 +227,8 @@ impl CodePropertyGraph {
                     );
                 }
             }
+            output.merge(caller_output);
         }
-        out
+        output
     }
 }

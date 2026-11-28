@@ -76,6 +76,8 @@ mod object_literal_arg_tests;
 #[cfg(test)]
 mod optional_parameter_tests;
 #[cfg(test)]
+mod param_binding_builtin_tests;
+#[cfg(test)]
 mod param_binding_matrix_tests;
 #[cfg(test)]
 mod parameter_slots_parity_tests;
@@ -83,6 +85,22 @@ mod parameter_slots_parity_tests;
 mod props_generated_tests;
 #[cfg(test)]
 mod props_matrix_tests;
+#[cfg(test)]
+mod props_s2_coverage_tests;
+#[cfg(test)]
+mod props_s2_generated_tests;
+#[cfg(test)]
+mod props_s2_matrix_evidence;
+#[cfg(test)]
+mod props_s2_matrix_evidence_tests;
+#[cfg(test)]
+mod props_s2_pending_tests;
+#[cfg(test)]
+mod props_s2_refusal_tests;
+#[cfg(test)]
+mod props_s2_selected_tests;
+#[cfg(test)]
+mod props_s2_test_support;
 pub mod query;
 mod reaching;
 #[cfg(test)]
@@ -110,6 +128,7 @@ mod taint_policy_tests;
 #[cfg(test)]
 mod tests;
 mod trace;
+mod trace_cuts;
 mod trace_descent;
 #[cfg(test)]
 mod trace_descent_tests;
@@ -144,7 +163,9 @@ pub(crate) use reaching::{
 pub(crate) use reaching::{with_availability_limits, RD_MAX_DEFS, RD_MAX_LINES};
 pub use taint_policy::{CrossingCeiling, TaintCrossingPolicy};
 pub use trace::{
-    BoundaryEdge, BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning,
-    Relation, ReturnFlowMode, SameLineOrderView, Trace,
+    BoundaryKind, OrderingDecision, OrderingUnavailableReason, OrderingWarning, Relation,
+    ReturnFlowMode, SameLineOrderView, Trace,
 };
+pub use trace_cuts::{BoundaryEdge, CrossingSite, TraceCut};
+pub use trace_descent::LossReason;
 pub use types::{CpgEdge, CpgNode, StmtKind, VarAccess};

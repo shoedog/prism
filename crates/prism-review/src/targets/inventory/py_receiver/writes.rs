@@ -11,7 +11,7 @@ use crate::targets::inventory::python::{
     source::{children, has_comma, name, outer_group, scalar_subscript, ungroup, ungroup_target},
     walk::{Context, ScopeId},
 };
-use objects::Objects;
+use objects::{Objects, WriteAccess};
 use tree_sitter::Node;
 
 #[derive(PartialEq, Eq)]
@@ -109,7 +109,12 @@ impl<'tree> Resolver<'_, 'tree> {
                 let Some((object, key, value)) = self.reflection_write(node, scope) else {
                     continue;
                 };
-                (self.objects(object, scope, true).slots(key), value)
+                let access = if value.is_some() {
+                    WriteAccess::Attribute
+                } else {
+                    WriteAccess::DeleteAttribute
+                };
+                (self.objects(object, scope, true).slots(key, access), value)
             } else {
                 let roots = write_targets(node);
                 let value = match roots.as_slice() {
@@ -124,9 +129,14 @@ impl<'tree> Resolver<'_, 'tree> {
                     }
                     _ => None,
                 };
+                let access = if node.kind() == "delete_statement" {
+                    WriteAccess::DeleteAttribute
+                } else {
+                    WriteAccess::Attribute
+                };
                 let slots = roots
                     .into_iter()
-                    .flat_map(|target| self.targets(target, scope, names_only))
+                    .flat_map(|target| self.targets(target, scope, names_only, access))
                     .collect();
                 (slots, value)
             };
@@ -151,7 +161,13 @@ impl<'tree> Resolver<'_, 'tree> {
         }
     }
 
-    fn targets(&self, target: Node<'tree>, scope: ScopeId, names_only: bool) -> Vec<Slot> {
+    fn targets(
+        &self,
+        target: Node<'tree>,
+        scope: ScopeId,
+        names_only: bool,
+        access: WriteAccess,
+    ) -> Vec<Slot> {
         match target.kind() {
             "attribute" if !names_only => {
                 let Some(object) = target.child_by_field_name("object") else {
@@ -160,14 +176,14 @@ impl<'tree> Resolver<'_, 'tree> {
                 let key = target
                     .child_by_field_name("attribute")
                     .map(|attr| name(self.parsed.node_text(&attr), self.walk.class(scope)));
-                self.objects(object, scope, true).slots(key)
+                self.objects(object, scope, true).slots(key, access)
             }
             "subscript" => self
                 .subscript_write(target, scope, names_only)
                 .unwrap_or_default(),
             _ => target_parts(target)
                 .into_iter()
-                .flat_map(|item| self.targets(item, scope, names_only))
+                .flat_map(|item| self.targets(item, scope, names_only, access))
                 .collect(),
         }
     }
@@ -193,13 +209,19 @@ impl<'tree> Resolver<'_, 'tree> {
             return None;
         }
         if let Some(object) = self.vars_target(value, target, scope) {
-            return Some(self.objects(object, scope, true).slots(key));
+            return Some(
+                self.objects(object, scope, true)
+                    .slots(key, WriteAccess::Namespace),
+            );
         }
         if value.kind() == "attribute" {
             let attribute = value.child_by_field_name("attribute")?;
             if name(self.parsed.node_text(&attribute), self.walk.class(scope)) == "__dict__" {
                 let object = value.child_by_field_name("object")?;
-                return Some(self.objects(object, scope, true).slots(key));
+                return Some(
+                    self.objects(object, scope, true)
+                        .slots(key, WriteAccess::Namespace),
+                );
             }
         }
         self.implicit_builtins(value, scope).then(|| {

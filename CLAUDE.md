@@ -114,6 +114,8 @@ cargo test --test integration coverage_test::      # Coverage matrix
   Both types have private fields and borrowed read accessors. Named rows make references via `rule_ref()`. `prism::slice::RuleRef` and `prism_review::output::rule_registry` re-export the core API.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.
   Under the Exact ceiling, `cpg/trace_descent.rs` refuses binding doubts such as `call_nameonly` before site lookup or a cached proof. It counts same-spelling sites in the executing caller before requiring the unique site's byte span to contain the occurrence. Until I-spelling, `s2-js-alias-same-line`, `s2-js-alias-multiline-overlap`, `s3-ts-optional-default-competitor` and `s3-js-nested-spread-alias-competitor` now report `BoundaryExited` in the walk and no trace-review finding. An empty occurrence must lie strictly inside the one accepted site (nomination keeps the inclusive base predicate), and a `call_nameonly` binding edge that lands in the function being walked is a self-function boundary instead of local flow.
+
+  The taint walk records a snake_case loss reason on each refused crossing and records local cuts. Set `PRISM_TAINT_CROSSING_TRACE=1` to write accepted crossings, return-value inputs and refusals to stderr. Review and navigation use the parsed files for ledger diagnostics. The empty form `site=- slot=- grades=[]` means “site not established.” Per-root sink verdicts use the reached frontier, the exact boundary target and the legacy same-function closure from that target. Each `BoundaryExited` source result carries the matched hop's `reason` in `per_sink[].sources[]`. Boundary warnings point to the refused hop's target and deduplicate for display. Option B owns the deferred distal verdicts and sink attribution after I-walk.
 - `api/` — `prism::api`: the stable, `#[non_exhaustive]` core facade of the `prism` library (`build_info`, `nav_session`/`callers`/`callees`, `OwnerOptions`, `load_review_inputs`, `build_context`, `ReviewOptions`, the finding-confidence items, `with_build_pool`). The review runner, SARIF and targets items are not in it: they live in `prism_review::api` (see "Review crate" below). See the module doc for the compatibility promise.
   `review_loading.rs` captures the root and listing used by `ReviewContextLoader` for targeted reads.
   `ReviewContextRound` builds a graph from the captured review and the admitted files.
@@ -144,10 +146,12 @@ The review layer is the workspace crate `crates/prism-review` (package `prism-re
   expansion and its completed maps. `context_view.rs` selects them for taint after
   successful admission and union. Other algorithms use the original maps.
 - `targets/` — `prism targets` projects review findings with `project` and `TargetsMeta`. The opt-in
-  `inventory/` producer uses same-file Python ASTs to identify listed HTTP calls. Imported roots,
-  direct construction, sole named construction and matching context-bound construction can prove
-  `exact` under the static-binding contract. An eligible annotated assignment or same-file helper
-  with a construction witness can prove `nameonly`. Owning-field ties and other failed tied identities
+  `inventory/` producer uses same-file Python ASTs to identify listed HTTP, filesystem, parse and
+  config calls. Imported and builtin roots, direct construction, sole named construction and
+  matching context-bound construction can prove `exact` under the static-binding contract.
+  Eligible annotated assignments and same-file helpers can prove `nameonly` with a construction
+  witness. The standard-library families also accept eligible parameter, assignment and helper
+  declarations at `nameonly` under decision K. Owning-field ties and other failed tied identities
   contribute per-file counts by cause. Inventory runs on its own or merges with projected findings.
   Review-only output uses `docs/contracts/targets.schema.json` (1.0). Inventory output uses
   `docs/contracts/targets-1.1.schema.json` (1.1).
@@ -382,15 +386,15 @@ write-back and intrinsic-trusting key domains are deferred. Every fact has
 guard state `none`.
 
 `prism nav dfg-stats --repo <dir>` reports `dfg_label_exact`,
-`dfg_label_loop_carried`, five mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
+`dfg_label_loop_carried`, six mutually exclusive `dfg_label_nameonly_*` doubt counters, and the
 two reaching-definition availability counters. RD-unavailable functions with more than
 1,000,000 prospective raw legacy emissions surviving U/D emit no local edges while retaining defs/uses;
 `dfg_fallback_functions_capped` counts omitted functions and `dfg_fallback_edges_capped`
 counts their surviving raw emissions, duplicates included. Omission also removes the capped owner's
 contribution to shared label keys of same-name/same-start-line owners and derived edges,
 such as the #594 object-literal shortcut into a capped callee. Loop-carried is a subset of Exact, so labeled-edge
-count is Exact plus the five NameOnly counters. `--edges` emits sorted JSONL with the doubt
-vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, and `call_nameonly`;
+count is Exact plus the six NameOnly counters. `--edges` emits sorted JSONL with the doubt
+vocabulary `killed`, `sameline`, `cfg_incomplete`, `alias_unstable`, `call_nameonly`, and `builtin_callback`;
 `kill_line` is present only for `killed`; on an object-literal shortcut edge (below) it is a line of the
 `to` endpoint's function, the callee. The same counters are nested under `call-stats.dfg_labels`.
 
@@ -570,7 +574,7 @@ findings. Its default, `nameonly`, retains all three confidence values, includin
 findings. The filter is supported only by finding-bearing `json`, `review`, `sarif`, and `targets`;
 the CLI rejects it for `text`, `paper`, `mermaid`, and `callers`.
 
-CPG cache (currently v193) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
+CPG cache (currently v194) persists DataFlow labels and per-file RD statistics across cold, full-hit, and
 partial-hit builds. The B8 rule that capture reads in deferred or nested callables become
 `NameOnly(CfgIncomplete)` is **PROVISIONAL** pending callable-timing work.
 
@@ -700,6 +704,34 @@ available. The outgoing source guard also checks each bare literal-leaf edge's r
 Admitted Exact calls can feed the literal-leaf producer below. Unnamed default exports, escaped
 call spellings and parenthesized arrow IIFEs still have unresolved resolver prerequisites.
 
+JS/TS/TSX built-in callbacks (lane 9, slice D) receive `nameonly/builtin_callback` edges in Step 5b from
+a byte-matched receiver Use at attached static table calls. The table feeds the element, reducer
+element, or promise fulfillment formal of callback argument zero. Reducers also feed the first
+accumulator when the caller proves it omitted the initializer. A read entry Def may be bare,
+parenthesized, or a rest identifier covering the role. Slice D admits entry rest Defs without
+slice B's captured-rebinding and eval checks. Inline callables use their own bytes. A named value
+needs a live same-file declaration. Top-level function declarations in classic scripts are refused.
+A directly initialized `const` callback requires declaration and use in the same execution owner
+and statement list. D edges extend the outgoing guard's reverse reach and can remove a new-source
+formal's local edges (`builtin_route_triggers_original_guard_bucket_removal`).
+
+`PRISM_D_BUILTIN_TRACE=1` emits keyed admission and refusal records on stderr. If the receiver is
+not at line start and its only Use is a zero-width line-start anchor, the receiver's bytes lack a
+matching Use. Byte-spanning full-path and callee-projection Uses can bind away from line start.
+Roughly half of the sites that reach the receiver step are refused for a missing receiver Use (47% on Excalidraw, 57% on TypeScript src).
+
+| Built-in callback trace (per call-site record) | Excalidraw (X) | TypeScript/src (T) |
+| --- | ---: | ---: |
+| `bound` | 492 | 373 |
+| `missing_receiver_use` | 512 | 603 |
+| `receiver_syntax` (includes sites before the method-table check) | 361 | 223 |
+| `caller_identity` | 1184 | 1733 |
+| `non_public_static_key` | 52 | 366 |
+| `not_argument_list` | 2 | 437 |
+| Later refusals (formals, import/alias, non-callable) | ~53 | ~83 |
+
+Pre-table filters `detached_callee`, `unlisted_method`, and `not_source_call` are excluded from callback site counts.
+
 An object-literal argument `f({ k: v })` to an Exact-singleton call binds field-selectively
 (`src/cpg/object_literal_args.rs`, #594): each leaf `v` (identifier or member path; nested literals
 flatten to `k.j`) gets `Use(v) -> Use(p.<read>)` edges to the formal's reads that the definition
@@ -710,10 +742,11 @@ suppression applied: a read whose path is written, or has a written prefix or a 
 fed, and a leaf at or below a written path feeds no read). The label is the call's label joined with
 the definition edge's. A spread or computed key refuses every key written before it; for duplicate keys the last
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
-non-data values (calls, arithmetic, arrays), a spread argument before the literal, NameOnly or
-multi-target calls, and destructured or rest formals bind nothing. A mixed formal's reads
-in a declarator initialiser, a condition, a `for-in` head or an `in` test have zero-width base Uses and
-are not fed (known gap).
+non-data values, a preceding argument spread, NameOnly and multi-target calls, and
+identifier-rest formals supply no hop. Zero-width base Uses in mixed formals remain
+unsupported. S2b (#596, cache v194) adds literal edges to proved object-pattern
+Defs, including object rest, and checks the binding of the selected plain-formal
+Use. The `dfg_props` map records pending binding. JSX attribute flow remains pending.
 
 Element-recall diagnostics (lane 10, #847, stage I0+I1; Python only): with `PRISM_ELEMENT_RECALL_TRACE=1` a cold build writes versioned `element-recall` records to stderr (`src/cpg/reaching/element_recall/`: syntax inventory of value-carrying indexed stores W and whole-operand reads R, physical joins against the final file-wide Def/Use buckets, route phases, binding/storage transfer, caps, `owner` and `prediction` records). It is opt-in and diagnostic: with the variable unset or not `1` no analysis runs, and the graph, stats and review output are byte-identical, there is no cache version or payload change and nothing is published (no edge, no counter); P14 stays RED until I2 publishes. Typed measurement reader: `cargo run --release -p prism --example element_recall_graph -- <repo>` (full typed nodes and edges, arm-neutral, for parent/head differentials). Lane-local scripts in `scripts/subscript_recall/`: `compare.py` (`run`/`zero` arm comparator), `loader_inventory.py` (independent inventory), `admission.py` (prepare/report against the frozen draw), `review_diff.py replay` (seeded review parity: parent vs head default vs trace-on over one-line diff seeds, every DataFlow reader plus `originaldiff`; corpus runs go through `measure`). Publication, review masks and cache persistence are I2.
 

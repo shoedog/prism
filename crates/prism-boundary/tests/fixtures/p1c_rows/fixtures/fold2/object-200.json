@@ -1,0 +1,1 @@
+{"swagger":"2.0","paths":{"/loom":{"get":{"responses":{"200":{"description":"response","schema":{"type":"object","properties":{"x":{"type":"string"}}}}}}}}}
