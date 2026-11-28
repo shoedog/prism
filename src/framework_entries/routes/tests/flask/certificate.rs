@@ -370,9 +370,10 @@ mod star {
             V::Proved,
         );
     }
-    // AMBIGUOUS (reported): clause (c) says an external star is not counted, but the contract
-    // also keeps the source-side `star_import` predicate, which today refuses on any star that
-    // does not resolve in-repo (`star_could_supply` answers true when the source is unknown).
+    // The SOURCE-side `star_import` predicate stays as it is (decided 2026-11-27): a star in
+    // the source module that does not resolve in-repo can still bind the name, so the view is
+    // refused. Accepted source-side over-refusal, unchanged behaviour (clause (c) concerns the
+    // module that holds the key only, see `view_capture_external_star_control`).
     #[test]
     fn view_source_external_star_control() {
         let views = format!("{VIEWS}{STAR_EXTERNAL}");
@@ -380,7 +381,7 @@ mod star {
         expect(
             &[("app.py", &app), ("views.py", &views)],
             "app.py",
-            V::Proved,
+            V::Withheld,
         );
     }
     #[test]
@@ -733,11 +734,11 @@ mod module_system {
             V::Withheld,
         );
     }
-    // AMBIGUOUS (reported): the contract counts the child only when the package imports it;
-    // today `submodule_shadow` refuses whenever the child module exists in the repository.
+    // The package-child rule is the source-side `submodule_shadow` predicate exactly as it was
+    // (decided 2026-11-27): it refuses whenever an eligible child file exists, whether or not
+    // the package imports it. Unchanged source-side predicate.
     #[test]
     fn package_child_not_imported_by_the_package_control() {
-        // Contract wording: the child counts only when the package imports it.
         let app = format!("{ALLOC}{CAPTURE}");
         expect(
             &[
@@ -746,12 +747,13 @@ mod module_system {
                 ("pkg/child.py", "def handler(): pass\n"),
             ],
             "app.py",
-            V::Proved,
+            V::Withheld,
         );
     }
-    // formspree shape (S11): `from .K import K` binds the function last, harmless.
-    // Today the proof resolves `create_app` to the child MODULE (Selection::Module), so the
-    // callback is unresolved; the contract's exception wants the function proved.
+    // formspree shape (S11): `from .K import K` binds the function last, harmless. Today the
+    // proof resolves `create_app` to the child MODULE (`Selection::Module`), so the callback is
+    // unresolved: no proof exists today, so none is lost (decided 2026-11-27, behaviour
+    // unchanged).
     #[test]
     fn package_from_child_import_of_the_same_name_control() {
         let app = format!(
@@ -764,7 +766,7 @@ mod module_system {
                 ("pkg/create_app.py", "def create_app(): pass\n"),
             ],
             "app.py",
-            V::Proved,
+            V::Withheld,
         );
     }
 }
