@@ -1,4 +1,5 @@
 //! Nonrecursive receiver selection and the operands contributing to it.
+use super::guards::{self, GuardInput, Selection};
 use super::name_reads::{Analysis, Origin};
 use super::{
     children, field, identifier, inline_iteration, is_inline_callback, is_owner, iteration,
@@ -13,6 +14,8 @@ use std::{
 use tree_sitter::Node;
 
 mod domains;
+mod guard_inputs;
+pub(super) use guard_inputs::{facts, FactBatch};
 mod operands;
 mod proofs;
 mod receivers;
@@ -24,14 +27,6 @@ const RECEIVER_DEPTH_LIMIT: usize = 128;
 
 type Selectors<'a> = BTreeMap<usize, Selection<'a>>;
 type ReceiverKey = (usize, Option<usize>);
-
-#[derive(Clone, Copy)]
-struct Selection<'a> {
-    object: Node<'a>,
-    key: Node<'a>,
-    nested: bool,
-    shared_link: bool,
-}
 
 #[derive(Clone, Default)]
 struct Relation<'a> {
@@ -62,73 +57,6 @@ impl<'a> Relation<'a> {
     }
 }
 
-pub(super) fn facts<'a>(file: &'a ParsedFile, analysis: &Analysis<'a>) -> Vec<ProtoWrite> {
-    let root = file.tree.root_node();
-    let mut work = vec![(root, root)];
-    let mut targets = BTreeMap::new();
-    while let Some((node, previous_owner)) = work.pop() {
-        let owner = if is_owner(node) { node } else { previous_owner };
-        let target = match node.kind() {
-            "assignment_expression" | "augmented_assignment_expression" => field(node, "left"),
-            "update_expression" => field(node, "argument"),
-            "for_in_statement" if field(node, "kind").is_none() => field(node, "left"),
-            _ => None,
-        };
-        if let Some(target) = target {
-            let (_, members) = targets
-                .entry((owner.start_byte(), owner.end_byte()))
-                .or_insert((owner, Vec::new()));
-            collect_targets(target, node, members);
-        }
-        if is_owner(node) {
-            work.extend(super::eager_owner_inputs(node).map(|child| (child, previous_owner)));
-        }
-        work.extend(
-            children(node)
-                .filter(|child| {
-                    !super::parameter_decorator(*child, node)
-                        && !(is_owner(node)
-                            && matches!(child.kind(), "decorator" | "computed_property_name"))
-                        && child.kind() != "implements_clause"
-                })
-                .map(|child| (child, owner)),
-        );
-    }
-    let mut classifier = Classifier {
-        file,
-        analysis,
-        receivers: RefCell::default(),
-        file_work: Cell::new(0),
-        target_work: Cell::new(0),
-        proof_work: Cell::new(0),
-    };
-    let mut result = Vec::new();
-    for (owner, mut members) in targets.into_values() {
-        if analysis.skipped(owner) {
-            continue;
-        }
-        members.sort_by_key(|(target, _)| target.start_byte());
-        result.extend(
-            members
-                .into_iter()
-                .filter_map(|(target, store)| classifier.classify(owner, target, store)),
-        );
-    }
-    result.sort_by_key(|write| (write.line, write.start_byte));
-    result
-}
-
-fn collect_targets<'a>(target: Node<'a>, store: Node<'a>, out: &mut Vec<(Node<'a>, Node<'a>)>) {
-    let target = peel(target);
-    if matches!(target.kind(), "member_expression" | "subscript_expression") {
-        out.push((target, store));
-    } else {
-        for part in pattern_parts(target) {
-            collect_targets(part, store, out);
-        }
-    }
-}
-
 struct Classifier<'a, 'b> {
     file: &'a ParsedFile,
     analysis: &'b Analysis<'a>,
@@ -155,7 +83,7 @@ impl<'a> Classifier<'a, '_> {
         owner: Node<'a>,
         target: Node<'a>,
         store: Node<'a>,
-    ) -> Option<ProtoWrite> {
+    ) -> Option<(ProtoWrite, GuardInput<'a>)> {
         self.target_work.set(0);
         if !self.charge(1) {
             return None;
@@ -165,7 +93,7 @@ impl<'a> Classifier<'a, '_> {
         let mut relation = self.receiver(object, &mut walk, None);
         let key = field(target, "index");
         if let Some(key) = key.filter(|_| self.advances(store, target)) {
-            self.add_key(object, key, false, &mut relation);
+            self.add_key(object, key, target, false, &mut relation);
         }
         if relation.selectors.is_empty() {
             return None;
@@ -211,7 +139,7 @@ impl<'a> Classifier<'a, '_> {
             } else {
                 "<anonymous>"
             });
-        Some(ProtoWrite {
+        let fact = ProtoWrite {
             line: target.start_position().row + 1,
             end_line: target.end_position().row + 1,
             start_byte: target.start_byte(),
@@ -227,7 +155,18 @@ impl<'a> Classifier<'a, '_> {
             },
             key_operands: operands.into_values().collect(),
             guard: GuardState::None,
-        })
+            guard_forms: Vec::new(),
+        };
+        Some((
+            fact,
+            GuardInput {
+                owner,
+                target,
+                store,
+                receiver: object,
+                steps: relation.selectors.into_values().collect(),
+            },
+        ))
     }
 
     fn origin(&self, site: &AstSpan) -> Origin<'a> {
@@ -375,7 +314,12 @@ impl<'a> Classifier<'a, '_> {
                                 if self.from_accumulator(source, accumulator, &mut BTreeSet::new())
                                 {
                                     relation.extend(self.receiver(source, walk, accumulator));
-                                    self.add_key(source, key, false, &mut relation);
+                                    let effect = key
+                                        .parent()
+                                        .and_then(|computed| computed.parent())
+                                        .filter(|pattern| pattern.kind() == "pair_pattern")
+                                        .unwrap_or(key);
+                                    self.add_key(source, key, effect, false, &mut relation);
                                 }
                             }
                             _ => {}
@@ -391,7 +335,7 @@ impl<'a> Classifier<'a, '_> {
                             field(value, "index").filter(|key| self.fixed_key(*key).is_none())
                         {
                             relation = self.receiver(object, walk, accumulator);
-                            self.add_key(object, key, true, &mut relation);
+                            self.add_key(object, key, value, true, &mut relation);
                         } else if self.shared_link(value) {
                             relation = self.receiver(object, walk, accumulator);
                             if self.charge(relation.selectors.len()) {
@@ -451,7 +395,7 @@ impl<'a> Classifier<'a, '_> {
                 if let Some((object, key)) = self.reflect_get(value) {
                     if self.from_accumulator(object, accumulator, &mut BTreeSet::new()) {
                         relation = self.receiver(object, walk, accumulator);
-                        self.add_key(object, key, false, &mut relation);
+                        self.add_key(object, key, value, false, &mut relation);
                     }
                 } else if accumulator.is_none() {
                     relation = self.reduce(value, walk);
@@ -506,7 +450,14 @@ impl<'a> Classifier<'a, '_> {
         })
     }
 
-    fn add_key(&self, object: Node<'a>, key: Node<'a>, nested: bool, relation: &mut Relation<'a>) {
+    fn add_key(
+        &self,
+        object: Node<'a>,
+        key: Node<'a>,
+        effect: Node<'a>,
+        nested: bool,
+        relation: &mut Relation<'a>,
+    ) {
         let key = peel(key);
         if self.fixed_key(key).is_none() {
             relation.selectors.insert(
@@ -514,6 +465,7 @@ impl<'a> Classifier<'a, '_> {
                 Selection {
                     object,
                     key,
+                    effect,
                     nested,
                     shared_link: false,
                 },

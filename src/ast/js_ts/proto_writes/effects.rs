@@ -122,7 +122,13 @@ impl Effects {
             .map(|(_, write)| write)
     }
 
-    pub(super) fn rebound_between(&self, binding: usize, start: usize, end: usize) -> bool {
+    pub(super) fn rebound_between(
+        &self,
+        binding: usize,
+        start: usize,
+        end: usize,
+        pending_stores: &[AstSpan],
+    ) -> bool {
         self.opaque_rebinds.range(start..end).next().is_some()
             || self.known.get(&binding).is_some_and(|sites| {
                 sites
@@ -132,8 +138,8 @@ impl Effects {
                             end_byte: start,
                         }..,
                     )
-                    .next()
-                    .is_some_and(|site| site.start_byte < end)
+                    .take_while(|site| site.start_byte < end)
+                    .any(|site| !pending_stores.contains(site))
             })
     }
 

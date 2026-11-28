@@ -1,8 +1,8 @@
 //! Deterministic listing of per-file prototype-write facts and related value reads.
 use super::NavigationSession;
-use crate::ast::js_ts::proto_writes::{NameRead, ProtoWrite};
+use crate::ast::js_ts::proto_writes::{GuardForm, GuardState, NameRead, ProtoWrite};
 use crate::repo_loader::{load_repo, LoadedRepo};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 const FILE_HISTORY_BUDGET: usize = 500_000;
 use std::path::Path;
@@ -25,6 +25,10 @@ pub struct LineReads {
 pub struct ProtoWriteListing {
     pub facts: Vec<ProtoWriteRow>,
     pub name_reads: Vec<LineReads>,
+    pub guard_counts: BTreeMap<GuardState, usize>,
+    pub discharged_by_form: BTreeMap<GuardForm, usize>,
+    pub discharged_with_multiple_forms: usize,
+    pub guard_refusals: BTreeMap<String, usize>,
 }
 
 pub fn proto_writes(session: &NavigationSession) -> ProtoWriteListing {
@@ -47,11 +51,26 @@ fn list(repo: &LoadedRepo, histories: bool) -> ProtoWriteListing {
     let mut listing = ProtoWriteListing {
         facts: Vec::new(),
         name_reads: Vec::new(),
+        guard_counts: BTreeMap::from([
+            (GuardState::None, 0),
+            (GuardState::Partial, 0),
+            (GuardState::Sufficient, 0),
+        ]),
+        discharged_by_form: BTreeMap::new(),
+        discharged_with_multiple_forms: 0,
+        guard_refusals: BTreeMap::new(),
     };
     for (file, parsed) in &repo.files {
         let mut lines = BTreeSet::new();
         let mut remaining = FILE_HISTORY_BUDGET;
         for write in parsed.js_ts_proto_writes() {
+            *listing.guard_counts.entry(write.guard).or_default() += 1;
+            if write.guard == GuardState::Sufficient {
+                listing.discharged_with_multiple_forms += usize::from(write.guard_forms.len() > 1);
+                for form in &write.guard_forms {
+                    *listing.discharged_by_form.entry(*form).or_default() += 1;
+                }
+            }
             lines.extend(write.line..=write.end_line);
             lines.extend(
                 write
@@ -64,6 +83,12 @@ fn list(repo: &LoadedRepo, histories: bool) -> ProtoWriteListing {
                 file: file.clone(),
                 write,
             });
+        }
+        for (reason, count) in parsed.js_ts_proto_write_guard_refusals() {
+            *listing
+                .guard_refusals
+                .entry(format!("guard_unrecognised:{reason}"))
+                .or_default() += count;
         }
         for line in lines {
             let reads = if histories {

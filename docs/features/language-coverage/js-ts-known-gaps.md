@@ -202,6 +202,7 @@ A note in `CLAUDE.md` saying such code is out of model was considered and reject
   - A module-scope `const` or `var` CommonJS `require` binding (`const m = require('./x')`, `var f = require('./x').f`, `const { f } = require('./x')`, `var { k: f } = require('./x')` with a flat object pattern) called inside an anonymous callable or from module-level code is Exact when the producer's CommonJS export proof holds (#597). A module-level call that runs before the declaration (`var a = m(1), m = require('./x')`) is Exact under the static-binding contract (the binding never holds another callable). Not admitted from anonymous callers: `let` bindings, a name declared more than once in the resolved program scope (a second `var`, a later `function m(){}`, a hoisted `var m` in a nested block, loop or `try`), a binding with a write resolving to it (writes in nested functions included), one shadowed between the site and the program scope (parameter, inner declaration, loop or `catch` head, `switch` case, same-name function or class), a declaration inside a block or function (#436), inline `require('./x').f(…)`, a destructuring pattern with a rest, default or nested pattern, and files with `with`, `eval`, escaped identifiers or parse errors.
   - module-as-function (`const merge = require('./merge'); merge(a, b)` with `module.exports = merge`) and member calls through a required module (`m.f()`, `require('./m').f()`, `const f = require('./m').f`) bind Exact when the export is a declared function proven by the terminal proof (#598) or a named function expression written in place (#627: `module.exports = function g() {}`, `exports.f = function g() {}`, `module.exports.f = function g() {}`, `{ f: function g() {} }`, `g` may differ from `f`; the target is the expression's own span, never a same-spelled declaration; async is admitted, a generator expression is not indexed as a callable and refuses). Still `UnknownName` or `LocalBindingUnproven`: anonymous exports (`module.exports = function () {}`, `exports.f = () => …`, which need anonymous node identity); a function used as the module value with static members (`module.exports = f; f.g = g`: `m.g()`); the inline `require('./m')(…)` call; a producer with an ESM export beside it; `let` or inline `require` called from anonymous callables (#597 admits only a top-level `const`/`var`); `require` inside functions (#436); a bare package or `paths` specifier; a member site `m.f()` whose consumer file writes `m.f`, `m[..]`, or hands `m` to an `Object`/`Reflect` mutator (a consumer-side stub, refused file-wide by spelling); an inline `require` inside a `with` body. A proven site replaces earlier NameOnly or indirect records at that site (slice L's rule).
 - **Runtime mutation is out of model** for every route: monkey-patching, reflective writes, `eval`, host globals, re-acquisition through `require`/`import()`. See `CLAUDE.md`.
+- Property-write guards count a refusal when the analyzed file rebinds, assigns, deletes or shadows a native intrinsic or a global-object alias of it, and assume the intrinsic is intact across replacement through input data, another script or an accessor.
 
 ## 3. Consumers that still look calls up by spelling
 
@@ -298,8 +299,27 @@ target and selector spans come from the syntax tree. For the matrix case
 `keys.slice(0, -1).reduce((o, k) => (o[]`. It carries no selector identity. The
 listing identifies the outer member at bytes `[31, 114)` and the distinct
 callback store at `[67, 71)`. Captured-cursor transfer uses synchronous
-callback literals in supported iteration calls. Guard recognition, recursive
-descent and review-taint matching are later slices.
+callback literals in supported iteration calls. Guard classification shipped
+in slice S1b (`none`/`partial`/`sufficient`, a closed list of 12 forms; see
+CLAUDE.md). Recursive descent and review-taint matching are later slices.
+Known limits of guard states:
+
+- `header_scratch` and `deny_names` credit a two-level write as `sufficient`
+  under DESIGN's single-selection argument even when a reserved-adjacent name
+  such as `toString`, `valueOf` or `constructor` selects a shared builtin
+  (`out[name] || {}` with `constructor` installs `Object`, so the next level
+  writes `Object.keys`). No prototype object itself is written. Owner to
+  confirm that `sufficient` means "no write to a prototype object".
+- `shared_receiver` recognises only the obvious `Object`/`Function`/
+  `Array.prototype` spellings (and `globalThis.` forms). `x.constructor.prototype`,
+  `Object.getPrototypeOf(x)` and `x.__proto__` receivers are not recognised.
+- Helper deny functions (`denial_helper`) credit any strict string comparison
+  of the parameter, regardless of polarity or literal; they reach `partial` only.
+- The native-write inventory (`reflection()`) treats `Object.assign`,
+  `defineProperty`, `defineProperties`, `setPrototypeOf`, `Reflect.set` and
+  `Reflect.deleteProperty` as writes; other mutation routes are outside it.
+- `continue` as a guard exit is credited only inside the effect's own loop
+  body; pending cursor or key proofs are not attempted.
 
 Receiver exclusions require local source evidence. A completed own-slot
 installation can discharge the lookup in the next standalone assignment

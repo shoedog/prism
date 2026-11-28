@@ -1,10 +1,12 @@
 //! Cached occurrence inventory and public projections.
+use super::super::classes::FactBatch;
 use super::*;
 
 #[derive(Clone, Debug, Default)]
 pub(in crate::ast) struct Index {
     lines: BTreeMap<usize, Vec<NameRead>>,
     pub(in super::super) facts: Vec<ProtoWrite>,
+    pub(in super::super) guard_refusals: BTreeMap<&'static str, usize>,
     refused_reads: BTreeSet<AstSpan>,
     refused_writes: BTreeMap<usize, BTreeSet<AstSpan>>,
     member_writes: BTreeMap<usize, std::sync::Arc<BTreeSet<AstSpan>>>,
@@ -125,7 +127,11 @@ impl Index {
 }
 
 impl Analysis<'_> {
-    pub(in super::super) fn index(&self, facts: Vec<ProtoWrite>) -> Index {
+    pub(in super::super) fn index(&self, batch: FactBatch) -> Index {
+        let FactBatch {
+            facts,
+            guard_refusals,
+        } = batch;
         let mut lines = BTreeMap::<usize, Vec<NameRead>>::new();
         let mut refused_reads = BTreeSet::new();
         let mut history = BTreeMap::new();
@@ -192,6 +198,7 @@ impl Analysis<'_> {
         Index {
             lines,
             facts,
+            guard_refusals,
             refused_reads,
             refused_writes,
             history,

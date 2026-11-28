@@ -24,6 +24,26 @@ pub(crate) mod props_keys;
 mod props_types;
 pub mod proto_writes;
 #[cfg(test)]
+mod proto_writes_guard_assertion_member_tests;
+#[cfg(test)]
+mod proto_writes_guard_coverage_tests;
+#[cfg(test)]
+mod proto_writes_guard_function_tests;
+#[cfg(test)]
+mod proto_writes_guard_name_tests;
+#[cfg(test)]
+mod proto_writes_guard_own_tests;
+#[cfg(test)]
+mod proto_writes_guard_receiver_tests;
+#[cfg(test)]
+mod proto_writes_guard_sequence_tests;
+#[cfg(test)]
+mod proto_writes_guard_shadow_tests;
+#[cfg(test)]
+mod proto_writes_guard_tests;
+#[cfg(test)]
+mod proto_writes_switch_tests;
+#[cfg(test)]
 mod proto_writes_tests;
 mod receiver_evidence;
 mod receiver_writes;

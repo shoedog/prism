@@ -255,8 +255,22 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                 let listing = prism::navigation::proto_writes::repo_proto_writes_text(repo)?;
                 for row in &listing.facts {
                     let write = &row.write;
+                    let mut forms = Vec::new();
+                    for form in &write.guard_forms {
+                        forms.push(serde_json::to_value(form)?);
+                    }
+                    let forms = forms
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    let forms = if forms.is_empty() {
+                        forms
+                    } else {
+                        format!(" forms={forms}")
+                    };
                     println!(
-                        "{}:{} [{}..{}] {} {} guard={}",
+                        "{}:{} [{}..{}] {} {} guard={}{}",
                         row.file,
                         write.line,
                         write.start_byte,
@@ -267,7 +281,8 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                             .expect("serialized class"),
                         serde_json::to_value(write.guard)?
                             .as_str()
-                            .expect("serialized guard")
+                            .expect("serialized guard"),
+                        forms
                     );
                     for operand in &write.key_operands {
                         println!(
@@ -296,6 +311,25 @@ pub(super) fn run_nav(nav: &NavArgs) -> anyhow::Result<()> {
                             );
                         }
                     }
+                }
+                print!("guard_counts");
+                for (state, count) in &listing.guard_counts {
+                    let state = serde_json::to_value(state)?;
+                    print!(" {}={count}", state.as_str().expect("serialized guard"));
+                }
+                println!();
+                print!("discharged_by_form");
+                for (form, count) in &listing.discharged_by_form {
+                    let form = serde_json::to_value(form)?;
+                    print!(" {}={count}", form.as_str().expect("serialized guard form"));
+                }
+                println!();
+                println!(
+                    "discharged_with_multiple_forms={}",
+                    listing.discharged_with_multiple_forms
+                );
+                for (reason, count) in &listing.guard_refusals {
+                    println!("{reason}={count}");
                 }
             }
             Ok(())

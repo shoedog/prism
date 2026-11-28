@@ -378,6 +378,15 @@ impl<'a> Analysis<'a> {
     }
 
     pub(super) fn correlated_identifiers(&self, a: &NameRead, b: &NameRead) -> bool {
+        self.correlated_before_stores(a, b, &[])
+    }
+
+    pub(super) fn correlated_before_stores(
+        &self,
+        a: &NameRead,
+        b: &NameRead,
+        pending_stores: &[AstSpan],
+    ) -> bool {
         // A widened loop header can have several prior values. Two identifiers
         // inside one assignment still name the same current slot if there is
         // no intervening rebind and no deferred or mapped write.
@@ -400,6 +409,7 @@ impl<'a> Analysis<'a> {
                         binding.start_byte,
                         a.span.end_byte,
                         b.span.start_byte,
+                        pending_stores,
                     )
                     && self
                         .sites

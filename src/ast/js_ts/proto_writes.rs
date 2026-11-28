@@ -5,6 +5,7 @@ use tree_sitter::Node;
 
 mod classes;
 mod effects;
+mod guards;
 mod name_reads;
 mod scope;
 use scope::Lexical;
@@ -25,6 +26,23 @@ pub enum GuardState {
     None,
     Partial,
     Sufficient,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GuardForm {
+    DenyNames,
+    AllowSet,
+    AllowExactPath,
+    AllowLiteralAfterLookup,
+    AllowAssertion,
+    NormaliseAllowList,
+    OwnClosedSlots,
+    OwnStableDiagonal,
+    OwnClosedClone,
+    HeaderScratch,
+    ReceiverIdentitySet,
+    ReceiverPrivateBrand,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
@@ -82,6 +100,8 @@ pub struct ProtoWrite {
     pub class: ProtoWriteClass,
     pub key_operands: Vec<KeyOperand>,
     pub guard: GuardState,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub guard_forms: Vec<GuardForm>,
 }
 
 impl ParsedFile {
@@ -103,6 +123,12 @@ impl ParsedFile {
     pub fn js_ts_name_read_counts(&self) -> (usize, BTreeMap<&'static str, usize>) {
         self.js_proto_write_index()
             .map(NameReadIndex::counts)
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn js_ts_proto_write_guard_refusals(&self) -> BTreeMap<&'static str, usize> {
+        self.js_proto_write_index()
+            .map(|index| index.guard_refusals.clone())
             .unwrap_or_default()
     }
 
