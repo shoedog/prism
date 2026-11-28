@@ -1,0 +1,537 @@
+{
+  "D01": {
+    "variants": [
+      {"name": "version-producer", "expect": {"valid": true}, "patches": [], "fixture": "producer.json", "schema_version": "0.1"},
+      {"name": "version-consumer", "expect": {"valid": true}, "patches": [], "fixture": "consumer.json", "schema_version": "0.1"},
+      {"name": "version-mixed", "expect": {"valid": true}, "patches": [], "fixture": "mixed.json", "schema_version": "0.1"},
+      {"name": "version-client-only", "expect": {"valid": true}, "patches": [], "fixture": "client-only.json", "schema_version": "0.1"}
+    ]
+  },
+  "D02": {
+    "variants": [
+      {"name": "dialect-producer", "expect": {"valid": true}, "patches": [], "fixture": "producer.json"},
+      {"name": "dialect-mixed", "expect": {"valid": true}, "patches": [], "fixture": "mixed.json"}
+    ]
+  },
+  "D03": {
+    "variants": [
+      {"name": "missing-producer", "expect": {"valid": false}, "patches": [{"path": "/schema_version"}], "fixture": "producer.json"},
+      {
+        "name": "older-producer",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/schema_version", "value": "0.0"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "newer-producer",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/schema_version", "value": "0.2"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "numeric-producer",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/schema_version", "value": 0.1}
+        ],
+        "fixture": "producer.json"
+      },
+      {"name": "missing-mixed", "expect": {"valid": false}, "patches": [{"path": "/schema_version"}], "fixture": "mixed.json"},
+      {
+        "name": "older-mixed",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/schema_version", "value": "0.0"}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "newer-mixed",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/schema_version", "value": "0.2"}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "numeric-mixed",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/schema_version", "value": 0.1}
+        ],
+        "fixture": "mixed.json"
+      }
+    ]
+  },
+  "D04": {
+    "variants": [
+      {
+        "name": "extra-root-producer",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/extra", "value": 1}
+        ],
+        "fixture": "producer.json"
+      },
+      {"name": "extra-root-mixed", "expect": {"valid": false}, "patches": [{"path": "/extra", "value": 1}], "fixture": "mixed.json"}
+    ]
+  },
+  "D05": {
+    "variants": [
+      {
+        "name": "/schema/source",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/schema/source/extra", "value": 1}
+        ],
+        "fixture": "producer.json",
+        "control_patches": []
+      },
+      {
+        "name": "/origin",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/origin/extra", "value": 1}
+        ],
+        "fixture": "producer.json",
+        "control_patches": []
+      },
+      {
+        "name": "/config_sources/0",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/config_sources/0/extra", "value": 1}
+        ],
+        "fixture": "producer.json",
+        "control_patches": [
+          {
+            "path": "/config_sources",
+            "value": [
+              {
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "entry": 1,
+                "era": "v1",
+                "defaults": "driver-defaults",
+                "export": "pilotClient",
+                "mount": "/api",
+                "strip": "",
+                "add": "",
+                "api": "pilot-api",
+                "dependencies": ["mapping"],
+                "hook": "usePilot",
+                "delegate": "pilotClient"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "/calls/0/site",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/calls/0/site/extra", "value": 1}
+        ],
+        "fixture": "consumer.json",
+        "control_patches": []
+      },
+      {
+        "name": "/operations/0",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/operations/0/extra", "value": 1}
+        ],
+        "fixture": "producer.json",
+        "control_patches": []
+      },
+      {
+        "name": "/comparisons/0",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/comparisons/0/extra", "value": 1}
+        ],
+        "fixture": "mixed.json",
+        "control_patches": []
+      },
+      {
+        "name": "/comparisons/0/matches/call-before",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/comparisons/0/matches/call-before/extra", "value": 1}
+        ],
+        "fixture": "mixed.json",
+        "control_patches": []
+      },
+      {
+        "name": "/change/elements/0",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/change/elements/0/extra", "value": 1}
+        ],
+        "fixture": "mixed.json",
+        "control_patches": []
+      },
+      {
+        "name": "/summary/operation_count",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/summary/operation_count/extra", "value": 1}
+        ],
+        "fixture": "mixed.json",
+        "control_patches": []
+      },
+      {
+        "name": "/coverage/0",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/coverage/0/extra", "value": 1}
+        ],
+        "fixture": "mixed.json",
+        "control_patches": [
+          {
+            "path": "/coverage",
+            "value": [
+              {
+                "limit_id": "keyless",
+                "comparison_id": "actual_before",
+                "input_id": "service-before",
+                "side": "before",
+                "authority": "schema",
+                "scope": {
+                  "kind": "operation",
+                  "operation_id": null,
+                  "path_scope": {"kind": "path_prefix", "segments": [[{"kind": "literal", "value": "other"}]]}
+                },
+                "pointer": [],
+                "claim": "operation_presence",
+                "reason": "operation_unreadable",
+                "source": "input_inventory",
+                "evidence": ["schema-blob"],
+                "affected_claims": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "/binding_status/0",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/binding_status/0/extra", "value": 1}
+        ],
+        "fixture": "mixed.json",
+        "control_patches": [
+          {
+            "path": "/binding_status",
+            "value": [
+              {
+                "scan_id": "scan-1",
+                "element_id": "op:GET /kiln",
+                "selected_input_id": "service-before",
+                "side": "before",
+                "saved_location": null,
+                "status": "no_saved_match",
+                "reason": null,
+                "selected_presence": "present"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "D06": {
+    "variants": [
+      {"name": "opaque", "expect": {"valid": true}, "patches": [], "fixture": "mixed.json", "opaque_match": true},
+      {
+        "name": "empty-key",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {
+            "path": "/comparisons/0/matches/",
+            "value": {
+              "service_input_id": "service-before",
+              "client_input_id": "client-before",
+              "status": "checked",
+              "grade": "bound",
+              "reason": null,
+              "mapping": null,
+              "target_ids": ["op:GET /kiln"],
+              "alternates": [],
+              "overlaps": [],
+              "prefix_hints": []
+            }
+          }
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "unknown-value-key",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/comparisons/0/matches/call-before/extra", "value": true}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "scalar-value",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/comparisons/0/matches/call-before", "value": 1}
+        ],
+        "fixture": "mixed.json"
+      }
+    ]
+  },
+  "D07": {
+    "variants": [
+      {
+        "name": "rev",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []},
+          {"path": "/rev"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "subject",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []},
+          {"path": "/subject"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "committed_at",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []},
+          {"path": "/committed_at"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "null-computed",
+        "expect": {
+          "valid": true
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "absent-id",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {
+            "path": "/change/elements",
+            "value": [
+              {
+                "row_id": "unknown-side",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": null,
+                "after_element_id": "field:resp:GET /kiln:200#/stamp",
+                "change_kinds": [],
+                "before_presence": "unknown",
+                "after_presence": "present",
+                "before_shape": null,
+                "after_shape": [["known", "string"], ["missing"], ["known", false], ["missing"], ["missing"]],
+                "coverage_limits": []
+              }
+            ]
+          },
+          {"path": "/change/elements/0/before_element_id"}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "unknown-shape",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {
+            "path": "/change/elements",
+            "value": [
+              {
+                "row_id": "unknown-side",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": null,
+                "after_element_id": "field:resp:GET /kiln:200#/stamp",
+                "change_kinds": [],
+                "before_presence": "unknown",
+                "after_presence": "present",
+                "before_shape": null,
+                "after_shape": [["known", "string"], ["missing"], ["known", false], ["missing"], ["missing"]],
+                "coverage_limits": []
+              }
+            ]
+          },
+          {"path": "/change/elements/0/before_shape"}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "null-total",
+        "expect": {
+          "valid": true
+        },
+        "patches": [
+          {
+            "path": "/summary/operation_count",
+            "value": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": "missing_counterpart"}
+          }
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "omitted-total",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {
+            "path": "/summary/operation_count",
+            "value": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": "missing_counterpart"}
+          },
+          {"path": "/summary/operation_count/total"}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "null-total-unexplained",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {
+            "path": "/summary/operation_count",
+            "value": {"version": "joint", "scope": {"kind": "api"}, "observed": 1, "total": null, "reason": null}
+          }
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "zero-filled-total-with-reason",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {
+            "path": "/summary/operation_count",
+            "value": {"version": "joint", "scope": {"kind": "api"}, "observed": 0, "total": 0, "reason": "missing_counterpart"}
+          }
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "present-null-id",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/change/elements/0/before_element_id", "value": null}
+        ],
+        "fixture": "mixed.json"
+      }
+    ]
+  }
+}

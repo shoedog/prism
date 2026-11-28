@@ -267,6 +267,116 @@ def check_p1c_rows():
     print(f"p1c_rows: {len(fold3)} fold3 rows — OK")
 
 
+def check_p1d_rows():
+    root = ROOT / "p1d_rows"
+    expectations = {}
+    for name in ("expected-admission.json", "expectations.json"):
+        records = json.loads((root / name).read_text(encoding="utf-8"))
+        if expectations.keys() & records.keys():
+            raise ValueError(f"{name}: duplicate P1d row IDs")
+        expectations.update(records)
+    rows = {row["id"]: (label, row) for label, row in read_rows(root, HEADERS["ids_matrix"])}
+    known_rows = {
+        row_id: (label, row) for row_id, (label, row) in rows.items()
+        if row["class"] == "known_limit"
+    }
+    check_p1d_known_limits(root, known_rows)
+    rows = {row_id: value for row_id, value in rows.items() if row_id not in known_rows}
+    pinned_controls = {
+        row["id"] for _, row in read_rows(ROOT / "ids_matrix", HEADERS["ids_matrix"])
+        if row["id"].startswith("control-document-")
+    }
+    minimum_ranges = {
+        "A": "01-16 18-19 23 27-28 31-36 38 41",
+        "B": "01-02 04-08 10 12-13 17 19-20 22-24 27-29 32-33 35-39 41-42 46",
+        "C": "01 03 05-18 21-22 24",
+        "D": "01-14 16-18",
+    }
+    minimum = {
+        f"{group}{number:02d}" for group, ranges in minimum_ranges.items()
+        for token in ranges.split() for bounds in [token.split("-")]
+        for number in range(int(bounds[0]), int(bounds[-1]) + 1)
+    }
+    expected = minimum | pinned_controls
+    if rows.keys() != expected or expectations.keys() != expected:
+        raise ValueError(f"p1d_rows: missing {sorted(expected - rows.keys())}, "
+                         f"unexpected {sorted(rows.keys() - expected)}, "
+                         f"JSON difference {sorted(rows.keys() ^ expectations.keys())}")
+    consumer_rows = {
+        row["id"] for _, row in read_rows(ROOT / "consumer_matrix", HEADERS["consumer_matrix"])
+    }
+
+    def check_fixture(name, label):
+        if name == "formatted":
+            return
+        fixture_root = root / "fixtures"
+        if name.startswith("p1c:"):
+            fixture_root = ROOT / "p1c_rows" / "fixtures"
+            name = name.removeprefix("p1c:")
+        check_file(fixture_root, name, label)
+
+    for row_id, (label, row) in rows.items():
+        entry = expectations[row_id]
+        if not entry["clause"].startswith(("DESIGN §", "Design answer")):
+            raise ValueError(f"{label}: missing design clause")
+        primary = entry["inputs"][0]["fixture"]
+        if check_file(root, row["fixture"], label) != check_file(root / "fixtures", primary, label):
+            raise ValueError(f"{label}: inconsistent primary fixture")
+        if row["class"] != ("control" if row_id in pinned_controls else "minimum"):
+            raise ValueError(f"{label}: inconsistent row class")
+        if row["truth"] != "rule" or any(
+            row[column] != ";".join(sorted(set(entry.get(key, []))))
+            for column, key in [("expected_ids", "expected_ids"), ("expected_warnings", "expected_reasons")]
+        ):
+            raise ValueError(f"{label}: TSV and JSON expectations disagree")
+        if any(control not in rows or control == row_id for control in entry.get("controls", [])):
+            raise ValueError(f"{label}: invalid row control")
+        if not set(entry.get("matrix_controls", ())) <= consumer_rows:
+            raise ValueError(f"{label}: unknown consumer control")
+        if row_id in pinned_controls and entry["pinned"] != row_id.removeprefix("control-document-"):
+            raise ValueError(f"{label}: missing pinned projection reference")
+        cases = check_file(root / "fixtures", entry["variants_fixture"], label)
+        variants = json.loads(cases.read_text(encoding="utf-8"))[row_id]["variants"]
+        if not variants:
+            raise ValueError(f"{label}: no executable cases")
+        if len({variant.get("name", "default") for variant in variants}) != len(variants):
+            raise ValueError(f"{label}: duplicate variant name")
+        for variant in variants:
+            files = [variant[key] for key in ("fixture", "inventory", "selected") if key in variant]
+            files.extend(variant.get("files", {}).values())
+            files.extend(variant.get("diff", []))
+            for name in files:
+                check_fixture(name, label)
+    print(f"p1d_rows: {len(pinned_controls)} controls and {len(minimum)} minimum assertions — OK")
+
+
+def check_p1d_known_limits(root, rows):
+    fixtures = root / "fixtures"
+    cases = json.loads((fixtures / "known-limits.json").read_text(encoding="utf-8"))
+    expected = {f"known-limit-{number:02d}" for number in (2, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15)}
+    if rows.keys() != expected or cases.keys() != expected:
+        raise ValueError(f"p1d_rows: known-limit row IDs differ {sorted(rows.keys() ^ expected)}, "
+                         f"JSON IDs differ {sorted(cases.keys() ^ expected)}")
+    findings = set()
+    for row_id, (label, row) in rows.items():
+        case = cases[row_id]
+        control = case["control"]
+        if not (row_id.startswith("known-limit-") and row["truth"] == "limit"
+                and row["fixture"] == f"fixtures/{case['fixture']}"
+                and not row["expected_ids"] and not row["expected_warnings"]):
+            raise ValueError(f"{label}: invalid known-limit row")
+        if not all(case.get(key) for key in ("input", "observed", "outside_accept_list", "finding")):
+            raise ValueError(f"{label}: known limit needs input, observed output and scope")
+        if case["finding"] in findings or not control["input"] or not control["observed"]:
+            raise ValueError(f"{label}: duplicate finding or missing supported control")
+        findings.add(case["finding"])
+        for entry in (case, control, case["input"]):
+            for key, value in entry.items():
+                if key == "fixture" or key.endswith("_fixture"):
+                    check_file(fixtures, value, label)
+    print(f"p1d_rows: {len(rows)} paired known limits — OK")
+
+
 def main():
     try:
         ledger = json.loads((ROOT / "ledger.json").read_text(encoding="utf-8"))
@@ -274,6 +384,7 @@ def main():
             check_matrix(name, ledger["matrices"][name])
         check_p1b_rows()
         check_p1c_rows()
+        check_p1d_rows()
     except (OSError, ValueError, KeyError, csv.Error) as exc:
         raise SystemExit(str(exc))
 

@@ -1,0 +1,72 @@
+{
+  "schema_version": "0.1",
+  "input_id": "client-before",
+  "api": "pilot-api",
+  "repo": "pilot-consumer",
+  "role": "consumer",
+  "snapshot_kind": "commit",
+  "rev": "client-before-rev",
+  "tree": "client-before-tree",
+  "subject": null,
+  "committed_at": null,
+  "dirty": null,
+  "tool": {
+    "name": "prism-boundary",
+    "build": "fixture-build"
+  },
+  "operation_authority": "calls",
+  "scope": {
+    "kind": "api"
+  },
+  "origin": {
+    "kind": "named_tree",
+    "input_id": "client-before",
+    "repo": "pilot-consumer",
+    "tree": "client-before-tree",
+    "path": "sender.js",
+    "blob": "client-blob",
+    "availability": "available"
+  },
+  "dependencies": [],
+  "config_sources": [],
+  "schema": null,
+  "expected_files": [
+    "sender.js"
+  ],
+  "file_status": [
+    {
+      "path": "sender.js",
+      "scope": {
+        "kind": "api"
+      },
+      "status": "complete",
+      "reason": null,
+      "possible_keys": []
+    }
+  ],
+  "entries": [],
+  "unaccounted_scopes": [],
+  "dependency_records": [],
+  "calls": [
+    {
+      "site_id": "call-before",
+      "site": {
+        "tree": "client-before-tree",
+        "file": "sender.js",
+        "blob": "client-blob",
+        "line": 1,
+        "span": [
+          0,
+          8
+        ]
+      },
+      "enclosing_function": null,
+      "function_span": null,
+      "requested_method": "GET",
+      "original_url_text": "urlFromState()",
+      "mapped_path": null,
+      "mapping_source": null,
+      "target_reason": "dynamic_url"
+    }
+  ]
+}

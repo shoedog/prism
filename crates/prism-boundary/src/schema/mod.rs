@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 pub(super) use messages::project;
+pub(crate) use messages::valid_media_proof;
 pub(super) use openapi::read_operations;
 use servers::Deployment;
 pub use signature::signature;
@@ -87,6 +88,14 @@ impl SchemaError {
             "schema_format"
         }
     }
+}
+
+pub(crate) fn parse_json(bytes: &[u8]) -> serde_json::Result<references::Parsed> {
+    references::parse_json(bytes)
+}
+
+pub(crate) fn supported_retrieval_uri(uri: &str) -> bool {
+    servers::Uri::absolute(uri).is_some()
 }
 
 impl fmt::Display for SchemaError {

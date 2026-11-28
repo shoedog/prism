@@ -1,0 +1,447 @@
+{
+  "D08": {
+    "variants": [
+      {"name": "commit-nulls", "expect": {"valid": true}, "patches": [], "fixture": "producer.json"},
+      {"name": "/dirty", "expect": {"valid": false}, "patches": [{"path": "/dirty"}], "fixture": "producer.json"},
+      {"name": "/subject", "expect": {"valid": false}, "patches": [{"path": "/subject"}], "fixture": "producer.json"},
+      {"name": "/committed_at", "expect": {"valid": false}, "patches": [{"path": "/committed_at"}], "fixture": "producer.json"},
+      {"name": "/scope", "expect": {"valid": false}, "patches": [{"path": "/scope"}], "fixture": "producer.json"},
+      {"name": "/schema/source", "expect": {"valid": false}, "patches": [{"path": "/schema/source"}], "fixture": "producer.json"},
+      {
+        "name": "/schema/info_version",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/schema/info_version"}
+        ],
+        "fixture": "producer.json"
+      },
+      {"name": "/tool", "expect": {"valid": false}, "patches": [{"path": "/tool"}], "fixture": "producer.json"},
+      {"name": "missing-reference", "expect": {"valid": false}, "patches": [{"path": "/reference"}], "fixture": "mixed.json"}
+    ]
+  },
+  "D09": {
+    "variants": [
+      {"name": "unknown-values", "expect": {"valid": true}, "patches": [], "fixture": "consumer.json"},
+      {"name": "mapped_path", "expect": {"valid": false}, "patches": [{"path": "/calls/0/mapped_path"}], "fixture": "consumer.json"},
+      {
+        "name": "enclosing_function",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/calls/0/enclosing_function"}
+        ],
+        "fixture": "consumer.json"
+      },
+      {
+        "name": "function_span",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/calls/0/function_span"}
+        ],
+        "fixture": "consumer.json"
+      },
+      {
+        "name": "unknown-target-without-reason",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/calls/0/target_reason"}
+        ],
+        "fixture": "consumer.json"
+      }
+    ]
+  },
+  "D10": {
+    "variants": [
+      {
+        "name": "commit-with-computation",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "computed-borrowed-rev",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/snapshot_kind", "value": "computed_tree"},
+          {"path": "/rev", "value": null},
+          {"path": "/subject", "value": null},
+          {"path": "/committed_at", "value": null},
+          {"path": "/tree", "value": "computed-kiln"},
+          {"path": "/computed_at", "value": "2026-11-26T12:00:00Z"},
+          {"path": "/merge_receipt", "value": "merge-result"},
+          {"path": "/origin/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/tree", "value": "computed-kiln"},
+          {"path": "/schema/source/rev", "value": null},
+          {"path": "/config_sources", "value": []},
+          {"path": "/rev", "value": "proposal-rev"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "role-mismatch",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/role", "value": "consumer"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "consumer-ops",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/operations", "value": []}
+        ],
+        "fixture": "consumer.json"
+      }
+    ]
+  },
+  "D11": {
+    "variants": [
+      {
+        "name": "unknown-presence",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/change/elements/0/before_presence", "value": "maybe"}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "unknown-grade",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/comparisons/0/matches/call-before/grade", "value": "likely"}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "unknown-comparison-state",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/comparisons/0/matches/call-before/status", "value": "maybe"}
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "unchecked-reason",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {
+            "path": "/comparisons/0/matches/call-before",
+            "value": {
+              "service_input_id": "service-before",
+              "client_input_id": "client-before",
+              "status": "unchecked",
+              "grade": null,
+              "reason": null,
+              "mapping": null,
+              "target_ids": [],
+              "alternates": [],
+              "overlaps": [],
+              "prefix_hints": []
+            }
+          }
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "unknown-extraction-state",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/file_status/0/status", "value": "maybe"}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "unknown-saved-state",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {
+            "path": "/binding_status",
+            "value": [
+              {
+                "scan_id": "scan-1",
+                "element_id": "op:GET /kiln",
+                "selected_input_id": "service-before",
+                "side": "before",
+                "saved_location": null,
+                "status": "maybe",
+                "reason": null,
+                "selected_presence": "present"
+              }
+            ]
+          }
+        ],
+        "fixture": "mixed.json"
+      }
+    ]
+  },
+  "D12": {
+    "variants": [
+      {
+        "name": "typed-enum",
+        "expect": {
+          "valid": true
+        },
+        "patches": [
+          {
+            "path": "/change/elements",
+            "value": [
+              {
+                "row_id": "typed",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": "field:resp:GET /kiln:200#/stamp",
+                "after_element_id": "field:resp:GET /kiln:200#/stamp",
+                "change_kinds": ["enum_values_added"],
+                "before_presence": "present",
+                "after_presence": "present",
+                "before_shape": [["known", ["integer", "null", "string"]], ["missing"], ["known", false], ["known", [null, "1"]], ["missing"]],
+                "after_shape": [["known", ["integer", "null", "string"]], ["missing"], ["known", false], ["known", [null, 1, "1"]], ["missing"]],
+                "coverage_limits": []
+              }
+            ]
+          }
+        ],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "numeric-span",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/calls/0/site/span", "value": ["0", "8"]}
+        ],
+        "fixture": "consumer.json"
+      },
+      {
+        "name": "invalid-status",
+        "expect": {
+          "valid": false
+        },
+        "patches": [
+          {"path": "/operations/0/success_statuses", "value": ["2xx"]}
+        ],
+        "fixture": "producer.json"
+      },
+      {
+        "name": "status-keys",
+        "expect": {
+          "valid": true
+        },
+        "patches": [
+          {"path": "/operations/0/success_statuses", "value": ["200", "2XX"]}
+        ],
+        "fixture": "producer.json"
+      }
+    ]
+  },
+  "D13": {
+    "variants": [
+      {"name": "bindings-control", "expect": {"valid": true}, "patches": [], "fixture": "producer.json", "document": "bindings"},
+      {"name": "impact-control", "expect": {"valid": true}, "patches": [], "fixture": "mixed.json", "document": "impact"},
+      {
+        "name": "root",
+        "expect": {
+          "document": "bindings",
+          "error": "DuplicateJsonMember"
+        },
+        "patches": [],
+        "fixture": "producer.json",
+        "duplicate": "/schema_version"
+      },
+      {
+        "name": "nested",
+        "expect": {
+          "document": "bindings",
+          "error": "DuplicateJsonMember"
+        },
+        "patches": [],
+        "fixture": "producer.json",
+        "duplicate": "/origin/tree"
+      },
+      {
+        "name": "occurrence",
+        "expect": {
+          "document": "impact",
+          "error": "DuplicateJsonMember"
+        },
+        "patches": [],
+        "fixture": "mixed.json",
+        "duplicate": "/comparisons/0/matches/call-before"
+      }
+    ]
+  },
+  "D14": {
+    "variants": [
+      {"name": "valid", "expect": {"/claims/actual_before/status": "admitted"}, "patches": []},
+      {
+        "name": "dangling-dependency",
+        "expect": {
+          "/claims/actual_before/status": "unchecked",
+          "/claims/actual_before/reasons/0/code": "missing_dependency",
+          "/claims/actual_after/status": "admitted"
+        },
+        "patches": [
+          {"path": "/inputs/0/dependencies", "value": ["lost-schema"]}
+        ]
+      },
+      {
+        "name": "false-cutoff",
+        "expect": {
+          "/claims/report-cutoff/status": "unchecked",
+          "/claims/report-cutoff/reasons/0/code": "missing_cutoff"
+        },
+        "patches": [
+          {"path": "/cutoff_at", "value": "2026-11-27T14:00:00Z"}
+        ]
+      },
+      {
+        "name": "duplicate-input",
+        "expect": {
+          "/claims/actual_before/status": "unchecked",
+          "/claims/actual_before/reasons/0/code": "receipt_conflict"
+        },
+        "patches": [
+          {
+            "path": "/inputs/-",
+            "value": {
+              "input_id": "service-before",
+              "api": "pilot-api",
+              "repo": "pilot-producer",
+              "role": "producer",
+              "snapshot_kind": "commit",
+              "rev": "service-before-rev",
+              "tree": "different-tree",
+              "subject": null,
+              "committed_at": null,
+              "dirty": null,
+              "tool": {"name": "prism-boundary", "build": "fixture-build"},
+              "operation_authority": "schema",
+              "scope": {"kind": "api"},
+              "origin": {
+                "kind": "named_tree",
+                "input_id": "service-before",
+                "repo": "pilot-producer",
+                "tree": "service-before-tree",
+                "path": "openapi.json",
+                "blob": "schema-blob",
+                "availability": "available"
+              },
+              "dependencies": [],
+              "config_sources": [],
+              "schema": {
+                "source": {
+                  "kind": "file",
+                  "repo": "pilot-producer",
+                  "tree": "service-before-tree",
+                  "rev": "service-before-rev",
+                  "committed_at": null,
+                  "path": "openapi.json",
+                  "blob": "schema-blob",
+                  "format": "json",
+                  "sha256": "a373f8913c85c37b1ca59747d076c2c119dad269ae42a46e90ef3bdbd7266785"
+                },
+                "content_hash": "f85b4eefc6bd959dd3b0d114feb9b107405e2a076d19a2bec25ebb6195571c0d",
+                "info_version": "1"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "wrong-client-occurrence",
+        "expect": {
+          "/claims/service_first/status": "unchecked",
+          "/claims/service_first/reasons/0/code": "slot_mismatch",
+          "/claims/actual_before/status": "admitted"
+        },
+        "patches": [
+          {
+            "path": "/comparisons/2/matches",
+            "value": {
+              "call-after": {
+                "service_input_id": "service-after",
+                "client_input_id": "client-after",
+                "status": "checked",
+                "grade": "bound",
+                "reason": null,
+                "mapping": null,
+                "target_ids": ["op:GET /forge"],
+                "alternates": [],
+                "overlaps": [],
+                "prefix_hints": []
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "D16": {"variants": [{}]},
+  "D17": {
+    "variants": [
+      {"name": "cross-producer", "expect": {"valid": false}, "patches": [], "fixture": "producer.json", "cross": true},
+      {"name": "cross-consumer", "expect": {"valid": false}, "patches": [], "fixture": "consumer.json", "cross": true},
+      {"name": "cross-mixed", "expect": {"valid": false}, "patches": [], "fixture": "mixed.json", "cross": true},
+      {"name": "cross-client-only", "expect": {"valid": false}, "patches": [], "fixture": "client-only.json", "cross": true},
+      {
+        "name": "yaml",
+        "expect": {
+          "document": "bindings",
+          "error": "UnsupportedFormat"
+        },
+        "patches": [],
+        "raw": "schema_version: \"0.1\"\n"
+      },
+      {"name": "invalid-json", "expect": {"document": "impact", "error": "InvalidDocument"}, "patches": [], "raw": "{"},
+      {"name": "wrong-kind", "expect": {"document": "impact", "error": "WrongDocumentKind"}, "patches": [], "fixture": "producer.json"},
+      {
+        "name": "unsupported-version",
+        "expect": {
+          "document": "bindings",
+          "error": "UnsupportedVersion"
+        },
+        "patches": [
+          {"path": "/schema_version", "value": "0.2"}
+        ]
+      }
+    ]
+  },
+  "D18": {
+    "variants": [
+      {"name": "golden-producer", "expect": {"valid": true}, "patches": [], "fixture": "producer.json", "dto": true},
+      {"name": "golden-consumer", "expect": {"valid": true}, "patches": [], "fixture": "consumer.json", "dto": true},
+      {"name": "golden-mixed", "expect": {"valid": true}, "patches": [], "fixture": "mixed.json", "dto": true},
+      {"name": "golden-client-only", "expect": {"valid": true}, "patches": [], "fixture": "client-only.json", "dto": true}
+    ]
+  }
+}
