@@ -262,6 +262,19 @@ fn exported_mutable_prototype_cannot_supply_inherited_callback() {
 }
 
 #[test]
+fn unexported_prototype_control_is_credited() {
+    // Control for the `exported` guard: the same shape without `export`
+    // supplies the inherited callback, so only the export makes it stale.
+    let fixture = direct_case(
+        "function holder({cb = fallback}) { cb('mixed'); }",
+        "holder({cb: verified}); const proto = {cb: stale}; holder({__proto__: proto});",
+        Language::JavaScript,
+    );
+    fixture.targets("cb('mixed')", &["verified"]);
+    assert_eq!(fixture.index.refusal_count("stale_path"), 0);
+}
+
+#[test]
 fn self_initializers_refuse_before_recursion() {
     // A self-read in the initializer is a tracked use (O2): `stale_path`
     // precedes `default_dependency` in the counter order.
