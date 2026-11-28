@@ -103,11 +103,11 @@ class BoundedItems(unittest.TestCase):
         self.assertTrue(all(r["why"] == MEMBER for r in off))
         self.assertEqual(len([r for r in by_file("lexical-fold7")["props.ts"] if r["verdict"] == "CORRECT"]), 2)
 
-    def test_type_only_mentions_are_the_type_role_beside_evaluated_controls(self):
-        # r6-4: `{ [key]: number }` and `implements ns.T` are WRONG type-position; the object
-        # computed key and `extends ns.C` stay CORRECT.
+    def test_type_only_mentions_are_outside_the_scope_beside_evaluated_controls(self):
+        # r6-4: `{ [key]: number }` and `implements ns.T` get no verdict (fold F: type positions are
+        # outside the judged scope); the object computed key and `extends ns.C` stay CORRECT.
         verdicts = sorted((r["key"]["to"]["line"], r["verdict"]) for r in by_file("lexical-fold7")["types.ts"])
-        self.assertEqual(verdicts, [(4, "WRONG"), (5, "CORRECT"), (7, "WRONG"), (8, "CORRECT"), (9, "WRONG")])
+        self.assertEqual(verdicts, [(4, "UNDECIDED"), (5, "CORRECT"), (7, "UNDECIDED"), (8, "CORRECT"), (9, "UNDECIDED")])
 
     def test_receiver_edges_are_withheld_for_each_original_receiver_shape(self):
         for name in ("slots.ts", "thisrecv.ts"):
@@ -129,7 +129,7 @@ class RuleText(unittest.TestCase):
                        "The suppression check applies to every callee.",
                        "`const alias = module; alias.exports = {..}`",
                        "UNDECIDED `outside-judged-scope`",
-                       "Erased computed keys of accessor signatures",
+                       "erased computed keys (accessor",
                        "constructors, whose overloads are the containing class's"):
             self.assertIn(phrase, text)
 

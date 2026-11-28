@@ -1,5 +1,7 @@
 'use strict';
 
+const { wrapper } = require('./callable.cjs');
+
 // The oracle's judged scope, stated positively and decided here, once, for every question.
 //
 // An endpoint is judged only when ALL of these hold:
@@ -11,7 +13,10 @@
 //      variable, parameter, function, class, import, binding element or shorthand property)
 //      or at a REFERENCE position (REFERENCE table: an evaluated operand, argument,
 //      initializer or value tag);
-//   4. its symbol, when it has one, is a value binding (VALUE), not a member of anything.
+//   4. its symbol, when it has one, is a value binding (VALUE), not a member of anything;
+//      an alias must resolve, hop by hop, through no type-only import or export to a value;
+//   5. it is evaluated: no type node, erased computed key (erasedRole) or ambient context
+//      (a `declare` member or declaration, a declaration file) contains it.
 // Everything else is UNDECIDED `outside-judged-scope`: it gets no verdict, not even a WRONG.
 const scopeReason = 'outside-judged-scope';
 
@@ -37,10 +42,12 @@ const INITIALIZED = [
 ];
 
 const VALUE_SYMBOL = (ts) => ts.SymbolFlags.Variable | ts.SymbolFlags.Function | ts.SymbolFlags.Class
-  | ts.SymbolFlags.Alias | ts.SymbolFlags.Enum | ts.SymbolFlags.ValueModule;
+  | ts.SymbolFlags.RegularEnum | ts.SymbolFlags.ValueModule;
 
 function bindingPosition(ts, node) {
   const p = node.parent;
+  if (ts.isParameter(p) && node.text === 'this') return false;
+  if (ts.isModuleDeclaration(p) && ts.isGlobalScopeAugmentation(p)) return false;
   return BINDING.some(kind => ts[kind](p)) && p.name === node;
 }
 
@@ -81,16 +88,43 @@ const LITERAL = (ts) => new Set([ts.SyntaxKind.NumericLiteral, ts.SyntaxKind.Big
 function callActualLiteral(ts, node) {
   if (!LITERAL(ts).has(node.kind)) return false;
   let operand = node;
-  while (ts.isParenthesizedExpression(operand.parent)) operand = operand.parent;
+  while (wrapper(ts, operand.parent) && operand.parent.expression === operand) operand = operand.parent;
   const call = operand.parent;
   return (ts.isCallExpression(call) || ts.isNewExpression(call)) && !!call.arguments?.includes(operand);
 }
 
+// Follow an alias one hop at a time: a type-only import or export anywhere on the chain, or a
+// target that is no value, is not a value binding.
+function aliasValue(ts, checker, symbol) {
+  let current = symbol;
+  for (let hops = 0; hops < 16; hops++) {
+    if (!(current.flags & ts.SymbolFlags.Alias)) return (current.flags & VALUE_SYMBOL(ts)) !== 0;
+    if (current.declarations?.some(d => ts.isTypeOnlyImportOrExportDeclaration(d))) return false;
+    current = checker.getImmediateAliasedSymbol(current);
+    if (!current) return false;
+  }
+  return false;
+}
+
 function valueSymbol(ts, checker, node) {
   const p = node.parent;
+  // A formal is a value binding; the checker may answer its parameter-property symbol.
+  if (ts.isParameter(p) && p.name === node) return true;
   const symbol = ts.isShorthandPropertyAssignment(p) && p.name === node
     ? checker.getShorthandAssignmentValueSymbol(p) : checker.getSymbolAtLocation(node);
-  return !symbol || (symbol.flags & VALUE_SYMBOL(ts)) !== 0;
+  return !symbol || aliasValue(ts, checker, symbol);
+}
+
+// Erased and ambient contexts emit nothing: no verdict inside them.
+function evaluated(ts, node) {
+  if (erasedRole(ts, node)) return false;
+  for (let p = node; p; p = p.parent) {
+    // A class `extends` expression is a TypeNode in the tree but is evaluated (erasedRole handles `implements`).
+    if ((ts.isTypeNode(p) && !ts.isExpressionWithTypeArguments(p)) || ts.isTypeQueryNode(p)
+        || (p.flags & ts.NodeFlags.Ambient)) return false;
+    if (ts.isDeclaration(p) && (ts.getCombinedModifierFlags(p) & ts.ModifierFlags.Ambient)) return false;
+  }
+  return true;
 }
 
 // True when the claimed endpoint is inside the judged scope.
@@ -98,7 +132,36 @@ function judgedEndpoint(ts, checker, endpoint, node, { literalActual = false } =
   if (endpoint.path.fields.length || !node?.parent) return false;
   if (literalActual && callActualLiteral(ts, node)) return true;
   if (node.kind !== ts.SyntaxKind.Identifier) return false;
-  return (bindingPosition(ts, node) || referencePosition(ts, node)) && valueSymbol(ts, checker, node);
+  return (bindingPosition(ts, node) || referencePosition(ts, node)) && evaluated(ts, node)
+    && valueSymbol(ts, checker, node);
 }
 
-module.exports = { judgedEndpoint, scopeReason };
+// Type references and computed keys erased at a signature rather than evaluated.
+function erasedRole(ts, identifier) {
+  let node = identifier;
+  while (ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node) node = node.parent;
+  const heritage = node.parent;
+  if (ts.isExpressionWithTypeArguments(heritage) && ts.isHeritageClause(heritage.parent)) {
+    const owner = heritage.parent.parent;
+    if (heritage.parent.token === ts.SyntaxKind.ImplementsKeyword || ts.isInterfaceDeclaration(owner)) return 'type';
+  }
+  for (let p = identifier.parent; p; p = p.parent) {
+    if (ts.isComputedPropertyName(p)) {
+      const member = p.parent;
+      const typeMember = ts.isTypeLiteralNode(member.parent) || ts.isInterfaceDeclaration(member.parent);
+      if (typeMember && (ts.isPropertySignature(member) || ts.isMethodSignature(member))) return 'type';
+      if (typeMember && (ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member))) {
+        return 'erased-computed-key';
+      }
+      // Ambient declaration and declare-field discrepancies have their own pinned limits.
+      if (!(member.flags & ts.NodeFlags.Ambient)
+          && ((ts.getCombinedModifierFlags(member) & ts.ModifierFlags.Abstract)
+            || (ts.isMethodDeclaration(member) && !member.body))) return 'erased-computed-key';
+      break;
+    }
+    if (ts.isFunctionLike(p) || ts.isStatement(p) || ts.isDeclaration(p)) break;
+  }
+  return null;
+}
+
+module.exports = { judgedEndpoint, scopeReason, erasedRole };

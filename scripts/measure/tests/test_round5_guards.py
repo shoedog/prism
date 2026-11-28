@@ -83,7 +83,7 @@ class CoordinateRule(unittest.TestCase):
     def test_the_argument_slot_follows_the_rule_and_keeps_the_stricter_formats_row(self):
         rows_ = rows("argument-coordinate")
         verdicts = [(r["verdict"], r.get("why")) for r in rows_]
-        self.assertEqual(verdicts.count(("UNDECIDED", OFF)), 2)
+        self.assertEqual(verdicts.count(("UNDECIDED", OFF)), 1)
         self.assertIn(("UNDECIDED", MEMBER), verdicts)
         self.assertEqual(sum(v == "WRONG" for v, _ in verdicts), 3)
         self.assertEqual(sum(v == "CORRECT" for v, _ in verdicts), 3)

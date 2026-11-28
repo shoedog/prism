@@ -541,4 +541,4 @@ function identity(ts, body, context) {
   return form ? { file: context.span(body).file, name: name.text, start_line: line, form } : null;
 }
 
-module.exports = { bodyFor, identity, unwrap, writes };
+module.exports = { bodyFor, identity, unwrap, wrapper, writes };

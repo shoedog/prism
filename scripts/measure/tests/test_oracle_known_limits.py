@@ -24,7 +24,6 @@ DETECTORS = {
     "html-comment": {"html-comment": "reliable-detector"},
     "computed-member-name": {"computed-name": "reliable-detector"},
     "static-initialization": {"static-init": "proxy"},
-    "ambient-erasure": {"ambient-erased": "reliable-detector"},
 }
 
 
@@ -114,5 +113,5 @@ class OracleKnownLimitsTests(unittest.TestCase):
                 self.assertTrue(all(path.split("/", 2)[1] in moved_programs
                                     for path in files - claimed_files))
         self.assertEqual(set(programs.values()), {1})
-        self.assertEqual(members, {1: 59, 2: 13, 3: 14, "round-7-opus": 2})
-        self.assertEqual(totals, {"pinned": 310, "controls": 35, "moved": 53})
+        self.assertEqual(members, {1: 59, 2: 13, 3: 13})
+        self.assertEqual(totals, {"pinned": 307, "controls": 30, "moved": 52})

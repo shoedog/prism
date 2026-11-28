@@ -287,18 +287,27 @@ verdicts require no producer qualification.
 Judged scope. The oracle judges a claimed endpoint only when it has no field
 path and the claimed bytes are a plain identifier that stands at a binding
 position or at a reference position, and its symbol, when it has one, is a value
-binding. Binding positions are the declared name of a variable, parameter,
-function, class, import, binding element or shorthand property. Reference
+binding. Binding positions are the declared name of a variable, parameter
+(a parameter property included; the TypeScript `this` pseudo-parameter is not
+one), function, class, import, binding element, shorthand property, enum or
+instantiated namespace (a `declare global` augmentation is not one). Reference
 positions are an evaluated operand, call argument, initializer, array element,
 conditional or binary operand, spread, return or throw value, `extends`
 expression, or a JSX tag naming a value (a lowercase or hyphenated tag is an
-intrinsic element and is not judged). On `argument_binding` the actual must be
-an identifier and the destination is judged under the same rule. Everything else
+intrinsic element and is not judged). An alias counts only when every hop of its
+chain avoids a type-only import or export and ends at a value (an interface or
+type alias imported as a value name is not one); a `const enum` is not judged.
+The endpoint must also be evaluated: nothing inside a type node, an erased
+computed key or an ambient context is judged. On `argument_binding` the actual
+must be an identifier, or a single primitive literal token, possibly wrapped in
+parentheses, `as`, `<T>`, `!` or `satisfies`, judged against the declared formal;
+the destination is judged under the same rule as every other endpoint. Everything else
 is UNDECIDED `outside-judged-scope` before any role or slot check, so it receives
 no verdict, not even WRONG. That covers member names in every form (property
 tokens, keys, class and interface members, private names, enum members, JSX
 attribute names, `new.target`), a string-keyed element access, a type position
-such as `import("./mod").Foo`, a literal actual, a label and a bare read of an
+such as `import("./mod").Foo`, `typeof x` in a type, an `implements` or interface
+`extends` receiver, an import-equals right-hand side, a label and a bare read of an
 enum member. Plain-name edges through shorthand keys, destructuring elements and
 computed-key identifiers keep their verdicts. The rule lives in one classifier,
 `oracle/questions/judged_scope.cjs`, used by both questions.
@@ -338,7 +347,6 @@ Source measurements are in `enum-r8/price/classify-receipts.tgz` (`summary.md`).
 | HTML-like comment tokenization (N80) | Detector | 0 | 0 | 17 |
 | Scope of computed-key expressions (C05) | Detector | 0 | 0 | 11 |
 | Static initialization order (C01) | Proxy | 0 | 0 | 0 |
-| Erased ambient declarations (B19, pass 3) | Detector | 0 | 0 | 5 |
 
 The historical T05 count is a proxy for spread/getter and noncomputed
 `__proto__` exposure (0 authored, 5 Express, 132 Excalidraw slice). A visible

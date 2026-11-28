@@ -1,7 +1,7 @@
 'use strict';
 
 const { isIdentifier } = require('../bytes.cjs');
-const { judgedEndpoint, scopeReason } = require('./judged_scope.cjs');
+const { judgedEndpoint, scopeReason, erasedRole } = require('./judged_scope.cjs');
 
 const property = 'declaration-and-read';
 const result = (verdict, why = property) => ({ verdict, property, why });
@@ -53,34 +53,6 @@ function neighbour(ts, node, wireLine, matches) {
   return found;
 }
 
-// Type references and computed keys erased at a signature rather than evaluated.
-function erasedRole(ts, identifier) {
-  let node = identifier;
-  while (ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node) node = node.parent;
-  const heritage = node.parent;
-  if (ts.isExpressionWithTypeArguments(heritage) && ts.isHeritageClause(heritage.parent)) {
-    const owner = heritage.parent.parent;
-    if (heritage.parent.token === ts.SyntaxKind.ImplementsKeyword || ts.isInterfaceDeclaration(owner)) return 'type';
-  }
-  for (let p = identifier.parent; p; p = p.parent) {
-    if (ts.isComputedPropertyName(p)) {
-      const member = p.parent;
-      const typeMember = ts.isTypeLiteralNode(member.parent) || ts.isInterfaceDeclaration(member.parent);
-      if (typeMember && (ts.isPropertySignature(member) || ts.isMethodSignature(member))) return 'type';
-      if (typeMember && (ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member))) {
-        return 'erased-computed-key';
-      }
-      // Ambient declaration and declare-field discrepancies have their own pinned limits.
-      if (!(member.flags & ts.NodeFlags.Ambient)
-          && ((ts.getCombinedModifierFlags(member) & ts.ModifierFlags.Abstract)
-            || (ts.isMethodDeclaration(member) && !member.body))) return 'erased-computed-key';
-      break;
-    }
-    if (ts.isFunctionLike(p) || ts.isStatement(p) || ts.isDeclaration(p)) break;
-  }
-  return null;
-}
-
 // The argument-slot coordinate check also uses role() to find serving occurrences.
 function directAssignmentKey(ts, identifier) {
   const key = identifier.parent;
@@ -121,6 +93,8 @@ function role(ts, identifier) {
         && (p.operator === ts.SyntaxKind.PlusPlusToken || p.operator === ts.SyntaxKind.MinusMinusToken)) {
       return 'update';
     }
+    // A binding element's default is evaluated, whatever statement or loop head holds the pattern.
+    if (ts.isBindingElement(p) && p.initializer === node) return 'read';
     if ((ts.isForInStatement(p) || ts.isForOfStatement(p)) && p.initializer === node) return 'write';
     if (ts.isFunctionLike(p) || ts.isStatement(p)) break;
     if (ts.isComputedPropertyName(p) || ts.isCallExpression(p)) return 'read';
