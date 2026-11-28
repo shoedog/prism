@@ -54,11 +54,6 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
     };
     assert_eq!(restored.dfg_label_stats, cpg.dfg_label_stats);
     assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 1);
-    let pre_s3 = CpgCache {
-        version: 196,
-        ..owned
-    };
-    fs::write(&path, bincode::serialize(&pre_s3).unwrap()).unwrap();
     stream::PAYLOAD_DECODES.with(|count| count.set(0));
     assert_stale_version_miss(&hashes, dir.path());
     assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 0);
