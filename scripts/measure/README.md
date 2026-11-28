@@ -284,7 +284,7 @@ inside the 8 GiB memory guard with the §2 host environment allow-list.
 small `node` self-check bootstrap directly, the caller controls that
 initial Node process.
 
-The built-in self-check has 893 golden rows in 80 cases. Each
+The built-in self-check has 927 golden rows in 81 cases. Each
 `known-limit-*` case groups programs in separate `repo/<id>/`
 directories. The worker grades each program in its own checker graph.
 The case names persist for the 52 member-boundary rows that now sit
@@ -409,12 +409,61 @@ enum member. Plain-name edges through shorthand keys, destructuring elements and
 computed-key identifiers keep their verdicts. The rule lives in one classifier,
 `oracle/questions/judged_scope.cjs`, used by both questions.
 
-The scope shrank at no price on the measured inputs: Express (5,040 CORRECT, 0
-WRONG), the Excalidraw slice proxy (14,408 and 4) and whole Excalidraw (41,374 and
-15) have the same decided counts and the same decided rows before and after. The
-earlier `structured-path` reason covered 1,409 rows on Express and 6,651 on whole
+**PROVISIONAL.** This scope is the one implemented at the head that last changed
+`judged_scope.cjs` (97dc8414); it is not a design of record. The review rounds
+on folds D, E and F kept finding new instances of two classes (erased positions,
+type-only alias chains) and the owner's default for a loop that does not converge applies: the rule
+is not extended again, and what is open is pinned below as known limits beside
+controls.
+
+*Price.* Express: 5,040 CORRECT, 0 WRONG, unchanged. Whole Excalidraw: 41,368
+CORRECT and 15 WRONG (41,383 decided of 80,033 graded), measured at head d27f2b1a
+on the prism head 1f2ad1cc49e2 run; it was 41,374 and 15 before fold F2. The six
+rows F2 removed are argument edges whose imported constant's alias does not
+resolve in the oracle's Node10 program (0.015%), now UNDECIDED
+`outside-judged-scope`. The Excalidraw slice proxy (whole-Excalidraw rows with both
+files under `packages/excalidraw/data` or `packages/element/src`; the slice run
+itself is not reproducible) is 14,408 and 4 at F2, unchanged. The earlier
+`structured-path` reason covered 1,409 rows on Express and 6,651 on whole
 Excalidraw. `outside-judged-scope` also covers rows that were already UNDECIDED
 under other reasons.
+
+*Known limits of the judged scope.* The self-check case `judged-scope-limits`
+(43 rows) and the registry `oracle/judged_scope_limits.json` pin each limit:
+the verdict the oracle gives today, the verdict the stated scope requires, and a
+control that is judged correctly. Each limit is a path where the classifier
+disagrees with what TypeScript emits; none is a change of the rule.
+
+| Limit | Today | Required |
+|---|---|---|
+| `erased-signature-formals`: a claim to the formal of an interface method, call, construct or index signature, or an abstract method or setter, while the call is to another function | WRONG `implementation-slot` | UNDECIDED |
+| `overload-formals`: a claim to a signature formal of an overloaded function that has one implementation (oracle-032, oracle-037) | WRONG `implementation-slot` | UNDECIDED under the strict scope; kept WRONG as a documented exception, see below |
+| `type-only-star-chain`: an import that reaches a value only through `export type *` (alone or forwarded) | CORRECT | UNDECIDED |
+| `compile-time-erasure`: a namespace holding only const enums, an enum initializer the compiler folds, a const enum initializer | CORRECT | UNDECIDED |
+| `literal-actual-in-erased-key`: a literal actual in an erased computed key (interface, type literal, ambient class, abstract method) | CORRECT | UNDECIDED |
+| `instantiation-expression-role`: `(id)<number>` and a bare `id<number>` | WRONG `type-position`; UNDECIDED `outside-judged-scope` | CORRECT |
+| `same-line-neighbour`: a same-line member read or second named function expression withholds a proved contradiction | UNDECIDED `endpoint-coordinate-off` | WRONG |
+
+Overload formals are stated once: with one implementation the implementation
+formal is CORRECT and either overload signature formal is WRONG
+`implementation-slot` (oracle-032, oracle-037; the claim names a slot that is
+provably not the implementation's); with no implementation both are UNDECIDED
+`type-only-declaration` (oracle-037 with the body removed). The `type-only-star-chain`
+leak is probably because the `export type *` mark sits on the export declaration,
+not on a symbol the alias walk reads (not proved). A reviewed member named "symbol-less name"
+(a name with no checker symbol passing the value test) was not reproduced by
+two probes (an unresolved read and a type-alias name used as a value are both
+UNDECIDED `declaration-unproved`) and is not pinned.
+
+*Census.* For every decided row, the pinned checker classified both endpoint
+nodes against each limit above except `same-line-neighbour` (read-only script
+`incidence.cjs`, kept in the lane's evidence directory); the result is 0 of 5,040
+decided rows on Express and 0 of 41,383 decided rows on whole Excalidraw. The
+same-line limit can only withhold a verdict, never add one. An UNDECIDED costs
+coverage; a wrong CORRECT or WRONG costs trust, and no decided row on either real
+input is exposed to a limit that could produce one. A proposed later slice,
+issue #982, would define "evaluated" and "value" by correspondence with the
+emitted JavaScript and would close these rows.
 Rounds 7 and 8 kept finding new receiver and pattern-key cases. A later slice
 would need a positive receiver rule and its own enumeration. The starting
 point is `enum-r8/price-receiver/RULE-R.md`
@@ -572,7 +621,7 @@ proved only on a fresh `new` receiver whose field has no annotation.
 Computed-key writes, `Object.assign`, `defineProperty` and reflective writes
 are outside the model, as for `Exact`. A class `extends` expression and a
 shorthand destructuring default are reads; `implements` and interface
-`extends` stay type uses. Composite expressions, earlier spreads, rest slots
+`extends` are outside the judged scope. Composite expressions, earlier spreads, rest slots
 and destructured formals lack a built-in fixed-slot proof. Annotated, ambient
 and declaration-only callables and unresolved or ambiguous receiver origins
 remain UNDECIDED.

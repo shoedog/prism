@@ -1,0 +1,10 @@
+export {};
+const obj = { x: 1 };
+let x = 0;
+x = 1; void obj.x;
+let y = 0;
+y = 1;
+const fa = function nm() { return 1; }, fb = function nm() { return nm; };
+const fc = function nm() { return 1; };
+const fd = function nm() { return nm; };
+void [x, y, fa, fb, fc, fd];

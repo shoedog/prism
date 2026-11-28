@@ -142,7 +142,7 @@ class RuleText(unittest.TestCase):
         for path in (README, FORMATS):
             with self.subTest(path=path.name):
                 text = " ".join(path.read_text().split())
-                for phrase in ("same decided counts", "1,409", "6,651", "`structured-path`",
+                for phrase in ("41,368", "1,409", "6,651", "`structured-path`",
                                "already UNDECIDED under other reasons", "Judged scope. The oracle judges a claimed endpoint only when",
                                "private name", "JSX attribute name", "`new.target`", "enum member",
                                "shorthand keys", "destructuring elements", "computed-key identifiers",
