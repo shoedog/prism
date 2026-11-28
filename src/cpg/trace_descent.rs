@@ -90,8 +90,10 @@ pub(super) fn edge_own_not_exact(label: Option<FlowConfidence>) -> bool {
             | FlowDoubt::CfgIncomplete
             | FlowDoubt::AliasUnstable,
         )) => false,
-        // Lane 9's builtin_callback doubt belongs on this side when introduced.
-        Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly)) | None => true,
+        Some(FlowConfidence::NameOnly(
+            FlowDoubt::CallNameOnly | FlowDoubt::BuiltinCallback,
+        ))
+        | None => true,
     }
 }
 
@@ -367,6 +369,7 @@ impl CodePropertyGraph {
         } else if rel == Relation::ReturnFlow {
             Some(SelfFunctionReturn)
         } else if label == Some(FlowConfidence::NameOnly(FlowDoubt::CallNameOnly))
+            || label == Some(FlowConfidence::NameOnly(FlowDoubt::BuiltinCallback))
             || self.is_parameter_binding_from(from, to, rel)
         {
             Some(SelfFunctionParam)

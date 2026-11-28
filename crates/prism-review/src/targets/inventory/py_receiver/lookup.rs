@@ -223,7 +223,7 @@ impl<'tree> Resolver<'_, 'tree> {
                 )
                 && (direct_import || class_arm_import)
                 && !self.name_rebound(alt.owner, root, test, scope)
-                && !self.member_rebound(import, binding, test, scope, rest)
+                && !self.member_rebound(import, binding, test, scope, rest, super::MemberRead::Root)
         })
     }
 

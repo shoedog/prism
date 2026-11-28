@@ -209,7 +209,7 @@ impl ParsedFile {
             .named_children(&mut cursor)
             .find(|child| !child.is_extra())?;
         loop {
-            operand = super::member_projection::strip_transparent_wrappers(operand)?;
+            operand = super::js_ts::props_keys::strip_transparent_wrappers(operand)?;
             if operand.kind() != "instantiation_expression" {
                 return Some(operand);
             }

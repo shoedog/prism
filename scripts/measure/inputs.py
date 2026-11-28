@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from dataclasses import dataclass
 import gzip
 import hashlib
+import io
 import json
 import math
 import os
@@ -32,6 +33,10 @@ class UnboundLink(PinError):
     """A link can traverse outside the bound tree or participate in a cycle."""
 
 
+class ArtifactDrift(ValueError):
+    """Bytes decoded by a comparator differ from the receipt-admitted bytes."""
+
+
 class AliasedInput(PinError):
     """A hard-linked file may be read or deduplicated through another path."""
 
@@ -52,29 +57,98 @@ def finite_float(text):
     return value
 
 
-def json_object(data):
+class NumberToken:
+    """A finite JSON number in a member the caller ignores, kept undecoded."""
+
+    __slots__ = ("text",)
+
+    def __init__(self, text):
+        self.text = text
+
+
+class IntegerToken(NumberToken):
+    """An undecoded JSON integer; a caller that projects it converts it with `wire_int`."""
+
+    __slots__ = ()
+
+
+def wire_int(value):
+    """Convert a deferred integer token to an int; any other value is returned as is."""
+    return int(value.text) if isinstance(value, IntegerToken) else value
+
+
+def json_object(data, numbers=finite_float):
+    deferred = numbers is NumberToken
     obj = json.loads(data.decode("utf-8"), object_pairs_hook=unique_object,
-                     parse_constant=finite_float, parse_float=finite_float)
+                     parse_constant=finite_float, parse_float=numbers,
+                     parse_int=IntegerToken if deferred else int)
     if not isinstance(obj, dict):
         raise ValueError("expected a JSON object")
     return obj
 
 
-def jsonl_objects(path):
+class HashedReader(io.RawIOBase):
+    """Hash exactly the stored bytes that a decoder pulls through it."""
+
+    def __init__(self, stream):
+        self.stream = stream
+        self.digest = hashlib.sha256()
+        self.size = 0
+        self.pending = b""
+
+    def readable(self):
+        return True
+
+    def push_back(self, data):
+        self.pending = data + self.pending
+
+    def readinto(self, buffer):
+        if self.pending:
+            data, self.pending = self.pending[:len(buffer)], self.pending[len(buffer):]
+        else:
+            data = self.stream.read(len(buffer))
+            self.digest.update(data)
+            self.size += len(data)
+        buffer[:len(data)] = data
+        return len(data)
+
+    def finish(self, path, expect):
+        """Consume the rest of the file, then compare it with the receipt."""
+        while self.read(CHUNK):
+            pass
+        if expect is not None and (self.digest.hexdigest(), self.size) != (
+                expect["sha256"], expect["bytes"]):
+            raise ArtifactDrift(f"run binding: {path.name} differs from the receipt")
+
+
+def transport_lines(path, expect=None):
+    """Yield byte-LF records, verifying concatenated gzip members through EOF.
+
+    With `expect` ({sha256, bytes} from the admitted receipt), the bytes that
+    were decoded must be the admitted bytes: a mismatch is raised after the last
+    record, before a caller can publish anything.
+    """
     try:
-        with path.open("rb") as raw:
-            transport = nullcontext(raw)
+        with path.open("rb") as file:
+            raw = HashedReader(file)
             if path.suffix == ".gz":
-                if raw.read(2) != b"\x1f\x8b":
+                magic = raw.read(2)
+                if magic != b"\x1f\x8b":
                     raise ValueError(f"missing gzip member in {path.name}")
-                raw.seek(0)
-                transport = gzip.GzipFile(fileobj=raw, mode="rb")
-            with transport as stream:
-                for line in stream:
-                    if line.strip(b" \t\r\n"):
-                        yield json_object(line)
+                raw.push_back(magic)
+                with gzip.GzipFile(fileobj=raw, mode="rb") as stream:
+                    yield from stream
+            else:
+                yield from io.BufferedReader(raw)
+            raw.finish(path, expect)
     except (OSError, EOFError, zlib.error) as error:
         raise ValueError(f"cannot decode {path.name}: {error}") from error
+
+
+def jsonl_objects(path, expect=None, numbers=finite_float):
+    for line in transport_lines(path, expect):
+        if line.strip(b" \t\r\n"):
+            yield json_object(line, numbers)
 
 
 def sha256_file(path):

@@ -1,0 +1,28 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wire control",
+    "version": "1"
+  },
+  "components": {
+    "requestBodies": {
+      "Loop": {
+        "$ref": "#/components/requestBodies/Loop"
+      }
+    }
+  },
+  "paths": {
+    "/probe": {
+      "post": {
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Loop"
+        },
+        "responses": {
+          "204": {
+            "description": "empty"
+          }
+        }
+      }
+    }
+  }
+}

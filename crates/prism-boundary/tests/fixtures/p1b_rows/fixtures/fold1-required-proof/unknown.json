@@ -1,0 +1,1 @@
+{"openapi":"3.1.0","paths":{"/p":{"post":{"responses":{"200":{"content":{"application/json":{"schema":{"type":"object","properties":{"gate":{"type":"string","enum":["a"],"pattern":"^b.+$"},"stable":{"type":"string"}},"required":["gate"]}}}}}}}}}

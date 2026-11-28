@@ -1,6 +1,6 @@
 use std::fmt::{self, Write};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum PointerToken {
     Property(String),
     ListItem,

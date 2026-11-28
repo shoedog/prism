@@ -272,6 +272,37 @@ fn namespace_identity(
     depth: usize,
     visiting: &mut BTreeSet<(String, String)>,
 ) -> Result<Option<ResolvedJsExport>, ()> {
+    namespace_identity_with_star_check::<false>(raw, resolve_module, file, name, depth, visiting)
+}
+
+/// Follow an already selected namespace re-export for props binding. A named
+/// claim alongside a star is insufficient for this consumer's equality proof.
+pub(crate) fn props_namespace_reexport(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    file: &str,
+    name: &str,
+) -> Option<ResolvedJsExport> {
+    namespace_identity_with_star_check::<true>(
+        raw,
+        resolve_module,
+        file,
+        name,
+        0,
+        &mut BTreeSet::new(),
+    )
+    .ok()
+    .flatten()
+}
+
+fn namespace_identity_with_star_check<const CHECK_COMPETING_STAR: bool>(
+    raw: &BTreeMap<String, JsExportFacts>,
+    resolve_module: &dyn Fn(&str, &str) -> Option<String>,
+    file: &str,
+    name: &str,
+    depth: usize,
+    visiting: &mut BTreeSet<(String, String)>,
+) -> Result<Option<ResolvedJsExport>, ()> {
     if depth > MAX_REEXPORT_DEPTH {
         return Err(());
     }
@@ -288,6 +319,9 @@ fn namespace_identity(
             return Err(());
         }
         if let Some(target) = facts.named.get(name) {
+            if CHECK_COMPETING_STAR && name != "default" && !facts.star_reexports.is_empty() {
+                return Err(());
+            }
             return match target {
                 JsExportTarget::ReExport {
                     module_path,
@@ -304,7 +338,14 @@ fn namespace_identity(
                         return Err(());
                     }
                     let next = resolve_module(file, module_path).ok_or(())?;
-                    namespace_identity(raw, resolve_module, &next, imported, depth + 1, visiting)
+                    namespace_identity_with_star_check::<CHECK_COMPETING_STAR>(
+                        raw,
+                        resolve_module,
+                        &next,
+                        imported,
+                        depth + 1,
+                        visiting,
+                    )
                 }
                 // Local/UnprovenLocal/Class are never a proven Callable terminal
                 // (MayCall, import, refusal, class): keep base.
@@ -337,9 +378,14 @@ fn namespace_identity(
         if name != "default" {
             for module in &facts.star_reexports {
                 let next = resolve_module(file, module).ok_or(())?;
-                if let Some(target) =
-                    namespace_identity(raw, resolve_module, &next, name, depth + 1, visiting)?
-                {
+                if let Some(target) = namespace_identity_with_star_check::<CHECK_COMPETING_STAR>(
+                    raw,
+                    resolve_module,
+                    &next,
+                    name,
+                    depth + 1,
+                    visiting,
+                )? {
                     if unique.as_ref().is_some_and(|prior| prior != &target) {
                         return Err(());
                     }

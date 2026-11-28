@@ -16,7 +16,7 @@
 //! computed mutator calls (`Object['assign'](m, …)`, `Object.assign.call(null, m, …)`) are not
 //! seen and stay under CLAUDE.md's runtime-mutation rule.
 use super::js_binding::JsBindingCache;
-use super::member_projection::strip_transparent_wrappers;
+use super::js_ts::props_keys::strip_transparent_wrappers;
 use super::ParsedFile;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;

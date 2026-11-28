@@ -1,0 +1,1 @@
+{"openapi":"3.1.0","components":{"schemas":{"StaticTag":{"type":"string"}}},"paths":{"/p":{"post":{"responses":{"200":{"content":{"application/json":{"schema":{"type":"object","properties":{"x":{"$ref":"#/components/schemas/StaticTag"}},"$defs":{"Tag":{"$dynamicAnchor":"tag","type":"string"},"StaticTag":{"type":"string"}}}}}}}}}}}

@@ -413,7 +413,7 @@ pub(super) fn read_cache_file(path: &Path) -> Option<CpgCache> {
 
 #[cfg(test)]
 #[path = "stream_tests.rs"]
-mod tests;
+pub(super) mod tests;
 
 #[cfg(test)]
 #[path = "stream_read_tests.rs"]

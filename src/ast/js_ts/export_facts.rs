@@ -153,6 +153,111 @@ impl ParsedFile {
         found
     }
 
+    /// Count claims independently of callable extraction, which skips some value exports.
+    pub(crate) fn js_ts_has_unique_value_export(&self, name: &str, check_cjs: bool) -> bool {
+        let root = self.tree.root_node();
+        if root.has_error() || (check_cjs && !self.js_ts_cjs_export_object_safe()) {
+            return false;
+        }
+        let mut claims = 0;
+        let mut cjs = super::exports::JsExportFacts::default();
+        let mut cursor = root.walk();
+        for statement in root.named_children(&mut cursor) {
+            match statement.kind() {
+                "export_statement" => {
+                    let Some(count) = self.js_ts_value_export_claims(statement, name) else {
+                        return false;
+                    };
+                    claims += count;
+                    if claims > 1 {
+                        return false;
+                    }
+                }
+                "expression_statement" if check_cjs => {
+                    self.collect_js_ts_cjs_export_statement(statement, &mut cjs);
+                    if !cjs.is_empty() {
+                        return false;
+                    }
+                }
+                _ => {}
+            }
+        }
+        claims == 1
+    }
+
+    fn js_ts_value_export_claims(&self, statement: Node<'_>, member: &str) -> Option<usize> {
+        let matches = |mut node: Node<'_>| {
+            // A dotted TS namespace exports its outermost name.
+            while matches!(node.kind(), "nested_identifier" | "member_expression") {
+                node = node.child_by_field_name("object")?;
+            }
+            let name = self.js_ts_module_export_name(node)?;
+            let name = if node.kind() != "string" && name.contains('\\') {
+                Self::js_ts_decoded_identifier(&name)?
+            } else {
+                name
+            };
+            Some(usize::from(name == member))
+        };
+        if self.js_ts_import_statement_is_type_only(statement) {
+            return Some(0);
+        }
+        if self.js_ts_export_statement_is_default(statement) {
+            return Some(usize::from(member == "default"));
+        }
+        if let Some(declaration) = statement.child_by_field_name("declaration") {
+            return match declaration.kind() {
+                "interface_declaration" | "type_alias_declaration" => Some(0),
+                "lexical_declaration" | "variable_declaration" => {
+                    let mut cursor = declaration.walk();
+                    let mut names = std::collections::BTreeSet::new();
+                    for declarator in declaration
+                        .named_children(&mut cursor)
+                        .filter(|node| node.kind() == "variable_declarator")
+                    {
+                        self.collect_js_ts_write_names(
+                            declarator.child_by_field_name("name")?,
+                            &mut names,
+                        );
+                    }
+                    Some(usize::from(names.contains(member)))
+                }
+                _ => matches(declaration.child_by_field_name("name")?),
+            };
+        }
+        let mut cursor = statement.walk();
+        let clause = statement
+            .named_children(&mut cursor)
+            .find(|node| matches!(node.kind(), "export_clause" | "namespace_export"));
+        let Some(clause) = clause else {
+            // A bare star can supply any value name except `default`.
+            let bare_star = statement.child_by_field_name("source").is_some()
+                && statement
+                    .children(&mut cursor)
+                    .any(|node| node.kind() == "*");
+            return (bare_star && member == "default").then_some(0);
+        };
+        let mut cursor = clause.walk();
+        if clause.kind() == "namespace_export" {
+            return matches(
+                clause
+                    .named_children(&mut cursor)
+                    .find(|node| !node.is_extra())?,
+            );
+        }
+        let mut count = 0;
+        for specifier in clause.named_children(&mut cursor).filter(|node| {
+            node.kind() == "export_specifier" && !self.js_ts_import_specifier_is_type_only(*node)
+        }) {
+            count += matches(
+                specifier
+                    .child_by_field_name("alias")
+                    .or_else(|| specifier.child_by_field_name("name"))?,
+            )?;
+        }
+        Some(count)
+    }
+
     /// The bounded class-export lane accepts only an undecorated named declaration.
     pub(crate) fn js_ts_named_exported_class<'a>(&self, node: Node<'a>) -> Option<Node<'a>> {
         if node.kind() != "export_statement" || node.has_error() {

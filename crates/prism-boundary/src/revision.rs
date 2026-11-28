@@ -54,6 +54,12 @@ pub struct DependencyReceipt<'a> {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct ProducerMediaEvidence<'a> {
+    pub receipt: DependencyReceipt<'a>,
+    pub bytes: &'a [u8],
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct AdmittedSchemaInput<'a> {
     pub api: &'a str,
     pub authority: &'a str,
@@ -62,5 +68,5 @@ pub struct AdmittedSchemaInput<'a> {
     pub retrieval_uri: Option<&'a str>,
     pub references: &'a [ReferenceBlob<'a>],
     pub config_receipts: &'a [DependencyReceipt<'a>],
-    pub media_receipts: &'a [DependencyReceipt<'a>],
+    pub media_receipts: &'a [ProducerMediaEvidence<'a>],
 }
