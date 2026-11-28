@@ -815,6 +815,22 @@ class AdmissionTests(unittest.TestCase):
             code, out, _ = w.report(precision=good, approved="a-credit", all_survivors=str(bad_all))
             self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
 
+    def test_report_refuses_a_survivors_file_that_is_not_the_recorded_one(self):
+        w = self.prepared_population()
+        good = w.precision()
+        with mock.patch.object(ad, "GATE", 1):
+            code, out, _ = w.report(precision=good, approved="a-credit")  # control: the recorded file
+            self.assertEqual((code, "I2: ADMITTED" in out), (0, True), out)
+            surv = w.root / "adm" / "survivors.jsonl"
+            original = surv.read_bytes()
+            lines = original.decode().splitlines()
+            surv.write_text("\n".join(lines[:-1]) + "\n")  # substitute a different (shorter) population
+            for approved in ("a-credit", None):
+                code, out, err = w.report(precision=good, approved=approved)
+                self.assertNotEqual(code, 0, (approved, out))
+                self.assertNotIn("I2: ADMITTED", out)
+                self.assertIn("survivors.jsonl does not match prepared.json", out + err)
+
     def test_other_gates_still_block_an_approved_population(self):
         w = self.prepared_population()
         good = w.precision()

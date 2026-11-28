@@ -579,7 +579,13 @@ def report(a):
         reasons.append("prepared receipt declares no full-loader corpus set")
     elif lacking := sorted(set(declared) - set(meta["flood"])):
         reasons.append(f"no flood evidence for full-loader corpora {', '.join(lacking)}")
-    survivors = jsonl(prep / "survivors.jsonl") if (prep / "survivors.jsonl").exists() else None
+    surv_path = prep / "survivors.jsonl"
+    if surv_path.exists():
+        if digest(surv_path.read_bytes()) != meta.get("survivors_sha256"):
+            raise ValueError("survivors.jsonl does not match prepared.json")
+        survivors = jsonl(surv_path)
+    else:
+        survivors = None
     print("precision populations (owner decision pending; neither is selected here):")
     lines = {}
     for name, rows, path in (("a-credit", candidates, a.precision),
