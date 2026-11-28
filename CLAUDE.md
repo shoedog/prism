@@ -744,9 +744,36 @@ the definition edge's. A spread or computed key refuses every key written before
 property wins, and accessors, methods and `__proto__` are never bound. The spread's own source,
 non-data values, a preceding argument spread, NameOnly and multi-target calls, and
 identifier-rest formals supply no hop. Zero-width base Uses in mixed formals remain
-unsupported. S2b (#596, cache v194) adds literal edges to proved object-pattern
-Defs, including object rest, and checks the binding of the selected plain-formal
-Use. The `dfg_props` map records pending binding. JSX attribute flow remains pending.
+unsupported. S2b (#596, cache v195) adds literal edges to proved object-pattern
+Defs, including object rest, and checks the selected plain-formal Use.
+
+S3 (#596, cache v196) binds ordered JSX named data expressions from existing,
+connected same-owner Uses with proved binding and version. Targets require one
+Exact callable with proved direct, alias, value import/export or program-scope
+React `memo`/`forwardRef` operand-zero identity. Early reads require a listed
+function-literal delivery (identifier initializer, return or concise body, or
+named JSX attribute). Slot zero accepts object-pattern Defs with residual rest
+or selected bare and complete dot reads subject to write suppression. Spreads
+and unknown writers mask preceding keys, duplicates replace subtrees, emitted
+children replace the explicit prop, and top-level `key`/`ref` are skipped.
+`dfg_props` counts JSX sites, admission, writer, source and read refusals
+(including bracket and zero-width bare reads), and pending edges by destination
+class. Proved reads that capture the formal inside a callable nested in the callee
+can receive `cfg_incomplete` edges. A receiver inherited from a class field
+initializer or static block counts `refused_source_unconnected`. An overlapping
+destructuring store that can precede a left-side operand counts
+`refused_source_ambiguous`. A representative Use (a zero-width
+anchor or an earlier read, never the operand's own bytes) stands for the operand only
+when the root passes Rule R, a positive certificate judged by spelling over the whole
+JSX owner (`jsx_props/certificate.rs`, DESIGN 5.3.4): no parse error, `with`, `eval` or
+`arguments` spelling, undecodable escape, or line-terminator divergence (lone CR, U+2028/9, HTML-like comment marker), or a subscript, member, call or tagged template whose object is off the closed list (an arrow function or an `as` expression takes a following-line `[..]`/`(..)` in the grammars where the language starts a new statement; parenthesized forms stay certified; #983) (c); exactly one declaration of the spelling, an initialized `const`
+outside loops or a formal of the owner, never a plain rest (a2); every other spelled occurrence at a
+read-list position outside loop heads (b2). A failing representative counts once per leaf as
+`refused_source_ambiguous`, including a root with no declaration in the owner. Three shapes are
+admitted as known limits (#783): `super.p = v` through a formal receiver, a `const` read during
+enum construction, and a store through another formal holding the same object. The post-assembly
+guard still applies. An admitted representative outside
+the JSX opening leaves the graph edge present and stops trace descent at a boundary.
 
 Element-recall diagnostics (lane 10, #847, stage I0+I1; Python only): with `PRISM_ELEMENT_RECALL_TRACE=1` a cold build writes versioned `element-recall` records to stderr (`src/cpg/reaching/element_recall/`: syntax inventory of value-carrying indexed stores W and whole-operand reads R, physical joins against the final file-wide Def/Use buckets, route phases, binding/storage transfer, caps, `owner` and `prediction` records). It is opt-in and diagnostic: with the variable unset or not `1` no analysis runs, and the graph, stats and review output are byte-identical, there is no cache version or payload change and nothing is published (no edge, no counter); P14 stays RED until I2 publishes. Typed measurement reader: `cargo run --release -p prism --example element_recall_graph -- <repo>` (full typed nodes and edges, arm-neutral, for parent/head differentials). Lane-local scripts in `scripts/subscript_recall/`: `compare.py` (`run`/`zero` arm comparator), `loader_inventory.py` (independent inventory), `admission.py` (prepare/report against the frozen draw), `review_diff.py replay` (seeded review parity: parent vs head default vs trace-on over one-line diff seeds, every DataFlow reader plus `originaldiff`; corpus runs go through `measure`). Publication, review masks and cache persistence are I2.
 

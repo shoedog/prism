@@ -3,8 +3,8 @@
 //! A read at or after the end of the declarator passes. An earlier read passes
 //! only when the nearest function-like ancestor inside the binding's scope is a
 //! function expression or arrow literal that holds the read in its runtime body
-//! or a parameter default, and that literal is delivered through a closed list of
-//! storage boundaries. Everything else is refused, so the caller counts one
+//! or parameter list (defaults and computed pattern keys), and that literal is
+//! delivered through a closed list of storage boundaries. Everything else is refused, so the caller counts one
 //! `refused_pre_initializer_unproved`.
 
 use crate::ast::is_js_ts_function_like;

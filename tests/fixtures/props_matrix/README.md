@@ -2,9 +2,9 @@
 
 `rows.jsonl` holds one row per planned case. The test is `cpg::props_matrix_tests::props_matrix_rows`.
 Run it with `cargo test --lib props_matrix_rows -- --nocapture`. The checked-in `ENABLED`
-constant runs `control` and `S1`. To record a baseline or test another slice, temporarily add its
-group to the constant. The runner prints a status for each enabled row and reports all
-failing rows together.
+constant runs `control`, `S1`, `S2`, and `S3`. The runner prints a status for each
+enabled row and reports all failing rows together. S2 and S3 also report each
+case/grammar and assertion separately.
 
 ## Row fields
 
