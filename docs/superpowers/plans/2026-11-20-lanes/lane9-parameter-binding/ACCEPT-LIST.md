@@ -6,6 +6,8 @@ Amends [DESIGN §5 E](DESIGN.md#e-calls-through-a-parameter) for E1 and pricing 
 
 ## Admission
 
+**E1 product = the baseline grounding (including `holder_at`) AND this list.** A derivation that `holder_at` refuses is pricing-only (shadow); E2 decides whether to activate it. The S0 row and the "Ten priced holder refusals" table below describe the shadow judge and are shadow-only. S0 also refuses a receiver-form Source call (`this.m`, `super.m`, or any member call other than a static native ESM namespace member): a resolved `this.m` is an `Exact` singleton of the declaring class and does not see an in-repo subclass override, so no dispatch witness exists in v2 (counter `source`; #972 adds one). Measured cost: zero baseline-credited target sites on Excalidraw and TypeScript (the `this`/`super` hops occur only in derivations the baseline did not credit: 6 on Excalidraw, 71 on TypeScript).
+
 Require S0, value provenance and applicable O checks per hop, path and timing at invocation, and F1–F4 at the terminal. Peel only transparent parentheses and proved erased TS wrappers. Refuse parse recovery and uncertain witnesses.
 
 | Form | Requirement and evaluation order |
@@ -52,7 +54,7 @@ F1–F4 prove terminal values only. Wrapper results, re-export adapters, mutable
 | I0 branch, switch, loop, repeated reads or other body regions | A branch can skip the read and a back edge can repeat it, but every execution reads the same initialized cell. There is no carrier to mutate before the next read. |
 | I0 nested or escaped closure | Each closure captures the cell of its own holder activation. Closure creation and later or repeated calls retain that cell, and O2–O4 bar subsequent rebinding. |
 | I0 async/generator, including nested resumptions | The body reads its own initialized cell. Scheduling and suspension preserve it without default evaluation or other-caller substitution. |
-| I0 deferred body in an entry initializer | Allow only with positive post-initialization evidence. An S4 function creation plus a full-list proof that no initializer invokes or exposes it before initialization suffices. The eventual read captures the same stable cell. A direct read in the holder's initializer still fails S2/S4. |
+| I0 deferred body in an entry initializer | Allow only when the closure's binding has no occurrence in the formal list other than its declaration (O4's blanket refusal covers `arguments`); a read before initialization is a TDZ error and never yields another callable. The eventual read captures the same stable cell. A direct read in the holder's initializer still fails S2/S4. |
 | I0 extra proved value reads or provably unmapped arguments | Copying the function value or replacing an unmapped index cannot change the tracked cell. Property effects on that function value cannot replace its admitted callable identity. |
 | S0 by Exact, including imports, aliases and locals | `Exact` supplies static callee identity for this occurrence under the project's contract. The matching unique implementation and S1 delivery bind the actuals to this activation. Value, mutation, timing and default proofs still run on the same caller at every hop. |
 
@@ -108,7 +110,7 @@ The shadow emits S0 after the hop's file/span/owner check and unions form IDs ac
 | `relay_form` / `cycle` / `depth` | Unproved S5 operand / repeated active slot / third caller lookup. |
 | `fanout` / `no_target` | Site exceeded the deduplicated cap / empty fallback when there is no proof reason. |
 
-No v2 counter renames or additions. V1 adds `read_timing`, `default_dependency`, `default_form` and `relay_form` to baseline. Check in table order, with the prefix check after O2–O4. Record `js_arg_follow.reasons` per failed contribution even at credited sites, `empty_reasons` per empty eligible site and `fanout` per capped site. I0 and J0/J1 are form dimensions.
+No v2 counter renames or additions. V1 adds `read_timing`, `default_dependency`, `default_form` and `relay_form` to baseline. Check in this order: source, holder, J1, O2–O4 (`entry_write`, `dynamic_binding`, `mapped_arguments`, `stale_path`), then path and default shape, then I1/I2 (`read_timing`, including its prefix check), then terminal, relay, depth and fanout. `jsx_attribute` is checked first and overrides any later reason; its meaning widens (J1 at any incoming hop, not only the invocation), which changes `js_arg_follow.reasons` for consumers. Record `js_arg_follow.reasons` per failed contribution even at credited sites, `empty_reasons` per empty eligible site and `fanout` per capped site. I0 and J0/J1 are form dimensions.
 
 ## Exclusion and regression rows
 
@@ -161,6 +163,6 @@ V1 retained X **0/115** and T **2/383** baseline target sites, with **565/1,382*
 | Package corpus (SB) | 1,016 | 881 | 135 | 87% |
 | Go-side control (G) | 0 | 0 | 0 | none |
 
-Withheld target sites by first reason. X: `jsx_attribute` 82, `read_timing` 11, `fanout` 4, `path_step` 2, `default_dependency` 2. T: `read_timing` 71, `relay_form` 9, `path_step` 5, `opaque_terminal` 4, `fanout` 3, `default_dependency` 2, `stale_terminal` 2, `stale_path` 1, `default_form` 1. SB: `read_timing` 79, `stale_terminal` 50, `stale_path` 5, `relay_form` 1. Sites newly credited that baseline did not credit: X 45, T 122, SB 166 (see §"Newly credited shapes" in DESIGN §5 E1). Receipts: `price/v2/{X,T,SB,G}.md` in the lane evidence directory.
+Withheld target sites by first reason. X: `jsx_attribute` 82, `read_timing` 11, `fanout` 4, `path_step` 2, `default_dependency` 2. T: `read_timing` 71, `relay_form` 9, `path_step` 5, `opaque_terminal` 4, `fanout` 3, `default_dependency` 2, `stale_terminal` 2, `stale_path` 1, `default_form` 1. SB: `read_timing` 79, `stale_terminal` 50, `stale_path` 5, `relay_form` 1. Sites newly credited that baseline did not credit: X 45, T 122, SB 166 (see the follow-ups in DESIGN §5 E1). Receipts: `price/v2/{X,T,SB,G}.md` in the lane evidence directory, produced by the shadow judge at commit `8bedd57a` (branch `wip/param-binding-e1-price`, over `6215c5e2`). These numbers are the shadow union. The E1 product (baseline grounding AND v2) recomputed from the same records keeps Excalidraw 18 of 115, TypeScript 288 of 383, package corpus 881 of 1,016 (the shadow's four Excalidraw and four TypeScript `fanout` withholds exist only because pricing-only derivations join the union; one TypeScript site is kept only by a pricing-only derivation). The Excalidraw JSX-in sensitivity is 15 of 115: JSX hops that are admitted become `read_timing`, so proving JSX delivery alone would not recover them.
 
-The gate "at most one third withheld on Excalidraw and on TypeScript" is **missed on Excalidraw** (101 of 115 withheld, 82 of them JSX attributes) and met on TypeScript (98 of 383, 26%). The owner accepted the miss on 2026-11-27; it is recorded, not hidden.
+The gate "at most one third withheld on Excalidraw and on TypeScript" is **missed on Excalidraw** (101 of 115 withheld by the shadow, 97 by the product; 82 of the shadow's are JSX attributes as the first reason) and met on TypeScript (98 of 383, 26%). The owner accepted the miss on 2026-11-27; it is recorded, not hidden.
