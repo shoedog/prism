@@ -20,6 +20,7 @@ pub(crate) mod anon_guard_tests;
 #[cfg(test)]
 mod asserted_member_tests;
 pub(crate) mod binding_facts;
+pub(crate) use build::spread_args::dense_array_length;
 mod build;
 #[cfg(test)]
 mod callback_identity_tests;
@@ -153,6 +154,23 @@ mod trace_proofs_tests;
 mod trace_proofs_walk_tests;
 mod types;
 pub(crate) mod var_index;
+mod walk_proofs;
+#[cfg(test)]
+mod walk_proofs_cover2_tests;
+#[cfg(test)]
+mod walk_proofs_cover_tests;
+#[cfg(test)]
+mod walk_proofs_fold1_cfg_tests;
+#[cfg(test)]
+mod walk_proofs_fold1_tests;
+#[cfg(test)]
+mod walk_proofs_fold2_tests;
+#[cfg(test)]
+mod walk_proofs_golden_tests;
+#[cfg(test)]
+mod walk_proofs_limits_tests;
+#[cfg(test)]
+mod walk_proofs_tests;
 
 // Items the test module reaches via `use super::*;`. On the original
 // single-file module these were ordinary top-of-file imports; re-export them

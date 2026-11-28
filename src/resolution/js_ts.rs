@@ -2,6 +2,7 @@
 
 pub(crate) mod alias;
 pub(crate) mod anonymous;
+pub(crate) mod arg_follow;
 pub(crate) mod cjs;
 pub(crate) mod namespace;
 pub(crate) mod paths;

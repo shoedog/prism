@@ -5,12 +5,12 @@ fn compact_codec_rejects_bad_bounds_groups_and_order() {
 }
 #[test]
 fn production_cache_version_activates_compact_codec() {
-    assert_eq!(super::CACHE_VERSION, 196);
+    assert_eq!(super::CACHE_VERSION, 197);
 }
 
 #[test]
 fn production_cache_version_includes_module_owners() {
-    assert_eq!(super::CACHE_VERSION, 196);
+    assert_eq!(super::CACHE_VERSION, 197);
 }
 
 #[test]
@@ -54,19 +54,10 @@ fn production_stream_matches_owned_bytes_and_stale_version_misses() {
     };
     assert_eq!(restored.dfg_label_stats, cpg.dfg_label_stats);
     assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 1);
-    let pre_s3 = CpgCache {
-        version: 195,
-        ..owned
-    };
-    fs::write(&path, bincode::serialize(&pre_s3).unwrap()).unwrap();
     stream::PAYLOAD_DECODES.with(|count| count.set(0));
-    let stale_missed = matches!(load_cache(&hashes, false, dir.path()), CacheResult::Miss);
-    let decodes = stream::PAYLOAD_DECODES.with(|count| count.get());
-    assert_eq!(
-        (super::CACHE_VERSION, stale_missed, decodes),
-        (196, true, 0),
-        "version 195 must miss before payload decode",
-    );
+    assert_stale_version_miss(&hashes, dir.path());
+    assert_eq!(stream::PAYLOAD_DECODES.with(|count| count.get()), 0);
+    assert_eq!(super::CACHE_VERSION, 197);
 }
 
 pub(crate) fn assert_stale_version_miss(

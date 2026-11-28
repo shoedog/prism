@@ -230,7 +230,6 @@ fn matrix_rows_match() {
     }
     let output = crate::prism_bin()
         .unwrap()
-        .env_remove("PRISM_INVENTORY_FIELD_ROWS")
         .args([
             "targets",
             "--repo",
@@ -528,7 +527,7 @@ pub(super) fn check_field_matrix(prefix: &str) {
         .filter(|row| files.contains(row.fixture.as_str()))
         .collect();
     let files = files.into_iter().collect::<Vec<_>>().join(",");
-    let doc = super::targets_inventory_field_rows_test::scan(Some("1"), &files, &[]);
+    let doc = super::targets_inventory_field_rows_test::scan(&files, &[]);
     let targets = doc["targets"].as_array().unwrap();
     let mut used = vec![false; targets.len()];
     assert_eq!(

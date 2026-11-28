@@ -1,0 +1,878 @@
+{
+  "B01": {
+    "variants": [
+      {"name": "producer", "expect": {"/role": "producer", "/input_id": "service-before", "/schema_version": "0.1"}, "patches": []},
+      {
+        "name": "consumer",
+        "expect": {
+          "/role": "consumer",
+          "/input_id": "client-before",
+          "/schema_version": "0.1"
+        },
+        "patches": [],
+        "fixture": "consumer.json"
+      },
+      {
+        "name": "impact",
+        "expect": {
+          "/report_id": "pilot-impact",
+          "/api": "pilot-api",
+          "/mode": "live",
+          "/report_time": "2026-11-26T12:00:00Z",
+          "/cutoff_at": "2026-11-26T12:00:00Z",
+          "/reference": null,
+          "/inputs/0/repo": "pilot-producer",
+          "/comparisons/0/comparison_id": "actual_before"
+        },
+        "patches": [],
+        "fixture": "mixed.json"
+      },
+      {
+        "name": "client-only",
+        "expect": {
+          "/change/subject_role": "client",
+          "/comparisons/0/service_input_id": "service-held",
+          "/comparisons/1/service_input_id": "service-held"
+        },
+        "patches": [],
+        "fixture": "client-only.json"
+      }
+    ]
+  },
+  "B02": {
+    "variants": [
+      {
+        "patches": [],
+        "expect": {
+          "/snapshot_kind": "commit",
+          "/rev": "service-before-rev",
+          "/tree": "service-before-tree",
+          "/subject": null,
+          "/committed_at": null,
+          "/computed_at": {"$missing": true},
+          "/merge_receipt": {"$missing": true}
+        }
+      }
+    ]
+  },
+  "B04": {
+    "variants": [
+      {
+        "name": "file",
+        "expect": {
+          "/schema": {
+            "source": {
+              "kind": "file",
+              "repo": "pilot-producer",
+              "tree": "service-before-tree",
+              "rev": "service-before-rev",
+              "committed_at": null,
+              "path": "openapi.json",
+              "blob": "schema-blob",
+              "format": "json",
+              "sha256": "a373f8913c85c37b1ca59747d076c2c119dad269ae42a46e90ef3bdbd7266785"
+            },
+            "content_hash": "f85b4eefc6bd959dd3b0d114feb9b107405e2a076d19a2bec25ebb6195571c0d",
+            "info_version": "1"
+          },
+          "/operation_authority": "schema"
+        },
+        "patches": [],
+        "inventory": "inventory.json"
+      },
+      {"name": "unknown-version", "expect": {"/schema/info_version": null}, "patches": [], "inventory": "empty.json"},
+      {
+        "name": "route-table",
+        "expect": {
+          "/schema/source/kind": "route_table",
+          "/schema/source/sha256": {"$missing": true}
+        },
+        "patches": [
+          {
+            "path": "/schema",
+            "value": {
+              "source": {"kind": "route_table", "repo": "pilot-producer", "tree": "service-before-tree", "input_id": "routes"},
+              "content_hash": null,
+              "info_version": null
+            }
+          },
+          {"path": "/operation_authority", "value": "route_table"}
+        ]
+      }
+    ]
+  },
+  "B05": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/config_sources",
+            "value": [
+              {
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "entry": 1,
+                "era": "v1",
+                "defaults": "driver-defaults",
+                "export": "pilotClient",
+                "mount": "/api",
+                "strip": "",
+                "add": "",
+                "api": "pilot-api",
+                "dependencies": ["mapping"],
+                "hook": "usePilot",
+                "delegate": "pilotClient"
+              }
+            ]
+          }
+        ],
+        "expect": {
+          "/config_sources/0": {
+            "tree": "service-before-tree",
+            "path": "prism-boundary.toml",
+            "blob": "config-blob",
+            "entry": 1,
+            "era": "v1",
+            "defaults": "driver-defaults",
+            "export": "pilotClient",
+            "mount": "/api",
+            "strip": "",
+            "add": "",
+            "api": "pilot-api",
+            "dependencies": ["mapping"],
+            "hook": "usePilot",
+            "delegate": "pilotClient"
+          }
+        }
+      }
+    ]
+  },
+  "B06": {
+    "variants": [
+      {
+        "patches": [
+          {"path": "/reference", "value": "service-before"},
+          {
+            "path": "/change/selection",
+            "value": {
+              "branch": "main",
+              "observed_tip": "service-after-rev",
+              "observed_at": "2026-11-26T12:00:00Z",
+              "requested_rev": "service-after-rev",
+              "selected_by": "pilot-reviewer",
+              "selection_reason": "integration tip",
+              "availability_status": "admitted",
+              "availability_evidence": "live-ref",
+              "comparison_basis": "target_to_result",
+              "proposed_base": "proposal-base",
+              "proposed_head": "proposal-head"
+            }
+          }
+        ],
+        "expect": {
+          "/change/subject_role": "both",
+          "/change/producer": {"before_input_id": "service-before", "after_input_id": "service-after"},
+          "/change/consumer": {"before_input_id": "client-before", "after_input_id": "client-after"},
+          "/change/selection": {
+            "branch": "main",
+            "observed_tip": "service-after-rev",
+            "observed_at": "2026-11-26T12:00:00Z",
+            "requested_rev": "service-after-rev",
+            "selected_by": "pilot-reviewer",
+            "selection_reason": "integration tip",
+            "availability_status": "admitted",
+            "availability_evidence": "live-ref",
+            "comparison_basis": "target_to_result",
+            "proposed_base": "proposal-base",
+            "proposed_head": "proposal-head"
+          },
+          "/reference": "service-before",
+          "/cutoff_at": "2026-11-26T12:00:00Z"
+        }
+      }
+    ]
+  },
+  "B07": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/dependency_records",
+            "value": [
+              {
+                "input_id": "config",
+                "origin": {
+                  "kind": "named_tree",
+                  "input_id": "service-before",
+                  "repo": "pilot-producer",
+                  "tree": "service-before-tree",
+                  "path": "prism-boundary.toml",
+                  "blob": "config-blob",
+                  "availability": "available"
+                },
+                "dependencies": ["driver-defaults"],
+                "tool": {"name": "prism-boundary", "build": "fixture-build"},
+                "scope": {"kind": "api"}
+              },
+              {
+                "input_id": "driver-defaults",
+                "origin": {"kind": "independent_cutoff", "evidence": "captured-at-cutoff", "available_at": "2026-11-25T12:00:00Z"},
+                "dependencies": [],
+                "tool": {"name": "prism-boundary", "build": "fixture-build"},
+                "scope": {"kind": "api"}
+              }
+            ]
+          },
+          {"path": "/dependencies", "value": ["config"]}
+        ],
+        "expect": {
+          "/dependency_records": [
+            {
+              "input_id": "config",
+              "origin": {
+                "kind": "named_tree",
+                "input_id": "service-before",
+                "repo": "pilot-producer",
+                "tree": "service-before-tree",
+                "path": "prism-boundary.toml",
+                "blob": "config-blob",
+                "availability": "available"
+              },
+              "dependencies": ["driver-defaults"],
+              "tool": {"name": "prism-boundary", "build": "fixture-build"},
+              "scope": {"kind": "api"}
+            },
+            {
+              "input_id": "driver-defaults",
+              "origin": {"kind": "independent_cutoff", "evidence": "captured-at-cutoff", "available_at": "2026-11-25T12:00:00Z"},
+              "dependencies": [],
+              "tool": {"name": "prism-boundary", "build": "fixture-build"},
+              "scope": {"kind": "api"}
+            }
+          ],
+          "/dependencies": ["config"]
+        }
+      }
+    ]
+  },
+  "B08": {
+    "variants": [
+      {
+        "patches": [
+          {"path": "/expected_files", "value": ["openapi.json", "moved.ts", "deleted.ts", "missing.ts", "unreported.ts"]},
+          {
+            "path": "/file_status",
+            "value": [
+              {"path": "openapi.json", "scope": {"kind": "api"}, "status": "complete", "reason": null, "possible_keys": []},
+              {
+                "path": "moved.ts",
+                "scope": {"kind": "api"},
+                "status": "partial",
+                "reason": "moved_file",
+                "possible_keys": [],
+                "evidence": {"from": "old.ts"}
+              },
+              {
+                "path": "deleted.ts",
+                "scope": {"kind": "api"},
+                "status": "complete",
+                "reason": null,
+                "possible_keys": [],
+                "evidence": {"deleted": true}
+              },
+              {"path": "missing.ts", "scope": {"kind": "api"}, "status": "unknown", "reason": "missing_receipt", "possible_keys": []}
+            ]
+          },
+          {
+            "path": "/entries",
+            "value": [
+              {"path": "moved.ts", "scope": {"kind": "api"}, "status": "unreadable", "reason": "unreadable_bytes", "possible_keys": []},
+              {"path": "moved.ts", "scope": {"kind": "api"}, "status": "skipped", "reason": "entry_not_literal", "possible_keys": []}
+            ]
+          }
+        ],
+        "derive_extraction": true,
+        "expect": {
+          "/expected_files": ["openapi.json", "moved.ts", "deleted.ts", "missing.ts", "unreported.ts"],
+          "/file_status": [
+            {"path": "openapi.json", "scope": {"kind": "api"}, "status": "complete", "reason": null, "possible_keys": []},
+            {
+              "path": "moved.ts",
+              "scope": {"kind": "api"},
+              "status": "partial",
+              "reason": "moved_file",
+              "possible_keys": [],
+              "evidence": {"from": "old.ts"}
+            },
+            {
+              "path": "deleted.ts",
+              "scope": {"kind": "api"},
+              "status": "complete",
+              "reason": null,
+              "possible_keys": [],
+              "evidence": {"deleted": true}
+            },
+            {"path": "missing.ts", "scope": {"kind": "api"}, "status": "unknown", "reason": "missing_receipt", "possible_keys": []}
+          ],
+          "/entries": [
+            {"path": "moved.ts", "scope": {"kind": "api"}, "status": "unreadable", "reason": "unreadable_bytes", "possible_keys": []},
+            {"path": "moved.ts", "scope": {"kind": "api"}, "status": "skipped", "reason": "entry_not_literal", "possible_keys": []}
+          ],
+          "/unaccounted_scopes": [
+            {
+              "path": "unreported.ts",
+              "scope": {"kind": "api"},
+              "status": "unknown",
+              "reason": "missing_file_status",
+              "possible_keys": []
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "B10": {
+    "variants": [
+      {
+        "name": "checked",
+        "expect": {
+          "/operations/0/message_roots/0/coverage": "checked",
+          "/unaccounted_scopes/0/status": "unknown"
+        },
+        "patches": [
+          {"path": "/operations/0/message_roots/0/coverage", "value": "checked"},
+          {
+            "path": "/unaccounted_scopes",
+            "value": [
+              {
+                "path": "unreported.ts",
+                "scope": {"kind": "api"},
+                "status": "unknown",
+                "reason": "missing_file_status",
+                "possible_keys": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "observed_only",
+        "expect": {
+          "/operations/0/message_roots/0/coverage": "observed_only",
+          "/unaccounted_scopes/0/status": "unknown"
+        },
+        "patches": [
+          {"path": "/operations/0/message_roots/0/coverage", "value": "observed_only"},
+          {
+            "path": "/unaccounted_scopes",
+            "value": [
+              {
+                "path": "unreported.ts",
+                "scope": {"kind": "api"},
+                "status": "unknown",
+                "reason": "missing_file_status",
+                "possible_keys": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "partial",
+        "expect": {
+          "/operations/0/message_roots/0/coverage": "partial",
+          "/unaccounted_scopes/0/status": "unknown"
+        },
+        "patches": [
+          {"path": "/operations/0/message_roots/0/coverage", "value": "partial"},
+          {
+            "path": "/unaccounted_scopes",
+            "value": [
+              {
+                "path": "unreported.ts",
+                "scope": {"kind": "api"},
+                "status": "unknown",
+                "reason": "missing_file_status",
+                "possible_keys": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "withheld",
+        "expect": {
+          "/operations/0/message_roots/0/coverage": "withheld",
+          "/unaccounted_scopes/0/status": "unknown"
+        },
+        "patches": [
+          {"path": "/operations/0/message_roots/0/coverage", "value": "withheld"},
+          {
+            "path": "/unaccounted_scopes",
+            "value": [
+              {
+                "path": "unreported.ts",
+                "scope": {"kind": "api"},
+                "status": "unknown",
+                "reason": "missing_file_status",
+                "possible_keys": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "B12": {
+    "variants": [
+      {"name": "producer", "expect": {"/operations/0/operation_id": "op:GET /kiln", "/calls": {"$missing": true}}, "patches": []},
+      {
+        "name": "consumer",
+        "expect": {
+          "/calls/0/saved_match": {"service_input_id": "service-before", "grade": "bound", "target_ids": ["op:GET /kiln"]},
+          "/calls/1/saved_match": {"$missing": true},
+          "/operations": {"$missing": true},
+          "/schema": null
+        },
+        "patches": [
+          {
+            "path": "/calls/0",
+            "value": {
+              "site_id": "bound-call",
+              "site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+              "enclosing_function": null,
+              "function_span": null,
+              "requested_method": "GET",
+              "original_url_text": "/kiln",
+              "mapped_path": "/kiln",
+              "mapping_source": null,
+              "target_reason": null,
+              "saved_match": {"service_input_id": "service-before", "grade": "bound", "target_ids": ["op:GET /kiln"]}
+            }
+          },
+          {
+            "path": "/calls/-",
+            "value": {
+              "site_id": "call-before",
+              "site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+              "enclosing_function": null,
+              "function_span": null,
+              "requested_method": "GET",
+              "original_url_text": "urlFromState()",
+              "mapped_path": null,
+              "mapping_source": null,
+              "target_reason": "dynamic_url"
+            }
+          }
+        ],
+        "fixture": "consumer.json"
+      }
+    ]
+  },
+  "B13": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/calls",
+            "value": [
+              {
+                "site_id": "miss",
+                "site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "enclosing_function": null,
+                "function_span": null,
+                "requested_method": "GET",
+                "original_url_text": "/forge",
+                "mapped_path": "/forge",
+                "mapping_source": null,
+                "target_reason": null
+              },
+              {
+                "site_id": "call-before",
+                "site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "enclosing_function": null,
+                "function_span": null,
+                "requested_method": "GET",
+                "original_url_text": "urlFromState()",
+                "mapped_path": null,
+                "mapping_source": null,
+                "target_reason": "dynamic_url"
+              },
+              {
+                "site_id": "unchecked",
+                "site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+                "enclosing_function": null,
+                "function_span": null,
+                "requested_method": "GET",
+                "original_url_text": "/kiln",
+                "mapped_path": null,
+                "mapping_source": null,
+                "target_reason": "origin_unchecked"
+              }
+            ]
+          },
+          {
+            "path": "/entries",
+            "value": [{"path": "sender.js", "scope": {"kind": "api"}, "status": "skipped", "reason": "excluded_transport", "possible_keys": []}]
+          }
+        ],
+        "expect": {
+          "/calls": [
+            {
+              "site_id": "miss",
+              "site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+              "enclosing_function": null,
+              "function_span": null,
+              "requested_method": "GET",
+              "original_url_text": "/forge",
+              "mapped_path": "/forge",
+              "mapping_source": null,
+              "target_reason": null
+            },
+            {
+              "site_id": "call-before",
+              "site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+              "enclosing_function": null,
+              "function_span": null,
+              "requested_method": "GET",
+              "original_url_text": "urlFromState()",
+              "mapped_path": null,
+              "mapping_source": null,
+              "target_reason": "dynamic_url"
+            },
+            {
+              "site_id": "unchecked",
+              "site": {"tree": "client-before-tree", "file": "sender.js", "blob": "client-blob", "line": 1, "span": [0, 8]},
+              "enclosing_function": null,
+              "function_span": null,
+              "requested_method": "GET",
+              "original_url_text": "/kiln",
+              "mapped_path": null,
+              "mapping_source": null,
+              "target_reason": "origin_unchecked"
+            }
+          ],
+          "/entries/0/reason": "excluded_transport"
+        }
+      }
+    ]
+  },
+  "B17": {
+    "variants": [
+      {
+        "patches": [
+          {"path": "/operations/0/success_statuses", "value": ["200", "204", "2XX"]},
+          {
+            "path": "/operations/0/message_roots",
+            "value": [
+              {
+                "direction": "request",
+                "status": null,
+                "body_presence": "present",
+                "declared_media": ["application/json"],
+                "effective_media": "application/json",
+                "coverage": "checked"
+              },
+              {
+                "direction": "response",
+                "status": "204",
+                "body_presence": "absent",
+                "declared_media": [],
+                "effective_media": null,
+                "coverage": "checked"
+              },
+              {
+                "direction": "response",
+                "status": "2XX",
+                "body_presence": "present",
+                "declared_media": ["text/plain"],
+                "effective_media": null,
+                "coverage": "withheld"
+              },
+              {
+                "direction": "response",
+                "status": "default",
+                "body_presence": "present",
+                "declared_media": ["application/json"],
+                "effective_media": "application/json",
+                "coverage": "checked"
+              },
+              {
+                "direction": "response",
+                "status": "200",
+                "body_presence": "present",
+                "declared_media": [],
+                "effective_media": "application/json",
+                "coverage": "checked",
+                "producer_media_ref": {"input_id": "media", "entry": 1}
+              }
+            ]
+          }
+        ],
+        "expect": {
+          "/operations/0/success_statuses": ["200", "204", "2XX"],
+          "/operations/0/message_roots": [
+            {
+              "direction": "request",
+              "status": null,
+              "body_presence": "present",
+              "declared_media": ["application/json"],
+              "effective_media": "application/json",
+              "coverage": "checked"
+            },
+            {
+              "direction": "response",
+              "status": "204",
+              "body_presence": "absent",
+              "declared_media": [],
+              "effective_media": null,
+              "coverage": "checked"
+            },
+            {
+              "direction": "response",
+              "status": "2XX",
+              "body_presence": "present",
+              "declared_media": ["text/plain"],
+              "effective_media": null,
+              "coverage": "withheld"
+            },
+            {
+              "direction": "response",
+              "status": "default",
+              "body_presence": "present",
+              "declared_media": ["application/json"],
+              "effective_media": "application/json",
+              "coverage": "checked"
+            },
+            {
+              "direction": "response",
+              "status": "200",
+              "body_presence": "present",
+              "declared_media": [],
+              "effective_media": "application/json",
+              "coverage": "checked",
+              "producer_media_ref": {"input_id": "media", "entry": 1}
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "B19": {
+    "variants": [
+      {
+        "patches": [],
+        "inventory": "p1c:wire/partial-leaf.json",
+        "expect": {
+          "/operations/0/observed_fields/0/field_id": "field:resp:GET /loom:200#/x",
+          "/operations/0/fields": []
+        }
+      }
+    ]
+  },
+  "B20": {
+    "variants": [
+      {
+        "name": "enum-0",
+        "expect": {
+          "/operations/0/fields/0/signature": [["missing"], ["unknown"], ["branch_dependent"], ["missing"], ["known", "string"]]
+        },
+        "patches": [
+          {
+            "path": "/operations/0/fields",
+            "value": [
+              {
+                "field_id": "field:resp:GET /kiln:200#/stamp",
+                "signature": [["missing"], ["unknown"], ["branch_dependent"], ["missing"], ["known", "string"]]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "enum-1",
+        "expect": {
+          "/operations/0/fields/0/signature": [["missing"], ["unknown"], ["branch_dependent"], ["unknown"], ["known", "string"]]
+        },
+        "patches": [
+          {
+            "path": "/operations/0/fields",
+            "value": [
+              {
+                "field_id": "field:resp:GET /kiln:200#/stamp",
+                "signature": [["missing"], ["unknown"], ["branch_dependent"], ["unknown"], ["known", "string"]]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "enum-2",
+        "expect": {
+          "/operations/0/fields/0/signature": [["missing"], ["unknown"], ["branch_dependent"], ["branch_dependent"], ["known", "string"]]
+        },
+        "patches": [
+          {
+            "path": "/operations/0/fields",
+            "value": [
+              {
+                "field_id": "field:resp:GET /kiln:200#/stamp",
+                "signature": [["missing"], ["unknown"], ["branch_dependent"], ["branch_dependent"], ["known", "string"]]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "enum-3",
+        "expect": {
+          "/operations/0/fields/0/signature": [["missing"], ["unknown"], ["branch_dependent"], ["known", []], ["known", "string"]]
+        },
+        "patches": [
+          {
+            "path": "/operations/0/fields",
+            "value": [
+              {
+                "field_id": "field:resp:GET /kiln:200#/stamp",
+                "signature": [["missing"], ["unknown"], ["branch_dependent"], ["known", []], ["known", "string"]]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "enum-4",
+        "expect": {
+          "/operations/0/fields/0/signature": [["missing"], ["unknown"], ["branch_dependent"], ["known", [null]], ["known", "string"]]
+        },
+        "patches": [
+          {
+            "path": "/operations/0/fields",
+            "value": [
+              {
+                "field_id": "field:resp:GET /kiln:200#/stamp",
+                "signature": [["missing"], ["unknown"], ["branch_dependent"], ["known", [null]], ["known", "string"]]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "B22": {
+    "variants": [
+      {
+        "patches": [
+          {
+            "path": "/change/elements",
+            "value": [
+              {
+                "row_id": "declared-empty",
+                "operation_id": "op:GET /kiln",
+                "before_element_id": "field:resp:GET /kiln:200#/stamp",
+                "after_element_id": null,
+                "change_kinds": ["enum_declaration_changed"],
+                "before_presence": "present",
+                "after_presence": "absent",
+                "before_shape": [["known", "string"], ["missing"], ["known", false], ["missing"], ["missing"]],
+                "after_shape": [["known", "string"], ["missing"], ["known", false], ["known", []], ["missing"]],
+                "coverage_limits": [],
+                "after_declaration_id": "field:resp:GET /kiln:200#/stamp"
+              }
+            ]
+          }
+        ],
+        "expect": {
+          "/change/elements/0": {
+            "row_id": "declared-empty",
+            "operation_id": "op:GET /kiln",
+            "before_element_id": "field:resp:GET /kiln:200#/stamp",
+            "after_element_id": null,
+            "change_kinds": ["enum_declaration_changed"],
+            "before_presence": "present",
+            "after_presence": "absent",
+            "before_shape": [["known", "string"], ["missing"], ["known", false], ["missing"], ["missing"]],
+            "after_shape": [["known", "string"], ["missing"], ["known", false], ["known", []], ["missing"]],
+            "coverage_limits": [],
+            "after_declaration_id": "field:resp:GET /kiln:200#/stamp"
+          }
+        }
+      }
+    ]
+  },
+  "B23": {
+    "variants": [
+      {
+        "name": "operation",
+        "expect": {
+          "/change/elements/0/operation_id": "op:GET /kiln",
+          "/change/elements/0/change_kinds": ["op_added"],
+          "/change/elements/0/after_fields/0/field_id": "field:resp:GET /kiln:200#/color",
+          "/change/elements/1": {"$missing": true}
+        },
+        "patches": [],
+        "diff": ["empty.json", "inventory.json"]
+      },
+      {
+        "name": "bodyless",
+        "expect": {
+          "/change/status_additions": [{"operation_id": "op:GET /kiln", "status": "204"}],
+          "/change/status_removals": [],
+          "/change/elements/0/change_kinds": ["success_status_added"],
+          "/change/elements/1": {"$missing": true}
+        },
+        "patches": [],
+        "diff": ["inventory.json", "status.json"]
+      }
+    ]
+  },
+  "B24": {
+    "variants": [
+      {
+        "name": "with-edit",
+        "expect": {
+          "/change/response_root_pairs": [
+            {
+              "operation_id": "op:GET /kiln",
+              "before_status": "200",
+              "after_status": "201",
+              "fields": [
+                {"before_element_id": "field:resp:GET /kiln:200#/color", "after_element_id": "field:resp:GET /kiln:201#/color"},
+                {"before_element_id": "field:resp:GET /kiln:200#/stamp", "after_element_id": "field:resp:GET /kiln:201#/stamp"}
+              ]
+            }
+          ],
+          "/change/status_additions": [{"operation_id": "op:GET /kiln", "status": "201"}],
+          "/change/status_removals": [{"operation_id": "op:GET /kiln", "status": "200"}],
+          "/change/elements/2/before_element_id": "field:resp:GET /kiln:200#/stamp",
+          "/change/elements/2/after_element_id": "field:resp:GET /kiln:201#/stamp",
+          "/change/elements/2/change_kinds": ["field_type_changed"]
+        },
+        "patches": [],
+        "diff": ["inventory.json", "paired.json"]
+      },
+      {
+        "name": "move-only",
+        "expect": {
+          "/change/response_root_pairs": [
+            {
+              "operation_id": "op:GET /kiln",
+              "before_status": "200",
+              "after_status": "201",
+              "fields": [
+                {"before_element_id": "field:resp:GET /kiln:200#/color", "after_element_id": "field:resp:GET /kiln:201#/color"},
+                {"before_element_id": "field:resp:GET /kiln:200#/stamp", "after_element_id": "field:resp:GET /kiln:201#/stamp"}
+              ]
+            }
+          ],
+          "/change/status_additions": [{"operation_id": "op:GET /kiln", "status": "201"}],
+          "/change/status_removals": [{"operation_id": "op:GET /kiln", "status": "200"}],
+          "/change/elements/2": {"$missing": true}
+        },
+        "patches": [],
+        "diff": ["inventory.json", "moved-root.json"]
+      }
+    ]
+  }
+}

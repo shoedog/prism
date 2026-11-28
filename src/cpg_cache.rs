@@ -345,7 +345,8 @@ mod stream;
 /// - v194: Step 5b JS/TS/TSX built-in callback roles add NameOnly receiver edges and a label counter.
 /// - v195: JS/TS/TSX literal arguments bind to proved object-pattern Defs and selected plain-formal reads. Step 5b props inventory, refusals and edge counters are serialized.
 /// - v196: JSX props bind to proved destinations. The statistics record includes JSX site inventory and refusal counts.
-const CACHE_VERSION: u32 = 196;
+/// - v197: Persist the whole-graph JS-family argument-follow facts with the proof index (admitted by the lane 9 accept-list).
+const CACHE_VERSION: u32 = 197;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;
 
@@ -878,7 +879,7 @@ mod tests {
 
     #[test]
     fn cache_versions_are_pinned_for_cpg_semantics() {
-        assert_eq!(super::CACHE_VERSION, 196);
+        assert_eq!(super::CACHE_VERSION, 197);
         assert_eq!(super::SKIP_POLICY_VERSION, 2);
     }
 
@@ -1626,6 +1627,11 @@ mod tests {
             other => panic!("expected Hit, got {}", cache_result_kind(&other)),
         }
         force_cache_version(dir.path(), 115);
+        assert!(matches!(
+            load_cache(&hashes, false, dir.path()),
+            CacheResult::Miss
+        ));
+        force_cache_version(dir.path(), 194);
         assert!(matches!(
             load_cache(&hashes, false, dir.path()),
             CacheResult::Miss

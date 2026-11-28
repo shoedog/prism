@@ -7,12 +7,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 #[derive(Default)]
-pub(in crate::schema) struct Parsed {
+pub(crate) struct Parsed {
     pub value: Value,
     pub duplicates: BTreeMap<Vec<String>, BTreeSet<String>>,
 }
 
-pub(in crate::schema) fn parse(bytes: &[u8]) -> serde_json::Result<Parsed> {
+pub(crate) fn parse(bytes: &[u8]) -> serde_json::Result<Parsed> {
     let raw = serde_json::from_slice::<&RawValue>(bytes)?;
     let mut parsed = Parsed::default();
     parsed.value = read(raw, &mut Vec::new(), &mut parsed)?;

@@ -322,43 +322,7 @@ fn stdlib_construction_and_starred_annotation_sidecar_spans_match_source() {
 }
 
 #[test]
-fn field_sidecar_has_occurrence_spans_only_when_enabled() {
-    const CHILD: &str = "PRISM_FIELD_SIDECAR_TEST_CHILD";
-    let field_rows = std::env::var("PRISM_INVENTORY_FIELD_ROWS");
-    if std::env::var_os(CHILD).is_none() {
-        let test_name = module_path!().split_once("::").unwrap().1;
-        let results: Vec<_> = [None, Some("1")]
-            .into_iter()
-            .map(|gate| {
-                let mut child = std::process::Command::new(std::env::current_exe().unwrap());
-                child
-                    .args([
-                        "--exact",
-                        &format!(
-                            "{test_name}::field_sidecar_has_occurrence_spans_only_when_enabled"
-                        ),
-                    ])
-                    .env(CHILD, "1");
-                if let Some(gate) = gate {
-                    child.env("PRISM_INVENTORY_FIELD_ROWS", gate);
-                } else {
-                    child.env_remove("PRISM_INVENTORY_FIELD_ROWS");
-                }
-                let result = child.output().unwrap();
-                (gate, result)
-            })
-            .collect();
-        for (gate, result) in results {
-            let stdout = String::from_utf8_lossy(&result.stdout);
-            assert!(
-                result.status.success() && stdout.contains("1 passed"),
-                "{gate:?}: {stdout}{}",
-                String::from_utf8_lossy(&result.stderr)
-            );
-        }
-        return;
-    }
-
+fn field_sidecar_has_occurrence_spans_by_default() {
     let repo = tempdir().unwrap();
     let key = "app/main.py";
     let source = fixture_in("stdlib/pfield", "pf01");
@@ -372,8 +336,7 @@ fn field_sidecar_has_occurrence_spans_only_when_enabled() {
     let doc = inventory_document(&TargetsMeta::default(), &out);
     let traces = serde_json::to_value(evidence::sidecar(&doc.targets, &out.occurrences)).unwrap();
     let traces = traces.as_array().unwrap();
-    let enabled = field_rows.as_deref() == Ok("1");
-    assert_eq!(traces.len(), if enabled { 3 } else { 1 }, "{traces:#?}");
+    assert_eq!(traces.len(), 3, "{traces:#?}");
     assert_eq!(
         traces
             .iter()
@@ -381,10 +344,6 @@ fn field_sidecar_has_occurrence_spans_only_when_enabled() {
             .count(),
         1
     );
-    if !enabled {
-        assert!(traces[0]["proof"].get("field").is_none());
-        return;
-    }
     let expected = [
         ("self.path.exists()", [8, 15, 8, 24]),
         ("self.path.write_text(text)", [11, 15, 11, 24]),

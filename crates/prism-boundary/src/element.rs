@@ -88,7 +88,8 @@ impl fmt::Display for FieldId {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CaptureWidth {
     Required,
     Optional,
@@ -97,7 +98,7 @@ pub enum CaptureWidth {
     Exactly(usize),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Capture {
     pub name: String,
     pub width: CaptureWidth,
@@ -105,7 +106,8 @@ pub struct Capture {
     pub constraint: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum PathToken {
     Literal(String),
     Capture(Capture),

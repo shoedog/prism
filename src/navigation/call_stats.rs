@@ -564,6 +564,7 @@ pub fn call_stats(cg: &CallGraph) -> serde_json::Value {
         "local_binding_unchecked_position": local_binding_unchecked_position,
         "local_binding_may_call": local_binding_may_call,
         "js_alias_follow": js_alias_follow,
+        "js_arg_follow": cg.js_anonymous.arg_follow.stats(),
         "js_export_skipped_exprs": cg
             .js_ts_exports
             .values()

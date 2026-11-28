@@ -1,5 +1,8 @@
 # Prism Boundary
 
+**Status: PROVISIONAL.** The admission claim of this crate is scoped to what the
+real-pair replay measures; see [P1d admission claim](#p1d-admission-claim-provisional).
+
 The `prism-boundary` package owns the `prism_boundary` library and the
 `prism-boundary` binary. It is an opt-in workspace member.
 
@@ -9,9 +12,10 @@ OpenAPI 3.0 and 3.1 JSON. The reader consumes admitted bytes and explicit
 reference dependencies. Convert YAML at the caller boundary. The binary
 provides `--help` and `--version`.
 
-Wire-field discovery, source extraction, binding and impact documents, and
-schema diffs arrive in later slices. Adapters will add the `prism` dependency
-when they use `prism::api` and will list any non-facade calls here.
+The library indexes wire fields, compares admitted schema revisions, and
+publishes bindings and impact contracts. Source extractors and fresh matching
+land with the adapters. Adapters will add the `prism` dependency when they use
+`prism::api` and will list any non-facade calls here.
 
 ```sh
 cargo test -p prism-boundary
@@ -360,3 +364,147 @@ and leave extra limits unasserted.
 - `r10`, `r6`, `r6-ambiguous`, `r6-proof-withheld`, `r6-wildcard`, `r8`, `r9`,
   `r9-retained-default`, `r9-unknown-peer`, `s6`, `s7`, `s7-repeated-key`,
   `s7-repeated-key-added`, `s7-repeated-map`, `u2`, `u3-unknown`.
+
+## P1d document contracts
+
+`BindingsDocument` freezes one producer or consumer snapshot. It carries the
+snapshot and schema provenance, raw observations, expected files, and extraction
+coverage. `ImpactDocument` freezes a review with slot assignments, side-local
+changes, comparison-owned match maps, and saved-binding status. The bundled
+Draft 2020-12 schemas in `schemas/` use version `"0.1"`. Register both schemas
+by their `$id` to resolve the impact schema's shared records. The Rust
+`from_json` entry points check the wire contract and refuse duplicate members.
+`ImpactDocument::validate` checks references, slots, and comparison ownership
+on decoded records.
+
+Admission accepts commit and computed-tree snapshots. Producer authorities are
+schema, route table, registration and annotation. The consumer authority is
+calls. The schema reader projects JSON Swagger 2.0 and OpenAPI 3.0/3.1.
+Blob, inventory and media receipts bind a named tree. Config, mapping and
+source receipts can bind a named tree or independent cutoff evidence. An
+external reference can use an independent cutoff blob receipt with a retrieval
+URI and repository/tree/path/blob identity. Derived
+records carry a version and explicit input dependencies. Byte-backed schema and
+media receipts require SHA-256 over the raw bytes. Live ref, historical pin, historical snapshot, ref history,
+explicit pin and first-parent date-rule receipts bind selection to the requested
+time. Computed trees require merge evidence. Historical computed trees also
+require independent evidence of the exact tree by cutoff.
+
+Admission counts each dependent claim once per refusal code and retains the
+record evidence. Identical receipts coalesce. Conflicts, cycles, missing
+dependencies and unsupported kinds withhold their dependent claims. Tracked
+dirtiness stays attached as checkout context. The schema reader uses the
+admitted named-tree blob and explicitly linked references.
+
+Coverage stores each basis/side/scope/pointer/claim/reason once. Each limit
+retains its origin and can link to multiple changed or unchecked claims.
+Keyless and unlinked limits remain in the ledger. Saved scans and membership
+negatives require the relevant inventory and coverage. Unmeasured totals are
+null and carry a reason. Repository reads, fresh matching and rendering
+belong to later slices. The binary exposes `--help` and `--version`.
+
+
+The schema tests use Python with `jsonschema`. Set
+`PRISM_BOUNDARY_SCHEMA_PYTHON` to that interpreter when it differs from
+`python3`.
+
+## P1d admission claim (PROVISIONAL)
+
+This crate is PROVISIONAL. The admission claim is certified only for the request
+shape that the real-pair replay exercises, and for nothing else.
+
+**Certified shape.** Admission is certified for a historical review (`historical_as_of`) with report time at or after the cutoff, whose subject head is the service after input at the cutoff; two inputs of one API and repository, each a commit snapshot with one named-tree blob receipt that has no dependencies, whose commit, tree, path, blob id and bytes the caller has checked against one another in Git (admission checks each receipt's declared repository, tree, nonempty path and blob, and SHA-256 over the supplied bytes, not that the commit's tree holds that blob at that path or that the blob id names those bytes); two receipt-backed schema claims; no consumer side, no computed tree, no merge, no held alias, no selection pin, no media, config or reference receipts, and no frozen consumer records. On the 37 usable revision pairs of the public pair this shape admitted 74 of 74 claims, with no refusal of any kind. A read-only code census of the settlement paths (code reading, not executed, about plus or minus 3) leaves in this shape nine census rows, none classified material and one uncertain.
+
+`ImpactDocument::validate()` is accepted but not certified in any shape, this one included: the 37 replay documents all passed, which shows nothing about refusals, and known limits 14 and 15 show frozen checks that pass while an input is unchecked. The library builds no document inputs, so every document's inputs are caller-built.
+
+**Accepted but not certified.** Every other review mode and request shape
+(live, version comparison, other historical shapes, joint reports, computed
+trees, merges, media decisions, saved status, bindings, membership and every
+frozen-document check on a hand-edited or foreign document) is accepted by the
+code but NOT CERTIFIED. A claim marked admitted there can rest on a dependency
+that was not itself admitted. The census found about 105 such cases in 38
+settlement paths and no reviewer calls the list complete (backlog counts: issue
+#1002; related: #960).
+The census was read from code and not executed. Almost every case needs a state
+the replay never builds (a refused or unchecked input, a pin, a merge, a consumer
+side), so the replay shows nothing about incidence there. For the 12 cases that
+depend on schema contents rather than on the request, incidence on the public
+pair is not measured.
+
+**Where the status is carried.** Neither document has a document-level admission
+status. `ImpactDocument` has `warnings`, which hold unchecked claims (status
+`unchecked`, tied to a claim), and `coverage`, which holds limits keyed to a
+comparison, an input and a claim kind; `BindingsDocument` has neither. Adding a document-level status is a format change, so
+it is not made here and documents produced outside the certified shape do not
+carry the status themselves. The status is carried by this README and by the
+report slice, which shows the standing limits both as one note beside each
+change it blocks and as a count in the appendix (owner decision, 2026-11-27).
+
+**Fix.** A redesign of the settlement path is its own slice and lands before P4.
+Until then the known-limit rows below pin the cases reviewers found, beside
+controls, as expected-until-redesign.
+
+## P1d supported forms and known limits
+
+The supported source of document claims is this library's admitted projection.
+Read schema indexes through `SchemaAdmission::index`, use those indexes for
+bindings and diffs, and keep each attachment tied to the same admitted entry
+bytes and dependency closure. Supported live and historical comparisons use
+the recorded subject snapshots and a mode-appropriate selection receipt for
+each held or cross-repository counterpart relative to one subject head.
+A joint report defaults to the producer after slot when it supplies no subject
+head. A frozen historical review records the subject commit at cutoff. If the
+effective after input is a computed tree, the merge receipt binds the separate
+topic head and independent cutoff evidence covers the exact after-tree. A version comparison
+records its selection time and a pin or first-parent date-rule receipt for
+each selected input in `change.selection.receipts`. Branch-based receipts must
+match the frozen input branch. The singular `change.selection.input_id` and
+`receipt` fields can record one input's proof.
+The design is that a claim is admitted only when every required dependency in its closure is admitted
+(certified only in the shape above; known limits 12 to 15 show where the code does not yet enforce it),
+including the separately declared topic head for a historical computed after-tree.
+The dependency edges are derived: a claim depends on the settled selection claim of every
+input it reads. In a historical review that includes the subject (topic) head, because the
+cutoff and the merge head come from it; live and version reviews take their cutoff from the
+request and do not read the topic head, so a failed topic-head selection does not refuse
+their claims (the narrowing was forced by `fold2_version_admission_needs_proof_and_clock`
+and the D14 and A36/A38 document rows, which pin independent sibling claims). The frozen cutoff
+takes subject After candidates only from slots of the matching role and depends on every input
+holding the selected merge receipt. `ClaimStatus` is built only at the gate in
+`revision/admission/gate.rs`.
+
+`ImpactDocument::validate()` attempts these internal checks on frozen records. It is not certified for any of them in any shape, and known limits 14 and 15 show where it does not yet enforce them.
+
+1. Input, dependency, slot, reference and selection IDs resolve within the
+   document. Recorded snapshot, role, cutoff and receipt facts agree where
+   required by those slots.
+2. Supplied comparison maps belong to their slots and cover their recorded
+   client occurrence inventory. Each reported usage has the applicable match
+   links. Limit and warning links resolve to the recorded claims.
+3. Recorded status and presence agree with the selected side, required
+   evidence references and local status invariants.
+4. Metric counts fit the portable integer range. A known total is at least
+   the observed count and has a null reason. An unknown total has a reason.
+5. The impact DTO conforms to the closed wire schema. Use the matching
+   `from_json` entry point to check the original JSON, including duplicate
+   members and unknown keys, before validating the typed impact document.
+
+The checks apply equally to hand-edited or foreign documents, with the same exclusion. Authenticating
+source bytes, re-deriving changes and comparisons, and recomputing saved scans
+require the original inputs. Use `saved_binding_status` with the
+saved and selected inventories derived from their admitted dependencies for
+saved-status claims. Use `unobserved_elements` with admitted bindings and
+complete evidence for every applicable query region for membership claims.
+Each complete region must cover the API or the queried operation.
+Use the original scan and query region for these checks, even when a frozen
+document already records a negative.
+
+Count each refused or withheld claim under its refusal reason, including claims
+withheld at the accept-list boundary. At ingress, count a decoder error as one
+envelope refusal. The twelve [known-limit rows](tests/fixtures/p1d_rows/fixtures/known-limits.json)
+record where the current APIs can accept or refuse an unsupported input and
+pair each case with a supported control. Rows 12 to 15 pin the four round-6
+findings (live exemption, historical media decision, duplicate merge holders and
+an unchecked Before input in the frozen cutoff) and are expected until the
+redesign, which deletes them. The standalone Draft 2020-12 schema
+checks count bounds and nullability. The typed validator checks count ordering.

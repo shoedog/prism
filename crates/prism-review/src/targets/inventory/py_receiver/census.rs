@@ -53,7 +53,7 @@ pub(super) struct Census<'tree> {
 }
 
 impl<'tree> Census<'tree> {
-    pub(super) fn new(parsed: &ParsedFile, walk: &Walk<'tree>, field_rows: bool) -> Self {
+    pub(super) fn new(parsed: &ParsedFile, walk: &Walk<'tree>) -> Self {
         let mut this = Self {
             spaces: walk.scopes.iter().map(|_| Namespace::default()).collect(),
             wildcard: false,
@@ -217,11 +217,7 @@ impl<'tree> Census<'tree> {
                     }
                 }
                 "type_alias_statement" => {
-                    if !field_rows {
-                        if let Some(target) = children(node).next().and_then(first_identifier) {
-                            this.add(parsed, walk, scope, target, node, Kind::Other);
-                        }
-                    } else if let Some(target) = alias_name(node) {
+                    if let Some(target) = alias_name(node) {
                         // A PEP 695 `type NAME [params] = value`.
                         this.add(parsed, walk, scope, target, node, Kind::Other);
                     } else {
@@ -370,14 +366,6 @@ fn identifiers(node: Node<'_>) -> Vec<Node<'_>> {
         vec![node]
     } else {
         children(node).flat_map(identifiers).collect()
-    }
-}
-
-fn first_identifier(node: Node<'_>) -> Option<Node<'_>> {
-    if node.kind() == "identifier" {
-        Some(node)
-    } else {
-        children(node).find_map(first_identifier)
     }
 }
 

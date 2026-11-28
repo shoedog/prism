@@ -89,7 +89,12 @@ pub fn install<R: Send>(op: impl FnOnce() -> R + Send) -> R {
         // MeasurementToken instead of being invisible to it. Captured here,
         // on the calling thread, so it survives the helper-thread hop.
         let generation = crate::type_providers::go::test_counters::current_generation();
-        move || crate::type_providers::go::test_counters::inherit_generation(generation, op)
+        let capture = crate::resolution::js_ts::arg_follow::diagnostic::capture::current();
+        move || {
+            crate::resolution::js_ts::arg_follow::diagnostic::capture::inherit(capture, || {
+                crate::type_providers::go::test_counters::inherit_generation(generation, op)
+            })
+        }
     };
     if in_foreign_pool_worker() {
         install_from_foreign_worker(op)
