@@ -6,7 +6,7 @@ Use Python `ast` on pinned postimages in `~/code/prism-provenance-corpora`. In m
 
 | Library | Receiver proof | Direct reads |
 | --- | --- | --- |
-| Flask | `from flask import request`, including aliases | `args/form/values/headers/cookies/files` maps, `json`, `get_json()`, `path`. |
+| Flask | `from flask import request`, including aliases | `args/form/values/headers/cookies/files` maps, `json`, `get_json()`. |
 | Django | Formal annotated with imported `django.http.HttpRequest` or `django.http.request.HttpRequest` | `GET/POST/COOKIES/headers/FILES` maps, `body`. `META[k]` or `META.get(k)` only for string literal `^HTTP_[A-Z0-9]+(_[A-Z0-9]+)*$`. |
 | FastAPI / Starlette | Formal annotated with imported `fastapi.Request`, `fastapi.requests.Request` or `starlette.requests.Request` | `query_params/path_params/headers/cookies` maps, zero-argument `await r.json()`, `await r.body()`, `await r.form()`. |
 
@@ -18,31 +18,19 @@ JSONL fields `repo, commit, file, line, column, token, origin, library, read, de
 
 ## 2. Populations
 
-**Census.** Replay 160 Python items. Join labels by `(id,token)`, then use item ordinal and line to form the §4 key. A positive needs the token in `reads` and a name load at that pinned line. Treat missing anchors as misses. Use `definition_line` only as evidence. Report hits/16, weighted hits/total positive weight (per label), false positives over 140 negatives, and eight uncertain labels separately. Base hits 4/16 (weighted 4/118.3253).
+**Census.** Replay the 160 Python items of `m/census2/items.jsonl` (the file the labels in `labels/census-final.jsonl` were made against; weights from `census2/strata.json`; the earlier astra/sol drafts joined `census/` by mistake, round-1 WRONG-1). Join labels by `(id,token)`. A positive needs the token among the item's `reads` at the item's line. Counts to reproduce first: 16 positives, 140 negatives, 8 uncertain (reported separately), weighted positives 81.76, base 11/16 (weighted 32.92, the report's 71.38%). If the join does not give these, stop and fix the join before any view run. Report view hits/16 and weighted, false positives over the 140 negatives, per proof kind.
 
-All 12 missing tokens are also absent from `reads`. Pinned lines match saved text. Numbers before paths are manifest ordinals. Other-file matches are audit clues only.
+**Historical.** Replay 240 parent diffs, taking each archived spec's `.py` diff lines (the spec builder drops test files and deleted files; view rows outside the spec are not analysed). Verify parent/tree against Git, ordinal/tree/spec digest against base `.meta.json`, commit/digest against `.targets.json` (`repo.sha`, `diff.sha256`). Pair archived `9d1a7d06` findings and record failures.
 
-| Labels | Pinned evidence |
-| --- | --- |
-| `c0015,c0016` | 113 `saleor/thumbnail/views.py:131,134` are except/logging lines. EOF 197. `database_id:250` and `datasource_dict:243` match 129 `superset/views/datasource/views.py`. |
-| `c0020` | 121 `superset/datasource/api.py:581` is an annotation. 250 is doc text. `database_id:250` matches 129 above. |
-| `c0028,c0030` | 126 `apply_dashboard_filters.py:818,820` are docstring lines. `request` is a formal at 798 and read at 855. Both definitions are null. |
-| `c0042,c0046` | 129 `views/datasource/views.py:274` reads `requested_table` (`data` defined at 239, 172 blank). 137 `views/error_handling.py:252` reads `status/request` (171 comment). `data:172,171` match 171 and 172 respectively in `saleor/graphql/views.py`. |
-| `c0048,c0049` | 137 `views/error_handling.py:258,259` test status and log. EOF 341. `body:493` matches 173 `saleor/graphql/views.py`. |
-| `c0095` ×2 | 109 `saleor/product/managers.py:194` reads `attribute_pk`. EOF 414 precedes `name:666` and `raw_dimensions:656`. Weight 35.1084 per label. |
-| `c0145` | 148 `superset/charts/data/api.py:673` reads `slice_/query_context`. Cited `data:53` is a constants import. |
-
-**Historical.** Replay 240 parent diffs, taking added postimage lines in all `.py` paths. Verify parent/tree against Git, ordinal/tree/spec digest against base `.meta.json`, commit/digest against `.targets.json` (`repo.sha`, `diff.sha256`). Pair archived `9d1a7d06` findings and record failures.
-
-**Fresh.** Pin these GitHub default-branch tips and handler paths in order. `ckan/ckan:ckan/views/`, `searxng/searxng:searx/webapp.py`, `getsentry/sentry:src/sentry/api/endpoints/`, `freqtrade/freqtrade:freqtrade/rpc/api_server/`. Per repo take up to 200 latest reachable single-parent commits touching Python there (committer time, then SHA). Exclude historical repos, forks, duplicate SHAs and full-diff stable patch IDs across sets. Shuffle SHA-sorted candidates per repo with Python seed `20261127`. Take ten and reserve ten. Save ordered pins and shortfalls. Use identical postimages and changed lines. Use the archived base binary digest and flags with fresh repo/spec paths.
+**Fresh.** Qualifying rule, written before any draw: a repo qualifies when at its pinned default-branch tip at least 5 Python files under its handler path contain a receiver the §1 table can prove (`from flask import request`, an `HttpRequest` or fastapi/starlette `Request` annotation). Candidates: public Python web repos found by GitHub search (flask, django, fastapi topics) sorted by stars, tried in that order, not in the historical set, not forks or frameworks themselves. Keep the first four qualifying repos not in the historical set; record the rejects and why. The earlier ckan/searxng/sentry/freqtrade list is dropped: at their tips they use wrappers (`ckan.common`, `sxng_request`), DRF `Request` or injected parameters the table cannot prove (round-1 WRONG-2). Coverage on such unsupported-library repos is reported once as a scope statistic outside the gate. Per repo take up to 200 latest single-parent commits touching `.py` files under the handler path (spec rules as historical: no tests, no deletions), exclude historical repos, forks, duplicate SHAs and stable patch IDs, shuffle SHA-sorted candidates with Python seed `20261127`, take ten and reserve ten per repo. Freeze artifact: commit the script and record its sha256 in the ledger BEFORE the pin step runs. Save ordered pins and shortfalls. Run base with the archived binary digest and flags on the same specs.
 
 ## 3. Blind precision
 
-Per tool and set (historical, fresh), sample 30 claims uniformly or all if fewer. Sort by §4 key and column before sampling with seed `20261127`. Two different models independently apply `m/RUBRIC.md` to marked occurrences, imports and enclosing code, blind to tool, claim, proof and each other. A third model adjudicates. Mark all same-token candidates for base and credit any confirmed hit. Report emitted, sampled, correct, incorrect and unresolved counts, correct/all sampled and the two-sided 95% Wilson interval.
+Per tool and set (historical, fresh), sample 30 claims uniformly or all if fewer. Sort by §4 key and column before sampling with seed `20261127`. Two different models independently apply `m/RUBRIC.md` to marked occurrences, imports and enclosing code, blind to tool, claim, proof and each other. A third model adjudicates. Mark all same-token candidates for base and credit any confirmed hit. Cap 5 claims per commit and require at least 2 repos among the sampled claims. Mix 10 independently drawn name reads (not view claims) into each reader batch with the same format, so readers cannot infer the claim. Report precision separately for import-proven and annotation-only rows (an annotation-only row can be a plain helper called with a constant; its precision is a hypothesis). Report emitted, sampled, correct, incorrect and unresolved counts, correct/all sampled and the two-sided 95% Wilson interval.
 
 ## 4. Coverage and lost base rows
 
-Before either tool runs on a fresh commit, uniformly sample four sorted changed Python code lines with the same seed (all if fewer). Exclude blank, comment-only and docstring lines. Blind-label every read per §3, including silent lines. Report hits/confirmed positives overall and by repo. Use columns for view matches.
+Before either tool runs on a fresh commit, uniformly sample four sorted changed Python code lines with the same seed (all if fewer). Exclude blank, comment-only and docstring lines. Blind-label every read per §3, including silent lines. Weight each sampled line by the inverse of its inclusion probability (changed lines in its commit / 4). Unresolved reads count as missed positives in a conservative figure reported beside the point figure. Report hits/confirmed positives overall and by repo, weighted and raw. Use columns for view matches.
 
 Base key `(repo,commit,file,line,token)` uses manifest repo/commit, `.findings[]` file/line and token from `.description` via `^variable '([^']+)' has user_input origin:`. Select matching `.py` rows with `category="untrusted_origin"`. Any matching view occurrence retains a base row. Reconcile retained + lost to 569 historical rows, repeat for fresh and count view-only keys. Write every loss as JSONL with key fields, `reason` and `evidence` (pinned line and trace or failure).
 
@@ -60,10 +48,10 @@ Use the leftmost rubric variable read and the first matching code.
 
 ## 5. Decision and stop
 
-Budget two to four lane days. One historical development round, then freeze. Open the full reserve once before precision grading if fresh view claims are below 30, coverage positives below ten, or positive repos below two. Stop by day four. **Yes** requires ≥26 correct among 30 fresh view claims and ≥50% fresh view coverage over ≥10 confirmed positives across ≥2 repos. **No** if either gate fails on its required sample. Otherwise **inconclusive**, including timeouts. Publish available counts. Only yes permits considering a Rust port.
+Budget two to four lane days. One historical development round, then freeze. Open the full reserve once before precision grading if fresh view claims are below 30, coverage positives below ten, or positive repos below two. Stop by day four. **Yes** requires ≥26 correct among ≥30 sampled fresh view claims (point estimate ≥85%; Wilson interval reported; operating characteristic disclosed to the owner: at 30 claims P(pass) is about 0.10 at true 75%, 0.52 at 85%, 0.83 at 90%) and fresh weighted coverage ≥50% over ≥10 confirmed positives across ≥2 repos with ≥1 hit in each. **No** if either gate fails on its required sample, or the table proves nothing on a qualifying repo. Otherwise **inconclusive**, including timeouts. Publish available counts. Only yes permits considering a Rust port.
 
 ## 6. Remaining risks
 
-- Misbound labels depress census coverage, especially at high weights.
+- Annotation-only receiver proofs can certify a constant-fed helper; reported separately. Refuse string annotations and `flask.request` after `import flask`; drop Flask `request.path` (routing metadata under the rubric chain rule).
 - Base keys collapse repeated occurrences. Fresh samples are small and handler-specific.
 - Static proofs miss framework injection and can overlook runtime rebinding or mutation.
