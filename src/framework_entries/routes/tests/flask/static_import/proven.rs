@@ -150,7 +150,7 @@ fn fk_c23() {
 }
 
 /// fk-38/fk-c38 and fk-39/fk-c39: the captured `__doc__` def registered at endpoint `x`.
-pub(super) fn doc_view(views: &str) -> Files {
+fn doc_view(views: &str) -> Files {
     files(&[
         (
             "app.py",
@@ -160,25 +160,33 @@ pub(super) fn doc_view(views: &str) -> Files {
     ])
 }
 
-pub(super) fn doc_expect() -> Expect {
-    let spec = rule("/x")
-        .def("views.py", "__doc__")
+// `__doc__` is a module-system name: it counts as one more binding of the key (clause d), so a
+// def of it is not one static binding and the view is withheld (it was proved before).
+fn doc_withheld() -> Expect {
+    rules(&[rule("/x")
+        .unresolved(Reason::ImportedUnproven, "f")
         .endpoint("x")
-        .methods(DEFAULT_METHODS)
-        .declared(&["GET"]);
-    rules(&[spec])
+        .methods_unknown()
+        .declared(&["GET"])])
 }
+
+const DOC_REFUSAL: [Diag; 1] = [(
+    MultiWrite,
+    "app.py",
+    "from views import __doc__ as f",
+    "__doc__",
+)];
 
 #[test]
 fn fk_c38() {
     let files = doc_view("class Init:\n    pass\ndef __doc__(): return \"late\"\n");
-    check(&files, "app.py", doc_expect(), &[]);
+    check(&files, "app.py", doc_withheld(), &DOC_REFUSAL);
 }
 
 #[test]
 fn fk_c39() {
     let files = doc_view("def init(): pass\ninit()\ndef __doc__(): return \"late\"\n");
-    check(&files, "app.py", doc_expect(), &[]);
+    check(&files, "app.py", doc_withheld(), &DOC_REFUSAL);
 }
 
 pub(super) fn methods_write_files(pkg_init: &str) -> Files {

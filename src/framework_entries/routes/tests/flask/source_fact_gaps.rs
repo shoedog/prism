@@ -186,8 +186,10 @@ fn registry_write_keeps_both_allocations_from_a_refused_import() {
     else {
         panic!("expected three declaration sites");
     };
+    // `bp` is bound twice in the owner: neither rule has a proved receiver, whatever the
+    // position of its decorator (the certificate counts occurrences and traces nothing).
     for candidate in [first, second] {
-        assert!(matches!(candidate.route.receiver, Receiver::Router { .. }));
+        assert!(!matches!(candidate.route.receiver, Receiver::Router { .. }));
         assert_metadata_withheld(candidate);
     }
     assert_eq!(

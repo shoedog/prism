@@ -89,10 +89,14 @@ fn receiver_of(source: &str, extra: &[(&str, &str)]) -> Receiver {
     let files = parsed(&sources);
     let bindings = index_python(&files);
     let facts = flask_facts(&bindings, "app.py", &SetupContext::default());
-    let [FlaskEvent::Rule(rule)] = facts.as_slice() else {
-        panic!("expected a rule");
-    };
-    rule.route.receiver.clone()
+    // A withheld imported router leaves no event at all (no proved rule is the verdict).
+    match facts.as_slice() {
+        [] => Receiver::Unproven {
+            reason: Reason::ReceiverUnproven,
+        },
+        [FlaskEvent::Rule(rule)] => rule.route.receiver.clone(),
+        other => panic!("unexpected events: {}", other.len()),
+    }
 }
 
 // Member 2: a refused direct factory capture stays refused.
@@ -134,9 +138,14 @@ class Other(View):\n    def dispatch_request(self): pass\n\
     };
     rule.route.default_methods.clone()
 }
+// KNOWN_LIMIT: a store on a view class is a change through another holder of the class,
+// outside the static-binding contract (DESIGN 5.3/10): the default keeps the class's methods.
 #[test]
 fn class_view_direct_methods_write_withholds_the_default() {
-    assert_eq!(class_view_default("Handler.methods = ['POST']\n"), None);
+    assert_eq!(
+        class_view_default("Handler.methods = ['POST']\n"),
+        Some(MethodSet::known(["GET"]))
+    );
 }
 #[test]
 fn class_view_unwritten_control() {

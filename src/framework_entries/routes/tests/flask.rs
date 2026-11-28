@@ -145,7 +145,7 @@ fn imports_select_the_requested_member_and_refuse_forwarding() {
     let files = parsed(&[
         ("service/auth.py", "from flask import Blueprint as BP\nbp = BP('auth', __name__)\n"),
         ("service/__init__.py", "from .auth import bp\n"),
-        ("service/app.py", "from . import auth\nfrom . import bp\nfrom flask import Flask\napp = Flask(__name__)\napp.register_blueprint(auth.bp, url_prefix='/auth')\napp.register_blueprint(bp)\nfrom other import *\napp.register_blueprint(unknown_child)\nfrom flask import Flask\napp = Flask(__name__)\napp.register_blueprint(auth.bp)\n"),
+        ("service/app.py", "from . import auth\nfrom . import bp\nfrom flask import Flask\napp = Flask(__name__)\napp.register_blueprint(auth.bp, url_prefix='/auth')\napp.register_blueprint(bp)\nfrom other import *\napp.register_blueprint(unknown_child)\napp.register_blueprint(auth.bp)\n"),
         ("test_routes.py", "from service.auth import bp\n@bp.get('/test')\ndef sample(): pass\n"),
     ]);
     let bindings = index_python(&files);
@@ -165,7 +165,10 @@ fn imports_select_the_requested_member_and_refuse_forwarding() {
         }
     );
     assert!(matches!(forwarded.child, Receiver::Unproven { .. }));
-    assert!(matches!(shadowed.parent, Receiver::Unproven { .. }));
+    // A star from a module outside the repository is not counted (clause c), so the parent
+    // stays one static binding; the unknown child is the unproven side.
+    assert!(matches!(shadowed.parent, Receiver::Router { .. }));
+    assert!(matches!(shadowed.child, Receiver::Unproven { .. }));
     assert!(matches!(starred.parent, Receiver::Router { .. }));
     assert!(matches!(&starred.child, Receiver::Router { identity, .. }
         if identity.file == "service/auth.py"));
@@ -458,8 +461,11 @@ fn factory_sites_keep_invocation_identity_and_do_not_merge_instances() {
 
 #[test]
 fn aliases_refuse_rebind_and_escape_but_preserve_router_lifetimes() {
+    // `app` is bound twice at module level, so no read of it is a static binding (the
+    // certificate counts occurrences and traces nothing through a rebinding); the alias of the
+    // first allocation is withheld too (DESIGN 5.3, re-labelled from a router lifetime pin).
     for (between, expected) in [
-        ("", true),
+        ("", false),
         ("alias = object()\n", false),
         ("unknown(alias)\n", false),
     ] {

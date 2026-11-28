@@ -156,7 +156,14 @@ fn package_alias_cannot_move_a_hop_read_past_a_later_import() {
             proved,
             "{imports}",
         );
-        assert!(bindings.import_refusals().is_empty());
+        // `pkg` bound by `import pkg` and `import pkg.routes` is two binding occurrences.
+        let refusals = bindings.import_refusals();
+        if proved {
+            assert!(refusals.is_empty());
+        } else {
+            assert!(!refusals.is_empty());
+            assert!(refusals.iter().all(|refusal| refusal.reason == MultiWrite));
+        }
     }
 }
 

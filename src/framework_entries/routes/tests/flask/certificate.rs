@@ -16,37 +16,12 @@
 //! `router_import_capture` (the same two for a router imported with `from app import app`).
 //! Control rows (`controls::*`) keep the proof.
 //!
-//! STATUS at head cffd488d (308 rows: 224 GREEN, 84 RED), by running this module:
-//!
-//! RED (the current code does not give the expected verdict):
-//! - `forms::<form>::router_after` (21 of 25 forms) and `router_before` (17): the proved router
-//!   is rebound and the route is still PROVED today (the walk is position-sensitive: a later
-//!   rebinding is ignored, an earlier one is overwritten). GREEN: the four `global_*` forms and
-//!   `global_in_method`, and `router_before` for import / import-as / from-import forms.
-//! - `controls::<scope>::view_capture` and `router_import_capture` (9 scopes each) and
-//!   `controls::comprehension_target::view_source` / `router_import_source`: the flat capture
-//!   census over-refuses a same spelling in another scope (parameter, local, class body,
-//!   lambda, loop and except target, import inside a function, nested function local) and a
-//!   module-level comprehension target counts as a module binding.
-//! - `module_system::router_*` (11 names) and `view_source_doc` / `view_source_path`: a
-//!   module-system name is not counted as one more binding.
-//! - `star::router_in_repo_star_supplies_the_name_after` / `_before` and
-//!   `view_capture_in_repo_star_supplies_the_name`: a star that can bind the key is not counted
-//!   for a router, or in the capturing module.
-//! - `syntax_error::*` (3 of the 3 withheld rows): a module with a parse error is proved today.
-//! - `nonlocal::router_rebound_through_nonlocal` (proved today) and
-//!   `nonlocal::view_own_local_in_nested_def_control` (over-refused today).
-//! - `used::s04_*` and `used::s05_function_local_*`: harmless same-spelling uses refused today.
-//! - AMBIGUOUS, RED today (see the report): `star::view_source_external_star_control`,
-//!   `module_system::package_child_not_imported_by_the_package_control`,
-//!   `module_system::package_from_child_import_of_the_same_name_control`.
-//!
-//! GREEN today (these pin the replacement): every `forms::*::view_source`, `view_capture`,
-//! `router_import_source`, `router_import_capture` row; `binding_kind::*` (conditional and
-//! other-kind single bindings, zero bindings); every other control; `star` rows of the source
-//! and import roles; the `used::*` rows other than the above (including S01+S07 WITHHELD and
-//! S08, whose router proof stands while the callback is `InnerDecorator`); every
-//! `known_limits::*` row (they pin today's verdicts).
+//! STATUS: all 308 rows GREEN against the certificate (`receivers/certificate.rs`). At the RED
+//! commit (head cffd488d) 84 were RED: the position-sensitive walk (a rebinding after or
+//! before the registration), the flat capture census (a same spelling in another scope), module
+//! -system names, in-repo stars, parse errors and `nonlocal` redirects. Three rows the contract
+//! wording left ambiguous pin the unchanged source-side behaviour (`star_import`,
+//! `submodule_shadow`, the formspree shape: no proof exists today, none is lost).
 use super::*;
 use crate::framework_entries::routes::python::flask::FlaskRule;
 

@@ -7,8 +7,8 @@
 //! clauses. Asserted: the source declaration, written callback, proved receiver or mount child,
 //! declared and effective methods and the inferred endpoint where the row states them.
 use super::proven::{
-    decorated, doc_expect, doc_view, methods_write_files, mutator_files, post_options,
-    reflective_mutator, setup_with, views_f, MODULE_REPLACEMENT,
+    decorated, methods_write_files, mutator_files, post_options, reflective_mutator, setup_with,
+    views_f, MODULE_REPLACEMENT,
 };
 use super::proven_mounts::{relative_package, star_hooks, star_paths, MACHINERY};
 use super::*;
@@ -199,18 +199,38 @@ fn fk_29() {
     );
 }
 
+// The init-order limits use an ordinary late name: `__doc__` is a module-system name and
+// counts as one more binding (clause d), so the proof is withheld before order matters.
+fn late_view(views: &str) -> Files {
+    files(&[
+        (
+            "app.py",
+            &app("from views import late as f\napp.add_url_rule(\"/x\", endpoint=\"x\", view_func=f, methods=[\"GET\"])\n"),
+        ),
+        ("views.py", views),
+    ])
+}
+
+fn late_expect() -> Expect {
+    rules(&[rule("/x")
+        .def("views.py", "late")
+        .endpoint("x")
+        .methods(DEFAULT_METHODS)
+        .declared(&["GET"])])
+}
+
 // KNOWN_LIMIT: initialization order: a class-body import runs `app` before the def exists.
 #[test]
 fn fk_38() {
-    let files = doc_view("class Init:\n    import app\ndef __doc__(): return \"late\"\n");
-    check(&files, "app.py", doc_expect(), &[]);
+    let files = late_view("class Init:\n    import app\ndef late(): return \"late\"\n");
+    check(&files, "app.py", late_expect(), &[]);
 }
 
 // KNOWN_LIMIT: initialization order: a function-local import runs `app` before the def exists.
 #[test]
 fn fk_39() {
-    let files = doc_view("def init():\n    import app\ninit()\ndef __doc__(): return \"late\"\n");
-    check(&files, "app.py", doc_expect(), &[]);
+    let files = late_view("def init():\n    import app\ninit()\ndef late(): return \"late\"\n");
+    check(&files, "app.py", late_expect(), &[]);
 }
 
 // KNOWN_LIMIT: initialization order: an implicit package initializer runs `app` before the methods write.

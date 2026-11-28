@@ -189,26 +189,17 @@ fn fk_34() {
             "from views import f\nf.__name__ = 'renamed'\nf.methods = ['POST']\n",
         ),
     ]);
+    // `f` is defined twice in the module: it is not one static binding, so the written local
+    // callback is no longer resolved at the second definition (it was, by position).
     check(
         &files,
         "views.py",
-        rules(&[withheld_callee("/x", "views.py", "f")]),
+        rules(&[rule("/x")
+            .unresolved(Reason::CallbackUnproven, "f")
+            .methods_unknown()
+            .endpoint_unknown()]),
         &[(MultiWrite, "helper.py", "from views import f", "f")],
     );
-    // The written local callback stays at the second definition.
-    run(&files, "views.py", |events, _| {
-        let [FlaskEvent::Rule(rule)] = events else {
-            panic!("one rule")
-        };
-        let [Callback {
-            status: CallbackStatus::Resolved { identity, .. },
-            ..
-        }] = rule.route.callbacks.as_slice()
-        else {
-            panic!("resolved callback")
-        };
-        assert_eq!(identity.start_byte, views.rfind("def f()").unwrap());
-    });
 }
 
 #[test]

@@ -52,14 +52,40 @@ fn fk_c86() {
     method_global(false);
 }
 
+/// A method-local import of the same spelling reads its OWN binding (another scope, clause
+/// (a) counts occurrences per scope): the callback is the local `g`, not a refused capture.
 fn method_local(written: &'static str, competing: Option<&str>) {
     let name = competing.unwrap_or("alternate");
     let local = format!("from views import g as {name}");
-    captured(
-        &format!("from views import f as {written}\nclass C:\n    def install(self):\n        {local}\n        {}\nC().install()\n", register(written)),
-        competing.map(|_| (MultiWrite, local.as_str(), "g")),
-        written,
-    );
+    let files = files(&[
+        (
+            "app.py",
+            &app(&format!("from views import f as {written}\nclass C:\n    def install(self):\n        {local}\n        {}\nC().install()\n", register(written))),
+        ),
+        ("views.py", VIEWS),
+    ]);
+    match (competing, written) {
+        // Own local binding of `g`, resolved.
+        (Some(_), "handler") => check(
+            &files,
+            "app.py",
+            rules(&[proven_view("/x", "views.py", "g")
+                .endpoint("x")
+                .declared(&["GET"])]),
+            &[],
+        ),
+        // The private-name rule refuses the mangled local capture (it was a MultiWrite
+        // refusal under the file-wide census).
+        (Some(_), _) => check(
+            &files,
+            "app.py",
+            rules(&[withheld_view("/x", written)
+                .endpoint("x")
+                .declared(&["GET"])]),
+            &[(ClassPrivateName, "app.py", leak(local.clone()), "g")],
+        ),
+        (None, _) => assert_capture(&files, None, written),
+    }
 }
 
 #[test]
@@ -149,6 +175,8 @@ fn fk_91() {
     );
 }
 
+/// A comprehension target spelled like the captured name binds the comprehension's own scope
+/// (S04/S14e/S14g), whether or not it is the same spelling: the capture stays proved.
 fn first_iterable(competing: bool) {
     let name = if competing { "handler" } else { "other" };
     for (left, right) in [
@@ -159,7 +187,7 @@ fn first_iterable(competing: bool) {
     ] {
         captured(
             &format!("{IMPORT}\n{left} for {name} in ({REG},){right}\n"),
-            competing.then_some((MultiWrite, IMPORT, "f")),
+            None,
             "handler",
         );
     }
@@ -176,15 +204,25 @@ fn fk_c92() {
 }
 
 fn assignment_alias(global: &str) {
-    captured(
-        &format!(
-            "{IMPORT}\n{}callback = handler\n{}\n",
-            global_rebind(global),
-            register("callback")
-        ),
-        None,
-        "callback",
+    let body = format!(
+        "{IMPORT}\n{}callback = handler\n{}\n",
+        global_rebind(global),
+        register("callback")
     );
+    if global == "handler" {
+        // The aliased name has a second (global) binding: nothing is traced through it.
+        let files = files(&[("app.py", &app(&body)), ("views.py", VIEWS)]);
+        check(
+            &files,
+            "app.py",
+            rules(&[withheld_view("/x", "callback")
+                .endpoint("x")
+                .declared(&["GET"])]),
+            &[(GlobalWrite, "app.py", IMPORT, "f")],
+        );
+    } else {
+        captured(&body, None, "callback");
+    }
 }
 
 #[test]
@@ -209,7 +247,19 @@ fn wildcard(export: &str) {
             &format!("from views import g as {export}\n__all__ = ['{export}']\n"),
         ),
     ]);
-    assert_capture(&files, None, "handler");
+    if export == "handler" {
+        // The in-repo star can bind the name: it counts as a second binding (clause c).
+        check(
+            &files,
+            "app.py",
+            rules(&[withheld_view("/x", "handler")
+                .endpoint("x")
+                .declared(&["GET"])]),
+            &[(StarImport, "app.py", IMPORT, "f")],
+        );
+    } else {
+        assert_capture(&files, None, "handler");
+    }
 }
 
 #[test]
@@ -242,13 +292,11 @@ fn fk_c95() {
 
 #[test]
 fn closed_binding_forms_count_after_the_read_and_in_nested_scopes() {
+    // Binding occurrences of the module scope (also in a nested scope by `global`).
     for tail in [
         "import other as handler",
         "def handler(): pass",
         "class handler: pass",
-        "def local(handler): pass",
-        "def local(*handler: object): pass",
-        "consume(lambda handler, /: None)",
         "type handler = object",
         "type handler[T] = list[T]",
         "ｈａｎｄｌｅｒ = None",
@@ -256,20 +304,28 @@ fn closed_binding_forms_count_after_the_read_and_in_nested_scopes() {
         "handler: object = other",
         "consume((handler := other))",
         "for handler in other: pass",
-        "[None for handler in other]",
         "a, *handler = other",
         "with other() as (a, handler): pass",
         "try: pass\nexcept Error as handler: pass",
         "try: pass\nexcept* Error as handler: pass",
         "match other:\n    case {'result': handler}: pass",
         "del handler",
-        "def local():\n    handler = None",
     ] {
         captured(
             &format!("{IMPORT}\n{REG}\n{tail}\n"),
             Some((MultiWrite, IMPORT, "f")),
             "handler",
         );
+    }
+    // The same spelling bound in ANOTHER scope without a directive is a different binding.
+    for tail in [
+        "def local(handler): pass",
+        "def local(*handler: object): pass",
+        "consume(lambda handler, /: None)",
+        "[None for handler in other]",
+        "def local():\n    handler = None",
+    ] {
+        captured(&format!("{IMPORT}\n{REG}\n{tail}\n"), None, "handler");
     }
 }
 
