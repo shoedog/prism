@@ -9,6 +9,7 @@ use petgraph::visit::EdgeRef;
 
 use super::trace_cuts::{BoundaryEdge, CrossingLedger, TraceCut};
 use super::trace_descent::{DescentGateKey, LossReason};
+use super::walk_proofs::{ProofCache, ProofCtx};
 use super::{CodePropertyGraph, CpgEdge, CpgNode, TaintCrossingPolicy, VarAccess};
 
 pub const MAX_TAINT_DESCENT_DEPTH: usize = 2;
@@ -214,6 +215,7 @@ impl CodePropertyGraph {
         let ledger = CrossingLedger::start("primary", site_view, false);
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
+        let mut proof_cache = ProofCache::default();
         let mut depths = BTreeMap::new();
 
         // Dedup `(file,line)` seeds: a repeated seed would re-run an identical BFS and (for a degraded
@@ -284,6 +286,7 @@ impl CodePropertyGraph {
                     cfg_scope.as_ref(),
                     has_cfg,
                     None,
+                    (site_view, &mut proof_cache),
                     &mut descent_gate_cache,
                     &mut depths,
                     &no_exclusions,
@@ -359,6 +362,7 @@ impl CodePropertyGraph {
         let ledger = CrossingLedger::start(walk, order, true);
         let mut trace = Trace::default();
         let mut descent_gate_cache = BTreeMap::new();
+        let mut proof_cache = ProofCache::default();
         let mut depths = BTreeMap::new();
 
         let mut by_line: BTreeMap<(String, usize), BTreeSet<NodeIndex>> = BTreeMap::new();
@@ -417,6 +421,7 @@ impl CodePropertyGraph {
                     cfg_scope.as_ref(),
                     has_cfg,
                     order,
+                    (order, &mut proof_cache),
                     &mut descent_gate_cache,
                     &mut depths,
                     excluded_hops,
@@ -440,6 +445,7 @@ impl CodePropertyGraph {
         cfg_scope: Option<&BTreeSet<(String, usize)>>,
         has_cfg: bool,
         order: Option<&dyn SameLineOrderView>,
+        (proof_view, proof_cache): (Option<&dyn SameLineOrderView>, &mut ProofCache),
         descent_gate_cache: &mut BTreeMap<DescentGateKey, Result<(), LossReason>>,
         depths: &mut BTreeMap<(NodeIndex, NodeIndex), usize>,
         excluded_hops: &BTreeSet<(NodeIndex, NodeIndex)>,
@@ -519,9 +525,14 @@ impl CodePropertyGraph {
                         descent_gate_cache,
                         policy,
                     );
-                    // Measurement knob, OFF by default; never enters the gate cache.
+                    // Walk proofs, OFF by default; never enter the gate cache.
+                    let mut proofs = ProofCtx {
+                        view: proof_view,
+                        label,
+                        cache: &mut *proof_cache,
+                    };
                     let gate = gate.and_then(|()| {
-                        self.walk_proof_refusal(relation, node, next, root)
+                        self.walk_proof_verdicts(&mut proofs, relation, node, next, root)
                             .map_or(Ok(()), Err)
                     });
                     let site = site_for(node, next, relation);
@@ -574,7 +585,14 @@ impl CodePropertyGraph {
                     record_cut(trace, LossReason::CfgPruned);
                     continue;
                 } else if let Some(reason) = (rel == Relation::ReturnInput)
-                    .then(|| self.walk_proof_refusal(rel, node, next, root))
+                    .then(|| {
+                        let mut proofs = ProofCtx {
+                            view: proof_view,
+                            label,
+                            cache: &mut *proof_cache,
+                        };
+                        self.walk_proof_verdicts(&mut proofs, rel, node, next, root)
+                    })
                     .flatten()
                 {
                     // Only a ReturnInput edge that survived the CFG cut above can be refused.

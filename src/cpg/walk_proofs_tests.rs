@@ -6,6 +6,8 @@ use petgraph::graph::NodeIndex;
 use super::object_literal_arg_tests::parse_files;
 use super::trace_cuts::byte_span;
 use super::trace_descent_tests::occurrence;
+use super::trace_proofs::Rule;
+use super::walk_proofs::{prove_rule, ProofKey, Verdict};
 use super::{
     CodePropertyGraph, CpgContext, CpgEdge, CpgNode, FlowConfidence, LossReason, Relation,
     ReturnFlowMode, VarAccess,
@@ -330,8 +332,6 @@ fn unsupported_and_overlapping_real_rules_panic_by_name() {
     assert!(stderr.contains(REAL) && stderr.contains("`i`"), "{stderr}");
 }
 
-// RED harness. The base walk has no real switch. Keep the seam assertions while
-// swapping this always-Proved result for the implementation after recording RED.
 #[derive(Debug, PartialEq, Eq)]
 enum Proof {
     Proved { site: (usize, usize), slot: usize },
@@ -340,20 +340,25 @@ enum Proof {
 }
 
 fn prove(
-    _rule: &str,
+    rule: &str,
     cpg: &CodePropertyGraph,
-    _view: &AstOrderView<'_>,
+    view: &AstOrderView<'_>,
     from: NodeIndex,
     to: NodeIndex,
 ) -> Proof {
-    // Exercise the same positive certificate assertions with an approximate
-    // base site. A refusal or unknown is impossible under this stub.
-    let site = cpg
-        .binding_site(from, to)
-        .map_or(byte_span(cpg.node(from)), |site| {
-            (site.start_byte, site.end_byte)
-        });
-    Proof::Proved { site, slot: 0 }
+    let rule = match rule {
+        "i" => Rule::I,
+        "ii" => Rule::Ii,
+        other => panic!("rule {other} has no proof in this PR"),
+    };
+    match prove_rule(rule, cpg, view, from, to) {
+        Verdict::Proved(cert) => Proof::Proved {
+            site: cert.site,
+            slot: cert.slot,
+        },
+        Verdict::Refused(reason, _) => Proof::Refused(reason),
+        Verdict::Unknown(_) => Proof::Unknown,
+    }
 }
 
 fn seam(
@@ -622,9 +627,22 @@ struct CacheSite {
     slot: usize,
 }
 
-// The base has no proof cache. Wire this seam to the real cache's key after RED.
-fn proof_cache_key(site: &CacheSite) -> (usize, usize) {
-    (site.site.0, site.value.0)
+fn proof_cache_key(site: &CacheSite) -> ProofKey {
+    ProofKey::new(
+        Rule::I,
+        Relation::CallDescent,
+        ("a.js".into(), "f".into(), 1),
+        site.site,
+        site.value,
+        (NodeIndex::new(1), NodeIndex::new(2)),
+        (
+            site.target.file.clone(),
+            site.target.name.clone(),
+            site.target.start_line,
+        ),
+        site.slot,
+        None,
+    )
 }
 
 #[test]
