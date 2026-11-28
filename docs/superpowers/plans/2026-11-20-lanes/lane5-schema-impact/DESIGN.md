@@ -1041,6 +1041,15 @@ unchecked. The statement supplies no evidence for the public gate.
   grammar remains a counted occurrence with an explicit reason.
 - **Annotation drift.** P2 always reads registrations for evidence. A contradiction is scoped to its
   authorities and linked sites. Missing annotation or registration evidence alone gives a coverage limit (§5.3).
+- **P2-1 known limits.** The annotation adapter's gap handling is conservative in three constructed cases, each
+  with zero incidence on the public pair (0 entry gaps, root base path, single server) and pinned by rows
+  `kl_p2_1_01` to `_08` in `crates/prism-boundary/tests/producer_fold2.rs` beside a control: (1) a keyless gap from
+  a read file (a malformed or block-comment directive) withholds uniqueness for every operation of the document
+  although the visible directive may concern one other operation; (2) gap keys join the schema base to the
+  directive path, so a directive that already spells the base is keyed twice or blocks one of several server
+  prefixes, and a prefix learned from an operation-level server override is applied to every operation; (3) the
+  unprojected-deployments region is document-wide, taken from any server diagnostic. No change to the P1d
+  admission claim.
 
 - **Field names are matched by spelling** under the configured `response_root`. A client that renames fields in a
   mapper is outside the field-read model. Record the missing linkage for the affected call.

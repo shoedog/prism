@@ -267,6 +267,9 @@ The price comes from scanning the pinned public Swagger 2.0 for each shape. The 
 - KNOWN-LIMIT `fold2-one-of-enum-tag` retains an equal hash after changing one of two disjoint enum tags. Removing an arm-only field changes the projected inventory and hash.
 - KNOWN-LIMIT `fold2-items-dialect` retains the parent item type despite an unsupported items dialect. The accepted form supplies the item schema under the supported default dialect.
 - KNOWN-LIMIT Facts below a list-item or map-value edge with no named field can leave the hash unchanged. This includes item enum, item format, arrays of arrays, and maps of arrays. `fold3-root-scalar-slots` pins equal hashes for scalar map-value and root scalar-array item type edits. `fold4-item-enum-slot` and `fold4-item-format-slot` pin checked coverage, zero limits, and equal hashes for item enum widening and item format changes. The controls sign the corresponding facts when a named field has a slot for them.
+- KNOWN-LIMIT `kl_p2_1_01` (P2-1, `tests/producer_fold2.rs`) a keyless gap from a read file (a malformed or block-comment `@Router` directive, an ambiguous base) withholds uniqueness (`candidate`, `competitor_unread`) for every operation of the document, although the visible directive may concern one other operation (shapes of rows `kl_p2_1_01` to `_04`: block comments, a split directive, spelling variants, invalid path spellings). The accepted control is the valid edge without that sibling, or a sibling whose gap is keyed to another operation. OBSERVED on the public pair: no (0 entry gaps). CONSTRUCTED, zero incidence.
+- KNOWN-LIMIT `kl_p2_1_05`, `kl_p2_1_06`, `kl_p2_1_07` (P2-1) a gap key is built by joining the schema's base to the directive's path, so a detached directive that already spells the base (`/api/x` under `basePath /api`) is keyed `/api/api/x` and does not block `/api/x`; an attached `/north/x` under servers `/north` and `/south` blocks only `/north/x`; and a prefix learned from an operation-level server override is applied to every operation (a spurious key `/fixed/y`). The accepted controls are the authored path under a base path, and a single server prefix. OBSERVED on the public pair: no (root base path, single server). CONSTRUCTED, zero incidence.
+- KNOWN-LIMIT `kl_p2_1_08` (P2-1) the `annotation_deployments_unprojected` region comes from any server-scope diagnostic of the document, so a hit on an operation that overrides the servers with a finite list still records it. The accepted control is a schema with no server diagnostic. OBSERVED on the public pair: no (no server diagnostic). CONSTRUCTED, zero incidence.
 
 Open questions for the design seat
 
@@ -524,9 +527,11 @@ is not an admission claim of its own.
 snapshot), the expected file inventory (`path`, blob id) and the files read from the named tree (`tree`, `path`,
 blob id, bytes). The core reads no filesystem and no Git. A `NavigationSession` wrapper is not part of this slice.
 The schema index is admitted for a document only when it is the schema the document declares (path, blob, repo
-and tree, or the named-tree entry when the document carries no schema evidence), has the schema authority, and
-covers the same scope region as the document; otherwise the files are `partial` (`schema_not_admitted`) and
-nothing binds.
+and tree, or the named-tree entry when the document carries no schema evidence), has the schema authority, covers
+the same scope region as the document, and, for an explicit file receipt, agrees with the receipt on the SHA-256 of
+the bytes and on the source revision (when the index has a commit), the content hash and the info version (each
+compared when the receipt declares a non-empty value); otherwise the files are `partial` (`schema_not_admitted`)
+and nothing binds. The named-tree fallback declares none of the digest fields and keeps its own contract.
 `ProducerError` covers only caller mistakes (no adapter, an unimplemented adapter, a wrong role, authority, scope or
 snapshot kind); every input-data problem becomes a coverage record instead.
 
@@ -534,8 +539,11 @@ snapshot kind); every input-data problem becomes a coverage record instead.
 comments, each alone on its line (Go whitespace before it is fine, a trailing comment is not), whose last line ends
 on the row directly above a `func` or method declaration with a readable name and an error-free header (everything
 but the body). A bare `//` stays in the run; a block comment ends it. The canonical directive line is `//`
-(exactly two slashes), optional blanks, the literal `@Router` (case-sensitive), blanks, a path, optional blanks,
-`[method]`, optional blanks. The path is an absolute literal: it starts with `/` and holds no `?` or `#`. The method
+(exactly two slashes), optional blanks, the literal `@Router` (case-sensitive), blanks, a path, blanks,
+`[method]`, optional blanks. The blank before `[` is required: the path is the run up to the next blank, as in
+the prototype's `(\S+)\s+\[` pattern, so `@Router /x[get]` has no bracket after its path and is recorded
+`malformed` (`malformed_directive`, the path kept in `raw_path`), never split into `/x` and GET and never guessed
+into a binding. `tests/producer_fold2.rs` pins it. The path is an absolute literal: it starts with `/` and holds no `?` or `#`. The method
 is ASCII letters, one of GET POST PUT DELETE PATCH HEAD OPTIONS compared case-insensitively; the record keeps the
 raw spelling (`original_method`, `raw_method`). A line comment that names `@Router` in any other shape (other case,
 `///`, trailing text, no bracket, a list, `*`, a split directive) is `malformed` with reason `malformed_directive`,
@@ -561,15 +569,16 @@ competitor. A read `parse_error` file counts only through its keyed gaps. The ob
 there is no `schema_stale_against_code` here, it needs registrations), `not_checked` (the schema index is not
 admitted for this input: `schema_not_admitted`; or the match is unprovable: `typed_path_differs` when only the
 printed path agrees, `annotation_path_includes_base`, `schema_operations_incomplete` when an unprojected operation
-could be the target), `unattached`, `malformed`, `unsupported_form`. A default or foreign `SchemaIndex` (no source,
-another API, tree or commit than the snapshot) is never read as zero bindings: every file region becomes `partial`
-with reason `schema_not_admitted`.
+could be the target), `unattached`, `malformed`, `unsupported_form`. A default or foreign `SchemaIndex` (no source, a
+different API, tree, commit, path, blob, authority or scope than the document declares, or a declared digest or
+revision that contradicts the index) is never read as zero bindings: every file region becomes `partial` with
+reason `schema_not_admitted`.
 
 **Records.** A `Binding` per (operation, declaration) edge: `sites` holds the annotation line (path, blob, physical
 one-based line, half-open byte span of the admitted bytes, trailing `\r` excluded), `handler` the declaration
 (package, name, receiver as written and receiver type name, declaration site and span). The schema declaration is not
 copied into `sites`. Edge notes in `evidence`: `generated_file` (a `// Code generated ... DO NOT EDIT.` line before
-the package clause; bindings are kept), `bodyless_declaration`, `competing_handlers`. Multiple identical annotations
+the package clause; bindings are kept), `bodyless_declaration`, `competing_handlers`, `competitor_unread`. Multiple identical annotations
 on one declaration are one edge with several sites. Edges are sorted by operation, file and declaration offset, so
 the document does not depend on input order. `//line` directives are ignored: locations are physical.
 
@@ -586,8 +595,8 @@ directive adds an `entries` region carrying the blob and the directive span. `an
 server and base path projection of the schema), or keyless when those cannot be listed (an incomplete operation
 domain, nothing to learn a projection from, an unadmitted schema); `annotation_path_includes_base` keeps the
 projected id it spells. `annotation_malformed` and `annotation_unsupported_form` have no key. A hit on a known
-projection also adds a keyless `annotation_deployments_unprojected` region when the schema reports server
-diagnostics (a server variable with a default but no finite enum, an unreadable server list): other deployments may
+projection also adds one keyless `annotation_deployments_unprojected` region per document (at the first hit) when
+the schema reports server diagnostics (a server variable with a default but no finite enum, an unreadable server list): other deployments may
 exist that are not projected. That region does not withhold uniqueness, since it hides no competing handler. A
 malformed `@Router /x []` has `raw_method: null` (the wire schema forbids an empty string; `raw` keeps the text). A file with a broken body but an intact header keeps its
 attachment and is `partial`; an error between the comment and the declaration confirms no attachment. The caller

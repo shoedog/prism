@@ -1,7 +1,8 @@
 //! The pinned swaggo `@Router` grammar. Anything this module does not accept is a recorded gap.
 //!
 //! Canonical line: `//` (exactly two slashes), optional blanks, the literal `@Router`, blanks,
-//! an absolute literal path without `?` or `#`, optional blanks, `[` method `]`, optional blanks.
+//! an absolute literal path without `?` or `#`, blanks (at least one: the path runs to the next blank, so
+//! `/x[get]` is malformed), `[` method `]`, optional blanks.
 //! The method is ASCII letters, compared case-insensitively against the seven verbs of the
 //! schema reader, and its raw spelling is preserved. Block comments are never read.
 
