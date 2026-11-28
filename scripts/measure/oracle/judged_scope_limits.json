@@ -5,29 +5,33 @@
   "Express": "0 of 5,040 decided rows",
   "Excalidraw": "0 of 41,383 decided rows"
  },
+ "census": {
+  "script": "incidence2.cjs",
+  "checked_by_script": [
+   "erased-signature-formals",
+   "type-only-star-chain",
+   "type-only-callee (import-type hop and checker mark)",
+   "compile-time-erasure",
+   "literal-actual-in-erased-key",
+   "read-in-erased-key",
+   "instantiation-expression-role (parentheses, as, !, satisfies, conditional and binary operands)",
+   "alias-hop-bound (endpoint and callee alias chains of 16 or more hops)",
+   "symbol-less-role-fault (decided rows with no symbol)",
+   "overload-formals (counted with the body-less formals)"
+  ],
+  "checked_another_way": [
+   "same-line-neighbour and same-line-declaring-neighbour: they only withhold a verdict, as UNDECIDED endpoint-coordinate-off; counted from the verdict files instead of the script: 0 rows with that reason on Express and 0 on whole Excalidraw"
+  ],
+  "not_checked": []
+ },
  "limits": [
   {
    "id": "erased-signature-formals",
-   "title": "A claim to the formal of a body-less signature (interface method, call, construct or index signature, abstract method or setter) while the call is to another function",
-   "source": "sol r2; Opus r2",
+   "title": "A claim to the formal of a body-less signature (interface method, call, construct, index or accessor signature, abstract method or setter) while the call is to another function",
+   "source": "sol r2, closure; Opus r2",
    "pinned": [
     {
      "row": 14,
-     "today": "WRONG implementation-slot",
-     "required": "UNDECIDED"
-    },
-    {
-     "row": 16,
-     "today": "WRONG implementation-slot",
-     "required": "UNDECIDED"
-    },
-    {
-     "row": 18,
-     "today": "WRONG implementation-slot",
-     "required": "UNDECIDED"
-    },
-    {
-     "row": 17,
      "today": "WRONG implementation-slot",
      "required": "UNDECIDED"
     },
@@ -37,19 +41,44 @@
      "required": "UNDECIDED"
     },
     {
+     "row": 16,
+     "today": "WRONG implementation-slot",
+     "required": "UNDECIDED"
+    },
+    {
+     "row": 17,
+     "today": "WRONG implementation-slot",
+     "required": "UNDECIDED"
+    },
+    {
+     "row": 18,
+     "today": "WRONG implementation-slot",
+     "required": "UNDECIDED"
+    },
+    {
      "row": 20,
      "today": "WRONG implementation-slot",
      "required": "UNDECIDED"
     },
     {
-     "row": 39,
+     "row": 21,
+     "today": "WRONG implementation-slot",
+     "required": "UNDECIDED"
+    },
+    {
+     "row": 58,
      "today": "WRONG implementation-slot",
      "required": "UNDECIDED"
     }
    ],
+   "agreed": [],
    "controls": [
     {
      "row": 5,
+     "verdict": "UNDECIDED type-only-declaration"
+    },
+    {
+     "row": 6,
      "verdict": "UNDECIDED type-only-declaration"
     },
     {
@@ -65,15 +94,11 @@
      "verdict": "UNDECIDED type-only-declaration"
     },
     {
-     "row": 6,
-     "verdict": "UNDECIDED type-only-declaration"
-    },
-    {
      "row": 10,
      "verdict": "UNDECIDED type-only-declaration"
     },
     {
-     "row": 38,
+     "row": 57,
      "verdict": "UNDECIDED type-only-declaration"
     },
     {
@@ -81,11 +106,11 @@
      "verdict": "CORRECT"
     },
     {
-     "row": 40,
+     "row": 59,
      "verdict": "CORRECT"
     }
    ],
-   "note": "The claimed destination emits no JavaScript and the call goes to another function. Controls: a call that does reach each signature is UNDECIDED type-only-declaration (judged correctly); the same call to a function with a body is CORRECT."
+   "note": "The claimed destination emits no JavaScript and the call goes to another function. Controls: calls that do reach a signature are UNDECIDED type-only-declaration (judged correctly); the same call to a function with a body is CORRECT. Rows 6 and 10 (a call to `s.m` or `abs.am` claimed to the index signature and to the setter) are UNDECIDED type-only-declaration too: no call reaches those two formals, the verdict is right because the call resolves to another body-less declaration."
   },
   {
    "id": "overload-formals",
@@ -103,13 +128,14 @@
      "required": "UNDECIDED"
     }
    ],
+   "agreed": [],
    "controls": [
     {
      "row": 13,
      "verdict": "CORRECT"
     }
    ],
-   "note": "Documented exception, not a defect of the grader: with one implementation either overload signature formal is WRONG implementation-slot and the implementation formal is CORRECT (oracle-032, oracle-037). A strict reading of the scope (a body-less signature emits nothing) would make both UNDECIDED; the exception is kept because a claim to a signature formal is a proved wrong slot. With no implementation both are UNDECIDED type-only-declaration."
+   "note": "Documented exception, not a grader defect: with one implementation either overload signature formal is WRONG implementation-slot and the implementation formal is CORRECT (oracle-032, oracle-037). A strict reading of the scope (a body-less signature emits nothing) would make both UNDECIDED; the exception is kept because the claim names a slot that is provably not the implementation. With no implementation both are UNDECIDED type-only-declaration. The pinned example is a function; method and constructor overloads follow the same rule (README argument-fold7 rows)."
   },
   {
    "id": "type-only-star-chain",
@@ -117,39 +143,7 @@
    "source": "sol r2",
    "pinned": [
     {
-     "row": 29,
-     "today": "CORRECT",
-     "required": "UNDECIDED"
-    },
-    {
-     "row": 28,
-     "today": "CORRECT",
-     "required": "UNDECIDED"
-    }
-   ],
-   "controls": [
-    {
-     "row": 25,
-     "verdict": "CORRECT"
-    },
-    {
-     "row": 23,
-     "verdict": "UNDECIDED outside-judged-scope"
-    },
-    {
-     "row": 24,
-     "verdict": "UNDECIDED outside-judged-scope"
-    }
-   ],
-   "note": "The `export type *` mark sits on the export declaration, not on the symbol the alias walk reads, so the chain looks like a value. Controls: a live import is CORRECT; `import type` and an interface imported by name are UNDECIDED."
-  },
-  {
-   "id": "compile-time-erasure",
-   "title": "Code a const enum, a folded enum initializer or a namespace holding only const enums erases",
-   "source": "sol r2; Opus r2",
-   "pinned": [
-    {
-     "row": 27,
+     "row": 34,
      "today": "CORRECT",
      "required": "UNDECIDED"
     },
@@ -157,20 +151,112 @@
      "row": 35,
      "today": "CORRECT",
      "required": "UNDECIDED"
+    }
+   ],
+   "agreed": [],
+   "controls": [
+    {
+     "row": 28,
+     "verdict": "CORRECT"
     },
     {
-     "row": 36,
+     "row": 26,
+     "verdict": "UNDECIDED outside-judged-scope"
+    },
+    {
+     "row": 27,
+     "verdict": "UNDECIDED outside-judged-scope"
+    }
+   ],
+   "note": "The `export type *` mark sits on the export declaration, not on a symbol the alias walk reads (probable cause, not proved). Controls: a live import is CORRECT; `import type` and an interface imported by name are UNDECIDED."
+  },
+  {
+   "id": "type-only-callee",
+   "title": "A call whose callee is reached through `import type { fn }` or a type-only star: the argument is credited against the callee formal although TS1361/TS1362 reject the value use",
+   "source": "sol r2, closure",
+   "pinned": [
+    {
+     "row": 51,
+     "today": "CORRECT",
+     "required": "UNDECIDED"
+    },
+    {
+     "row": 52,
      "today": "CORRECT",
      "required": "UNDECIDED"
     }
    ],
+   "agreed": [],
    "controls": [
     {
-     "row": 26,
+     "row": 53,
+     "verdict": "CORRECT"
+    }
+   ],
+   "note": "The callable proof does not apply the type-only provenance rule. Control: the same call through an ordinary import is CORRECT."
+  },
+  {
+   "id": "alias-hop-bound",
+   "title": "A live import through a long chain of named re-exports is withheld (the alias walk stops after 16 hops, a fixed bound of judged_scope.cjs, not a property of the program)",
+   "source": "sol r2, closure",
+   "pinned": [
+    {
+     "row": 46,
+     "today": "UNDECIDED outside-judged-scope",
+     "required": "CORRECT"
+    }
+   ],
+   "agreed": [],
+   "controls": [
+    {
+     "row": 49,
      "verdict": "CORRECT"
     },
     {
-     "row": 37,
+     "row": 60,
+     "verdict": "CORRECT"
+    },
+    {
+     "row": 50,
+     "verdict": "CORRECT"
+    }
+   ],
+   "note": "The 16-hop bound is an implementation cap: the import-to-read row of a 16-link chain is UNDECIDED outside-judged-scope while the 7-link chain is CORRECT. In this program the call row through the long chain stays CORRECT (the callable proof has no such bound); sol saw it withheld in its own program and that was not reproduced."
+  },
+  {
+   "id": "compile-time-erasure",
+   "title": "Code a const enum, a folded enum initializer or a namespace holding only const enums erases (receiver `N.E.A` and `N[\"E\"][\"A\"]`)",
+   "source": "sol r2, closure; Opus r2",
+   "pinned": [
+    {
+     "row": 30,
+     "today": "CORRECT",
+     "required": "UNDECIDED"
+    },
+    {
+     "row": 31,
+     "today": "CORRECT",
+     "required": "UNDECIDED"
+    },
+    {
+     "row": 54,
+     "today": "CORRECT",
+     "required": "UNDECIDED"
+    },
+    {
+     "row": 55,
+     "today": "CORRECT",
+     "required": "UNDECIDED"
+    }
+   ],
+   "agreed": [],
+   "controls": [
+    {
+     "row": 29,
+     "verdict": "CORRECT"
+    },
+    {
+     "row": 56,
      "verdict": "CORRECT"
     }
    ],
@@ -182,7 +268,7 @@
    "source": "sol r2",
    "pinned": [
     {
-     "row": 21,
+     "row": 22,
      "today": "CORRECT",
      "required": "UNDECIDED"
     },
@@ -202,6 +288,7 @@
      "required": "UNDECIDED"
     }
    ],
+   "agreed": [],
    "controls": [
     {
      "row": 4,
@@ -211,56 +298,143 @@
    "note": "The literal path skips the evaluated-context check. Control: the same call outside any erased key is CORRECT."
   },
   {
-   "id": "instantiation-expression-role",
-   "title": "`(id)<number>` and a bare `id<number>`: the value is read, the type arguments are not",
-   "source": "sol r2",
+   "id": "read-in-erased-key",
+   "title": "An identifier read nested in an erased computed key (`key({ v })` in an interface, `key(() => v)` in an abstract method)",
+   "source": "sol closure",
    "pinned": [
     {
-     "row": 31,
+     "row": 43,
+     "today": "CORRECT",
+     "required": "UNDECIDED"
+    },
+    {
+     "row": 44,
+     "today": "CORRECT",
+     "required": "UNDECIDED"
+    }
+   ],
+   "agreed": [],
+   "controls": [
+    {
+     "row": 45,
+     "verdict": "CORRECT"
+    }
+   ],
+   "note": "The ancestor walk of the erased-key check stops at the nearest expression. Control: `key({ v })` outside any erased key is CORRECT."
+  },
+  {
+   "id": "instantiation-expression-role",
+   "title": "`(id)<number>`, `((id))<number>`, `(cond ? id : other)<number>` and a bare `id<number>`: the value is read, the type arguments are not",
+   "source": "sol r2, closure",
+   "pinned": [
+    {
+     "row": 41,
      "today": "WRONG type-position",
      "required": "CORRECT"
     },
     {
-     "row": 32,
+     "row": 39,
+     "today": "WRONG type-position",
+     "required": "CORRECT"
+    },
+    {
+     "row": 40,
+     "today": "WRONG type-position",
+     "required": "CORRECT"
+    },
+    {
+     "row": 42,
      "today": "UNDECIDED outside-judged-scope",
      "required": "CORRECT"
     }
    ],
+   "agreed": [],
    "controls": [
     {
-     "row": 30,
+     "row": 38,
      "verdict": "CORRECT"
     }
    ],
-   "note": "The role classifier takes the operand for a type position. Required verdict is CORRECT (a decided edge the oracle refuses or mislabels WRONG type-position). Control: `id(1)` is CORRECT."
+   "note": "The role classifier takes the operand for a type position (WRONG type-position) or, for a bare operand, withholds it (outside-judged-scope). Required verdict is CORRECT. Control: `id(1)` is CORRECT."
   },
   {
    "id": "same-line-neighbour",
-   "title": "A same-line neighbour (a member read, another named function expression) suppresses a proved contradiction",
-   "source": "sol r2",
+   "title": "A same-line neighbour that cannot serve the claimed role (a member read, a label) withholds a proved contradiction",
+   "source": "sol r2, closure",
    "pinned": [
     {
-     "row": 42,
+     "row": 62,
      "today": "UNDECIDED endpoint-coordinate-off",
      "required": "WRONG write-position"
     },
     {
-     "row": 33,
+     "row": 64,
      "today": "UNDECIDED endpoint-coordinate-off",
-     "required": "WRONG different-declaration"
+     "required": "WRONG write-position"
+    }
+   ],
+   "agreed": [],
+   "controls": [
+    {
+     "row": 63,
+     "verdict": "WRONG write-position"
+    }
+   ],
+   "note": "The neighbour check counts a token that cannot serve the claimed edge (`obj.x`, a label `z:`). Today UNDECIDED endpoint-coordinate-off; the stated rule requires the WRONG the control gets."
+  },
+  {
+   "id": "same-line-declaring-neighbour",
+   "title": "Two same-line named class expressions, regular enums or function expressions: a cross-binding edge is UNDECIDED",
+   "source": "sol r2, closure; Opus r2 finding 2",
+   "pinned": [],
+   "agreed": [
+    {
+     "row": 24,
+     "verdict": "UNDECIDED endpoint-coordinate-off"
+    },
+    {
+     "row": 32,
+     "verdict": "UNDECIDED endpoint-coordinate-off"
+    },
+    {
+     "row": 47,
+     "verdict": "UNDECIDED endpoint-coordinate-off"
     }
    ],
    "controls": [
     {
-     "row": 43,
-     "verdict": "WRONG write-position"
+     "row": 25,
+     "verdict": "WRONG different-declaration"
     },
     {
-     "row": 34,
+     "row": 33,
+     "verdict": "WRONG different-declaration"
+    },
+    {
+     "row": 48,
      "verdict": "WRONG different-declaration"
     }
    ],
-   "note": "The neighbour check counts a token that cannot serve the claimed edge. Today UNDECIDED endpoint-coordinate-off; the stated rule requires the WRONG the control gets. Controls: the same programs with the neighbour on another line."
+   "note": "Not a defect: the same-line neighbour declares the very binding that the read resolves to, so it can serve the role and the position is coordinate-uncertain. The required verdict is UNDECIDED, the same as today (the earlier draft required WRONG different-declaration; the safer reading is kept because a producer anchors an endpoint by line). Controls: the same programs with the declarations on separate lines are WRONG different-declaration. Instantiated namespaces: both the same-line row and the control are UNDECIDED declaration-unproved (not reproduced, not pinned)."
+  },
+  {
+   "id": "symbol-less-role-fault",
+   "title": "A name with no checker symbol (an undeclared global) passes the value test and receives a role-fault WRONG",
+   "source": "Opus closure finding 1",
+   "pinned": [],
+   "agreed": [
+    {
+     "row": 36,
+     "verdict": "WRONG write-position"
+    }
+   ],
+   "controls": [
+    {
+     "row": 37,
+     "verdict": "WRONG write-position"
+    }
+   ],
+   "note": "Scope condition 4 admits a name that has no symbol, so the WRONG write-position is the scope working as stated, and it is true about the edge (a write marked as a read destination). Required verdict equals today. Opus also reproduced it with a type alias used as a value, which does not compile. Census: 0 symbol-less endpoints among decided rows. Control: the same shape on a declared variable."
   }
  ],
  "extra_controls": {
@@ -268,16 +442,17 @@
   "title": "Controls the reviewers asked for",
   "source": "sol r2",
   "pinned": [],
+  "agreed": [],
   "controls": [
    {
-    "row": 22,
+    "row": 23,
     "verdict": "CORRECT"
    },
    {
-    "row": 41,
+    "row": 61,
     "verdict": "CORRECT"
    }
   ],
-  "note": "Import-equals `Alias -> void Alias` and a valid first-position `this` pseudo-parameter (`g(this: void, q)`) keep their CORRECT verdicts."
+  "note": "Import-equals `Alias -> void Alias` and a valid first-position `this` pseudo-parameter keep CORRECT."
  }
 }

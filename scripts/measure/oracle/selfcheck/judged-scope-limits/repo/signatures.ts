@@ -5,6 +5,9 @@ interface Sig {
   new (n: number): Sig;
   [k: string]: unknown;
 }
+interface Acc {
+  set s(x: number);
+}
 abstract class Abs {
   abstract am(b: number): void;
   abstract set sv(val: number);

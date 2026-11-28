@@ -29,6 +29,9 @@ class JudgedScopeLimits(unittest.TestCase):
                 claimed.append(pinned["row"])
                 self.assertEqual(verdict(self.goldens[pinned["row"] - 1]), pinned["today"], limit["id"])
                 self.assertNotEqual(pinned["today"], pinned["required"], limit["id"])
+            for agreed in limit["agreed"]:
+                claimed.append(agreed["row"])
+                self.assertEqual(verdict(self.goldens[agreed["row"] - 1]), agreed["verdict"], limit["id"])
             for control in limit["controls"]:
                 claimed.append(control["row"])
                 self.assertEqual(verdict(self.goldens[control["row"] - 1]), control["verdict"], limit["id"])
@@ -37,11 +40,11 @@ class JudgedScopeLimits(unittest.TestCase):
     def test_every_limit_has_a_control_in_the_same_file_and_relation(self):
         for limit in self.registry["limits"]:
             with self.subTest(limit=limit["id"]):
-                self.assertTrue(limit["pinned"] and limit["controls"] and limit["note"].strip())
+                self.assertTrue((limit["pinned"] or limit["agreed"]) and limit["controls"] and limit["note"].strip())
                 def where(row):
                     golden = self.goldens[row - 1]
                     return golden["key"]["from"]["file"], golden["relation"]
-                self.assertTrue({where(p["row"]) for p in limit["pinned"]}
+                self.assertTrue({where(p["row"]) for p in limit["pinned"] + limit["agreed"]}
                                 <= {where(c["row"]) for c in limit["controls"]})
 
     def test_a_control_is_judged_as_the_scope_requires(self):
@@ -65,7 +68,9 @@ class JudgedScopeLimits(unittest.TestCase):
                 self.assertIn("0 of 5,040 decided rows", text)
                 self.assertIn("0 of 41,383 decided rows", text)
                 for limit in self.registry["limits"]:
-                    self.assertIn(limit["id"], text)
+                    if limit["pinned"]:
+                        self.assertIn(limit["id"], text)
+                self.assertIn("incidence2.cjs", text)
 
 
 if __name__ == "__main__":

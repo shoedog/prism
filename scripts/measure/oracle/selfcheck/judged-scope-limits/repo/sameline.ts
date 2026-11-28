@@ -7,4 +7,12 @@ y = 1;
 const fa = function nm() { return 1; }, fb = function nm() { return nm; };
 const fc = function nm() { return 1; };
 const fd = function nm() { return nm; };
-void [x, y, fa, fb, fc, fd];
+let z = 0;
+z = 1; z: {}
+const ka = class Cn { m() { return 1; } }, kb = class Cn { m() { return Cn; } };
+const kc = class Cn { m() { return 1; } };
+const kd = class Cn { m() { return Cn; } };
+{ enum Qe { A } } { enum Qe { B } void Qe; }
+{ enum Qe { A } }
+{ enum Qe { B } void Qe; }
+void [x, y, z, fa, fb, fc, fd, ka, kb, kc, kd];

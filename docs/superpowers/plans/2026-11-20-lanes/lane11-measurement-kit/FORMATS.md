@@ -322,9 +322,10 @@ controls.
 *Price.* Express: 5,040 CORRECT, 0 WRONG, unchanged. Whole Excalidraw: 41,368
 CORRECT and 15 WRONG (41,383 decided of 80,033 graded), measured at head d27f2b1a
 on the prism head 1f2ad1cc49e2 run; it was 41,374 and 15 before fold F2. The six
-rows F2 removed are argument edges whose imported constant's alias does not
+rows F2 removed are argument edges whose imported value's alias does not
 resolve in the oracle's Node10 program (0.015%), now UNDECIDED
-`outside-judged-scope`. The Excalidraw slice proxy (whole-Excalidraw rows with both
+`outside-judged-scope`: five imported constants, and `fallbackLangData`
+(`i18n.ts`), a default import of a `.json` module. The Excalidraw slice proxy (whole-Excalidraw rows with both
 files under `packages/excalidraw/data` or `packages/element/src`; the slice run
 itself is not reproducible) is 14,408 and 4 at F2, unchanged. The earlier
 `structured-path` reason covered 1,409 rows on Express and 6,651 on whole
@@ -332,40 +333,56 @@ Excalidraw. `outside-judged-scope` also covers rows that were already UNDECIDED
 under other reasons.
 
 *Known limits of the judged scope.* The self-check case `judged-scope-limits`
-(43 rows) and the registry `oracle/judged_scope_limits.json` pin each limit:
+(64 rows) and the registry `oracle/judged_scope_limits.json` pin each limit:
 the verdict the oracle gives today, the verdict the stated scope requires, and a
 control that is judged correctly. Each limit is a path where the classifier
 disagrees with what TypeScript emits; none is a change of the rule.
 
 | Limit | Today | Required |
 |---|---|---|
-| `erased-signature-formals`: a claim to the formal of an interface method, call, construct or index signature, or an abstract method or setter, while the call is to another function | WRONG `implementation-slot` | UNDECIDED |
+| `erased-signature-formals`: a claim to the formal of an interface method, call, construct, index or accessor signature, or an abstract method or setter, while the call is to another function | WRONG `implementation-slot` | UNDECIDED |
 | `overload-formals`: a claim to a signature formal of an overloaded function that has one implementation (oracle-032, oracle-037) | WRONG `implementation-slot` | UNDECIDED under the strict scope; kept WRONG as a documented exception, see below |
 | `type-only-star-chain`: an import that reaches a value only through `export type *` (alone or forwarded) | CORRECT | UNDECIDED |
-| `compile-time-erasure`: a namespace holding only const enums, an enum initializer the compiler folds, a const enum initializer | CORRECT | UNDECIDED |
+| `type-only-callee`: a callee reached through `import type { fn }` or a type-only star (TS1361, TS1362) | CORRECT | UNDECIDED |
+| `alias-hop-bound`: a live import through 16 named re-exports (the alias walk stops after 16 hops, a fixed bound; 7 hops pass) | UNDECIDED `outside-judged-scope` | CORRECT |
+| `compile-time-erasure`: a namespace holding only const enums (`N.E.A`, `N["E"]["A"]`), an enum initializer the compiler folds, a const enum initializer | CORRECT | UNDECIDED |
 | `literal-actual-in-erased-key`: a literal actual in an erased computed key (interface, type literal, ambient class, abstract method) | CORRECT | UNDECIDED |
-| `instantiation-expression-role`: `(id)<number>` and a bare `id<number>` | WRONG `type-position`; UNDECIDED `outside-judged-scope` | CORRECT |
-| `same-line-neighbour`: a same-line member read or second named function expression withholds a proved contradiction | UNDECIDED `endpoint-coordinate-off` | WRONG |
+| `read-in-erased-key`: a read nested in an erased key (`key({ v })`, `key(() => v)`) | CORRECT | UNDECIDED |
+| `instantiation-expression-role`: `(id)<number>`, `((id))<number>`, `(c ? id : o)<number>` and a bare `id<number>` | WRONG `type-position`; UNDECIDED `outside-judged-scope` | CORRECT |
+| `same-line-neighbour`: a same-line member read or label that cannot serve the role withholds a proved contradiction | UNDECIDED `endpoint-coordinate-off` | WRONG `write-position` |
+
+Recorded, not defects: two same-line named class expressions, regular enums or
+function expressions give a cross-binding edge UNDECIDED `endpoint-coordinate-off`
+(the neighbour declares the binding the read resolves to, so it can serve the role;
+the same programs on separate lines give WRONG `different-declaration`); instantiated
+namespaces give UNDECIDED `declaration-unproved` in both layouts. A name with no
+checker symbol (an undeclared global) is admitted by the scope and a role fault on it
+gives WRONG `write-position`, which is true about the edge; it was found through a
+role fault and is pinned beside a declared-variable control.
 
 Overload formals are stated once: with one implementation the implementation
 formal is CORRECT and either overload signature formal is WRONG
 `implementation-slot` (oracle-032, oracle-037; the claim names a slot that is
 provably not the implementation's); with no implementation both are UNDECIDED
-`type-only-declaration` (oracle-037 with the body removed). The `type-only-star-chain`
-leak is probably because the `export type *` mark sits on the export declaration,
-not on a symbol the alias walk reads (not proved). A reviewed member named "symbol-less name"
-(a name with no checker symbol passing the value test) was not reproduced by
-two probes (an unresolved read and a type-alias name used as a value are both
-UNDECIDED `declaration-unproved`) and is not pinned.
+`type-only-declaration` (oracle-037 with the body removed). The
+`type-only-star-chain` leak is probably because the `export type *` mark sits on the
+export declaration, not on a symbol the alias walk reads (not proved).
 
-*Census.* For every decided row, the pinned checker classified both endpoint
-nodes against each limit above except `same-line-neighbour` (read-only script
-`incidence.cjs`, kept in the lane's evidence directory); the result is 0 of 5,040
-decided rows on Express and 0 of 41,383 decided rows on whole Excalidraw. The
-same-line limit can only withhold a verdict, never add one. An UNDECIDED costs
-coverage; a wrong CORRECT or WRONG costs trust, and no decided row on either real
-input is exposed to a limit that could produce one. A proposed later slice,
-issue #982, would define "evaluated" and "value" by correspondence with the
+*Census.* `incidence2.cjs` (read-only, in the lane's evidence directory) classifies
+both endpoints of every decided row in the pinned checker. It checks:
+the body-less formals and overloads, `export type *` and type-only callee
+provenance (import-type hop and the checker's type-only mark), const-enum and
+folded-initializer erasure, literals and reads in erased computed keys, instantiation
+operands wrapped in parentheses, `as`, `!`, `satisfies`, conditional or binary
+expressions, alias chains of 16 or more hops, and decided rows with no symbol. The
+script flags every pinned row that yields a decided verdict when run on the
+`judged-scope-limits` programs. The same-line limits are not counted by the script:
+they only withhold a verdict, as `endpoint-coordinate-off`, and the verdict files hold
+0 rows with that reason on Express and 0 on whole Excalidraw. Result: 0 of 5,040
+decided rows on Express and 0 of 41,383 decided rows on whole Excalidraw. An
+UNDECIDED costs coverage; a wrong CORRECT or WRONG costs trust, and no decided row on
+either real input is exposed to a limit that could produce one. A proposed later
+slice, issue #982, would define "evaluated" and "value" by correspondence with the
 emitted JavaScript and would close these rows.
 Rounds 7 and 8 kept finding new receiver and pattern-key cases. A later slice
 would need a positive receiver rule and its own enumeration. The starting
@@ -420,7 +437,7 @@ decided edges (1.2%, all 233 in Express), according to `summary.md` in
 
 | Relation and property | CORRECT | WRONG | UNDECIDED |
 |---|---|---|---|
-| `argument_binding` / `implementation-slot` | The whole actual feeds a proved in-root implementation slot. Its formal name token matches `to.file`, the exact byte interval and decoded `to.path.base`. | A different name at the proved formal's bytes or a formal from an overload signature always gives WRONG. A wrong actual spelling gives WRONG when the line has no serving read or primitive literal with the claimed spelling. For a formal claimed at other identifier bytes, only the proved formal itself can serve as the neighbour. It must have the claimed spelling and share the wire line or the physical line of the claimed token. Otherwise the position gives WRONG. | Unsupported actual, slot or dispatch, or only a type declaration. A serving neighbour gives `endpoint-coordinate-off`. Without a proved contradiction or a serving neighbour, formal bytes without an identifier give `identifier-unproved`. |
+| `argument_binding` / `implementation-slot` | The whole actual feeds a proved in-root implementation slot. Its formal name token matches `to.file`, the exact byte interval and decoded `to.path.base`. | A different name at the proved formal's bytes or a formal from an overload signature always gives WRONG. A wrong actual spelling gives WRONG when the line has no serving read or primitive literal with the claimed spelling. For a formal claimed at other identifier bytes, only the proved formal itself can serve as the neighbour. It must have the claimed spelling and share the wire line or the physical line of the claimed token. Otherwise the position gives WRONG. | Unsupported actual, slot or dispatch, or only a type declaration. A serving neighbour gives `endpoint-coordinate-off`. Without a proved contradiction or a serving neighbour, formal bytes without an identifier give `outside-judged-scope`. |
 | `lexical_binding` / `declaration-and-read` | The source token declares or writes the unique value binding and the destination token reads that binding's value, including its old value in a read-modify-write. | A pure read marked def, a destination write-only target or declaration, each at an endpoint spelled as the claimed base at exact identifier bytes with no other occurrence of the base on that line that could serve the role (source: a definition or write; destination: a read); or two such endpoints resolving to different unique value bindings (no neighbour check). | An otherwise admitted endpoint inside a `delete` operand gives `delete-operand`. A role fault with a serving neighbour is UNDECIDED `endpoint-coordinate-off`, because the producer anchors an endpoint by line and its span can land on a neighbouring occurrence. A spelling mismatch (the span is another identifier than the claimed base) is UNDECIDED `endpoint-spelling-mismatch`, never WRONG, because the producer's alias twins carry the alias variable's span (`endpoint-coordinate-off` first when the base also occurs on the line in the needed role). |
 | `call_target` / `callee-implementation` | The unique body maps to the claimed local file, callable name and start line. | The proved body's producer-compatible triple differs from the unambiguous claim. | Unproved producer identity, only a type declaration, external or ambiguous dispatch, a nonunique claimed triple, or no unique whole-span call. |
 
