@@ -433,6 +433,291 @@ exact declaring token and the originating value to evaluation of this particular
 - P5 alone lacks the missing occurrence and effect proof. A detector-only solution lacks the
   reaching-value proof; a graph-only solution lacks the semantic operand and old guard.
 
+#### Evidence interface certificate (S2-W, positive tables)
+
+**Scope (controller decision, 2026-11-25).** The certificate serves the languages whose sinks are
+decided structurally today: JavaScript, TypeScript, TSX, Python and Go. Java, C, C++, Rust, Lua, Bash
+and HCL keep legacy substring matching and have no adapter in this lane. Their rows below are a
+starting point, **not in use, unpriced for adapters**: a future adapter for one of them re-prices and
+re-reviews its own tables before relying on them. The census numbers and the `no_operation`
+explanation are in the PRICE paragraph at the end of this subsection.
+
+**Input contract (owner decision, 2026-11-27, option A).** The certificate is correct for **valid
+source in a default build**: the parsed file is a program its language's compiler or interpreter
+accepts, built without flags that remove or rewrite code (`python -O`, `-DNDEBUG`-style
+switches, `tsc` options that erase code). Where the language runs a construct in that setting,
+the certificate certifies it. A Python `assert` condition or message is a real call in a default
+build and is certified; `python -O` is outside the contract. A shape that is not a valid,
+compiling program is a **known limit**: the certificate does not judge validity, accepts what
+its tables list, and the limit is pinned as a `known_limit` row beside a control (an accepted
+row of the valid neighbour). The known limits are: a Go blank identifier read as a value or
+used as a selector segment (`eval(_)`, `eval = _`, `b._`; compile error), a Python call inside
+an argument list whose order is a SyntaxError (keyword before positional, repeated keyword,
+`*` after `**`), and a TS/TSX `const enum` initializer that is not a constant expression
+(TS2474). Their incidence is counted by the census (`price.rs`, `pending_shape` column): zero
+on the lane corpora. The certificate states the **syntactic role** of an occurrence (for example the callee of a call
+expression in valid source, default build). It does not claim that the call executes, so
+statically dead code is outside the contract: a constant-false guard, and a short circuit on a
+literal nullish base (`(void 0)?.eval(x)`, `null?.m(eval(x))`, `null?.[eval(x)]`). Those three inputs
+are pinned as `known_limit` rows (r10-limit-js-*) beside controls (r10-control-js-*). The narrowed
+cell stays as an extra refusal and is named as such: an optional call or member chain directly on a
+literal `null` or `undefined` base is withheld (`op_special_form`), although the contract would not
+require it. **Census (price.rs, five-language run `price-5l-fold14`, 2026-11-28).** What the census selects and
+excludes is defined by the functions in `crates/prism-review/src/algorithms/taint/sink_rules/price.rs`
+(`possibly_nullish_base`, `nullish_chain_base`, `under_nullish_chain`, `literal_only`, `literal_tests`,
+`under_literal_test`, `peel`) and pinned by the regression tests
+`superset_counts_every_possibly_nullish_base_and_constant_guard` and
+`known_exclusions_of_the_census_are_not_counted`; this document does not restate it. Inputs that
+reviewers constructed and that the census does not count (or counts) are recorded as rows in
+`known_exclusions_of_the_census_are_not_counted`, by reference and not by description. The
+certificate's contract (the syntactic role of an occurrence, not that the call executes) does not
+depend on these counts.
+
+**Census result, limited to that filter** (from `price-5l-fold14.tsv`; certified of all flat hits: Go 22,575 of 22,591,
+JavaScript 2,116 of 2,172, TypeScript 708 of 735, TSX 21 of 36, Python 2,899 of 3,039; shares
+unchanged). Possibly nullish chains in the corpora: 5 (TypeScript source 4, excalidraw 1), all live
+bases: two conditionals with an `undefined` arm, one assignment expression, two `||` expressions;
+none statically nullish. **0 certified hits under a possibly-nullish base as the filter defines
+it. 21 literal-test rows listed** (Go 3, Python 15, TypeScript 3, JavaScript 0, TSX 0; listing
+`shapes-list-fold14.log`), **1 unreachable**: 20 sit in constant-true loops (`while (true)`,
+`while True`, `for ..; true; ..`), which are live, and the one unreachable row is a Go test file
+(cockroach `pkg/server/debug/goroutineui/dump_test.go:58`,
+`if false { _ = os.WriteFile("test.html", ..) }`, a debugging toggle). What the contract means for
+that row: the certificate states that the occurrence is the callee of a call, which is true there;
+it never claimed that the call executes, so a reader who needs reachability must not read it from
+the certificate. The row is recorded as a **counted instance outside the contract, not as zero**.
+This is not a count of the whole dead-code class.
+Go `len`/`cap` of an array or pointer-to-array operand without calls or receives (the compiler
+folds the operand; `len(p.a)` is the pinned row) is the same class, pinned as an adapter-obligation
+`known_limit` beside a slice control. They are builtins, not flat sinks, so their incidence among
+certified hits is zero by construction (row `go_len_cap_unevaluated_operand`, always 0). A comment-only JSX
+body that overwrites nothing is refused as `attribute_overwritten`: an accepted over-refusal
+(conservative, no code change; rows `r2-*-jsx-children-empty-expr`). The census tool counts each
+limit once per hit; known limits of the census tool itself are that its Go blank classification
+reads the grammar roles it lists (parameters, `var`/`const` specs, fields, `left` lists, receives)
+and that Python keyword names are compared after NFKC. Runtime mutation, `-O`, preprocessors and
+code rewriting are out of model, as for `Exact`. The fixtures are minimal and omit unrelated
+declarations; a control is valid apart from names and types its snippet leaves undeclared, except
+where a row says otherwise.
+
+For the next fold, certify the operation, target and operand against three closed tables for the
+parsed language. The claimed role selects the applicable rows. An omitted shape earns no receipt.
+Count the first applicable refusal per candidate in table order (a), (b), (c), with specific rows
+before each table's default. Keep the vocabulary for the dormant tables as documented below.
+Report receipt refusals separately from the joined counts in F. Keep the current-tree,
+owner, reached-read and admission-route checks. Reject parse recovery on the certificate path.
+
+The interface checks the operation's syntactic form and context, the target's exact node position,
+and the operand's kind, position and role. An `adapter_obligation` is a known-limit row beside
+the controls. The adapter proves the callee's binding, the operand's reaching value, and that the
+resolved operation evaluates the certified slot. This includes distinguishing `pkg.Eval` or `Eval`
+the function from a type conversion, resolving constructors versus aggregates, resolving methods
+with an explicit receiver, and proving forwarding, macro expansion, result-tuple mapping or spread
+iterator behavior if a future certificate admits those routes. Such proof cannot add a row to these
+tables. Under the D2 macro contract a C/C++ call-shaped spelling needs the adapter's macro census
+before ordinary call attribution. An identified macro with unknown expansion or an incomplete
+census earns nothing. Macros outside that census remain a limit of the D2 model.
+
+`Language::all()` has twelve grammars. Python, JavaScript (including JSX), TypeScript, TSX and Go
+have dedicated call-position sink rules in `taint_sinks/`. Java, C, C++, Rust, Lua, Bash and HCL
+(`Terraform`) have no dedicated call-position rules there and use legacy flat matching. All twelve
+can supply legacy or configured admissions as applicable. These rows confer no rule activation.
+The kinds and fields below are for the Cargo.lock grammars, including vendored Go and TS/TSX.
+
+**(a) Operation and argument container.** The second column supplies call forms for `Argument`,
+Python `KeywordArgument` and `ReceiverValue` where (c) binds a receiver. The third column
+supplies assignment and attribute forms. Table (c) checks the claimed role for each form.
+`>` denotes a named child step when there is no field. C-family and Java assignments require `=`;
+Go `assignment_statement` requires `=`. Bash uses only repeated `argument` fields, never redirects
+or leading environment assignments as slots. Lua requires the parenthesized form of `arguments`.
+
+| Language | Call and argument container | Other operation kinds |
+|---|---|---|
+| Python | `call.arguments:argument_list` | `assignment` with `right` |
+| JavaScript | `call_expression.arguments:arguments`, `new_expression.arguments:arguments` | `assignment_expression`, `jsx_attribute` at `jsx_opening_element.attribute` or `jsx_self_closing_element.attribute` |
+| TypeScript | As JavaScript, with no `type_arguments` on either operation | `assignment_expression` |
+| TSX | As TypeScript | As JavaScript |
+| Go | `call_expression.arguments:argument_list`, with no `type_arguments` and head other than `make` or `new` | `assignment_statement`, `short_var_declaration` |
+| Java | `method_invocation.arguments:argument_list`, `object_creation_expression.arguments:argument_list` | `assignment_expression` |
+| C | `call_expression.arguments:argument_list` | `assignment_expression` |
+| C++ | As C, plus `new_expression.arguments:argument_list` with no `placement` or `declarator` | As C |
+| Rust | `call_expression.arguments:arguments` | `assignment_expression` |
+| Lua | `function_call.arguments:arguments` | `assignment_statement` |
+| Bash | `command.argument` | `variable_assignment` |
+| HCL | `function_call > function_arguments` | `attribute` |
+
+The argument row requires the stated field and delimiters. This withholds Python's bare
+`generator_expression`, JS-family tagged `template_string`, C++ braced `initializer_list`,
+and Lua's unparenthesized `string` or `table_constructor`. Withhold imports, including
+JS-family `call_expression.function:import`, and direct `this`/`super` calls. Java
+`enum_constant` and `explicit_constructor_invocation` have no row. Withhold Java `super`-qualified
+`method_invocation` and anonymous or explicit type-argument `object_creation_expression`.
+Withhold casts and `type_conversion_expression`. For call-shaped conversions and constructors
+apply the head restrictions in (b). In Go, `make` and `new` are aliased `identifier` heads.
+Refuse those spellings, including their type-only operands (`slice_type`, `array_type`,
+`type_identifier`). A call-shaped type alias under a different spelling requires binding proof.
+
+Require a runtime production and placement as well as the listed operation kind. Where a grammar
+shares a kind with a non-runtime production, use its pinned production and enclosing field path.
+Withhold unproved placements, including erased TS/TSX `type_query`, `type_alias_declaration.value`
+and `type_annotation` positions such as the aliased `call_expression` in `import("m").T`, and
+Python `type_alias_statement.right`. TS/TSX also withhold operations within ambient declarations
+or declaration files (`.d.ts`, `.d.mts`, `.d.cts`), interfaces and object types (including computed
+keys), abstract or bodyless signatures, and `declare` or `abstract` class fields. Ordinary class
+heritage and runtime computed member names remain eligible. For Go, refuse calls with terminal
+name `Sizeof`, `Alignof` or `Offsetof` and every operation within their argument lists. This is a
+conservative name-based refusal that covers aliases, unqualified heads and unrelated same-name
+functions or methods, because the certificate does not resolve imports or bindings.
+Withhold Java `annotation` arguments, Rust `attribute_item` and `inner_attribute_item`, and
+C/C++ `attribute_specifier`, `attribute_declaration`, `attribute` and `alignas_qualifier`.
+For C/C++ exclude `preproc_if.condition`, `preproc_elif.condition`, `preproc_def.value` and
+`preproc_function_def.value` (opaque `preproc_arg`), as well as unevaluated `sizeof_expression`,
+`alignof_expression`, C `generic_expression`, and C++ `decltype`, `noexcept`, `requires_expression`
+and `requires_clause`. Do not admit `typeof` type uses or the operator spellings `noexcept`
+and `typeid` merely because the grammar presents an `identifier` call head. Apply the query
+restriction to calls inside those operands too. `preproc_call` and Rust `macro_invocation`
+have no operation row. A call in a branch body still needs proof that the branch is active.
+
+**(b) Call target.** Classify the entire declared callee and each required descent before
+testing node equality. A plain terminal or whole classified member/qualified path may be the
+target. Wrappers only descend, and computed keys certify only the complete literal node. A
+receiver, namespace qualifier, string fragment or type argument cannot supply the terminal name.
+For Java method calls, the head is already the exact `name` field. Non-call target binding is in
+(c). `parenthesized_expression` and `non_null_expression` wrappers require exactly one named
+expression, excluding comment extras, and no other syntax beyond the enclosing delimiters or `!`.
+
+| Language | Head field and admitted target paths |
+|---|---|
+| Python | `call.function` to `identifier`, `attribute.attribute:identifier`, `subscript.subscript:string`, or a `parenthesized_expression` wrapper |
+| JavaScript | `call_expression.function`, `new_expression.constructor` to `identifier`, `member_expression.property:property_identifier` or `private_property_identifier`, `subscript_expression.index:string` or substitution-free `template_string`, or a `parenthesized_expression` wrapper |
+| TypeScript, TSX | As JavaScript, plus a `non_null_expression` wrapper |
+| Go | `call_expression.function` to `identifier`, `selector_expression.field:field_identifier`, or a `parenthesized_expression` wrapper |
+| Java | `method_invocation.name:identifier` (with or without `object`). `object_creation_expression.type` to `type_identifier` or `scoped_type_identifier` with exactly two unfielded named children, a `type_identifier` or recursive `scoped_type_identifier` prefix and a terminal `type_identifier` |
+| C | `call_expression.function` to `identifier`, `field_expression.field:field_identifier` with `operator` `.` or `->`, or a `parenthesized_expression` wrapper |
+| C++ | As C, plus `qualified_identifier.name` to `identifier`, or to `field_identifier` from a `field_expression`, with recursive `qualified_identifier` names and plain `namespace_identifier` scopes. `new_expression.type` to `type_identifier` or the same qualified path ending in `type_identifier` |
+| Rust | `call_expression.function` to `identifier`, `scoped_identifier.name:identifier` with absent or plain identifier/`crate`/`self`/`super`/recursive `scoped_identifier` path, `field_expression.field:field_identifier`, or a `parenthesized_expression` wrapper |
+| Lua | `function_call.name` to `identifier`, `dot_index_expression.field:identifier`, `method_index_expression.method:identifier`, or a `parenthesized_expression` wrapper |
+| Bash | `command.name:command_name > word` with bare identifier spelling |
+| HCL | `function_call > identifier`, preceding `function_arguments` |
+
+Python requires exactly one `subscript` field and no comma outside the key. Its `string` may be
+unprefixed, raw or Unicode, with no bytes prefix or `interpolation`. JS-family `index` must be
+one complete `string` or a `template_string` without `template_substitution`. C and C++ have no
+literal-key descent. For C++ the pinned `field_expression.operator` lists `.`, `->` and `.*`.
+Only `.` and `->` have rows. `->*` occurs as an `operator_name` token, with no `field_expression`
+operator row. Refuse its call-position spelling even under recovery. `primitive_type`, Java
+`integral_type`/`floating_point_type`, Java `generic_type`, C++ `template_type` and all other
+unlisted constructor heads are withheld. Go `F[int](x)` and Java `new Foo<T>(x)` are pinned
+losses. Index and generic-function nodes have no descent, and an entire inner call, `new_expression`
+or `macro_invocation` cannot pass on equality. Rust `scoped_type_identifier` has no reachable
+call head in the pinned schema. Java's row covers the reachable use of that kind.
+
+**(c) Operand and position.** An ordinary positional operand is the direct named slot child
+and must match one value row below. Comments do not consume slots. Withhold a comment as
+operand or reached token at any depth. The receipt also withholds a reached node whose subtree
+contains only comments or extras. Labels and attribute tokens do not count as values.
+Compute ordinals from positional children. Before binding any role on a Python call, reject
+bare positional slots after keyword arguments or `dictionary_splat`, duplicate keyword names
+under NFKC, and `list_splat` after `dictionary_splat` with `slot_mismatch`. Reject the grammar's
+parenthesized list-splat alias with `operand_spread`, including for earlier claims. A legal
+`list_splat` after a keyword remains subject to the expansion rule. Withhold expansion nodes and
+any positional claim at or after an expansion that can change its slot. For Python keyword claims,
+bind the exact direct `keyword_argument.value` by raw name spelling and withhold claims in the
+presence of `dictionary_splat`. The adapter supplies NFKC identity for rule selection. Go requires
+a `variadic_argument`, if present, to be the final slot. HCL and Bash
+use the explicit wrapper/field exceptions below. A parenthesized identifier is withheld as an
+operand, whether the claim names the wrapper or the identifier inside it.
+
+| Language | Admitted direct values and keyword position |
+|---|---|
+| Python | `identifier`, `attribute` via identifier-rooted `object` and `attribute` fields, `integer`, `float`, `true`, `false`, `none`, and `string` with the plain-string restrictions in (b). Also `keyword_argument.value` with one of these values |
+| JavaScript, TypeScript, TSX | `identifier`, `member_expression` via identifier-rooted `object` and listed `property`, `number`, `true`, `false`, `null`, `string`, substitution-free `template_string` |
+| Go | `identifier`, `selector_expression` via identifier-rooted `operand` and `field`, `int_literal`, `float_literal`, `imaginary_literal`, `rune_literal`, `true`, `false`, `nil`, `interpreted_string_literal`, `raw_string_literal` |
+| Java | `identifier`, `field_access` via identifier-rooted `object` and `field:identifier`, `decimal_integer_literal`, `binary_integer_literal`, `octal_integer_literal`, `hex_integer_literal`, `decimal_floating_point_literal`, `hex_floating_point_literal`, `character_literal`, `string_literal`, `true`, `false`, `null_literal` |
+| C | `identifier`, `field_expression` via identifier-rooted `argument` and `field:field_identifier` with `.` or `->`, `number_literal`, `char_literal`, `string_literal` |
+| C++ | As C, plus `raw_string_literal`, `true`, `false` |
+| Rust | `identifier`, `field_expression` via identifier-rooted `value` and `field:field_identifier`, `integer_literal`, `float_literal`, `char_literal`, `string_literal`, `raw_string_literal`, `boolean_literal` |
+| Lua | `identifier`, `dot_index_expression` via identifier-rooted `table` and `field`, `number`, `string`, `true`, `false`, `nil` |
+| Bash | One `command.argument` as `word` of safe ASCII letters, digits or `_./:+-`, `raw_string`, literal-only `string`, or `string` containing exactly one quoted `simple_expansion > variable_name` and no other content. The operand is the whole word |
+| HCL | One `function_arguments > expression` whose named payload is `variable_expr > identifier` followed by zero or more `get_attr > identifier`, or `literal_value` with exactly one `numeric_lit`, `bool_lit`, `null_lit` or `string_lit`. The operand is the whole `expression` |
+
+Withhold `list_splat` (including its parenthesized alias), `dictionary_splat`, `spread_element`,
+`parameter_pack_expansion`, `variadic_argument`, bare `vararg_expression`, HCL `ellipsis` and
+`splat`, and Bash words whose expansion or glob can alter the count. In Rust, withhold an
+argument if an `attribute_item` occurs at or before its slot. In C/C++ withhold
+`argument_list > compound_statement`. No operand is an initializer label, including
+`initializer_pair.designator`, Go `keyed_element.key`, Rust `field_initializer.field` and Lua
+`field.name`. Nested calls, binary and conditional expressions, callable literals, casts and
+other unlisted values are withheld. Selecting a descendant under an unlisted value does not
+promote it to a slot. Receiver and assignment operands use the same value rows.
+
+| Language | `ReceiverValue` | `AssignmentValue` |
+|---|---|---|
+| Python | `attribute.object` | `assignment.right` paired with `left` |
+| JavaScript, TypeScript, TSX | `member_expression.object` or `subscript_expression.object` on an ordinary `call_expression` | `assignment_expression.right` paired with `left` |
+| Go | `selector_expression.operand` | `assignment_statement.right` or `short_var_declaration.right`, sole `expression_list` child paired with sole child of `left`, excluding the blank target `_` |
+| Java | `method_invocation.object` | `assignment_expression.right` paired with `left` |
+| C, C++ | `field_expression.argument` | `assignment_expression.right` paired with `left` |
+| Rust | `field_expression.value` | `assignment_expression.right` paired with `left` |
+| Lua | `dot_index_expression.table`, `method_index_expression.table` | `assignment_statement > expression_list.value` paired with `variable_list.name`, one of each |
+| Bash | — | `variable_assignment.value` paired with `name:variable_name` |
+| HCL | — | `attribute > expression` paired with its preceding `identifier` |
+
+Python literal-key callees and JS-family `new_expression` forms still admit their explicit
+argument slots. Bind the receiver to the listed field of the classified callee in (b), including
+through admitted callee wrappers. This permits receiver/target overlap only for a receiver
+inside the submitted whole member path. An explicit receiver in the argument list has only its ordinary argument
+slot. Bind an assignment target to the single identifier or admitted member path on the LHS,
+or its terminal name, and the value to that assignment's exact RHS. Reject patterns, paired
+lists, parallel assignment and other unlisted LHS forms before binding. For Bash and HCL use
+the exact name positions in the table. All other roles are withheld except `AttributeValue` below.
+
+| Language | `AttributeValue` |
+|---|---|
+| JavaScript, TSX | In the listed JSX tag's `attribute` fields, bind the target to `jsx_attribute`'s unfielded `property_identifier`. The next named child is the `string` value or a `jsx_expression` with exactly one admitted value. For `dangerouslySetInnerHTML`, require `jsx_expression > object > pair.value` with one `pair`, `key:property_identifier` spelled `__html`, and an admitted value. |
+| All others | — |
+
+The attribute must be the final writer of its name within that tag. Table (a) refuses a spread
+as the operation. Withhold a candidate followed by a same-name `jsx_attribute` or any
+`jsx_expression > spread_element` attribute. Earlier spreads cannot overwrite a later explicit
+attribute. Also withhold `children` on a paired JSX tag with non-whitespace text, a character
+reference, an expression with a value or an element in the body. Empty bodies, indentation-only
+text and self-closing tags supply no body child in this check. A comment-only expression container
+(`{/* c */}`) overwrites nothing at run time but is withheld like any body child (`attribute_overwritten`):
+an accepted over-refusal, pinned by rows `r2-*-jsx-children-empty-expr`.
+JSX attribute names and `pair.key` are labels, never value operands.
+
+| Table | Counted reasons |
+|---|---|
+| (a) | `op_kind_unlisted` (operation omitted), `op_context_non_runtime` (type, unevaluated, attribute or preprocessing position), `op_special_form` (call-shaped special form or unsupported modifier), `op_arguments_unlisted` (container or delimiters), `op_type_arguments` (explicit type argument list on TS/TSX or Go call-shaped operation), `attribute_spread` (spread in place of `jsx_attribute`) |
+| (b) | `callee_kind_unlisted` (head, wrapper or path omitted), `callee_target_unlisted` (claim names a different part of a listed path), `callee_type_unlisted` (unlisted constructor or conversion head), `subscript_key_not_plain_literal` (invalid key shape), `subscript_c_family` (no C/C++ key row), `member_pointer_operator` (C++ `.*`) |
+| (c) | `operand_kind_unlisted` (value omitted), `operand_not_direct_child` (claim under a slot outside its exact path), `operand_spread` (expansion or unproved word count), `operand_label`, `operand_comment`, `operand_attribute` (argument metadata), `operand_macro_block`, `role_not_bound` (missing role or field relation), `slot_mismatch` (argument layout, ordinal or raw keyword spelling), `parallel_assignment`, `attribute_overwritten` |
+
+`callee_type_unlisted`, `subscript_c_family`, `member_pointer_operator`, `operand_attribute`
+and `operand_macro_block` are dormant-language reasons. They remain in the vocabulary for
+the dormant tables and are unreachable on the five in-use languages.
+
+`callee_equality_before_class` has no reason row. The order of checks is an invariant and
+the rejected shape reports its callee reason.
+
+**Accepted losses.** Pin valid generic instantiations and constructors, type assertions,
+parenthesized operands, nested-call and callable-literal operands, bare generator arguments,
+tagged templates, literal spreads, argument attributes and dynamically selected callees.
+Carry these controls into the lane's step 2 census and F's joined comparison. Charge the
+loss only after joining comparable admissions and reducing the surviving identities and strengths.
+PRICE (2026-11-25, census over today's production flat sink hits on the lane corpora, release build, `price.rs`; a hit is certified when its enclosing operation, callee and at least one operand pass the three tables): Go 99.9% (22,575 of 22,591), JavaScript 97.4% (2,117 of 2,173), TypeScript 96.3% (708 of 735), Python 95.5% (3,027 of 3,168), Lua 94.7% (36 of 38), C++ 65.9% (890 of 1,350), TSX 58.3% (21 of 36), Bash 45.8% (1,422 of 3,104), C 43.9% (15,857 of 36,147), Rust 19.1% (417 of 2,181), Java 16.2% (278 of 1,714), HCL 1 of 9 (run 2026-11-25 over cockroach, kubernetes, vitess, django, mypy, TypeScript, excalidraw, express, redis, cpython-c, leveldb, secbench-node-r1, the prism source and the pinned inputs). Caveats: the share is an upper bound, because a hit counts if ANY operand of its operation certifies, which an adapter's single claim need not; the Java and Rust populations are thin (Java 1,714 hits, almost all from the prism and pinned trees; no Java corpus in the set) and HCL has 9 hits; TSX has 36 hits. TSX classification (all 15 misses read): 14 are a nested call as the operand value (13 of them the one idiom `dangerouslySetInnerHTML={trustIcon(icon)}` of a single repository, a JSX attribute whose value is a call that returns the html object, withheld like any nested call, row `tsx-L-census-jsx-call-value`; the 14th is `window.location.href = url.toString()`, assignment-style location rule, row `tsx-L-census-location-call-value`) and 1 is an `innerHTML` assignment whose target is a call chain (`role_not_bound`, owned by the assignment-style DOM rule); no JSX spread and no listed-shape miss, so no operand cell is added and the TSX share stays 21 of 36 (58.3%), 21 of 23 (91%) without that one idiom. In C, C++, Java, Rust and Bash most refusals are legacy substring hits that are not in call position (`no_operation`: C 18,018, Java 1,374, Rust 1,212, Bash 803, C++ 342), which no adapter could earn; counting only hits that have an operation, C 88.6%, C++ 89.0%, Java 84.2%, Bash 61.9%, Rust 43.0% (Rust: 188 `callee_target_unlisted` on scoped paths, 348 `operand_kind_unlisted`).
+
+The CLOSED refusal controls rely on `op_kind_unlisted` (4, Java explicit constructor forms in 32),
+`op_context_non_runtime` (28, N1, P3-04/05/07), `op_special_form` (P3-08/09/15),
+`op_arguments_unlisted` (24/25), `callee_kind_unlisted` (1, 9–11, 13/15/18/19/22/26/27/33/37/38),
+`callee_type_unlisted` (5/8/31, constructor form in 33), `subscript_key_not_plain_literal`
+(2/13/14, N5), `subscript_c_family` (7/13), `callee_target_unlisted` (partial plain key in 14),
+`member_pointer_operator` (3), `operand_spread` (N2/N3, P3-12/18), `role_not_bound` (N4),
+`operand_not_direct_child` (N6a), `operand_attribute` (P3-01/02), `operand_macro_block` (P3-06),
+`operand_label` (P3-10), `operand_comment` (P3-11), `parallel_assignment` (P3-13),
+`attribute_overwritten` (P3-14) and `operand_kind_unlisted` (P3-19). Rows 40/41 and P3-20 get
+positive positions. P3-03 retains the value position with keyword normalization at the adapter.
+
 ### 5.3 The registry
 
 `prism::rule_registry` owns `RuleInfo`, `RuleRef`, the named constants, the sorted `rules()`

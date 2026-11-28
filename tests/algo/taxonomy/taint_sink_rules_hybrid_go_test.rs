@@ -81,5 +81,5 @@ const GO_ROWS: &[Row] = &[
 
 #[test]
 fn hybrid_go_matrix() {
-    assert_rows(GO_ROWS);
+    assert_rows(module_path!(), GO_ROWS);
 }

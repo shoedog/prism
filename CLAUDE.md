@@ -110,6 +110,8 @@ cargo test --test integration coverage_test::      # Coverage matrix
 - `diff.rs` — Diff parsing and `DiffInput`/`DiffInfo` types.
 - `slice.rs` — `SlicingAlgorithm` enum (30 variants), `SliceConfig`, and `SliceResult`.
   `SliceFinding.rules` contains `RuleRef` entries sorted by id, with at most one entry per id. The field is skipped when empty and additive under the API handle promise.
+  `prism::slice::attach_rules` is available for built-in producers once they begin publishing rule identities. It reduces named registry rows per finding. A strong occurrence wins for a shared id, and an all-weak id on a warning gets a suggestion override.
+  The dormant taint sink collector accepts parse-bound operand witnesses from adapters and checks them against the final admission key. Each path keeps its own cleansing decision, and no taint sink partition publishes rules yet.
 - `rule_registry.rs` and `rule_registry/` own the named finding rules, `RuleInfo`, and `RuleRef`.
   Both types have private fields and borrowed read accessors. Named rows make references via `rule_ref()`. `prism::slice::RuleRef` and `prism_review::output::rule_registry` re-export the core API.
 - `reasoning/` — Tier-2 reasoning layer: `taint_trace` consumer, `SeedSet`, output shaper.

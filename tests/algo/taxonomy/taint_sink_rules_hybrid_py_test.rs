@@ -112,5 +112,5 @@ const PY_ROWS: &[Row] = &[
 
 #[test]
 fn hybrid_py_matrix() {
-    assert_rows(PY_ROWS);
+    assert_rows(module_path!(), PY_ROWS);
 }
