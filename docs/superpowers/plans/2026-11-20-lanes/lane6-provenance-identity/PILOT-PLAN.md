@@ -26,7 +26,7 @@ JSONL fields `repo, commit, file, line, column, token, origin, library, read, de
 
 ## 3. Blind precision
 
-Per tool and set (historical, fresh), sample 30 claims uniformly or all if fewer. Sort by §4 key and column before sampling with seed `20261127`. Two different models independently apply `m/RUBRIC.md` to marked occurrences, imports and enclosing code, blind to tool, claim, proof and each other. A third model adjudicates. Mark all same-token candidates for base and credit any confirmed hit. Cap 5 claims per commit and require at least 2 repos among the sampled claims. Mix 10 independently drawn name reads (not view claims) into each reader batch with the same format, so readers cannot infer the claim. Report precision separately for import-proven and annotation-only rows (an annotation-only row can be a plain helper called with a constant; its precision is a hypothesis). Report emitted, sampled, correct, incorrect and unresolved counts, correct/all sampled and the two-sided 95% Wilson interval.
+Per tool and set (historical, fresh), sample 30 claims uniformly or all if fewer. Sort by §4 key and column before sampling with seed `20261127`. Two different models independently apply `m/RUBRIC.md` to marked occurrences, imports and enclosing code, blind to tool, claim, proof and each other. A third model adjudicates. Mark all same-token candidates for base and credit any confirmed hit. Draw the gate sample uniformly from ALL emitted claims (no per-commit cap, no repo quota: they change the denominator); report as sensitivity the precision under a cap of 5 per commit and the repos among the sampled claims. Mix 10 independently drawn name reads (not view claims) into each reader batch with the same format, so readers cannot infer the claim. Report precision separately for import-proven and annotation-only rows (an annotation-only row can be a plain helper called with a constant; its precision is a hypothesis). Report emitted, sampled, correct, incorrect and unresolved counts, correct/all sampled and the two-sided 95% Wilson interval.
 
 ## 4. Coverage and lost base rows
 
@@ -34,7 +34,7 @@ Before either tool runs on a fresh commit, uniformly sample four sorted changed 
 
 Base key `(repo,commit,file,line,token)` uses manifest repo/commit, `.findings[]` file/line and token from `.description` via `^variable '([^']+)' has user_input origin:`. Select matching `.py` rows with `category="untrusted_origin"`. Any matching view occurrence retains a base row. Reconcile retained + lost to 569 historical rows, repeat for fresh and count view-only keys. Write every loss as JSONL with key fields, `reason` and `evidence` (pinned line and trace or failure).
 
-Use the leftmost rubric variable read and the first matching code.
+Examine every base-matching occurrence on the line; if any meets the §1 rules and the view missed it the code is `missed_supported_read` (checked first); otherwise use the leftmost occurrence and the first matching code of the rest.
 
 1. `non_variable` — parsed line has no variable read of the token.
 2. `handle_or_metadata` — rubric establishes a handle or request metadata.
@@ -48,7 +48,7 @@ Use the leftmost rubric variable read and the first matching code.
 
 ## 5. Decision and stop
 
-Budget two to four lane days. One historical development round, then freeze. Open the full reserve once before precision grading if fresh view claims are below 30, coverage positives below ten, or positive repos below two. Stop by day four. **Yes** requires ≥26 correct among ≥30 sampled fresh view claims (point estimate ≥85%; Wilson interval reported; operating characteristic disclosed to the owner: at 30 claims P(pass) is about 0.10 at true 75%, 0.52 at 85%, 0.83 at 90%) and fresh weighted point coverage ≥50% (the gated figure; the unresolved-as-miss figure is reported beside it) over ≥10 confirmed positives across ≥2 repos with ≥1 hit in each. **No** if either gate fails on its required sample, or the table proves nothing on a qualifying repo. Otherwise **inconclusive**, including timeouts. Publish available counts. Only yes permits considering a Rust port.
+Budget two to four lane days. One historical development round, then freeze. Open the full reserve once before precision grading if fresh view claims are below 30, coverage positives below ten, or positive repos below two. Stop by day four. **Yes** requires ≥26 correct among ≥30 sampled fresh view claims (point estimate ≥85%; Wilson interval reported; operating characteristic disclosed to the owner: at 30 claims P(pass) is about 0.10 at true 75%, 0.52 at 85%, 0.83 at 90%) and fresh weighted point coverage ≥50% (the gated figure; the unresolved-as-miss figure is reported beside it) over ≥10 confirmed positives across ≥2 repos with ≥1 hit in each. **No** if either pooled gate fails on its required sample. A qualifying repo with zero confirmed supported reads is reported, not a failure. Outcomes are evaluated in the order yes, no, inconclusive, so they are mutually exclusive. Otherwise **inconclusive**, including timeouts. Publish available counts. Only yes permits considering a Rust port.
 
 ## 6. Remaining risks
 
