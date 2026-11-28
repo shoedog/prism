@@ -24,8 +24,14 @@ const MIB: u64 = 1024 * 1024;
 //
 // Baseline (macOS arm64 host, three runs of main at the pinning change, MiB,
 // LOADED / UNLOADED): prime 3074-3130 / 29-31; guarded 2835-2919 / 17-18;
-// control 2909-2941 / 1986-2020. Six product trees (main and four PR heads)
-// measured 1997-2020 for the control on this corpus.
+// control 2909-2941 / 1986-2020. Five product trees (main x3 and four PR heads)
+// measured 1986-2020 for the control on this corpus; the CI runner gave
+// prime 3173/27, guarded 2846/16, control 2983/1997.
+//
+// A control flip on this corpus means the control no longer demonstrates
+// retention: the PR re-establishes a control (a new PINNED_SHA with a measured
+// table, or another control arm) with owner sign-off. It never lowers
+// MIN_CONTROL or GUARDED_CAP to pass.
 const PINNED_SHA: &str = "e37d644dcdc323a99cc67028655b045dde3175cc";
 const MIN_LOADED: u64 = 512 * MIB;
 const GUARDED_CAP: u64 = 128 * MIB; // I0 unloaded-footprint cap.
@@ -234,7 +240,13 @@ fn pinned_corpus() -> tempfile::TempDir {
     };
     let spec = format!("{PINNED_SHA}^{{commit}}");
     if !git(&["cat-file", "-e", &spec]).status.success() {
-        let fetched = git(&["fetch", "--depth", "1", "origin", PINNED_SHA]);
+        let shallow = git(&["rev-parse", "--is-shallow-repository"]);
+        let mut fetch = vec!["fetch"];
+        if String::from_utf8_lossy(&shallow.stdout).trim() == "true" {
+            fetch.extend(["--depth", "1"]);
+        }
+        fetch.extend(["origin", PINNED_SHA]);
+        let fetched = git(&fetch);
         assert!(
             fetched.status.success(),
             "cannot fetch pinned corpus {PINNED_SHA}: {}",
@@ -258,7 +270,7 @@ fn pinned_corpus() -> tempfile::TempDir {
         .expect("spawn git archive");
     let mut archive = archive;
     let untar = Command::new("tar")
-        .arg("-x")
+        .args(["-xf", "-"])
         .arg("-C")
         .arg(dir.path())
         .stdin(archive.stdout.take().unwrap())
@@ -280,8 +292,7 @@ fn pinned_corpus() -> tempfile::TempDir {
 #[ignore = "macOS footprint guard; run by the macos-footprint CI job"]
 fn footprint_guard() {
     // A reload after idle loads the index from the cache, so both measured arms
-    // hit a cache the prime run builds; a cache hit also retains more memory
-    // without the allocator setting than a cold build does (532 vs ~220 MiB).
+    // hit a cache the prime run builds (build_wait of seconds, not a minute).
     let cache = tempfile::tempdir().expect("fresh isolated cache directory");
     let corpus = pinned_corpus();
     // measure returns only after its child is killed and reaped: never overlap arms.
