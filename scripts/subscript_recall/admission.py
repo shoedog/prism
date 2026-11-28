@@ -521,6 +521,35 @@ def population_line(name, rows, receipt_path, meta, candidates, survivors):
             f"verdict {verdict}"), problems
 
 
+
+def load_exclusions(path, owners):
+    """The owner-ruled exclusion list (DESIGN change log 2026-11-27): a JSON list of `{corpus, file, owner, cls}`,
+    one per unreconciled owner it covers. Returns `(set of owner keys, Counter of cls, sha256)`; raises
+    ValueError for a row that is malformed, duplicated, has a blank class, or names an owner that is not an
+    unreconciled owner of this prepared directory."""
+    data = Path(path).read_bytes()
+    rows = json.loads(data)
+    if not isinstance(rows, list):
+        raise ValueError("the exclusion file is not a JSON list")
+    unreconciled = {(o["corpus"], o["file"], o["owner"]) for o in owners if o["status"] == "unreconciled"}
+    keys, classes = set(), Counter()
+    for row in rows:
+        try:
+            k = (row["corpus"], row["file"], row["owner"])
+            cls = row["cls"]
+        except (KeyError, TypeError):
+            raise ValueError(f"exclusion row {row!r} lacks corpus, file, owner or cls")
+        if not isinstance(cls, str) or not cls:
+            raise ValueError(f"exclusion row {k} has no class")
+        if k in keys:
+            raise ValueError(f"exclusion row {k} is listed twice")
+        if k not in unreconciled:
+            raise ValueError(f"exclusion row {k} is not an unreconciled owner of this prepared directory")
+        keys.add(k)
+        classes[cls] += 1
+    return keys, classes, digest(data)
+
+
 def report(a):
     prep = Path(a.prepared)
     meta = json.loads((prep / "prepared.json").read_text())
@@ -548,7 +577,14 @@ def report(a):
     physical = sum(r.get("product_survivors", 0) for r in owners)
     both = sum(r.get("agreed", 0) for r in owners)
     A = len(credited)
-    verdict = "INVALID" if not meta["valid"] else ("PASS" if A >= GATE else "STOP")
+    excluded, classes, excl_sha = (set(), Counter(), None)
+    if a.excluded_unreconciled:
+        excluded, classes, excl_sha = load_exclusions(a.excluded_unreconciled, owners)
+    unreconciled = {(o["corpus"], o["file"], o["owner"]) for o in owners if o["status"] == "unreconciled"}
+    uncovered = len(unreconciled - excluded)
+    reconciled = total - len(excluded)
+    A_reconciled = len(credited - excluded)
+    verdict = "INVALID" if not meta["valid"] else ("PASS" if min(A, A_reconciled) >= GATE else "STOP")
     print(f"frame: {total} owners ({', '.join(f'{c} {n}' for c, n in sorted(meta['frame_by_corpus'].items()))}); "
           f"status rows kept: {dict(status)}")
     for corpus, n in sorted(meta["frame_by_corpus"].items()):
@@ -556,7 +592,14 @@ def report(a):
     print(f"A={A} of {total}; raw physical survivors in frame owners: product {physical}, both sides {both} "
           f"(qualifying pairs {len(qualifying)}; graph credit with a public CFG stop, zero public recovery: {len(stops)})")
     print(f"witnesses: {dict(counts)}; unwitnessed ceiling {len(ceiling)} owners (not A)")
-    clean = meta["residual_owners"] == 0
+    if excluded:
+        print(f"denominators: frame {total}; reconciled {reconciled} (frame less {len(excluded)} excluded "
+              f"unreconciled owners; {', '.join(f'{c} {n}' for c, n in sorted(classes.items()))}); "
+              f"exclusion file sha256 {excl_sha}")
+        print(f"A={A} of {total} ({100 * A / total:.1f}%); A={A_reconciled} of {reconciled} "
+              f"({100 * A_reconciled / reconciled:.1f}%) credited owners outside the exclusion")
+    clean = meta["residual_owners"] == 0 or (bool(excluded) and not uncovered and not (
+        {o["status"] for o in owners} - {"ok", "unreconciled"}))
     print(f"reconciliation: {meta['residual_owners']} residual owners; run valid: {meta['valid']}")
     for row in meta["categories"]:
         print(f"  survivors {row['corpus']} {row['role']} {row['where']}: pairs {row['pairs']} "
@@ -595,7 +638,9 @@ def report(a):
         print(lines[name][0])
     unapproved = not a.approved_population
     if verdict == "PASS":
-        reasons += [] if clean else ["unreconciled predictions"]
+        reasons += [] if clean else [
+            "unreconciled predictions" + (f" ({uncovered} of {len(unreconciled)} unreconciled owners not in the "
+                                          "exclusion file)" if excluded and uncovered else "")]
         if not unapproved:
             problems = lines[a.approved_population][1]
             reasons += problems if problems is not None else [
@@ -625,6 +670,8 @@ def main(argv=None, frozen=FROZEN):
     r.add_argument("--witnesses")
     r.add_argument("--precision", help="a-credit population receipt (`precision --population a-credit`)")
     r.add_argument("--precision-all-survivors", help="all-survivors population receipt")
+    r.add_argument("--excluded-unreconciled", help="JSON list of the unreconciled owners the owner ruled out of "
+                   "the denominator (corpus, file, owner, cls); it must cover every unreconciled owner")
     r.add_argument("--approved-population", choices=sorted(precision.POPULATIONS),
                    help="the owner-approved precision population; without it I2 stays BLOCKED")
     r.set_defaults(fn=report)
