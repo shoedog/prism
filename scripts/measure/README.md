@@ -260,6 +260,48 @@ See [the formats of record](../../docs/superpowers/plans/2026-11-20-lanes/lane11
 for the evidence schemas and [R4B](fixtures/repro-4b/README.md) for the
 retained fixture capture and control generator.
 
+## Review comparison
+
+Run from `scripts/` with two review binaries and local source clones:
+
+```sh
+python3 -m measure review-diff --population measure/populations/602-m2-120.json \
+  --clones /path/to/clones --arm base=/path/to/base --arm head=/path/to/head \
+  --out /path/to/new-review
+```
+
+The shipped population pins 120 diffs, 20 from each of six repositories.
+Use `--only N,M,...` to select ordinals. Each selected commit is checked out
+in a separate detached scratch clone. The command validates the commit's
+parent and tree, regenerates the pinned spec, and checks the spec and
+worktree around each guarded arm. A checkout filter that changes the pinned
+source bytes causes a refusal. Source clones are read-only inputs.
+
+The two `--arm NAME=BIN[::ARG...]` options bind the base and head in order.
+The default shared arguments are `--algorithm taint --resolution scoped`.
+`--review-args STRING` replaces them using POSIX quoting and supports literal
+`::` in a shared argument. In an arm-local argument string `::` is the separator.
+
+`per-diff.jsonl` accounts for every ordinal. `totals.json` sums presence and
+payload changes and ambiguous bags over successful comparisons.
+`sample.jsonl` draws up to 30 successful ordinals with seed 20261101 by default.
+Use `--sample` and `--seed` to change the draw. `review-receipt.json` binds the
+population, arm commands, and hashes of the summaries and retained raw
+stdout and stderr. A launched child failure retains both streams.
+
+Exit 0 means all selected ordinals completed, with or without findings.
+Exit 1 means a selected ordinal failed or was refused, or a storage error
+interrupted enumeration or publication. Exit 2 means invocation
+or population admission failed. A host-quiet interruption exits 75 and
+marks all remaining selected ordinals refused. A guard that returns no status
+while the child wrote output or errors keeps both streams and fails the arm
+(`review-guard-status-missing`).
+
+The S4 fixture suite (`test_population` and `test_review_diff`) contains 71 tests, including two skips, owned by S5, for
+environment recording and arm-specific literal `::` arguments. It also runs
+15 review matrix rows and the `review-019` worktree drift ledger case. See
+[the review format](../../docs/superpowers/plans/2026-11-20-lanes/lane11-measurement-kit/FORMATS.md#5-review-population-and-comparison).
+
 ## TypeScript oracle
 
 Run the Python commands from `scripts/`.
@@ -782,3 +824,13 @@ residuals. Census emits no deltas. Call differential emits all site deltas,
 while defaults grade gained exact head claims. Aggregate-only retains
 tuples, denominators and receipt. Edge changes count the selected arm's
 residual occurrences as `selected`, independently of the arm's full size.
+
+Known limit (PROVISIONAL, known-s4-2): the spec file, scratch worktree and executable are checked at arm boundaries, not during launch, so a writer that changes and restores them (or changes the spec's mode alone) during the launch is not detected, and a persistent executable replacement fails the row while its retained output stays attributed to the originally hashed executable.
+
+Known limit (PROVISIONAL, known-s4-3): replay checks the internal integrity of the receipt and its retained streams; a consistently resealed receipt, or a different binary identity and argv around unchanged streams, is not detected without an independently supplied expected tree and binary identity (S5's gate binds them).
+
+Input contract of `review-diff` (FORMATS §5): (i) the patch bytes are the output of the pinned `git diff` invocation of §5, run by the kit itself; the parser validates the shapes Git produces and the `spec_sha256`, `n_files` and `n_lines` pins gate the result, it does not defend against hand-built patch bytes. (ii) A review receipt is a record the same tool wrote; `admit` verifies internal integrity (stream hashes, positional roles, argv, the sample draw, the quiet and missing-status dispositions) and does not authenticate a receipt against a forger who can rewrite every field consistently or build self-contradictory arm records. (iii) The guard and executables are unchanged during one command (known-s4-2); a persistent guard or helper change during `--version` is the S4 occurrence of known-s1-4. S5's gate supplies the independent pins.
+
+Known limits (PROVISIONAL; zero incidence: 120 of 120 real patches regenerate their pinned specs and the two real 120-ordinal runs produced only tool-written receipts; rows and pinning tests in FORMATS-OPEN-ROWS.md): known-s4-4, patches Git does not produce are admitted when they keep the pinned spec (regressing preimage ranges, two pure deletions at one point, record names that differ from the ---/+++ names, `diff --git a/ b/`, an unterminated record quote, arbitrary metadata, context under `-U0`, a premature no-newline marker, a nonzero start or two absent sides), and a Git record from a non-UTF-8 old name refuses the ordinal exactly when it carries an old `---` header (non-empty text deletion, rename with changed lines); a header-less record (pure rename, binary or empty-file deletion) is admitted and measures nothing; known-s4-5, `admit` accepts internally contradictory receipts (a success after a quiet ordinal, a wrong quiet reason, a quiet tail with the wrong reason, quiet without a guard event, a non-quiet guard error labelled refused, an `ok` base with an unusable envelope while the head failed, a failed head whose pre-arm digest differs from the base's), and with a missing guard status only non-empty captures are kept while a guard-only diagnostic appears under `commands`; known-s4-6, a persistent guard or helper change during `--version` is not rechecked before the quiet result is honoured. Owner: S5 where S5 binds identities.
+
+Known limit (PROVISIONAL, known-s4-1, issue #992): `review-diff` refuses an ordinal whose pinned tree holds a gitlink, so the 20 apache/superset ordinals of `602-m2-120.json` are REFUSED and the command exits 1 on the full population (100 of 120 measured).

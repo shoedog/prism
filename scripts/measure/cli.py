@@ -12,7 +12,7 @@ from .diff_edges import compare_edges
 from .diff_stats import compare_stats, display_stats
 from .receipt import trace_settings
 from .run import DEFAULT_GUARD, run
-from . import oracle
+from . import oracle, review_diff
 
 
 def positive_integer(value):
@@ -60,7 +60,15 @@ def main(argv=None, *, gate_sha256=None, gate_step_id=None, prediction_sha256=No
     stats_diff.add_argument("--allow", type=Path)
     stats_diff.add_argument("--which", choices=("dfg", "call", "both"), default="both")
     oracle.register(commands)
+    review_diff.register(commands)
     args = parser.parse_args(argv)
+
+    if args.command == "review-diff":
+        try:
+            return review_diff.review(args, gate_sha256=gate_sha256, gate_step_id=gate_step_id)
+        except (ValueError, OSError, RuntimeError) as error:
+            print(f"measure review-diff: {error}", file=sys.stderr)
+            return 2
 
     try:
         entries = load_manifest(args.manifest)
