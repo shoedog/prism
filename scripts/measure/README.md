@@ -450,7 +450,7 @@ disagrees with what TypeScript emits; none is a change of the rule.
 
 Recorded, not defects: two same-line named class expressions, regular enums or
 function expressions give a cross-binding edge UNDECIDED `endpoint-coordinate-off`
-(the neighbour declares the binding the read resolves to, so it can serve the role;
+(the neighbour has the claimed spelling and a serving role, and the check does not compare its binding with the read's, so it counts as able to serve the role;
 the same programs on separate lines give WRONG `different-declaration`); instantiated
 namespaces in sibling scopes behave the same way (reviewer probe, not a pinned row),
 while merged declarations of one namespace are one binding and give UNDECIDED
@@ -715,8 +715,8 @@ endpoint spelled as claimed at exact identifier bytes. Lexical cases:
   resolve to different VALUE bindings (variable, parameter, function, class,
   import, binding element by its name) are a proved different binding, WRONG
   `different-declaration`, without a neighbour check (matrix row oracle-007), except a
-  same-line neighbour that declares the binding the read resolves to (a named class,
-  enum or function expression): that pair is UNDECIDED `endpoint-coordinate-off`
+  same-line neighbour that has the claimed spelling and a serving role (a named class,
+  enum or function expression, for example; its binding is not compared): that pair is UNDECIDED `endpoint-coordinate-off`
   (known limits above).
 - `implements`, interface `extends`, computed property/method signatures in
   interfaces and type literals, type queries, erased computed keys (accessor

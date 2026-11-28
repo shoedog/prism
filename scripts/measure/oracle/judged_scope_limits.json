@@ -415,7 +415,7 @@
      "verdict": "WRONG different-declaration"
     }
    ],
-   "note": "Not a defect: the same-line neighbour declares the very binding that the read resolves to, so it can serve the role and the position is coordinate-uncertain. The required verdict is UNDECIDED, the same as today (the earlier draft required WRONG different-declaration; the safer reading is kept because a producer anchors an endpoint by line). Controls: the same programs with the declarations on separate lines are WRONG different-declaration. Instantiated namespaces in sibling scopes behave the same way (reviewer probe, not a pinned row); merged declarations of one namespace are one binding and give UNDECIDED declaration-unproved."
+   "note": "Not a defect: the same-line neighbour has the claimed spelling and a serving role (the check does not compare its binding with the read's; three distinct function-expression bindings on lines with a middle declaration on the same line give the same result), so the position is coordinate-uncertain. The required verdict is UNDECIDED, the same as today (the earlier draft required WRONG different-declaration; the safer reading is kept because a producer anchors an endpoint by line). Controls: the same programs with the declarations on separate lines are WRONG different-declaration. Instantiated namespaces in sibling scopes behave the same way (reviewer probe, not a pinned row); merged declarations of one namespace are one binding and give UNDECIDED declaration-unproved."
   },
   {
    "id": "symbol-less-role-fault",
