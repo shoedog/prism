@@ -161,7 +161,6 @@ fn p2_b2_ignores_non_variable_names_and_keeps_listed_reads() {
             "x",
             "
             type x = typeof x.p;
-            type Queried = typeof f(class x {});
             type Tuple = [x: number];
             type F = (x: number) => x is number;
             interface I extends x.Type { [x: string]: string; }
@@ -285,5 +284,79 @@ fn astra_nine() {
         let (operand, _) = operand.split_once('}').unwrap();
         assert!(before.contains(&format!("see({operand})")), "{id}");
         assert_p2(fixture(ext, source, false, true), failed, form, position);
+    }
+}
+
+// Round-5 design check (astra): a closed list must fail closed on every spelling it cannot read.
+#[test]
+fn an_undecodable_escape_fails_clause_c() {
+    // Valid JavaScript escapes with more than six hex digits spell `x`, `eval` and `arguments`.
+    for body in [
+        r"see(x); \u{00000078} = 0;",
+        r#"see(x); \u{00000065}val("x = 0");"#,
+        r"see(x); \u{00000061}rguments[0] = 0;",
+    ] {
+        assert_p2(app("jsx", "x", body), &["c"], None, None);
+    }
+    // Control: the short escape decodes and is judged as a write (b2).
+    assert_p2(
+        app("jsx", "x", r"see(x); \u0078 = 0;"),
+        &["b2"],
+        None,
+        Some("update_expression/argument")
+            .filter(|_| false)
+            .or(Some("assignment_expression/left")),
+    );
+}
+
+#[test]
+fn a_type_query_call_argument_is_executable_code() {
+    // `typeof f(..)` parses as a type query, but its arguments run when the code is erased.
+    let body = "function change() { type T = typeof Math.min/*\n*/(x = 0); } see(x); change();";
+    assert_p2(
+        app("tsx", "x", body),
+        &["b2"],
+        None,
+        Some("assignment_expression/left"),
+    );
+    // Control: a type query without call arguments names no runtime value.
+    assert_p2(
+        app("tsx", "x", "type T = typeof x.p; see(x);"),
+        &[],
+        None,
+        None,
+    );
+}
+
+#[test]
+fn a_result_position_follows_the_value_to_its_consumer() {
+    for ext in ["jsx", "tsx"] {
+        for (body, position) in [
+            ("(0, x).p = 0;", "sequence_expression/<none>"),
+            ("(c ? x : y).p = 0;", "ternary_expression/consequence"),
+            ("(c ? y : x).p = 0;", "ternary_expression/alternative"),
+            ("(x || y).p = 0;", "binary_expression/left"),
+            ("(y ?? x).p = 0;", "binary_expression/right"),
+            ("(c && x).p = 0;", "binary_expression/right"),
+        ] {
+            assert_p2(
+                app(ext, "x", &format!("see(x); {body}")),
+                &["b2"],
+                None,
+                Some(position),
+            );
+        }
+        // Controls: the same result positions feeding a consumer that does not store, a discarded
+        // sequence operand, a store through another root, and the condition operand.
+        for body in [
+            "see((0, x), c ? x : y, x || y, y ?? x, c && x);",
+            "(x, y).p = 0;",
+            "(0, y).p = 0;",
+            "(c ? y : y).p = 0;",
+            "(x ? y : y).p = 0;",
+            "return_(x ? 1 : 2);",
+        ] {
+            assert_p2(app(ext, "x", &format!("see(x); {body}")), &[], None, None);
+        }
     }
 }

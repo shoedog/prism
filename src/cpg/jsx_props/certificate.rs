@@ -25,10 +25,12 @@ fn clause_c(parsed: &ParsedFile, owner: Node<'_>) -> bool {
     syntax::walk(vec![owner], |node| {
         clean &= node.kind() != "with_statement";
         if name_token(node) {
-            clean &= !matches!(
-                spelling(parsed.node_text(&node)).as_ref(),
-                "arguments" | "eval"
-            );
+            let text = parsed.node_text(&node);
+            // A token spelled with an escape the decoder cannot read (`\u{00000078}`) may spell
+            // the root, `eval` or `arguments`: fail closed.
+            clean &=
+                !(text.contains('\\') && ParsedFile::js_ts_decode_identifier_text(text).is_none());
+            clean &= !matches!(spelling(text).as_ref(), "arguments" | "eval");
         }
         true
     });
@@ -116,11 +118,33 @@ fn variable_token(mut node: Node<'_>, owner: Node<'_>, name: &str) -> bool {
         return false;
     }
 
+    // Arguments of a call inside an otherwise excluded type run once the types are erased.
+    let mut in_arguments = false;
     while node != owner {
         let Some(parent) = node.parent() else {
             break;
         };
+        in_arguments |= parent.kind() == "arguments";
         match parent.kind() {
+            "asserts"
+            | "type_annotation"
+            | "type_arguments"
+            | "type_parameters"
+            | "type_query"
+            | "type_predicate"
+            | "type_alias_declaration"
+            | "nested_type_identifier"
+            | "generic_type"
+            | "tuple_type"
+            | "interface_declaration"
+            | "object_type"
+            | "implements_clause"
+            | "method_signature"
+            | "abstract_method_signature"
+            | "index_signature"
+            | "function_type"
+            | "constructor_type"
+                if in_arguments => {}
             "jsx_namespace_name"
             | "jsx_closing_element"
             | "asserts"
@@ -297,6 +321,15 @@ fn first_named_child(node: Node<'_>) -> Option<Node<'_>> {
         .find(|child| !child.is_extra())
 }
 
+fn last_named_child(node: Node<'_>) -> Option<Node<'_>> {
+    let mut cursor = node.walk();
+    let last = node
+        .named_children(&mut cursor)
+        .filter(|child| !child.is_extra())
+        .last();
+    last
+}
+
 fn has_keyword(node: Node<'_>, keyword: &str) -> bool {
     node.children(&mut node.walk())
         .any(|child| !child.is_named() && child.kind() == keyword)
@@ -377,8 +410,25 @@ fn read_position(mut node: Node<'_>) -> bool {
                     .is_some_and(|op| op.kind() != "delete");
             }
             ("object", "<none>") => return node.kind() == "shorthand_property_identifier",
+            // A result position forwards the value: follow it to its consumer, so a store
+            // through `(0, x).p`, `(c ? x : y).p` or `(x || y).p` is not a read of `x`.
             ("binary_expression", "left" | "right")
-            | ("ternary_expression", "condition" | "consequence" | "alternative")
+                if parent
+                    .child_by_field_name("operator")
+                    .is_some_and(|op| matches!(op.kind(), "&&" | "||" | "??")) =>
+            {
+                node = parent;
+            }
+            ("ternary_expression", "consequence" | "alternative") => node = parent,
+            ("sequence_expression", "<none>") => {
+                if last_named_child(parent) == Some(node) {
+                    node = parent;
+                } else {
+                    return true;
+                }
+            }
+            ("binary_expression", "left" | "right")
+            | ("ternary_expression", "condition")
             | ("call_expression", "function")
             | ("new_expression", "constructor")
             | ("subscript_expression", "index")
@@ -396,7 +446,6 @@ fn read_position(mut node: Node<'_>) -> bool {
                 | "expression_statement"
                 | "jsx_expression"
                 | "return_statement"
-                | "sequence_expression"
                 | "spread_element"
                 | "template_substitution"
                 | "throw_statement"

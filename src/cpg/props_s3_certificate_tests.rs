@@ -134,3 +134,42 @@ fn the_three_shapes_p2_cannot_see_are_pinned_as_known_limits() {
         );
     }
 }
+
+#[test]
+fn the_round_5_design_check_shapes_are_refused_with_controls() {
+    for ext in ["jsx", "tsx"] {
+        // A padded escape (`\u{00000078} = 0`) is pinned at the certificate (clause c). The
+        // product refuses such an owner earlier (`refused_not_exact_singleton`), so no edge row.
+        // A listed result position that supplies the receiver of a store.
+        refused(
+            ext,
+            "function App(x) { see(x); (0, x).p = 0; return <D a={x} />; }",
+        );
+        refused(
+            ext,
+            "function App(x, c, y) { see(x); (c ? x : y).p = 0; return <D a={x} />; }",
+        );
+        refused(
+            ext,
+            "function App(x, y) { see(x); (x || y).p = 0; return <D a={x} />; }",
+        );
+        // Controls: the store goes through another root.
+        bound(
+            ext,
+            "function App(x, y) { see(x); (0, y).p = 0; return <D a={x} />; }",
+        );
+        bound(
+            ext,
+            "function App(x, y) { see(x); (y || y).p = 0; return <D a={x} />; }",
+        );
+    }
+    // A type query call argument is erased code only in the type, but runs once erased.
+    refused(
+        "tsx",
+        "function App(x: number) { function change() { type T = typeof Math.min/*\n*/(x = 0); } see(x); change(); return <D a={x} />; }",
+    );
+    bound(
+        "tsx",
+        "function App(x: number) { function change() { type T = typeof Math.min; } see(x); change(); return <D a={x} />; }",
+    );
+}
