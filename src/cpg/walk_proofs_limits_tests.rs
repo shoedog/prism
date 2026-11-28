@@ -10,6 +10,9 @@
 //! * KL-B (pre-existing, real rule on only): the renamed argument-to-formal Def variant of the
 //!   recursive fence. The Def check searches `callers["f"]` and the paired-formal fallback needs
 //!   a Use destination, so `observe(p)` is reached at depth zero instead of exiting `self_param`.
+//!
+//! Inputs that change each verdict are listed in DESIGN 5.2 (selected rule and arm, graph
+//! endpoints, parsed-file view). Incidence: KL-A zero, KL-B zero (DESIGN 5.2).
 
 use petgraph::graph::NodeIndex;
 
@@ -17,7 +20,7 @@ use super::object_literal_arg_tests::parse_files;
 use super::trace_descent_tests::occurrence;
 use super::trace_proofs::{with_walk_proofs, Rule, WalkProofs};
 use super::walk_proofs::{prove_rule, Verdict};
-use super::{BoundaryKind, CodePropertyGraph, CpgNode, LossReason, Trace, VarAccess};
+use super::{BoundaryKind, CodePropertyGraph, CpgNode, LossReason, Relation, Trace, VarAccess};
 use crate::ast::ParsedFile;
 use crate::languages::Language;
 use crate::reasoning::order::AstOrderView;
@@ -126,6 +129,26 @@ fn known_limit_a_a_two_parameter_outer_call_cannot_compete_yet_the_alias_scope_c
         !reaches(&h, "ii+unknown"),
         "KL-A: the strict arm cuts a hop the outer call cannot compete for"
     );
+    // The plain arms record no refusal; the strict arm records exactly the one cut hop, at depth
+    // zero, with the descent reason `no_matching_site`.
+    for real in ["i", "ii"] {
+        let trace = h.case.walk(Some(real), h.from);
+        assert!(trace.boundary.is_empty(), "{real}: {:?}", trace.boundary);
+    }
+    for real in ["ii+unknown", "i,ii+unknown"] {
+        let trace = h.case.walk(Some(real), h.from);
+        assert!(!trace.frontier_by_root[&h.from].contains(&h.to), "{real}");
+        let cut: Vec<_> = trace.boundary.iter().collect();
+        assert_eq!(cut.len(), 1, "{real}: {:?}", trace.boundary);
+        let edge = cut[0];
+        assert_eq!((edge.root, edge.from, edge.to), (h.from, h.from, h.to));
+        assert_eq!(edge.reason, LossReason::NoMatchingSite, "{real}");
+        assert_eq!(edge.kind, BoundaryKind::CrossFunction, "{real}");
+        assert_eq!(edge.relation, Relation::CallDescent, "{real}");
+        assert_eq!(edge.depth, 0, "{real}");
+    }
+    // Rule `i` alone proves the same hop: the verdict depends on the selected rule.
+    assert_eq!(kind(&h.case.prove(Rule::I, h.from, h.to)).0, "proved");
 }
 
 #[test]
@@ -167,16 +190,34 @@ fn known_limit_b_a_renamed_recursive_call_into_a_formal_def_reaches_the_sink_unf
     let case = Case::js(DEF_VARIANT);
     let seed = var(&case.cpg, "t", 1, VarAccess::Def);
     let sink = var(&case.cpg, "p", 4, VarAccess::Use);
+    let t_use = var(&case.cpg, "t", 3, VarAccess::Use);
+    let p_def = var(&case.cpg, "p", 1, VarAccess::Def);
     for real in ["i", "ii", "i,ii+unknown"] {
         let trace = case.walk(Some(real), seed);
-        // KL-B: observe(p) is reached at depth zero. A fix fences it as `self_param`, which
-        // turns both assertions red.
+        // KL-B: the argument-to-formal crossing `t` at `again(t, ..)` -> `p` Def is not fenced.
+        // A fix records a `SelfParam` boundary, whichever pair it names (the crossing pair here,
+        // or the seed-to-sink pair), and cuts `observe(p)`: so NO `SelfParam` anywhere, no
+        // boundary of any kind (depth zero). The crossing is a plain DataFlow parent edge and the
+        // sink is reached; a fix turns each of these assertions red.
+        assert!(
+            trace
+                .boundary
+                .iter()
+                .all(|hop| hop.reason != LossReason::SelfParam),
+            "{real}: {:?}",
+            trace.boundary
+        );
+        assert!(trace.boundary.is_empty(), "{real}: {:?}", trace.boundary);
+        assert_eq!(
+            trace.parents_by_root.get(&(seed, p_def)),
+            Some(&(t_use, Relation::DataFlow)),
+            "{real}"
+        );
         assert!(
             trace.frontier_by_root[&seed].contains(&sink),
             "{real}: {:?}",
             trace.boundary
         );
-        assert!(!self_param(&trace, seed, sink), "{real}");
     }
 }
 
