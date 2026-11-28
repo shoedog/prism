@@ -152,14 +152,22 @@ fn a_wrapper_inside_a_member_chain_contributes_its_inner_line() {
         // Control: the unwrapped multi-line chain binds the same way.
         expect(&multi("x\n    .a"), ext, &bound, 1);
     }
+    // An `as` wrapper is outside the read list (clause b2): the representative is refused.
     let tsx = app("x", "const out = <P a={(\n    x as any\n  ).a}/>;");
-    expect(&tsx, "tsx", &[("sites_jsx", 1), ("edges_to_use", 1)], 1);
+    expect(
+        &tsx,
+        "tsx",
+        &[("sites_jsx", 1), ("refused_source_ambiguous", 1)],
+        0,
+    );
 }
 
 #[test]
 fn a_source_with_no_declaration_is_unconnected_and_a_declared_one_binds() {
     for ext in EXTS {
-        let refused = [("sites_jsx", 1), ("refused_source_unconnected", 1)];
+        // A representative of a name with no declaration in the owner fails clause a2
+        // (`none_found`), so it counts as ambiguous, ahead of the unconnected proof.
+        let refused = [("sites_jsx", 1), ("refused_source_ambiguous", 1)];
         expect(
             &app("", "see(g); const out = <P a={g}/>;"),
             ext,
@@ -208,10 +216,14 @@ fn a_write_between_the_anchor_and_the_operand_makes_the_source_ambiguous() {
         ] {
             expect(&app("x", &body(write)), ext, &ambiguous, 0);
         }
-        // Controls: a write to another base, or to a sibling field, does not overlap `x.a`.
+        // Controls: a write to another base does not touch `x`. Rule R (P2) is not
+        // field-sensitive: a store to a sibling field is a store through the root and refuses.
         let bound = [("sites_jsx", 1), ("edges_to_use", 1)];
-        for write in ["x.z = 1;", "w[0] = 1;", "[q] = z;", "({k: x.z} = z);"] {
+        for write in ["w[0] = 1;", "[q] = z;"] {
             expect(&app("x", &body(write)), ext, &bound, 1);
+        }
+        for write in ["x.z = 1;", "({k: x.z} = z);"] {
+            expect(&app("x", &body(write)), ext, &ambiguous, 0);
         }
     }
 }
@@ -264,11 +276,12 @@ fn props_s3_owner_write_declarations_and_own_sources() {
             &ambiguous,
             0,
         );
+        // Clause a2: a `var` local is never an eligible declaration, written or not.
         expect(
             &app("", "var x = f();\n  see(x); const out = <P a={x}/>;"),
             ext,
-            &bound,
-            1,
+            &ambiguous,
+            0,
         );
         expect(
             &app("x", "try { f(); } catch (x) { see(x); take(<P a={x}/>); }"),
@@ -276,10 +289,20 @@ fn props_s3_owner_write_declarations_and_own_sources() {
             &ambiguous,
             0,
         );
+        // A catch parameter spelled like the formal is a second declaration (a2).
         expect(
             &app(
                 "x",
                 "try { f(); } catch (x) {}\n  see(x); take(<P a={x}/>);",
+            ),
+            ext,
+            &ambiguous,
+            0,
+        );
+        expect(
+            &app(
+                "x",
+                "try { f(); } catch (e) {}\n  see(x); take(<P a={x}/>);",
             ),
             ext,
             &bound,
@@ -332,7 +355,7 @@ fn a_multiline_operand_falls_back_to_the_base_use_by_line() {
         let clean = local("see(box); const out = <P a={box\n    .value}/>;");
         expect(&clean, ext, &bound, 1);
         // An undeclared base has a base Use on the root line (or a later line) but no proof.
-        let unconnected = [("sites_jsx", 1), ("refused_source_unconnected", 1)];
+        let unconnected = [("sites_jsx", 1), ("refused_source_ambiguous", 1)];
         expect(
             &app("", "see(g); const out = <P a={g\n    .value}/>;"),
             ext,
@@ -396,7 +419,7 @@ fn a_namespace_tag_object_is_not_a_read_of_the_operand_it_shares_a_name_with() {
         let (counters, hops) = run("ns");
         let want = BTreeMap::from([
             ("sites_jsx".to_owned(), 1),
-            ("refused_source_unconnected".to_owned(), 1),
+            ("refused_source_ambiguous".to_owned(), 1),
         ]);
         assert_eq!((counters, hops), (want, 0), "{ext}");
         // Control: the same tag with a formal operand binds.

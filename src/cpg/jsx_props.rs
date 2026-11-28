@@ -12,6 +12,8 @@ use crate::resolution::go::satisfiers::CpgCallResolver;
 use std::ops::Range;
 use tree_sitter::Node;
 
+#[path = "jsx_props/certificate.rs"]
+mod certificate;
 #[path = "jsx_props/read.rs"]
 mod read;
 #[path = "jsx_props/source.rs"]

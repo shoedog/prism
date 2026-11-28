@@ -758,10 +758,17 @@ class. Proved reads that capture the formal inside a callable nested in the call
 can receive `cfg_incomplete` edges. A receiver inherited from a class field
 initializer or static block counts `refused_source_unconnected`. An overlapping
 destructuring store that can precede a left-side operand counts
-`refused_source_ambiguous`. A representative Use counts once per leaf as
-`refused_source_ambiguous` if the owning callable, including its nested callables,
-writes the operand root or an overlapping path beyond its declaration or formal
-binding. The post-assembly guard still applies. An admitted representative outside
+`refused_source_ambiguous`. A representative Use (a zero-width
+anchor or an earlier read, never the operand's own bytes) stands for the operand only
+when the root passes Rule R, a positive certificate judged by spelling over the whole
+JSX owner (`jsx_props/certificate.rs`, DESIGN 5.3.4): no parse error, `with`, `eval` or
+`arguments` spelling (c); exactly one declaration of the spelling, an initialized `const`
+outside loops or a formal of the owner (a2); every other spelled occurrence at a
+read-list position outside loop heads (b2). A failing representative counts once per leaf as
+`refused_source_ambiguous`, including a root with no declaration in the owner. Three shapes are
+admitted as known limits (#783): `super.p = v` through a formal receiver, a `const` read during
+enum construction, and a store through another formal holding the same object. The post-assembly
+guard still applies. An admitted representative outside
 the JSX opening leaves the graph edge present and stops trace descent at a boundary.
 
 ### MCP Adapter

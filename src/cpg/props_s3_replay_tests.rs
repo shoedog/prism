@@ -146,13 +146,10 @@ pub(super) fn compare_replay(
     let untouched = replay(&pre.live_lookup, false);
     let hidden_full = replay(&masked, false);
     let mutant = replay(&pre.live_lookup, true);
-    // Hiding or ignoring the competing full candidate cannot certify a representative
-    // when the owner writes its binding. Hiding a shadow still leaves a proved base.
-    let expected = if want.conflict == "version" {
-        vec![]
-    } else {
-        vec![(base, dest, CpgEdge::DataFlow(FlowConfidence::Exact))]
-    };
+    // Rule R (positive certificate P2) refuses the base representative whatever the lookup
+    // shows: the owner holds a second declaration of the spelling (shadow) or a store through
+    // it (version), so hiding or ignoring the competing full candidate certifies nothing.
+    let expected: Vec<(NodeIndex, NodeIndex, CpgEdge)> = vec![];
     let refusal = graph
         .dfg_label_stats
         .dfg_props
@@ -611,11 +608,6 @@ fn props_s3_fold_owner_write_review_cases() {
         ("compound", "x", "observe(x); return JSX; x += 1;"),
         ("update", "x", "observe(x); return JSX; ++x;"),
         (
-            "unknown-delete-target",
-            "x",
-            "observe(x); return JSX; delete get();",
-        ),
-        (
             "delete",
             "x",
             "observe(x); return <D a={x.y} />; delete x.y;",
@@ -640,10 +632,39 @@ fn props_s3_fold_owner_write_review_cases() {
             "x",
             "observe(x); return <D a={x.y} />; for (x.y in values) {}",
         ),
+        // Refused by Rule R (P2) by spelling, though none writes the operand's own binding:
+        // a second declaration of the spelling (a2), a sibling-field store (b2, not
+        // field-sensitive) and a computed key (b2, off the read list). Priced cost, PRICE.md.
+        (
+            "declaring-iteration",
+            "x",
+            "observe(x); return JSX; for (let x of values) {}",
+        ),
+        (
+            "nested-shadow",
+            "x",
+            "observe(x); const mutate = (x) => { x = 0; }; return JSX;",
+        ),
+        (
+            "sibling-path",
+            "x",
+            "observe(x); [x.z] = [5]; return <D a={x.y} />;",
+        ),
+        (
+            "pattern-key-is-read",
+            "x",
+            "observe(x); ({ [x]: y = x } = {}); return JSX;",
+        ),
     ];
     let controls = [
         ("no-write", "x", "observe(x); return JSX;"),
         ("other-root", "x", "observe(x); return JSX; undefined = 0;"),
+        // No token spells `x`: a store through an unknown target cannot be a store through `x`.
+        (
+            "unknown-delete-target",
+            "x",
+            "observe(x); return JSX; delete get();",
+        ),
         (
             "other-member-root",
             "x",
@@ -655,34 +676,14 @@ fn props_s3_fold_owner_write_review_cases() {
             "observe(x); return JSX; get().x = 0;",
         ),
         (
-            "declaring-iteration",
-            "x",
-            "observe(x); return JSX; for (let x of values) {}",
-        ),
-        (
             "other-function",
             "x",
             "observe(x); return JSX;\n}\nfunction Other(x) { x = 0;",
         ),
         (
-            "nested-shadow",
-            "x",
-            "observe(x); const mutate = (x) => { x = 0; }; return JSX;",
-        ),
-        (
             "same-phase",
             "x",
             "class C { static { observe(x); take(JSX); } }",
-        ),
-        (
-            "sibling-path",
-            "x",
-            "observe(x); [x.z] = [5]; return <D a={x.y} />;",
-        ),
-        (
-            "pattern-key-is-read",
-            "x",
-            "observe(x); ({ [x]: y = x } = {}); return JSX;",
         ),
     ];
     let mut errors = Vec::new();

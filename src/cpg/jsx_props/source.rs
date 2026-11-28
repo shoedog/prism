@@ -38,7 +38,7 @@ struct Operand<'tree, 'path> {
     owner: Node<'tree>,
     path: &'path AccessPath,
     span: &'path Range<usize>,
-    owner_has_write: &'path OnceCell<bool>,
+    certificate_refuses: &'path OnceCell<bool>,
 }
 
 impl<'a, 'site> Sources<'a, 'site> {
@@ -62,14 +62,14 @@ impl<'a, 'site> Sources<'a, 'site> {
         {
             return Err(SourceRefusal::NotFound);
         }
-        let owner_has_write = OnceCell::new();
+        let certificate_refuses = OnceCell::new();
         let operand = Operand {
             root,
             binding: self.binding(root, &path.base),
             owner,
             path,
             span: &leaf.span,
-            owner_has_write: &owner_has_write,
+            certificate_refuses: &certificate_refuses,
         };
         if matches!(root.kind(), "this" | "super")
             && operand
@@ -206,8 +206,8 @@ impl<'a, 'site> Sources<'a, 'site> {
             && *end_byte <= operand.span.end;
         if !own_occurrence
             && *operand
-                .owner_has_write
-                .get_or_init(|| self.owner_has_write(operand))
+                .certificate_refuses
+                .get_or_init(|| !self.certificate(operand).keeps())
         {
             return Err(SourceRefusal::Ambiguous);
         }
@@ -359,53 +359,9 @@ impl<'a, 'site> Sources<'a, 'site> {
         false
     }
 
-    fn owner_has_write(&mut self, operand: Operand<'a, '_>) -> bool {
-        let parsed = self.site.caller;
-        let roots = ["body", "parameters", "parameter"]
-            .into_iter()
-            .filter_map(|field| operand.owner.child_by_field_name(field))
-            .collect();
-        let mut conflict = false;
-        syntax::walk(roots, |node| {
-            if conflict || Tables::shared().order_class(node.kind()) == Some("none") {
-                return false;
-            }
-            let for_kind = (node.kind() == "for_in_statement")
-                .then(|| node.child_by_field_name("kind"))
-                .flatten();
-            let initialized_var = for_kind.is_some_and(|kind| kind.kind() == "var")
-                || (node.kind() == "variable_declarator"
-                    && node.child_by_field_name("value").is_some()
-                    && node
-                        .parent()
-                        .is_some_and(|p| p.kind() == "variable_declaration"));
-            conflict = if initialized_var {
-                parsed.js_ts_var_redeclares_binding(
-                    operand.root,
-                    &operand.path.base,
-                    node,
-                    &mut self.bindings,
-                )
-            } else {
-                let target = match node.kind() {
-                    "catch_clause" => node.child_by_field_name("parameter"),
-                    "for_in_statement" if for_kind.is_some() => None,
-                    "assignment_expression"
-                        if node
-                            .children(&mut node.walk())
-                            .any(|c| c.kind() == "using" && !c.is_named()) =>
-                    {
-                        None
-                    }
-                    _ => parsed.js_ts_write_target(node),
-                };
-                target.is_some_and(|target| {
-                    target_writes(target, None, &mut |leaf| self.overlaps_write(operand, leaf))
-                })
-            };
-            !conflict
-        });
-        conflict
+    /// Rule R (DESIGN 5.3.4): the one choke point for every representative source.
+    fn certificate(&self, operand: Operand<'a, '_>) -> certificate::Certificate {
+        certificate::certify(self.site.caller, operand.root, operand.owner)
     }
 
     fn overlaps_write(&mut self, operand: Operand<'a, '_>, target: Node<'a>) -> bool {

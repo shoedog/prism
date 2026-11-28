@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const contexts = require('./jsx_contexts.cjs');
+const { certified } = require('./jsx_certificate_ref.cjs');
 
 function* replacement() {
   const writers = {
@@ -58,7 +59,8 @@ function* multiline() {
         const source = target + template.replace('SLOT', contexts.element('self', value));
         const conflict = ['shadow', 'version'].includes(program) ? program : null;
         yield { grammar, dimensions: { program, operand }, source, multiline: true, conflict,
-          refusal: conflict || program === 'version-moved' ? 'refused_source_ambiguous' : null };
+          refusal: conflict || ['version-moved', 'shadow-moved'].includes(program)
+            ? 'refused_source_ambiguous' : null };
       }
 }
 
@@ -141,6 +143,14 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
           || (dimensions.panel === 'expression' && !['call', 'optional-call', 'assignment'].includes(dimensions.slot))))
       ))
     );
+    // Rule R (DESIGN 5.3.4): a representative (an earlier read or a line anchor) stands for the
+    // operand only when the independent reference certifies the root in the owner.
+    const generic = input.multiline !== true && !input.writerTree && !input.names;
+    let refusal = input.refusal;
+    if (generic && !refusal && caller && (input.earlier || anchored)) {
+      const root = site.attributes.properties[0].initializer.expression;
+      if (ts.isIdentifier(root) && !certified(ts, caller, root.getText())) refusal = 'refused_source_ambiguous';
+    }
     function markSource(value, earlier = false, conflictRead = null) {
       const { declaration, def } = sourceDef(value);
       const read = conflictRead ?? (earlier ? all.find(node => ts.isIdentifier(node) && node.getText() === value.getText()
@@ -171,7 +181,7 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
     const outcome = { counters: {}, edges: [], paths: [] };
     const registered = input.registered !== false && caller !== null;
     if (registered) outcome.counters.sites_jsx = 1;
-    if (registered && input.refusal) outcome.counters[input.refusal] = 1;
+    if (registered && refusal) outcome.counters[refusal] = 1;
     if (familyName === 'core' && dimensions.route === 'object+call') {
       outcome.counters.sites_literal = 1;
       outcome.counters.refused_not_exact_singleton = 1;
@@ -265,7 +275,7 @@ function generate({ ts, inspect, boundNames, literalOutcome }) {
         assert(ts.isIdentifier(conflictRead) && conflictRead.getText() === value.getText(), id);
       }
       const from = markSource(value, input.earlier, conflictRead);
-      if (registered && !input.refusal) {
+      if (registered && !refusal) {
         assert(from, id);
         outcome.edges.push({ from, to: targetDef(formal.elements[0].name), label: 'exact' });
         outcome.counters.edges_to_def = 1;

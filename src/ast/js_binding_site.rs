@@ -160,31 +160,6 @@ impl ParsedFile {
         Some((scope, *declaration))
     }
 
-    /// Whether an initialized `var` target redeclares the binding seen at `ident`.
-    /// The scope index retains the declaration sites even when a unique declaration cannot be proved.
-    pub(crate) fn js_ts_var_redeclares_binding<'a>(
-        &'a self,
-        ident: Node<'a>,
-        name: &str,
-        declarator: Node<'a>,
-        cache: &mut JsBindingCache<'a>,
-    ) -> bool {
-        let Walk::Found(scope, None) = self.js_ts_binding_walk(ident, name, cache) else {
-            return false;
-        };
-        let (declarations, _) = self.js_ts_scope_lookup(scope, name, cache);
-        declarations.is_some_and(|declarations| {
-            declarations.contains(&declarator)
-                && declarations.iter().any(|other| {
-                    other.start_byte() < declarator.start_byte()
-                        || matches!(
-                            other.kind(),
-                            "function_declaration" | "generator_function_declaration"
-                        )
-                })
-        })
-    }
-
     /// `scope`'s declarations of `name` (memoized per scope) and whether the name is an
     /// unknown-strictness Annex-B name there.
     pub(super) fn js_ts_scope_lookup<'a>(
