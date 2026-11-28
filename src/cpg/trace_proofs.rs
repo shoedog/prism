@@ -8,9 +8,10 @@
 //!
 //! - `PRISM_TAINT_WALK_PROOFS_FILE=<path>`: JSON
 //!   `{"version":1,"rules":{"<rule>":[{"relation":"CallDescent|ReturnFlow|ReturnInput",
-//!   "from":"<key>","to":"<key>","root":"<key>"?}, ..]}}`. A key is the crossing ledger's hop
-//!   identity without its `#<node index>` part (`CodePropertyGraph::trace_key`); an absent `root`
-//!   means the exclusion applies under every root.
+//!   "from":"<key>","to":"<key>","root":"<key>"?}, ..]}}`. A key is the crossing ledger's
+//!   `from=`/`to=`/`root=` value with its Debug quotes and escapes removed (the ledger prints each
+//!   identity with `{:?}`) and its `#<digits>` node index dropped (`CodePropertyGraph::trace_key`);
+//!   an absent `root` means the exclusion applies under every root.
 //! - `PRISM_TAINT_WALK_PROOFS=<comma list>`: the rules switched ON, from `i,ii,iii,iv,v,
 //!   return_flow,return_input` or `all`; unset or empty is every switch off.
 //!
@@ -20,7 +21,11 @@
 //! under return_input is a cut (UnprovenReturnInput). A rule only matches hops of its own
 //! relation (i..v: CallDescent, return_flow: ReturnFlow, return_input: ReturnInput), the first
 //! matching rule in that order supplies the reason, and the descent gate cache never sees any of
-//! it. A misconfiguration (switches without a file, an unreadable or malformed file, an unknown
+//! it. The configuration is read, and validated, once per process when a walk starts (not only
+//! when a hop reaches the hook); a value that is not UTF-8 is an error. When a switch is on, one
+//! stderr line `taint-walk-proofs rule=<r> kept=<n> dropped_relation_mismatch=<m>` per
+//! switched-on rule reports the filed entries kept and those dropped for a relation other than
+//! the rule's. A misconfiguration (switches without a file, an unreadable or malformed file, an unknown
 //! rule, a switched-on rule the file lacks) panics naming the variable: a measurement that is
 //! misconfigured must not look like a clean baseline.
 //!
@@ -28,6 +33,7 @@
 //! navigation). The legacy flat taint walk of the default review is intentionally NOT affected.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::Write;
 use std::sync::OnceLock;
 
 use petgraph::graph::NodeIndex;
@@ -37,6 +43,22 @@ use super::{CodePropertyGraph, LossReason, Relation};
 
 const SWITCHES: &str = "PRISM_TAINT_WALK_PROOFS";
 const FILE: &str = "PRISM_TAINT_WALK_PROOFS_FILE";
+const SUMMARY: &str = "taint-walk-proofs ";
+
+/// A variable's value; unset is `None`, a value that is not UTF-8 is a loud error.
+fn env_text(name: &str) -> Option<String> {
+    match std::env::var(name) {
+        Ok(value) => Some(value),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(std::env::VarError::NotUnicode(_)) => panic!("{name}: the value is not valid UTF-8"),
+    }
+}
+
+/// Reads the configuration now (once per process) so a misconfiguration panics at walk entry
+/// even if no hop ever reaches the hook; one `Option` test when off.
+pub(super) fn check_walk_proofs() {
+    let _ = WalkProofs::global();
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Rule {
@@ -133,10 +155,39 @@ impl RelationModel {
 /// `(from, to, root)`; the relation is the rule's own.
 type Exclusion = (String, String, Option<String>);
 
+/// A switched-on rule, its filed exclusions, and how many filed entries of another relation
+/// than the rule's were dropped at load.
+#[derive(Debug)]
+struct RuleSet {
+    rule: Rule,
+    entries: BTreeSet<Exclusion>,
+    dropped: usize,
+}
+
 /// The switched-on rules and their filed exclusions.
 #[derive(Debug)]
 pub(super) struct WalkProofs {
-    rules: Vec<(Rule, BTreeSet<Exclusion>)>,
+    rules: Vec<RuleSet>,
+}
+
+/// The rules a switch list turns on; empty when it is unset, blank or only separators.
+fn parse_switches(switches: Option<&str>) -> Result<BTreeSet<Rule>, String> {
+    let mut on = BTreeSet::new();
+    for item in switches
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+    {
+        if item == "all" {
+            on.extend(Rule::ALL);
+        } else {
+            on.insert(Rule::parse(item).ok_or_else(|| {
+                format!("{SWITCHES}: unknown rule `{item}` (expected i, ii, iii, iv, v, return_flow, return_input or all)")
+            })?);
+        }
+    }
+    Ok(on)
 }
 
 impl WalkProofs {
@@ -145,21 +196,7 @@ impl WalkProofs {
         file_text: Option<&str>,
         switches: Option<&str>,
     ) -> Result<Option<Self>, String> {
-        let mut on = BTreeSet::new();
-        for item in switches
-            .unwrap_or_default()
-            .split(',')
-            .map(str::trim)
-            .filter(|item| !item.is_empty())
-        {
-            if item == "all" {
-                on.extend(Rule::ALL);
-            } else {
-                on.insert(Rule::parse(item).ok_or_else(|| {
-                    format!("{SWITCHES}: unknown rule `{item}` (expected i, ii, iii, iv, v, return_flow, return_input or all)")
-                })?);
-            }
-        }
+        let on = parse_switches(switches)?;
         if on.is_empty() {
             return Ok(None);
         }
@@ -185,36 +222,54 @@ impl WalkProofs {
                     rule.name()
                 )
             })?;
-            rules.push((
+            // An entry of another relation than the rule's can never match a hop of it.
+            let kept: BTreeSet<Exclusion> = entries
+                .iter()
+                .filter(|entry| entry.relation.relation() == rule.relation())
+                .map(|e| (e.from.clone(), e.to.clone(), e.root.clone()))
+                .collect();
+            let dropped = entries
+                .iter()
+                .filter(|entry| entry.relation.relation() != rule.relation())
+                .count();
+            rules.push(RuleSet {
                 rule,
-                // An entry of another relation than the rule's can never match a hop of it.
-                entries
-                    .iter()
-                    .filter(|entry| entry.relation.relation() == rule.relation())
-                    .map(|e| (e.from.clone(), e.to.clone(), e.root.clone()))
-                    .collect(),
-            ));
+                entries: kept,
+                dropped,
+            });
         }
         Ok(Some(Self { rules }))
     }
 
-    /// The process-wide proofs, read once; panics on a misconfiguration.
+    /// The process-wide proofs, read once; panics on a misconfiguration. When a switch is on it
+    /// prints one stderr line per switched-on rule with the entries kept and the entries dropped
+    /// for a relation mismatch.
     pub(super) fn global() -> Option<&'static WalkProofs> {
         static PROOFS: OnceLock<Option<WalkProofs>> = OnceLock::new();
         PROOFS
             .get_or_init(|| {
-                let switches = std::env::var(SWITCHES).ok();
-                let on = switches.as_deref().is_some_and(|s| !s.trim().is_empty());
-                let text = match (on, std::env::var_os(FILE)) {
-                    (true, Some(path)) => {
-                        Some(std::fs::read_to_string(&path).unwrap_or_else(|error| {
-                            panic!("{FILE}: cannot read {}: {error}", path.to_string_lossy())
-                        }))
-                    }
-                    _ => None,
-                };
-                Self::from_parts(text.as_deref(), switches.as_deref())
-                    .unwrap_or_else(|message| panic!("{message}"))
+                let switches = env_text(SWITCHES);
+                let file = env_text(FILE);
+                let on = parse_switches(switches.as_deref())
+                    .unwrap_or_else(|message| panic!("{message}"));
+                // The file is read only when a rule is on, exactly as `from_parts` decides.
+                let text = file.filter(|_| !on.is_empty()).map(|path| {
+                    std::fs::read_to_string(&path)
+                        .unwrap_or_else(|error| panic!("{FILE}: cannot read {path}: {error}"))
+                });
+                let proofs = Self::from_parts(text.as_deref(), switches.as_deref())
+                    .unwrap_or_else(|message| panic!("{message}"));
+                for set in proofs.iter().flat_map(|proofs| &proofs.rules) {
+                    // A diagnostic only: it has no bearing on the walk.
+                    let _ = writeln!(
+                        std::io::stderr().lock(),
+                        "{SUMMARY}rule={} kept={} dropped_relation_mismatch={}",
+                        set.rule.name(),
+                        set.entries.len(),
+                        set.dropped
+                    );
+                }
+                proofs
             })
             .as_ref()
     }
@@ -229,12 +284,13 @@ impl WalkProofs {
     ) -> Option<LossReason> {
         self.rules
             .iter()
-            .filter(|(rule, _)| rule.relation() == relation)
-            .find(|(_, set)| {
+            .filter(|set| set.rule.relation() == relation)
+            .find(|set| {
                 let hop = |root| (from.to_owned(), to.to_owned(), root);
-                set.contains(&hop(None)) || set.contains(&hop(Some(root.to_owned())))
+                set.entries.contains(&hop(None))
+                    || set.entries.contains(&hop(Some(root.to_owned())))
             })
-            .map(|(rule, _)| rule.reason())
+            .map(|set| set.rule.reason())
     }
 }
 

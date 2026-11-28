@@ -10,6 +10,7 @@ use crate::languages::Language;
 const SWITCHES: &str = "PRISM_TAINT_WALK_PROOFS";
 const FILE: &str = "PRISM_TAINT_WALK_PROOFS_FILE";
 const CASE: &str = "PRISM_PROOFS_CASE";
+const SUMMARY: &str = "taint-walk-proofs ";
 const GF: &str = "function g(x) { sink(x); }\nfunction f(t) {\n  g(t);\n}\n";
 const W05: &str = include_str!("../../tests/taint_parity/w05/a.js");
 const RULES: [&str; 7] = ["i", "ii", "iii", "iv", "v", "return_flow", "return_input"];
@@ -225,17 +226,56 @@ fn walk_child() {
     let Ok(case) = std::env::var(CASE) else {
         return;
     };
-    let (source, root_at, mode) = match case.as_str() {
-        "gf" => (GF, GF.find("g(t)").unwrap() + 2, ReturnFlowMode::Off),
-        "w05" => (W05, W05.find("f(y)").unwrap() + 2, ReturnFlowMode::On),
+    const LOCAL: &str = "function h(a) {\n  const b = a;\n  sink(b);\n}\n";
+    let (source, roots_at, mode, ordered) = match case.as_str() {
+        "gf" => (
+            GF,
+            vec![(GF.find("g(t)").unwrap() + 2, VarAccess::Use)],
+            ReturnFlowMode::Off,
+            true,
+        ),
+        "w05" => (
+            W05,
+            vec![(W05.find("f(y)").unwrap() + 2, VarAccess::Use)],
+            ReturnFlowMode::On,
+            true,
+        ),
+        // The seed on `v = p` is the depth-zero CFG-pruned case of the return expression.
+        "w05v" => (
+            W05,
+            vec![(W05.find("v = p").unwrap(), VarAccess::Def)],
+            ReturnFlowMode::On,
+            false,
+        ),
+        // No crossing anywhere in the walk.
+        "local" => (
+            LOCAL,
+            vec![(LOCAL.find("h(a").unwrap() + 2, VarAccess::Def)],
+            ReturnFlowMode::Off,
+            true,
+        ),
+        // Two roots of one invocation reaching the same descent hop (a shared gate cache).
+        "two" => (
+            GF,
+            vec![
+                (GF.find("g(t)").unwrap() + 2, VarAccess::Use),
+                (GF.find("f(t)").unwrap() + 2, VarAccess::Def),
+            ],
+            ReturnFlowMode::Off,
+            true,
+        ),
         other => panic!("unknown case {other}"),
     };
     let cpg = build(Language::JavaScript, &[("a", source)], "js");
-    let root = occurrence(&cpg, root_at, VarAccess::Use);
+    let roots: Vec<_> = roots_at
+        .iter()
+        .map(|&(at, access)| occurrence(&cpg, at, access))
+        .collect();
+    let root = roots[0];
     let parsed = crate::ast::ParsedFile::parse("a.js", source, Language::JavaScript).unwrap();
     let files = [("a.js".into(), parsed)].into();
     let order = crate::reasoning::order::AstOrderView::new(&cpg, &files);
-    let trace = cpg.taint_trace_nodes_with_mode(&[root], Some(&order), mode);
+    let trace = cpg.taint_trace_nodes_with_mode(&roots, ordered.then_some(&order), mode);
     let key = |node| cpg.trace_key(node);
     let hops: Vec<Value> = trace
         .parents_by_root
@@ -267,9 +307,16 @@ fn walk_child() {
             .copied()
             .collect::<Vec<_>>(),
     );
+    let by_root: serde_json::Map<String, Value> = roots
+        .iter()
+        .map(|&r| {
+            let nodes: Vec<_> = trace.frontier_by_root[&r].iter().copied().collect();
+            (key(r), json!(keys(&cpg, &nodes)))
+        })
+        .collect();
     let report = json!({
         "root": key(root), "hops": hops, "boundary": boundary, "cuts": cuts,
-        "frontier": frontier, "warnings": trace.warnings,
+        "frontier": frontier, "frontier_by_root": by_root, "warnings": trace.warnings,
     });
     println!("<<<REPORT{report}REPORT>>>");
 }
@@ -291,6 +338,17 @@ impl Run {
     /// The child's whole observable output: report and ledger.
     fn output(&self) -> (String, String) {
         (self.report().to_string(), self.stderr.clone())
+    }
+
+    /// The report and the stderr lines that are not the walk proofs' own load summary.
+    fn behaviour(&self) -> (String, Vec<String>) {
+        let lines = self
+            .stderr
+            .lines()
+            .filter(|line| !line.starts_with(SUMMARY))
+            .map(str::to_owned)
+            .collect();
+        (self.report().to_string(), lines)
     }
 }
 
@@ -316,6 +374,33 @@ fn run(case: &str, file: Option<&Value>, switches: Option<&str>, ledger: bool) -
     }
     if ledger {
         command.env("PRISM_TAINT_CROSSING_TRACE", "1");
+    }
+    let out = command.output().unwrap();
+    Run {
+        status: out.status,
+        stdout: String::from_utf8(out.stdout).unwrap(),
+        stderr: String::from_utf8(out.stderr).unwrap(),
+    }
+}
+
+/// A child with exactly the given raw environment values for the two variables.
+fn run_raw(case: &str, switches: Option<&std::ffi::OsStr>, file: Option<&std::ffi::OsStr>) -> Run {
+    let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+    command
+        .args([
+            "--exact",
+            "cpg::trace_proofs_tests::walk_child",
+            "--nocapture",
+        ])
+        .env(CASE, case)
+        .env_remove(SWITCHES)
+        .env_remove(FILE)
+        .env_remove("PRISM_TAINT_CROSSING_TRACE");
+    if let Some(switches) = switches {
+        command.env(SWITCHES, switches);
+    }
+    if let Some(file) = file {
+        command.env(FILE, file);
     }
     let out = command.output().unwrap();
     Run {
@@ -442,19 +527,25 @@ fn the_ledger_key_equals_the_hop_key_once_the_node_index_is_dropped() {
 
 #[test]
 fn a_rule_that_is_off_changes_nothing() {
-    let control = run("gf", None, None, false).output();
-    let (from, to) = hop_of(&run("gf", None, None, false).report(), "CallDescent");
+    let control = run("gf", None, None, false);
+    let (from, to) = hop_of(&control.report(), "CallDescent");
     let mut rules = empty_rules();
     rules["iv"] = json!([entry("CallDescent", &from, &to, None)]);
     let filed = file(rules);
     // (c) the filed rule is not switched on, another is.
     assert_eq!(
-        run("gf", Some(&filed), Some("iii"), false).output(),
-        control
+        run("gf", Some(&filed), Some("iii"), false).behaviour(),
+        control.behaviour()
     );
     // (d) file set, switches unset or empty.
-    assert_eq!(run("gf", Some(&filed), None, false).output(), control);
-    assert_eq!(run("gf", Some(&filed), Some(""), false).output(), control);
+    assert_eq!(
+        run("gf", Some(&filed), None, false).output(),
+        control.output()
+    );
+    assert_eq!(
+        run("gf", Some(&filed), Some(""), false).output(),
+        control.output()
+    );
 }
 
 #[test]
@@ -497,7 +588,7 @@ fn a_root_restriction_must_name_the_walk_root() {
     let control = run("gf", None, None, false).report();
     let (from, to) = hop_of(&control, "CallDescent");
     let root = control["root"].as_str().unwrap().to_string();
-    let unchanged = run("gf", None, None, false).output();
+    let unchanged = run("gf", None, None, false).behaviour();
     let other = with_rule(
         "iv",
         vec![entry(
@@ -508,7 +599,7 @@ fn a_root_restriction_must_name_the_walk_root() {
         )],
     );
     assert_eq!(
-        run("gf", Some(&other), Some("iv"), false).output(),
+        run("gf", Some(&other), Some("iv"), false).behaviour(),
         unchanged
     );
     let right = with_rule("iv", vec![entry("CallDescent", &from, &to, Some(&root))]);
@@ -520,10 +611,10 @@ fn a_root_restriction_must_name_the_walk_root() {
 fn a_relation_mismatch_never_matches() {
     let control = run("gf", None, None, false).report();
     let (from, to) = hop_of(&control, "CallDescent");
-    let unchanged = run("gf", None, None, false).output();
+    let unchanged = run("gf", None, None, false).behaviour();
     let wrong = with_rule("iv", vec![entry("ReturnFlow", &from, &to, None)]);
     assert_eq!(
-        run("gf", Some(&wrong), Some("iv"), false).output(),
+        run("gf", Some(&wrong), Some("iv"), false).behaviour(),
         unchanged
     );
 }
@@ -532,7 +623,7 @@ fn a_relation_mismatch_never_matches() {
 fn a_hop_that_is_not_a_crossing_never_matches_whatever_the_rule() {
     let control = run("gf", None, None, false).report();
     let (from, to) = hop_of(&control, "DataFlow");
-    let unchanged = run("gf", None, None, false).output();
+    let unchanged = run("gf", None, None, false).behaviour();
     let mut rules = empty_rules();
     for rule in RULES {
         for relation in ["CallDescent", "ReturnFlow", "ReturnInput"] {
@@ -544,7 +635,7 @@ fn a_hop_that_is_not_a_crossing_never_matches_whatever_the_rule() {
     }
     let filed = file(rules);
     assert_eq!(
-        run("gf", Some(&filed), Some("all"), false).output(),
+        run("gf", Some(&filed), Some("all"), false).behaviour(),
         unchanged
     );
 }
@@ -588,14 +679,14 @@ fn return_input_exclusion_cuts_the_return_expression() {
         "{cut}"
     );
     // Switched off: unchanged.
-    let unchanged = run("w05", None, None, false).output();
+    let unchanged = run("w05", None, None, false).behaviour();
     let off = run(
         "w05",
         Some(&filed),
         Some("i,ii,iii,iv,v,return_flow"),
         false,
     );
-    assert_eq!(off.output(), unchanged);
+    assert_eq!(off.behaviour(), unchanged);
 }
 
 #[test]
@@ -621,4 +712,165 @@ fn return_flow_exclusion_refuses_the_ascent() {
         .unwrap()
         .iter()
         .any(|hop| hop[2] == "ReturnInput"));
+}
+
+#[test]
+fn a_misconfiguration_is_detected_even_when_no_hop_reaches_the_hook() {
+    // `local` has no crossing at all, so only a check at walk entry can see the error.
+    let failed = run("local", None, Some("iv"), false);
+    assert!(!failed.status.success(), "{}", failed.stdout);
+    assert!(failed.stderr.contains(FILE), "{}", failed.stderr);
+    let missing = file(json!({"i": []}));
+    let failed = run("local", Some(&missing), Some("iv"), false);
+    assert!(!failed.status.success(), "{}", failed.stdout);
+    assert!(failed.stderr.contains("`iv`"), "{}", failed.stderr);
+    // A correct configuration walks the same fixture without refusing anything.
+    let good = file(json!({"iv": []}));
+    let ok = run("local", Some(&good), Some("iv"), false);
+    assert!(ok.report()["boundary"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn the_env_loader_reads_the_switches_as_from_parts_does() {
+    use std::ffi::OsStr;
+    let control = run("gf", None, None, false).behaviour();
+    // Only separators: off, so the (missing) file is never read.
+    for switches in [",,", " , ", ","] {
+        let run = run_raw(
+            "gf",
+            Some(OsStr::new(switches)),
+            Some(OsStr::new("/nonexistent/walk-proofs.json")),
+        );
+        assert_eq!(run.behaviour(), control, "{switches:?}");
+    }
+    // A switch that is on needs a readable file.
+    let failed = run_raw(
+        "gf",
+        Some(OsStr::new(" i ")),
+        Some(OsStr::new("/nonexistent/walk-proofs.json")),
+    );
+    assert!(!failed.status.success());
+    assert!(failed.stderr.contains(FILE), "{}", failed.stderr);
+}
+
+#[test]
+fn a_value_that_is_not_utf8_is_an_error_naming_its_variable() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    let bad = OsStr::from_bytes(&[b'i', 0xff]);
+    let failed = run_raw("gf", Some(bad), None);
+    assert!(!failed.status.success(), "{}", failed.stdout);
+    assert!(
+        failed.stderr.contains(SWITCHES) && failed.stderr.contains("UTF-8"),
+        "{}",
+        failed.stderr
+    );
+    let failed = run_raw("gf", Some(OsStr::new("iv")), Some(bad));
+    assert!(!failed.status.success(), "{}", failed.stdout);
+    assert!(
+        failed.stderr.contains(FILE) && failed.stderr.contains("UTF-8"),
+        "{}",
+        failed.stderr
+    );
+}
+
+#[test]
+fn a_filed_return_input_does_not_hide_the_depth_zero_cfg_cut() {
+    let control = run("w05v", None, None, false).report();
+    let pruned = control["cuts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|cut| cut["relation"] == "ReturnInput")
+        .unwrap_or_else(|| panic!("no ReturnInput cut in {control}"));
+    assert_eq!(pruned["reason"], "cfg_pruned", "{control}");
+    let (from, to) = (
+        pruned["from"].as_str().unwrap(),
+        pruned["to"].as_str().unwrap(),
+    );
+    let filed = with_rule("return_input", vec![entry("ReturnInput", from, to, None)]);
+    let report = run("w05v", Some(&filed), Some("return_input"), false).report();
+    let cuts = report["cuts"].as_array().unwrap();
+    assert!(
+        cuts.iter().any(|cut| cut["relation"] == "ReturnInput"
+            && cut["from"] == from
+            && cut["to"] == to
+            && cut["reason"] == "cfg_pruned"),
+        "{report}"
+    );
+    assert!(
+        cuts.iter()
+            .all(|cut| cut["reason"] != "unproven_return_input"),
+        "{report}"
+    );
+}
+
+#[test]
+fn an_exclusion_for_one_root_leaves_the_other_root_crossing_in_one_invocation() {
+    let control = run("two", None, None, false).report();
+    let (from, to) = hop_of(&control, "CallDescent");
+    let by_root = control["frontier_by_root"].as_object().unwrap();
+    let roots: Vec<&String> = by_root.keys().collect();
+    assert_eq!(roots.len(), 2, "{control}");
+    assert!(
+        roots.iter().all(|root| by_root[*root]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node == to.as_str())),
+        "both roots reach the formal in the control: {control}"
+    );
+    for filed_root in &roots {
+        let filed = with_rule(
+            "iv",
+            vec![entry("CallDescent", &from, &to, Some(filed_root))],
+        );
+        let report = run("two", Some(&filed), Some("iv"), false).report();
+        let boundary = report["boundary"].as_array().unwrap();
+        assert_eq!(boundary.len(), 1, "{report}");
+        assert_eq!(boundary[0]["root"], filed_root.as_str(), "{report}");
+        for root in &roots {
+            let crossed = report["frontier_by_root"][root.as_str()]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|node| node == to.as_str());
+            assert_eq!(
+                crossed,
+                root != filed_root,
+                "{root} filed={filed_root}: {report}"
+            );
+        }
+    }
+}
+
+#[test]
+fn switched_on_rules_report_their_kept_and_dropped_entries_at_load() {
+    let rules = json!({
+        "iv": [
+            entry("CallDescent", "F", "T", None),
+            entry("CallDescent", "F2", "T2", None),
+            entry("ReturnFlow", "F", "T", None),
+        ],
+        "return_flow": [entry("ReturnFlow", "F", "T", None)],
+        "iii": [entry("CallDescent", "F", "T", None)],
+    });
+    let report = run("local", Some(&file(rules)), Some("iv,return_flow"), false);
+    let lines: Vec<_> = report
+        .stderr
+        .lines()
+        .filter(|line| line.starts_with(SUMMARY))
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            "taint-walk-proofs rule=iv kept=2 dropped_relation_mismatch=1",
+            "taint-walk-proofs rule=return_flow kept=1 dropped_relation_mismatch=0",
+        ],
+        "{}",
+        report.stderr
+    );
+    // Off: no line at all.
+    let off = run("local", None, None, true);
+    assert!(!off.stderr.contains(SUMMARY), "{}", off.stderr);
 }

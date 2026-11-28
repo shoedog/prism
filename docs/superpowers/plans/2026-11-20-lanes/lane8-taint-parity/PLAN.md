@@ -357,11 +357,12 @@ For an existing BoundaryExited result, carry the matched hop's optional `reason`
 `per_sink[].sources[]` entry (`SinkSourceResult`). Warnings may still deduplicate for display. Distal
 verdicts and sink-cause credit depend on option B.
 
-The hop's site is established only when the same call expression contains the source operand
-and its result reaches the receiving occurrence. For a CallDescent the call contains the source
-actual and its callee binds it to the receiving formal. In every other case the ledger prints
-`site=- slot=- grades=[]`, meaning “site not established” (DESIGN §6).
-Review uses the parsed files it already loads, including on cache hits. Cache format 191 still
+The hop's site is a resolver candidate of any grade, established only when the same call expression
+contains the source operand and its result reaches the receiving occurrence. For a CallDescent the call
+contains the source actual and a resolver candidate of the site binds it to the receiving formal. In
+navigation and the sanitizer-bypass re-walks, where no site is established the ledger prints
+`site=- slot=- grades=[]`, meaning “not established” (DESIGN §6); review mode prints no `site=`, `slot=`
+or `grades=` at all. Review uses the parsed files it already loads, including on cache hits. Cache format 191 still
 carries the existing ReturnFlow edge and its shortcut-suppression flag.
 
 **Files:** Create `src/cpg/trace_descent.rs`, `src/cpg/trace_descent_tests.rs` (`mod trace_descent;` and
