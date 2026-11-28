@@ -1122,9 +1122,11 @@ mod census_tests {
         );
     }
 
-    // Known exclusions of the census detector (a node-kind filter): constructed inputs, each
-    // expected NOT to be counted, beside a control that is. A later widening of the detector
-    // flips the exclusion on purpose and must update both the expectation and the DESIGN text.
+    // Known behaviour of the census detector (a node-kind filter): constructed inputs, each with
+    // the count the detector gives TODAY, beside a control. Exclusions are expected to be 0,
+    // beside a counted control; the last block records inputs reviewers named whose current
+    // count is exact either way. A later change of the detector must update these expectations
+    // on purpose; the DESIGN does not restate them.
     #[test]
     fn known_exclusions_of_the_census_are_not_counted() {
         let listed = |name: &str, src: &str, scope: &str, shape: &str| -> usize {
@@ -1218,6 +1220,52 @@ mod census_tests {
             listed(
                 "a.py",
                 "def g(x, f):\n    if f:\n        eval(x)\n    elif False:\n        pass\n",
+                "Python",
+                tests
+            ),
+            1
+        );
+        // (4) Reviewer-named inputs, recorded as the detector behaves today.
+        // Python: an empty string and an empty f-string as the test are counted.
+        for src in [
+            "def g(x):\n    if \"\":\n        eval(x)\n",
+            "def g(x):\n    if f\"\":\n        eval(x)\n",
+        ] {
+            assert_eq!(listed("a.py", src, "Python", tests), 1, "{src}");
+        }
+        // JavaScript: an empty string and an empty template as the test are not counted.
+        for src in [
+            "function g(x) {\n  if (\"\") { eval(x); }\n}\n",
+            "function g(x) {\n  if (``) { eval(x); }\n}\n",
+        ] {
+            assert_eq!(listed("a.js", src, "JavaScript", tests), 0, "{src}");
+        }
+        // The spelling `TYPE_CHECKING` is accepted in JavaScript too (control for the block above).
+        assert_eq!(
+            listed(
+                "a.js",
+                "function g(x, TYPE_CHECKING) {\n  if (TYPE_CHECKING) { eval(x); }\n}\n",
+                "JavaScript",
+                tests
+            ),
+            1
+        );
+        // `return;` before a call under a nullish chain: counted by the chain filter, which
+        // looks at no statement order.
+        assert_eq!(
+            listed(
+                "a.js",
+                "function f(x) {\n  return;\n  null?.m(eval(x));\n}\n",
+                "JavaScript",
+                chain
+            ),
+            1
+        );
+        // `undefined` is taken by spelling: an import alias of that name is counted.
+        assert_eq!(
+            listed(
+                "a.py",
+                "from typing import TYPE_CHECKING as undefined\n\ndef g(x):\n    if undefined:\n        eval(x)\n",
                 "Python",
                 tests
             ),

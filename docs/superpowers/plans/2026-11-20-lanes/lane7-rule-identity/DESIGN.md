@@ -462,40 +462,24 @@ literal nullish base (`(void 0)?.eval(x)`, `null?.m(eval(x))`, `null?.[eval(x)]`
 are pinned as `known_limit` rows (r10-limit-js-*) beside controls (r10-control-js-*). The narrowed
 cell stays as an extra refusal and is named as such: an optional call or member chain directly on a
 literal `null` or `undefined` base is withheld (`op_special_form`), although the contract would not
-require it. **Census (price.rs, five-language run `price-5l-fold14`, 2026-11-28).** The census is a
-node-kind filter, not a proof, and decides no truthiness. Its selection rule is DEFINED by the code,
-not by this document: the nullish-base chains by `possibly_nullish_base`, `nullish_chain_base` and
-`under_nullish_chain`; the literal-only tests by `literal_only`, `literal_tests` and
-`under_literal_test` (all in `crates/prism-review/src/algorithms/taint/sink_rules/price.rs`, with
-`peel` for the wrappers it looks through). The selection rule is pinned by the census regression
-tests `superset_counts_every_possibly_nullish_base_and_constant_guard` (inputs it selects) and
-`known_exclusions_of_the_census_are_not_counted` (inputs it does not select, each beside a counted
-control). Where this paragraph and those functions differ, the functions and the tests are right.
-Rows are written for every counted shape, zero included. The rows the literal-only filter lists
-are read by hand as live or unreachable.
+require it. **Census (price.rs, five-language run `price-5l-fold14`, 2026-11-28).** What the census selects and
+excludes is defined by the functions in `crates/prism-review/src/algorithms/taint/sink_rules/price.rs`
+(`possibly_nullish_base`, `nullish_chain_base`, `under_nullish_chain`, `literal_only`, `literal_tests`,
+`under_literal_test`, `peel`) and pinned by the regression tests
+`superset_counts_every_possibly_nullish_base_and_constant_guard` and
+`known_exclusions_of_the_census_are_not_counted`; this document does not restate it. Inputs that
+reviewers constructed and that the census does not count (or counts) are recorded as rows in
+`known_exclusions_of_the_census_are_not_counted`, by reference and not by description. The
+certificate's contract (the syntactic role of an occurrence, not that the call executes) does not
+depend on these counts.
 
-**Named exclusions** (shapes the filter does not select; the list is not exhaustive):
-container-literal tests (list, tuple, dict, set, array, object), empty or not; empty strings and
-templates as tests; an optional chain over an optional chain with a possibly nullish base is
-judged by the outer link's own base kind (`(null?.m)?.(f(x))` is not counted); the whole-construct
-listing follows `elif` chains in Python only (a JS, TS or Go `else if` is a nested `if`, so an
-earlier branch is not enrolled by a later literal test; immaterial, a later test cannot make an
-earlier branch unreachable); a literal that is only part of a test (`if (false && x)`); an escaped
-spelling of `undefined` as a test; `do .. while (0)`, comprehension `if` clauses, `switch` and
-`match` on literals; named-constant guards (Go `const debug = false`); `typing.TYPE_CHECKING` and
-its aliases. The spelling `TYPE_CHECKING` itself is accepted as a literal-only test in any
-language, not only Python. `return`, `throw` and `panic` are not selection criteria: code after
-them is selected only when a literal-only test also encloses it. The excluded shapes are
-constructed inputs; their incidence on the corpora is not measured. The certificate's contract
-(the syntactic role of an occurrence, not execution) does not depend on these counts.
-
-**Census result, limited to that filter** (certified of all flat hits: Go 22,575 of 22,591,
+**Census result, limited to that filter** (from `price-5l-fold14.tsv`; certified of all flat hits: Go 22,575 of 22,591,
 JavaScript 2,116 of 2,172, TypeScript 708 of 735, TSX 21 of 36, Python 2,899 of 3,039; shares
 unchanged). Possibly nullish chains in the corpora: 5 (TypeScript source 4, excalidraw 1), all live
 bases: two conditionals with an `undefined` arm, one assignment expression, two `||` expressions;
 none statically nullish. **0 certified hits under a possibly-nullish base as the filter defines
 it. 21 literal-test rows listed** (Go 3, Python 15, TypeScript 3, JavaScript 0, TSX 0; listing
-`price/shapes-list.log`), **1 unreachable**: 20 sit in constant-true loops (`while (true)`,
+`shapes-list-fold14.log`), **1 unreachable**: 20 sit in constant-true loops (`while (true)`,
 `while True`, `for ..; true; ..`), which are live, and the one unreachable row is a Go test file
 (cockroach `pkg/server/debug/goroutineui/dump_test.go:58`,
 `if false { _ = os.WriteFile("test.html", ..) }`, a debugging toggle). What the contract means for
