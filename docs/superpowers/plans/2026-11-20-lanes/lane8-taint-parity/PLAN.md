@@ -124,8 +124,9 @@ in `~/prism-evidence/lanes-2026-11-20/reviews/astra-r1/lane8/probes/`.
       on and with each single relaxation; a class's size for the ordering rule is the larger of its lost
       findings on A and its refused hops here (DESIGN 6).
 - [ ] `ledger.py`: reads the product's crossing trace (I-1's `PRISM_TAINT_CROSSING_TRACE`) from those frontier
-      runs and from trace-mode review runs; every accepted crossing as a path (root occurrence, site span and
-      slot, target, sink operand) with its grades; a slice's new crossings are the ledger difference against
+      runs and from trace-mode review runs; every accepted crossing as a path (root occurrence, target, sink
+      operand, reasons and edge grades from both) with site spans, slots and call grades taken from navigation
+      frontier runs only (review mode prints no `site=`, `slot=` or `grades=`); a slice's new crossings are the ledger difference against
       the parent build, whether or not the sink line is new. Tested on the apparatus fixtures once I-1 merges.
 - [ ] Population B: in the bench checkout, `python3 -m eval.secbench --no-build --binary bin/prism-base
       --binary-sha <sha256> --sut-commit <commit> --out census/secbench-base` (the pin options come from lane

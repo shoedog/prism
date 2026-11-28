@@ -193,10 +193,12 @@ impl CodePropertyGraph {
 }
 
 impl CodePropertyGraph {
-    /// The ledger prints a site, slot and grades only if the same call expression contains
-    /// the source operand and its result reaches the receiving occurrence. For a CallDescent,
-    /// the call contains the source actual and its callee binds it to the receiving formal.
-    /// Where either endpoint or a unique site cannot be established, all three fields are empty.
+    /// The site is a resolver candidate of any grade, established only if the same call
+    /// expression contains the source operand and its result reaches the receiving occurrence.
+    /// For a CallDescent, the call contains the source actual and a resolver candidate of the
+    /// site binds it to the receiving formal. Where either endpoint or a unique site cannot be
+    /// established the result is `None` (the empty form). Navigation and bypass re-walks print
+    /// the fields; review mode prints only the reason and `edge_grade` (`CrossingLedger::fields`).
     pub(super) fn ledger_site(
         &self,
         from: NodeIndex,
