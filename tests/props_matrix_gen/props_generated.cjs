@@ -214,6 +214,12 @@ function applicableCell(cell, template) {
     }
   }
   leaves(argument, []);
+  const literal = literalOutcome(
+    argument, formal.name, span,
+    (node) => endpoint(caller, node, 'use'),
+    (name) => defs.find((candidate) => JSON.stringify(candidate.bytes) === JSON.stringify(span(name))),
+    alias,
+  );
   return {
     ...cell,
     files: { [file]: source },
@@ -238,11 +244,233 @@ function applicableCell(cell, template) {
       edges,
       paths: edges.map(({ from, to }) => ({ from, to })),
       counts: { local_defs: defs.length, edges: edges.length, paths: edges.length, early_error: Number(earlyError) },
+      literal,
     },
   };
 }
 
+function propsKey(key, span, pattern) {
+  // Inspect the source spelling, since TS decodes strings and normalizes numbers.
+  const spelling = key.getText();
+  assert(span(key)[0] < span(key)[1]);
+  if (/[^\x20-\x7e]|\\/.test(spelling) || ts.isComputedPropertyName(key)) return { kind: 'unknown' };
+  if (ts.isNumericLiteral(key)) {
+    const canonical = /^(0|[1-9]\d*)$/.test(spelling) && Number.isSafeInteger(Number(spelling));
+    if (!canonical) return { kind: pattern ? 'unknown' : 'numeric' };
+    return { kind: pattern ? 'named' : 'opaque-number', name: spelling };
+  }
+  return { kind: 'named', name: ts.isStringLiteral(key) ? spelling.slice(1, -1) : spelling };
+}
+
+function literalOutcome(argument, formal, span, sourceOf, defOf, alias = false, mutation) {
+  const counters = { sites_literal: 1 };
+  const add = (key, count = 1) => {
+    if (count) counters[key] = (counters[key] || 0) + count;
+  };
+  const edges = [];
+  if (alias) {
+    add('refused_alias_pattern');
+    return { counters, edges, survivors: [] };
+  }
+  const targets = [];
+  function pattern(node, path) {
+    const consumed = new Set();
+    let unknown = false;
+    const rests = [];
+    for (const entry of node.elements) {
+      if (entry.dotDotDotToken) {
+        rests.push(entry.name);
+        continue;
+      }
+      const key = propsKey(entry.propertyName || entry.name, span, true);
+      if (key.kind === 'unknown' && mutation !== 'bind-unknown-target') {
+        add('refused_key_unknown');
+        unknown = true;
+        continue;
+      }
+      const name = key.name ?? 'a';
+      consumed.add(name);
+      const local = [...path, name];
+      if (ts.isObjectBindingPattern(entry.name)) pattern(entry.name, local);
+      if (ts.isIdentifier(entry.name)) targets.push({ path: local, def: defOf(entry.name) });
+    }
+    for (const rest of rests) {
+      if (unknown) add('refused_key_unknown');
+      else targets.push({ path, def: defOf(rest), consumed });
+    }
+  }
+  pattern(formal, []);
+  function fold(object, path) {
+    const current = new Map();
+    for (const property of object.properties) {
+      const spread = ts.isSpreadAssignment(property);
+      if (spread) add('spread_sources_unbound');
+      const key = spread ? { kind: 'unknown' } : propsKey(property.name, span, false);
+      if (key.kind === 'unknown' || key.kind === 'numeric') {
+        const matches = key.kind === 'unknown'
+          ? () => mutation !== 'retain-wildcard-loser'
+          : (name) => /^[0-9]|^Infinity$/.test(name);
+        for (const [name, displaced] of current) {
+          if (!matches(name)) continue;
+          add('refused_overwritten', displaced.length);
+          current.delete(name);
+        }
+      } else {
+        add('refused_overwritten', current.get(key.name)?.length ?? 0);
+        const keyPath = [...path, key.name];
+        const value = property.initializer;
+        let terminals;
+        if (key.kind === 'opaque-number') terminals = [{ kind: 'numeric' }];
+        else if (value && ts.isObjectLiteralExpression(value)) terminals = fold(value, keyPath);
+        else if (value && ts.isIdentifier(value)) terminals = [{ kind: 'leaf', path: keyPath, from: sourceOf(value) }];
+        else terminals = [{ kind: 'opaque' }];
+        current.set(key.name, terminals);
+      }
+    }
+    return [...current.values()].flat();
+  }
+  const prefix = (a, b) => a.length <= b.length && a.every((segment, i) => segment === b[i]);
+  const survivors = [];
+  for (const terminal of fold(argument, [])) {
+    // A surviving numeric-key writer terminal supplies no leaf: counted as opaque.
+    if (terminal.kind === 'opaque' || terminal.kind === 'numeric') add('refused_value_not_data');
+    if (terminal.kind !== 'leaf') continue;
+    const { path, from } = terminal;
+    survivors.push({ path, from });
+    const matching = targets.filter((target) => target.def && (target.consumed
+      ? prefix(target.path, path) && target.path.length < path.length && !target.consumed.has(path[target.path.length])
+      : prefix(target.path, path) || prefix(path, target.path)));
+    if (!matching.length) add('refused_key_not_read');
+    for (const target of matching) {
+      add(target.consumed ? 'edges_to_rest' : 'edges_to_def');
+      if (!target.consumed && target.path.length < path.length) add('edges_to_container');
+      edges.push({ from, to: target.def, label: 'exact' });
+    }
+  }
+  return { counters, edges, survivors };
+}
+
+const tokens = ['a', "'a'", "'1'", '1', '1e0', "'a.b'", '[k]', "'aria-label'", "'\\u0061'", 'café'];
+
+function literalCell(family, grammar, dimensions, pattern, writes) {
+  const file = `case.${grammar}`;
+  const source = `const k = "dynamic";\nfunction D(${pattern}) {\n  return use(${dimensions.locals});\n}\n`
+    + `function App(x, y, z, w, obj) {\n  return D({${writes}});\n}\n`;
+  const { checker, span, line, functions: [target, caller] } = inspect(file, source);
+  const formal = target.parameters[0].name;
+  const call = caller.body.statements[0].expression;
+  const argument = call.arguments[0];
+  assert(checker.getSymbolAtLocation(call.expression).declarations.includes(target));
+  const owner = (node) => ({
+    name: node.name.text, bytes: span(node), line: line(node), end_line: line(node.body.statements.at(-1)) + 1,
+  });
+  const endpoint = (ownerNode, node, access, at = line(node)) => ({
+    file, owner: ownerNode.name.text, owner_line: line(ownerNode), name: node.text, line: at, access, bytes: span(node),
+  });
+  const defs = boundNames(formal).map(({ node }) => {
+    const read = target.body.statements[0].expression.arguments.find((candidate) => candidate.text === node.text);
+    assert(checker.getSymbolAtLocation(read).declarations.includes(node.parent));
+    return endpoint(target, node, 'def', line(target));
+  });
+  const sourceOf = (node) => {
+    const parameter = caller.parameters.find((candidate) => candidate.name.text === node.text);
+    assert(checker.getSymbolAtLocation(node).declarations.includes(parameter));
+    return endpoint(caller, node, 'use');
+  };
+  const outcome = literalOutcome(argument, formal, span, sourceOf,
+    (node) => defs.find((def) => def.name === node.text));
+  const referenced = new Set();
+  function collectReferences(node) {
+    if (ts.isIdentifier(node)) {
+      for (const parameter of checker.getSymbolAtLocation(node)?.declarations ?? []) {
+        if (caller.parameters.includes(parameter)) referenced.add(parameter);
+      }
+    }
+    ts.forEachChild(node, collectReferences);
+  }
+  collectReferences(argument);
+  const sourceDefs = caller.parameters.filter((param) => referenced.has(param))
+    .map(({ name }) => endpoint(caller, name, 'def'));
+  const { locals, ...idDimensions } = dimensions;
+  const id = [family, ...Object.values(idDimensions), grammar].join('/');
+  return {
+    id, family, grammar, dimensions: idDimensions, generator, typescript: ts.version, files: { [file]: source },
+    required_evidence: {
+      caller: owner(caller), target: owner(target), formal: span(formal),
+      site: { bytes: span(call), argument: span(argument), resolution: 'Exact' }, defs, source_defs: sourceDefs,
+    },
+    expected_outcome: outcome,
+  };
+}
+
+function literalCells() {
+  const cells = [];
+  for (const [s, source] of tokens.entries()) {
+    for (const [t, target] of tokens.entries()) {
+      for (const [w, writer] of tokens.entries()) {
+        for (const order of ['forward', 'reverse']) {
+          const writes = [`${source}: x`, `${writer}: y`];
+          if (order === 'reverse') writes.reverse();
+          for (const grammar of ['js', 'ts']) {
+            cells.push(literalCell('literal-collision', grammar, { s, t, w, order, locals: 'v, rest' },
+              `{${target}: v, ...rest}`, [...writes, 'keep: z'].join(', ')));
+          }
+        }
+      }
+    }
+  }
+  for (const [writer, replacement] of Object.entries({
+    nonempty: 'box: {c: w}', empty: 'box: {}', opaque: 'box: make()', spread: '...obj',
+    'inner-spread': '...obj', 'inner-computed': '[k]: w',
+  })) {
+    for (const order of ['forward', 'reverse']) {
+      const inner = writer.startsWith('inner-');
+      const writes = [inner ? 'a: x' : 'box: {a: x, b: y}', replacement];
+      if (order === 'reverse') writes.reverse();
+      if (inner) writes.splice(0, 2, `box: {${writes.join(', ')}, b: y}`);
+      for (const grammar of ['jsx', 'tsx']) {
+        cells.push(literalCell('literal-replacement', grammar,
+          { writer, order, target: 'nested', locals: 'v, r, keep' },
+          '{box: {a: v, ...r}, keep}', [...writes, 'keep: z'].join(', ')));
+        cells.push(literalCell('literal-replacement', grammar,
+          { writer, order, target: 'container', locals: 'v, r' },
+          '{box: v, ...r}', [...writes, 'keep: z'].join(', ')));
+      }
+    }
+  }
+  assert.equal(cells.length, 4048);
+  return cells;
+}
+
+function assertMatrixMutations() {
+  const rows = fs.readFileSync(path.join(__dirname, '../fixtures/props_matrix/rows.jsonl'), 'utf8')
+    .trimEnd().split('\n').map((row) => JSON.parse(row));
+  for (const [id, mutation] of [
+    ['d2-unknown-writer', 'retain-wildcard-loser'],
+    ['d2-unknown-target', 'bind-unknown-target'],
+  ]) {
+    const row = rows.find((candidate) => candidate.id === id);
+    for (const shape of ['escaped', 'nonascii', 'ascii']) {
+      const source = row.files[`${shape}/m`];
+      const { checker, span, functions: [target, caller] } = inspect('matrix.ts', source);
+      const call = caller.body.statements[0].expression;
+      assert(checker.getSymbolAtLocation(call.expression).declarations.includes(target));
+      const model = (mutant) => literalOutcome(call.arguments[0], target.parameters[0].name,
+        span, span, span, false, mutant).edges;
+      const expected = model();
+      if (shape === 'ascii') {
+        assert.deepEqual(model(mutation), expected, `${id}/${shape}`);
+        assert.equal(expected.length, 2);
+      } else {
+        assert.notDeepEqual(model(mutation), expected, `${id}/${shape}`);
+        assert.equal(expected.length, id === 'd2-unknown-writer' ? 1 : 0);
+      }
+    }
+  }
+}
+
 function generate() {
+  assertMatrixMutations();
   const cells = [];
   for (const terminal of Object.keys(terminals)) {
     for (const depth of [1, 2]) {
@@ -265,9 +493,11 @@ function generate() {
       }
     }
   }
-  cells.sort((a, b) => (a.id < b.id ? -1 : Number(a.id > b.id)));
   assert.equal(new Set(cells.map((cell) => cell.id)).size, 576);
   assert.equal(cells.filter((cell) => !cell.excluded).length, 528);
+  cells.push(...literalCells());
+  cells.sort((a, b) => (a.id < b.id ? -1 : Number(a.id > b.id)));
+  assert.equal(new Set(cells.map((cell) => cell.id)).size, 4624);
   return Buffer.from(cells.map((cell) => JSON.stringify(cell)).join('\n') + '\n');
 }
 
@@ -276,7 +506,7 @@ const generated = generate();
 const args = process.argv.slice(2);
 if (args.length === 1 && args[0] === '--check') {
   assert(fs.readFileSync(output).equals(generated), `${output} differs from TypeScript ${ts.version} regeneration`);
-  console.log(`Generator v${generator}, TypeScript ${ts.version}: 576 deterministic cells, 528 applicable, 48 excluded`);
+  console.log(`Generator v${generator}, TypeScript ${ts.version}: 4624 deterministic cells, 4576 applicable, 48 excluded`);
 } else {
   assert.deepEqual(args, []);
   fs.writeFileSync(output, generated);

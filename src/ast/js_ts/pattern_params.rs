@@ -23,6 +23,7 @@ pub(crate) struct PatternLevel {
     pub(crate) bytes: Range<usize>,
     pub(crate) consumed: BTreeSet<String>,
     pub(crate) unknown_sibling: bool,
+    pub(crate) unknown_entries: usize,
 }
 
 impl PatternLevel {
@@ -165,6 +166,7 @@ impl PatternWalk<'_> {
             bytes: node.byte_range(),
             consumed: BTreeSet::new(),
             unknown_sibling: false,
+            unknown_entries: 0,
         });
 
         let mut cursor = node.walk();
@@ -198,6 +200,7 @@ impl PatternWalk<'_> {
                 })
             } else {
                 info.unknown_sibling = true;
+                info.unknown_entries += usize::from(path.is_some());
                 None
             };
             if let Some(value) = value {

@@ -343,8 +343,8 @@ mod stream;
 /// - v192: admitted JS/TS/TSX bare-arrow formals receive positional and literal-leaf DataFlow edges, changing dependent return-flow certification.
 /// - v193: JS/TS/TSX object-pattern formals register Defs for used, admitted locals. Their reads and initializer captures connect at binding-proved endpoints. M1, W1, S and S2 select base reads when an entry projection is unproved.
 /// - v194: Step 5b JS/TS/TSX built-in callback roles add NameOnly receiver edges and a label counter.
-/// - v195: Persist the whole-graph JS-family argument-follow facts with the proof index.
-/// - v196: Require stable argument-follow selections and refuse JSX reserved attribute delivery.
+/// - v195: JS/TS/TSX literal arguments bind to proved object-pattern Defs and selected plain-formal reads. Step 5b props inventory, refusals and edge counters are serialized.
+/// - v196: Persist the whole-graph JS-family argument-follow facts with the proof index (admitted by the lane 9 accept-list).
 const CACHE_VERSION: u32 = 196;
 
 pub const SKIP_POLICY_VERSION: u32 = 2;

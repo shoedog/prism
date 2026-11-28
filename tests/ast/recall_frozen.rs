@@ -45,7 +45,8 @@ pub(super) fn stats(graph: &CodePropertyGraph) -> Value {
         Some(json!(0))
     );
     // `dfg_loop_plan` (#693/#697 slice 2) is JS/TS/TSX loop-plan telemetry: empty for every Go receipt.
-    object.retain(|k, _| !k.starts_with("dfg_recall_") && k != "dfg_loop_plan");
+    // `dfg_props` (lane 3 S2b) is JS/TS/TSX props-binding telemetry, empty for every Go receipt.
+    object.retain(|k, _| !k.starts_with("dfg_recall_") && k != "dfg_loop_plan" && k != "dfg_props");
     let mut sub = |key: &str, n: u64| {
         let v = object.get_mut(key).unwrap();
         *v = json!(v.as_u64().unwrap() - n);
