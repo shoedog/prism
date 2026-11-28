@@ -1,4 +1,5 @@
 mod evidence;
+pub(crate) use evidence::field_detail_presence;
 mod shape;
 
 use super::limits::Ledger;

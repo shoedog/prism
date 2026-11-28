@@ -40,7 +40,7 @@ fn tagged<T>(property: &Property<T>, encode: impl FnOnce(&T) -> String) -> Strin
     }
 }
 
-pub(super) fn content_hash(index: &SchemaIndex) -> String {
+pub(crate) fn content_hash(index: &SchemaIndex) -> String {
     let mut records = Vec::new();
     for operation in &index.operations {
         let id = operation.id.to_string();
@@ -91,7 +91,7 @@ fn string(value: &str) -> String {
     output
 }
 
-pub(super) fn canonical_number(literal: &str) -> String {
+pub(crate) fn canonical_number(literal: &str) -> String {
     let (mantissa, exponent) = literal.split_once(['e', 'E']).unwrap_or((literal, "0"));
     let (sign, digits) = mantissa
         .strip_prefix('-')

@@ -1163,7 +1163,9 @@ a gate miss with its cause even when the live review contains a new supported re
 - [ ] Close the tracking issue with the acceptance numbers; file follow-ups for protobuf, federation, MCP
       exposure and a Go or Python service-consumer adapter as separate issues, not started.
 
-### Open design questions from the P1c product run (OWNER, not decided)
+### Design questions from the P1c product run (OWNER decided 2026-11-27: alignment B, standing limits C)
+
+Decisions: (1) standing limits use option C (the blocking limit beside each change, a count by side and reason with root detail in the appendix); (2) revision alignment uses option B (the same commit or the next first-parent commit; 17 of 18 operation removals match under B against 10 of 18 under A, operation level only). Both are recorded in DESIGN 5.2. The reformatted report example is still the owner's to supply, and P4 layout waits for it. The text below is the question as asked.
 
 Run: the P1c diff on the 37 usable producer revision pairs of the public pair (`docs/swagger.json` at the commit and
 its first-parent parent; all 74 documents admitted; 105 operations added, 18 removed; 618 change entries).

@@ -1,0 +1,156 @@
+{
+  "schema_version": "0.1",
+  "report_id": "pilot-impact",
+  "api": "pilot-api",
+  "mode": "live",
+  "report_time": "2026-11-26T12:00:00Z",
+  "cutoff_at": "2026-11-26T12:00:00Z",
+  "inputs": [
+    {
+      "input_id": "service-before",
+      "api": "pilot-api",
+      "repo": "pilot-producer",
+      "role": "producer",
+      "snapshot_kind": "commit",
+      "rev": "service-before-rev",
+      "tree": "service-before-tree",
+      "subject": null,
+      "committed_at": null,
+      "dirty": null,
+      "tool": {
+        "name": "prism-boundary",
+        "build": "fixture-build"
+      },
+      "operation_authority": "schema",
+      "scope": {
+        "kind": "api"
+      },
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "service-before",
+        "repo": "pilot-producer",
+        "tree": "service-before-tree",
+        "path": "openapi.json",
+        "blob": "schema-blob",
+        "availability": "available"
+      },
+      "dependencies": [],
+      "config_sources": [],
+      "schema": null
+    },
+    {
+      "input_id": "service-after",
+      "api": "pilot-api",
+      "repo": "pilot-producer",
+      "role": "producer",
+      "snapshot_kind": "commit",
+      "rev": "service-after-rev",
+      "tree": "service-after-tree",
+      "subject": null,
+      "committed_at": null,
+      "dirty": null,
+      "tool": {
+        "name": "prism-boundary",
+        "build": "fixture-build"
+      },
+      "operation_authority": "schema",
+      "scope": {
+        "kind": "api"
+      },
+      "origin": {
+        "kind": "named_tree",
+        "input_id": "service-after",
+        "repo": "pilot-producer",
+        "tree": "service-after-tree",
+        "path": "openapi.json",
+        "blob": "schema-blob",
+        "availability": "available"
+      },
+      "dependencies": [],
+      "config_sources": [],
+      "schema": null
+    }
+  ],
+  "reference": null,
+  "comparisons": [],
+  "change": {
+    "subject_role": "service",
+    "producer": {
+      "before_input_id": "service-before",
+      "after_input_id": "service-after"
+    },
+    "consumer": null,
+    "elements": [],
+    "status_additions": [],
+    "status_removals": [],
+    "response_root_pairs": [],
+    "call_changes": [],
+    "producer_sites": [],
+    "risks": [],
+    "review_action": null,
+    "selection": null
+  },
+  "impacts": [],
+  "usages": [],
+  "binding_status": [],
+  "coverage": [],
+  "warnings": [],
+  "standing_mismatches": [],
+  "summary": {
+    "operation_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": 0,
+      "reason": null
+    },
+    "changed_field_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": 0,
+      "reason": null
+    },
+    "listed_usage_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": null,
+      "reason": "missing_counterpart"
+    },
+    "possible_only_usage_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": null,
+      "reason": "missing_counterpart"
+    },
+    "known_unmatched_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": null,
+      "reason": "missing_counterpart"
+    },
+    "unknown_target_count": {
+      "version": "joint",
+      "scope": {
+        "kind": "api"
+      },
+      "observed": 0,
+      "total": null,
+      "reason": "missing_counterpart"
+    }
+  },
+  "unobserved": []
+}

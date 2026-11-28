@@ -34,15 +34,7 @@ impl<'a> OperationFields<'a> {
                 let root = Root::new(op, self, key.clone());
                 fields.values().map(move |entry| FieldDetail {
                     id: entry.field.id.clone(),
-                    presence: if entry.comparable && root.authority_reason().is_none() {
-                        Presence::Present
-                    } else if root.declaration_only(&entry.field.id.pointer)
-                        && root.presence_reason(&entry.field.id.pointer).is_none()
-                    {
-                        Presence::Absent
-                    } else {
-                        Presence::Unknown
-                    },
+                    presence: root.detail_presence(entry.field, entry.comparable),
                     shape: entry.field.shape.clone(),
                     sites: entry.field.sites.clone(),
                 })
@@ -67,6 +59,17 @@ impl<'r, 'a> Root<'r, 'a> {
             message: op.messages.iter().find(|message| message.key == key),
             wire: op.wire_evidence.get(&key),
             key,
+        }
+    }
+
+    fn detail_presence(&self, field: &Field, comparable: bool) -> Presence {
+        let pointer = &field.id.pointer;
+        if comparable && self.authority_reason().is_none() {
+            Presence::Present
+        } else if self.declaration_only(pointer) && self.presence_reason(pointer).is_none() {
+            Presence::Absent
+        } else {
+            Presence::Unknown
         }
     }
 
@@ -146,13 +149,12 @@ impl<'r, 'a> Root<'r, 'a> {
     fn standing(&self, side: ComparisonSide, ledger: &mut Ledger) {
         let Some(message) = self.message else { return };
         if self.empty_projection_with_unproved_media() {
-            self.limit(
+            self.inventory_limit(
                 side,
                 ledger,
                 &[],
                 ComparisonClaim::Coverage,
                 "media_unverified",
-                None,
             );
         }
         for region in &message.limits {
@@ -168,15 +170,14 @@ impl<'r, 'a> Root<'r, 'a> {
             } else {
                 ComparisonClaim::Coverage
             };
-            self.limit(side, ledger, &region.pointer, claim, &region.reason, None);
+            self.inventory_limit(side, ledger, &region.pointer, claim, &region.reason);
             if region.reason == "enum_unreadable" && self.lookup(&region.pointer).is_some() {
-                self.limit(
+                self.inventory_limit(
                     side,
                     ledger,
                     &region.pointer,
                     ComparisonClaim::Property(ShapeSlot::Enum),
                     &region.reason,
-                    None,
                 );
             }
         }
@@ -195,16 +196,38 @@ impl<'r, 'a> Root<'r, 'a> {
         reason: &str,
         presence: Option<&[ElementPresence; 2]>,
     ) {
-        let mut limit = ComparisonLimit::new(side, self.scope(), claim, reason);
+        let limit = ComparisonLimit::new(side, self.scope(), claim, reason);
+        let limit = match presence {
+            Some(presence) => limit.with_presence(presence),
+            None => limit,
+        };
+        self.record_limit(ledger, pointer, limit);
+    }
+
+    pub(super) fn inventory_limit(
+        &self,
+        side: ComparisonSide,
+        ledger: &mut Ledger,
+        pointer: &[PointerToken],
+        claim: ComparisonClaim,
+        reason: &str,
+    ) {
+        let limit = ComparisonLimit::new(side, self.scope(), claim, reason).with_inventory_origin();
+        self.record_limit(ledger, pointer, limit);
+    }
+
+    fn record_limit(
+        &self,
+        ledger: &mut Ledger,
+        pointer: &[PointerToken],
+        mut limit: ComparisonLimit,
+    ) {
         limit.pointer = pointer.to_vec();
         limit.evidence = self
             .lookup(pointer)
             .map(|entry| entry.field.sites.clone())
             .filter(|sites| !sites.is_empty())
             .unwrap_or_else(|| self.sites());
-        if let Some(presence) = presence {
-            limit = limit.with_presence(presence);
-        }
         ledger.record(limit);
     }
 }
@@ -216,16 +239,26 @@ pub(in crate::diff) fn standing(
     ledger: &mut Ledger,
 ) {
     if op.request_authored_but_excluded {
-        Root::new(op, fields, RootKey::Request).limit(
+        Root::new(op, fields, RootKey::Request).inventory_limit(
             side,
             ledger,
             &[],
             ComparisonClaim::Coverage,
             "request_dialect_excluded",
-            None,
         );
     }
     for message in &op.messages {
         Root::new(op, fields, message.key.clone()).standing(side, ledger);
     }
+}
+
+pub(crate) fn field_detail_presence(
+    op: &Operation,
+    key: &RootKey,
+    field: &Field,
+    comparable: bool,
+) -> Presence {
+    let mut fields = OperationFields::default();
+    fields.insert(key.clone(), field, comparable);
+    Root::new(op, &fields, key.clone()).detail_presence(field, comparable)
 }

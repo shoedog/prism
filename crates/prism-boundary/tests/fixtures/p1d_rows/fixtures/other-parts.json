@@ -1,0 +1,10 @@
+{
+  "Shape": {
+    "type": "object",
+    "properties": {
+      "stamp": {
+        "type": "integer"
+      }
+    }
+  }
+}
