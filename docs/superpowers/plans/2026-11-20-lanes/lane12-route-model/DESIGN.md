@@ -349,19 +349,24 @@ code tests them):
 - (a, redirect) A nested scope declares `global K` and binds it: `global_write`.
 - (a, count) The module scope holds exactly ONE binding occurrence of K, counting occurrences at any
   nesting of the module scope AND occurrences in a def or class that declares `global K`. The
-  module-system names (`__doc__ __annotations__ __package__ __name__ __file__ __spec__ __loader__
+  module-system names (`__doc__ __annotations__ __annotate__ __package__ __name__ __file__ __spec__ __loader__
   __builtins__ __cached__ __path__ __warningregistry__`) count as one more occurrence, so a def of one
   fails. Zero or two-plus fails (`multi_write`).
 - (c) A `from m import *` counts as a binding of K exactly when `star_could_supply` says the star can
   bind K, that is when `m` resolves to an in-repo module that can. A star from an external or
-  unresolved module is not seen (the contract sees what the repository declares): `star_import`.
+  unresolved module is not seen (the contract sees what the repository declares): `star_import`. This
+  holds for a star NESTED in an in-repo star's source as well (`star_could_supply(.., external = false)`
+  on the capture side; the source side and the candidate search keep `external = true`). A default star
+  (no `__all__`) also copies the child module that the package initializer's own import syntax installs
+  (`from .child import x`, `from . import child`, `import pkg.child`); a literal `__all__` clears it.
 - (b) The single binding is an import (not star), def, async def, class, or `K = <expr>` / `K: T = <expr>`
   with one bare-name target, and it is a DIRECT statement of the scope body (not under `if`, `try`,
   `with`, `for`, `while` or `match`): else `nested_single`. A tuple, `for`, `with`, `except`, walrus,
   match, `del`, augmented or `type` binding is never admitted.
 
 A function scope is certified only against redirects: a nested scope that declares `nonlocal K` and
-binds it fails (`global_write`). Reads of the key resolve through `LexicalWrites::read_binding_scope`
+binds it fails (`global_write`). A `global K` at MODULE level redirects nothing and is dropped at
+indexing, so the module still binds K. Reads of the key resolve through `LexicalWrites::read_binding_scope`
 (class scopes skipped, directives honoured). Nothing is traced through a rebinding and no position
 filter is used: a rebinding fails (a), wherever it sits and whenever it runs, so a module-scope router
 or view name bound twice is not proved at either read (the position-sensitive lifetime pins were
@@ -388,7 +393,16 @@ shape: no proof existed before, none is lost). A star from an external module in
 `star_import` of predicate 2. PEP 695 type parameters are not counted (above). Clause (e) is
 whole-file. Function scopes get the `nonlocal` redirect check only; a full local count passed every
 test but was not priced on the corpora, so the flow-sensitive `reaching` stays for function-local
-names (setup and factory functions).
+names (setup and factory functions). Round-1 review (F1) asked whether function and class scope must
+also refuse a binding that a loop back edge runs before the read. No proof reaches such a read: a
+registration whose read sits in a `for` or `while` body is a `runtime_generated_registration`
+diagnostic and never a rule (setup function, factory and module alike), a registration in a class body
+belongs to no active scope, and the mutation index reads every binding occurrence with no position
+filter, so the full count was not adopted (pinned by the `f1_*` rows). Two flow-sensitive rules close
+the neighbouring wrong proofs: in an import lookup a LATER write in the same non-module scope displaces
+an earlier import (the reaching occurrence wins, S1), and in the mutation index a definite write (an
+import, def, class or `K = <expr>` directly in the function body) before a store supersedes every
+occurrence before it, later occurrences and nested `nonlocal` writes staying (S3).
 
 *Replaced by the certificate (code deleted).* `competing_import_paths` and `has_competing_import`
 (candidate search shared by the escape gate and the candidate traversal); the rule that a census
@@ -1025,8 +1039,9 @@ The frozen populations, binding floors and ledger dispositions above govern each
     every (ii) hit read blind by an Opus-5.5 reader (261 items plus 99 S08 decorator groups), 66 re-read
     by the author (59 of 66 agree; the 7 differences move no pattern between used and not observed);
     (i) sampled (424 items, seed 20261127, Sonnet-5.5). Of the 56 non-baseline patterns, 20 are used and
-    36 are not observed. Used and harmless (the proof is kept, pinned by `used::*` rows): S01+S07 a
-    name bound on two branches of an `if` (trape), S04/S14e/S14g loop and comprehension targets
+    36 are not observed. Used, pinned by `used::*` rows: S01+S07 a
+    name bound on two branches of an `if` (trape; no proof before or after the certificate, the router
+    has two bindings). Used and harmless (the proof is kept): S04/S14e/S14g loop and comprehension targets
     (simple-login, sqlite-web), S05 the same spelling in another scope (41 hits, 9 applications), S06
     star import, S08 non-router decorators (436 sites), S09 class-body names, S11 a package `__init__`
     importing its own same-named child (formspree), S22/S23/H04/H19 list, loop and factory-driven

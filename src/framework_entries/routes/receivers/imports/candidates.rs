@@ -223,7 +223,8 @@ impl<'a> PythonBindings<'a> {
             );
             for &star in writes.wildcard(file.tree.root_node()) {
                 if let Some(source) = self.star_source(file, star) {
-                    if self.star_could_supply(file, star, name, &mut vec![file.path.as_str()]) {
+                    if self.star_could_supply(file, star, name, &mut vec![file.path.as_str()], true)
+                    {
                         pending.push(source);
                     }
                 }

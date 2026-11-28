@@ -53,9 +53,10 @@ impl From<Clause> for ImportRefusalReason {
 }
 
 /// Names the import system and the interpreter bind in every module.
-const MODULE_NAMES: [&str; 11] = [
+const MODULE_NAMES: [&str; 12] = [
     "__doc__",
     "__annotations__",
+    "__annotate__",
     "__package__",
     "__name__",
     "__file__",
@@ -97,7 +98,7 @@ impl<'a> PythonBindings<'a> {
     /// Certify a name written as `name` in `scope`, mangling it as that scope would.
     pub(in crate::framework_entries::routes) fn certify_in(
         &self,
-        file: &'a ParsedFile,
+        file: &ParsedFile,
         scope: Node<'a>,
         name: &str,
     ) -> Result<(), Clause> {
@@ -133,6 +134,7 @@ impl<'a> PythonBindings<'a> {
                         star,
                         key,
                         &mut vec![file.path.as_str()],
+                        false,
                     )
             })
             .count();
@@ -157,8 +159,11 @@ impl<'a> PythonBindings<'a> {
     }
 }
 
-/// The kinds of single binding the certificate admits.
-fn admitted_kind(site: Node<'_>) -> bool {
+/// The kinds of single binding the certificate admits. A chained assignment
+/// (`app = bp = Flask()`) passes here as a bare-target assignment, but its right side is
+/// another assignment, which the value evaluator reads as opaque: the router is refused
+/// there, conservatively (census 2026-11-27: not observed on a relied name).
+pub(super) fn admitted_kind(site: Node<'_>) -> bool {
     match site.kind() {
         "import_statement"
         | "import_from_statement"

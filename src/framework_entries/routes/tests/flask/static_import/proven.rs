@@ -177,6 +177,8 @@ const DOC_REFUSAL: [Diag; 1] = [(
     "__doc__",
 )];
 
+// fk-c38 and fk-c39 pin the module-system name `__doc__` (clause d), not initialization order;
+// the order limits and their no-cycle control are fk-38, fk-39 and fk-c38-c39 in `known_limits`.
 #[test]
 fn fk_c38() {
     let files = doc_view("class Init:\n    pass\ndef __doc__(): return \"late\"\n");

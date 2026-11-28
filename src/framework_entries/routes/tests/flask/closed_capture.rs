@@ -141,7 +141,7 @@ class Other(View):\n    def dispatch_request(self): pass\n\
 // KNOWN_LIMIT: a store on a view class is a change through another holder of the class,
 // outside the static-binding contract (DESIGN 5.3/10): the default keeps the class's methods.
 #[test]
-fn class_view_direct_methods_write_withholds_the_default() {
+fn class_view_direct_methods_write_keeps_the_default() {
     assert_eq!(
         class_view_default("Handler.methods = ['POST']\n"),
         Some(MethodSet::known(["GET"]))

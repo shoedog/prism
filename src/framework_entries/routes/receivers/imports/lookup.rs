@@ -26,7 +26,12 @@ impl<'a> PythonBindings<'a> {
             };
             if capture_root {
                 if let Some(import) = writes.import_before(scope, name, before) {
-                    return Some(import);
+                    // The module scope is decided by the certificate (one binding, so the
+                    // import is the reaching write). Elsewhere the reaching occurrence wins:
+                    // a later write in the same scope displaces an earlier import.
+                    if scope == root || writes.named_before(scope, name, before) == Some(import) {
+                        return Some(import);
+                    }
                 }
             }
             let named = writes.named_before(scope, name, before);

@@ -107,6 +107,9 @@ fn setup_function<'a>(
         {
             return None;
         }
+        // The selected method is a rule of this activation, not of the certificate: the
+        // class body holds only defs, so the LAST def of the name is the one an instance
+        // reaches (pinned by `class_setup_selects_the_last_method_def`).
         (class, method, true)
     } else {
         (module, callee, false)

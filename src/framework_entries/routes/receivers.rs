@@ -219,6 +219,7 @@ use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 mod certificate;
+#[cfg(test)]
 pub(in crate::framework_entries::routes) use certificate::Clause;
 mod imports;
 mod mutations;
@@ -226,7 +227,7 @@ pub(crate) mod refusals;
 mod writes;
 use mutations::AttributeWrites;
 use refusals::{Capture, ImportRefusals};
-use writes::{targets, LexicalWrites};
+use writes::LexicalWrites;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PythonKind {
@@ -360,7 +361,13 @@ impl<'a> PythonBindings<'a> {
             .reaching(scope, &name, before, |star| {
                 // A star from a module outside the repository is not seen (clause c).
                 self.star_source(file, star).is_some()
-                    && self.star_could_supply(file, star, &name, &mut vec![file.path.as_str()])
+                    && self.star_could_supply(
+                        file,
+                        star,
+                        &name,
+                        &mut vec![file.path.as_str()],
+                        false,
+                    )
             })
     }
 
@@ -385,12 +392,9 @@ impl<'a> PythonBindings<'a> {
         if scope.kind() == "module" {
             return unknown;
         }
-        if scope.child_by_field_name("parameters").is_some_and(|p| {
-            children(p)
-                .into_iter()
-                .flat_map(targets)
-                .any(|id| normalized(file.node_text(&id)) == normalized(name))
-        }) || self.reaching(file, scope, name, scope.end_byte()).is_some()
+        // The formals are indexed under their effective (class-mangled) names, like `name`.
+        if self.writes[file.path.as_str()].parameter(scope, name)
+            || self.reaching(file, scope, name, scope.end_byte()).is_some()
         {
             return unknown;
         }

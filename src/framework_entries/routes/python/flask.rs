@@ -478,11 +478,14 @@ fn record_once_owner<'a>(
         return None;
     };
     let name = normalized(file.node_text(&object));
+    // The state formal must be one static binding in the callback: a nested scope that
+    // declares `nonlocal` and rebinds it redirects the name (the certificate's clause a).
     if parameter.kind() != "identifier"
         || normalized(file.node_text(parameter)) != name
         || bindings
             .reaching(file, scope, &name, object.start_byte())
             .is_some()
+        || bindings.certify_in(file, scope, &name).is_err()
     {
         return None;
     }

@@ -1,5 +1,6 @@
 use super::{
-    children, comprehension,
+    certificate::admitted_kind,
+    children, comprehension, direct,
     imports::{import_items, imported_as},
     normalized, python_scope, ParsedFile,
 };
@@ -107,7 +108,10 @@ impl<'a> LexicalWrites<'a> {
             for name in names {
                 let name = effective_name(file, scope, name);
                 if let Some(directive) = directive {
-                    writes.directives.insert(name, directive);
+                    // `global K` at module level redirects nothing: the module still binds K.
+                    if scope.kind() != "module" {
+                        writes.directives.insert(name, directive);
+                    }
                     continue;
                 }
                 if import {
@@ -235,10 +239,37 @@ impl<'a> LexicalWrites<'a> {
         sites
     }
 
-    /// The binding occurrences of the scope a read of `name` at `scope` resolves to.
+    /// The binding occurrences of the scope a read of `name` at `scope` resolves to. For a
+    /// read in the function that binds the name, a definite write (an import, def, class or
+    /// `K = <expr>` that is a direct statement of the body) before the read supersedes every
+    /// occurrence before it: that write runs on every path to the read, loop back edges
+    /// included, because it sits outside any loop. Later occurrences and redirected writes
+    /// from nested scopes stay (a back edge or a later call can run them first).
     pub(super) fn occurrences(&self, scope: Node<'a>, name: &str, before: usize) -> Vec<Node<'a>> {
-        self.read_binding_scope(scope, name, before)
-            .map_or_else(Vec::new, |binding| self.binding_sites(binding, name))
+        let Some(binding) = self.read_binding_scope(scope, name, before) else {
+            return Vec::new();
+        };
+        let mut sites = self.binding_sites(binding, name);
+        if binding == scope && binding.kind() == "function_definition" {
+            let cut = self
+                .scopes
+                .get(&binding.id())
+                .and_then(|writes| writes.names.get(name))
+                .and_then(|names| {
+                    names.iter().copied().rfind(|site| {
+                        site.end_byte() <= before && admitted_kind(*site) && direct(*site, binding)
+                    })
+                });
+            if let Some(cut) = cut {
+                let own = self.scopes[&binding.id()].names[name].len();
+                let mut index = 0;
+                sites.retain(|site| {
+                    index += 1;
+                    index > own || site.end_byte() >= cut.end_byte()
+                });
+            }
+        }
+        sites
     }
 
     pub(super) fn read_binding_scope(
@@ -314,6 +345,13 @@ impl<'a> LexicalWrites<'a> {
             .take_while(|star| named.is_none_or(|write| star.start_byte() > write.start_byte()))
             .find(|&star| may_supply(star))
             .or(named)
+    }
+
+    /// True when `name` (an effective, class-mangled key) is a formal of `scope`.
+    pub(super) fn parameter(&self, scope: Node<'a>, name: &str) -> bool {
+        self.scopes
+            .get(&scope.id())
+            .is_some_and(|writes| writes.parameters.contains(name))
     }
 
     pub(super) fn binds_local(&self, scope: Node<'a>, name: &str) -> bool {

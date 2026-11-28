@@ -233,6 +233,14 @@ fn fk_39() {
     check(&files, "app.py", late_expect(), &[]);
 }
 
+// Control for fk-38 and fk-39: the same `late` view with no import cycle is proved the same
+// way, so the known limit is the cycle's order, not the fixture.
+#[test]
+fn fk_c38_c39_late_view_without_the_import_cycle() {
+    let files = late_view("def late(): return \"late\"\n");
+    check(&files, "app.py", late_expect(), &[]);
+}
+
 // KNOWN_LIMIT: initialization order: an implicit package initializer runs `app` before the methods write.
 #[test]
 fn fk_40() {
